@@ -1,8 +1,24 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
+
+val localPropertiesFile = rootProject.layout.projectDirectory.file("local.properties")
+val mobileApiToken = if (localPropertiesFile.asFile.exists()) {
+    providers.fileContents(localPropertiesFile).asText.map { contents ->
+        Properties().apply { contents.reader().use(::load) }
+            .getProperty("MOBILE_API_TOKEN", "")
+    }.get()
+} else {
+    ""
+}
+
+val escapedMobileApiToken = mobileApiToken
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
 
 android {
     namespace = "com.firkat.fillin"
@@ -18,6 +34,13 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "API_BASE_URL",
+            "\"https://cheerful-art-production-c4f9.up.railway.app/\"",
+        )
+        buildConfigField("String", "MOBILE_API_TOKEN", "\"$escapedMobileApiToken\"")
     }
 
     buildTypes {
@@ -34,6 +57,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -47,6 +71,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.android)
