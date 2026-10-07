@@ -2,6 +2,7 @@
     <string name="app_name">Fillin</string>
     <string name="navigation_history">История</string>
     <string name="navigation_planned">План</string>
+    <string name="navigation_planned_incomes">Доходы</string>
     <string name="purchase_history_title">История расходов</string>
     <string name="purchase_history_empty">Расходов пока нет</string>
     <string name="purchase_history_retry">Повторить</string>
@@ -34,5 +35,25 @@
         <item quantity="few">%d обязательства</item>
         <item quantity="many">%d обязательств</item>
         <item quantity="other">%d обязательств</item>
+    </plurals>
+    <string name="planned_incomes_title">Запланированные доходы</string>
+    <string name="planned_incomes_expected">Ожидается</string>
+    <string name="planned_incomes_as_of">Актуально на %1$s</string>
+    <string name="planned_incomes_overdue_section">Просрочено</string>
+    <string name="planned_incomes_upcoming_section">Ожидается</string>
+    <string name="planned_incomes_due_date">Получить до %1$s</string>
+    <string name="planned_incomes_overdue_due_date">Просрочено с %1$s</string>
+    <string name="planned_incomes_empty">Открытых запланированных доходов нет</string>
+    <string name="planned_incomes_retry">Повторить</string>
+    <string name="planned_incomes_error_network">Не удалось подключиться к серверу</string>
+    <string name="planned_incomes_error_unauthorized">Проверьте MOBILE_API_TOKEN в local.properties</string>
+    <string name="planned_incomes_error_forbidden">Доступ к запланированным доходам отозван</string>
+    <string name="planned_incomes_error_invalid_response">Сервер вернул некорректные данные</string>
+    <string name="planned_incomes_error_generic">Не удалось загрузить запланированные доходы</string>
+    <plurals name="planned_incomes_count">
+        <item quantity="one">%d поступление</item>
+        <item quantity="few">%d поступления</item>
+        <item quantity="many">%d поступлений</item>
+        <item quantity="other">%d поступлений</item>
     </plurals>
 </resources>
