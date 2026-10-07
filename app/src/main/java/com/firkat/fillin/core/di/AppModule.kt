@@ -1,6 +1,11 @@
 package com.firkat.fillin.core.di
 
 import com.firkat.fillin.BuildConfig
+import com.firkat.fillin.feature.categories.data.remote.CategoriesApi
+import com.firkat.fillin.feature.categories.data.repository.CategoriesRepositoryImpl
+import com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository
+import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
+import com.firkat.fillin.feature.categories.ui.CategoriesViewModel
 import com.firkat.fillin.feature.plannedincomes.data.remote.PlannedIncomesApi
 import com.firkat.fillin.feature.plannedincomes.data.repository.PlannedIncomesRepositoryImpl
 import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesRepository
@@ -41,6 +46,7 @@ val appModule = module {
     single<PurchaseHistoryApi> { get<Retrofit>().create(PurchaseHistoryApi::class.java) }
     single<PlannedExpensesApi> { get<Retrofit>().create(PlannedExpensesApi::class.java) }
     single<PlannedIncomesApi> { get<Retrofit>().create(PlannedIncomesApi::class.java) }
+    single<CategoriesApi> { get<Retrofit>().create(CategoriesApi::class.java) }
     single<PurchaseHistoryRepository> {
         PurchaseHistoryRepositoryImpl(
             api = get(),
@@ -65,4 +71,12 @@ val appModule = module {
     }
     factory { GetPlannedIncomes(repository = get()) }
     viewModel { PlannedIncomesViewModel(getPlannedIncomes = get()) }
+    single<CategoriesRepository> {
+        CategoriesRepositoryImpl(
+            api = get(),
+            apiToken = BuildConfig.MOBILE_API_TOKEN,
+        )
+    }
+    factory { GetCategories(repository = get()) }
+    viewModel { CategoriesViewModel(getCategories = get()) }
 }

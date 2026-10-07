@@ -3,6 +3,7 @@
     <string name="navigation_history">История</string>
     <string name="navigation_planned">План</string>
     <string name="navigation_planned_incomes">Доходы</string>
+    <string name="navigation_categories">Категории</string>
     <string name="purchase_history_title">История расходов</string>
     <string name="purchase_history_empty">Расходов пока нет</string>
     <string name="purchase_history_retry">Повторить</string>
@@ -56,4 +57,14 @@
         <item quantity="many">%d поступлений</item>
         <item quantity="other">%d поступлений</item>
     </plurals>
+    <string name="categories_title">Категории</string>
+    <string name="categories_expenses_section">Расходы</string>
+    <string name="categories_incomes_section">Доходы</string>
+    <string name="categories_empty">Активных категорий пока нет</string>
+    <string name="categories_retry">Повторить</string>
+    <string name="categories_error_network">Не удалось подключиться к серверу</string>
+    <string name="categories_error_unauthorized">Проверьте MOBILE_API_TOKEN в local.properties</string>
+    <string name="categories_error_forbidden">Доступ к категориям отозван</string>
+    <string name="categories_error_invalid_response">Сервер вернул некорректные данные</string>
+    <string name="categories_error_generic">Не удалось загрузить категории</string>
 </resources>

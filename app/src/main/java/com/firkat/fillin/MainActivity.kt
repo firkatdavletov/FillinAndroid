@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesRoute
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesRoute
 import com.firkat.fillin.feature.purchasehistory.ui.PurchaseHistoryRoute
@@ -79,6 +80,7 @@ fun FillinApp() {
                 AppDestination.History -> PurchaseHistoryRoute()
                 AppDestination.Planned -> PlannedExpensesRoute()
                 AppDestination.Incomes -> PlannedIncomesRoute()
+                AppDestination.Categories -> CategoriesRoute()
             }
         }
     }
@@ -103,5 +105,10 @@ private enum class AppDestination(
         labelResource = R.string.navigation_planned_incomes,
         iconResource = R.drawable.ic_income,
         titleResource = R.string.planned_incomes_title,
+    ),
+    Categories(
+        labelResource = R.string.navigation_categories,
+        iconResource = R.drawable.ic_categories,
+        titleResource = R.string.categories_title,
     ),
 }
