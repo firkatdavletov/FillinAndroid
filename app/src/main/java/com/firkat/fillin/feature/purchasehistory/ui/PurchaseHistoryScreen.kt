@@ -15,12 +15,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,43 +55,27 @@ fun PurchaseHistoryRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PurchaseHistoryScreen(
     state: PurchaseHistoryUiState,
     onEvent: (PurchaseHistoryEvent) -> Unit,
 ) {
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.purchase_history_title)) },
-            )
-        },
-    ) { innerPadding ->
-        when {
-            state.isInitialLoading -> LoadingContent(
-                modifier = Modifier.padding(innerPadding),
-            )
+    when {
+        state.isInitialLoading -> LoadingContent()
 
-            state.error != null && state.purchases.isEmpty() -> ErrorContent(
-                error = state.error,
-                onRetry = { onEvent(PurchaseHistoryEvent.Retry) },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-            )
+        state.error != null && state.purchases.isEmpty() -> ErrorContent(
+            error = state.error,
+            onRetry = { onEvent(PurchaseHistoryEvent.Retry) },
+            modifier = Modifier.fillMaxSize(),
+        )
 
-            state.purchases.isEmpty() -> EmptyContent(
-                modifier = Modifier.padding(innerPadding),
-            )
+        state.purchases.isEmpty() -> EmptyContent()
 
-            else -> PurchaseList(
-                state = state,
-                onLoadNextPage = { onEvent(PurchaseHistoryEvent.LoadNextPage) },
-                onRetry = { onEvent(PurchaseHistoryEvent.Retry) },
-                contentPadding = innerPadding,
-            )
-        }
+        else -> PurchaseList(
+            state = state,
+            onLoadNextPage = { onEvent(PurchaseHistoryEvent.LoadNextPage) },
+            onRetry = { onEvent(PurchaseHistoryEvent.Retry) },
+        )
     }
 }
 
@@ -104,7 +85,6 @@ private fun PurchaseList(
     state: PurchaseHistoryUiState,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
-    contentPadding: PaddingValues,
 ) {
     val listState = rememberLazyListState()
     val purchaseDayGroups = remember(state.purchases) {
@@ -135,9 +115,7 @@ private fun PurchaseList(
     }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(contentPadding),
+        modifier = Modifier.fillMaxSize(),
         state = listState,
         contentPadding = PaddingValues(
             top = 4.dp,

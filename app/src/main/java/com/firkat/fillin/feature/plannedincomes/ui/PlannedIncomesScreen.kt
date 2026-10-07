@@ -13,12 +13,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,48 +54,29 @@ fun PlannedIncomesRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlannedIncomesScreen(
     state: PlannedIncomesUiState,
     onEvent: (PlannedIncomesEvent) -> Unit,
 ) {
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.planned_incomes_title)) },
-            )
-        },
-    ) { innerPadding ->
-        when {
-            state.isLoading && state.items.isEmpty() -> LoadingContent(
-                modifier = Modifier.padding(innerPadding),
-            )
+    when {
+        state.isLoading && state.items.isEmpty() -> LoadingContent()
 
-            state.error != null && state.items.isEmpty() -> ErrorContent(
-                error = state.error,
-                onRetry = { onEvent(PlannedIncomesEvent.Retry) },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-            )
+        state.error != null && state.items.isEmpty() -> ErrorContent(
+            error = state.error,
+            onRetry = { onEvent(PlannedIncomesEvent.Retry) },
+            modifier = Modifier.fillMaxSize(),
+        )
 
-            state.items.isEmpty() -> EmptyContent(
-                modifier = Modifier.padding(innerPadding),
-            )
+        state.items.isEmpty() -> EmptyContent()
 
-            else -> PlannedIncomesList(
-                state = state,
-                contentPadding = innerPadding,
-            )
-        }
+        else -> PlannedIncomesList(state = state)
     }
 }
 
 @Composable
 private fun PlannedIncomesList(
     state: PlannedIncomesUiState,
-    contentPadding: PaddingValues,
 ) {
     val overdueItems = remember(state.items) { state.items.filter(PlannedIncome::overdue) }
     val upcomingItems = remember(state.items) { state.items.filterNot(PlannedIncome::overdue) }
@@ -107,9 +85,9 @@ private fun PlannedIncomesList(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = 16.dp,
-            top = contentPadding.calculateTopPadding() + 8.dp,
+            top = 8.dp,
             end = 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 16.dp,
+            bottom = 16.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {

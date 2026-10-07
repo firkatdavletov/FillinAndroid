@@ -9,6 +9,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -39,11 +41,17 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FillinApp() {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.History) }
 
     Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(stringResource(selectedDestination.titleResource)) },
+            )
+        },
         bottomBar = {
             NavigationBar {
                 AppDestination.entries.forEach { destination ->
@@ -79,17 +87,21 @@ fun FillinApp() {
 private enum class AppDestination(
     @StringRes val labelResource: Int,
     @DrawableRes val iconResource: Int,
+    @StringRes val titleResource: Int,
 ) {
     History(
         labelResource = R.string.navigation_history,
         iconResource = R.drawable.ic_receipt,
+        titleResource = R.string.purchase_history_title,
     ),
     Planned(
         labelResource = R.string.navigation_planned,
         iconResource = R.drawable.ic_calendar,
+        titleResource = R.string.planned_expenses_title,
     ),
     Incomes(
         labelResource = R.string.navigation_planned_incomes,
         iconResource = R.drawable.ic_income,
+        titleResource = R.string.planned_incomes_title,
     ),
 }
