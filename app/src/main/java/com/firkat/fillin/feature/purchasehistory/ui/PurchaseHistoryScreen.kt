@@ -1,6 +1,8 @@
 package com.firkat.fillin.feature.purchasehistory.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -96,6 +98,7 @@ fun PurchaseHistoryScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PurchaseList(
     state: PurchaseHistoryUiState,
@@ -104,6 +107,9 @@ private fun PurchaseList(
     contentPadding: PaddingValues,
 ) {
     val listState = rememberLazyListState()
+    val purchaseDayGroups = remember(state.purchases) {
+        groupPurchasesByDate(state.purchases)
+    }
     val reachedListEnd by remember {
         derivedStateOf {
             val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
@@ -129,22 +135,52 @@ private fun PurchaseList(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding),
         state = listState,
         contentPadding = PaddingValues(
-            top = contentPadding.calculateTopPadding() + 4.dp,
-            bottom = contentPadding.calculateBottomPadding() + 12.dp,
+            top = 4.dp,
+            bottom = 12.dp,
         ),
     ) {
-        items(
-            items = state.purchases,
-            key = Purchase::id,
-        ) { purchase ->
-            PurchaseItem(purchase = purchase)
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant,
-            )
+        purchaseDayGroups.forEach { group ->
+            stickyHeader(key = "date-${group.date}") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = formatDateHeader(group.date),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = formatDayTotals(group.totals),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.End,
+                    )
+                }
+            }
+
+            items(
+                items = group.purchases,
+                key = Purchase::id,
+            ) { purchase ->
+                PurchaseItem(purchase = purchase)
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
         }
 
         if (state.isLoadingNextPage) {
@@ -199,25 +235,13 @@ private fun PurchaseItem(purchase: Purchase) {
                 fontWeight = FontWeight.SemiBold,
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = purchase.description
-                    ?.takeIf(String::isNotBlank)
-                    ?: stringResource(R.string.purchase_history_no_description),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = formatDate(purchase.occurredOn),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Text(
+            text = purchase.description
+                ?.takeIf(String::isNotBlank)
+                ?: stringResource(R.string.purchase_history_no_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -293,9 +317,13 @@ private fun formatMoney(amount: BigDecimal, currencyCode: String): String = runC
     "${amount.setScale(2).toPlainString()} $currencyCode"
 }
 
-private fun formatDate(date: LocalDate): String = date.format(
-    DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("ru")),
+private fun formatDateHeader(date: LocalDate): String = date.format(
+    DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru")),
 )
+
+private fun formatDayTotals(totals: List<PurchaseDayTotal>): String = totals.joinToString(" · ") {
+    formatMoney(it.amount, it.currency)
+}
 
 @Preview(showBackground = true)
 @Composable
