@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">Fillin</string>
+    <string name="navigation_history">История</string>
+    <string name="navigation_planned">План</string>
     <string name="purchase_history_title">История расходов</string>
     <string name="purchase_history_empty">Расходов пока нет</string>
     <string name="purchase_history_retry">Повторить</string>
@@ -9,4 +11,28 @@
     <string name="purchase_history_error_forbidden">Доступ к истории расходов отозван</string>
     <string name="purchase_history_error_invalid_response">Сервер вернул некорректные данные</string>
     <string name="purchase_history_error_generic">Не удалось загрузить историю расходов</string>
+    <string name="planned_expenses_title">Плановые расходы</string>
+    <string name="planned_expenses_remaining">Осталось оплатить</string>
+    <string name="planned_expenses_period">Актуально на %1$s · до %2$s</string>
+    <string name="planned_expenses_overdue_section">Просрочено</string>
+    <string name="planned_expenses_upcoming_section">Предстоит</string>
+    <string name="planned_expenses_due_date">Оплатить до %1$s</string>
+    <string name="planned_expenses_overdue_due_date">Просрочено с %1$s</string>
+    <string name="planned_expenses_left">осталось</string>
+    <string name="planned_expenses_planned">Запланировано</string>
+    <string name="planned_expenses_paid">Оплачено</string>
+    <string name="planned_expenses_empty">Открытых плановых расходов нет</string>
+    <string name="planned_expenses_empty_through">До %1$s открытых плановых расходов нет</string>
+    <string name="planned_expenses_retry">Повторить</string>
+    <string name="planned_expenses_error_network">Не удалось подключиться к серверу</string>
+    <string name="planned_expenses_error_unauthorized">Проверьте MOBILE_API_TOKEN в local.properties</string>
+    <string name="planned_expenses_error_forbidden">Доступ к плановым расходам отозван</string>
+    <string name="planned_expenses_error_invalid_response">Сервер вернул некорректные данные</string>
+    <string name="planned_expenses_error_generic">Не удалось загрузить плановые расходы</string>
+    <plurals name="planned_expenses_count">
+        <item quantity="one">%d обязательство</item>
+        <item quantity="few">%d обязательства</item>
+        <item quantity="many">%d обязательств</item>
+        <item quantity="other">%d обязательств</item>
+    </plurals>
 </resources>

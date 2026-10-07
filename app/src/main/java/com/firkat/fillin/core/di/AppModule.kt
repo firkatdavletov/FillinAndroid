@@ -1,6 +1,11 @@
 package com.firkat.fillin.core.di
 
 import com.firkat.fillin.BuildConfig
+import com.firkat.fillin.feature.plannedexpenses.data.remote.PlannedExpensesApi
+import com.firkat.fillin.feature.plannedexpenses.data.repository.PlannedExpensesRepositoryImpl
+import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesRepository
+import com.firkat.fillin.feature.plannedexpenses.domain.usecase.GetPlannedExpenses
+import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesViewModel
 import com.firkat.fillin.feature.purchasehistory.data.remote.PurchaseHistoryApi
 import com.firkat.fillin.feature.purchasehistory.data.repository.PurchaseHistoryRepositoryImpl
 import com.firkat.fillin.feature.purchasehistory.domain.repository.PurchaseHistoryRepository
@@ -29,6 +34,7 @@ val appModule = module {
             .build()
     }
     single<PurchaseHistoryApi> { get<Retrofit>().create(PurchaseHistoryApi::class.java) }
+    single<PlannedExpensesApi> { get<Retrofit>().create(PlannedExpensesApi::class.java) }
     single<PurchaseHistoryRepository> {
         PurchaseHistoryRepositoryImpl(
             api = get(),
@@ -37,4 +43,12 @@ val appModule = module {
     }
     factory { GetPurchaseHistoryPage(repository = get()) }
     viewModel { PurchaseHistoryViewModel(getPurchaseHistoryPage = get()) }
+    single<PlannedExpensesRepository> {
+        PlannedExpensesRepositoryImpl(
+            api = get(),
+            apiToken = BuildConfig.MOBILE_API_TOKEN,
+        )
+    }
+    factory { GetPlannedExpenses(repository = get()) }
+    viewModel { PlannedExpensesViewModel(getPlannedExpenses = get()) }
 }
