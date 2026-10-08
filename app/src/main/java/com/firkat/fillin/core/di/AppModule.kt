@@ -4,7 +4,10 @@ import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.feature.categories.data.remote.CategoriesApi
 import com.firkat.fillin.feature.categories.data.repository.CategoriesRepositoryImpl
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository
+import com.firkat.fillin.feature.categories.domain.usecase.CreateCategory
+import com.firkat.fillin.feature.categories.domain.usecase.DeleteCategory
 import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
+import com.firkat.fillin.feature.categories.domain.usecase.UpdateCategory
 import com.firkat.fillin.feature.categories.ui.CategoriesViewModel
 import com.firkat.fillin.feature.plannedincomes.data.remote.PlannedIncomesApi
 import com.firkat.fillin.feature.plannedincomes.data.repository.PlannedIncomesRepositoryImpl
@@ -14,7 +17,11 @@ import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesViewModel
 import com.firkat.fillin.feature.plannedexpenses.data.remote.PlannedExpensesApi
 import com.firkat.fillin.feature.plannedexpenses.data.repository.PlannedExpensesRepositoryImpl
 import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesRepository
+import com.firkat.fillin.feature.plannedexpenses.domain.usecase.ClosePlannedExpense
+import com.firkat.fillin.feature.plannedexpenses.domain.usecase.CreatePlannedExpenseRule
+import com.firkat.fillin.feature.plannedexpenses.domain.usecase.DeletePlannedExpenseRule
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.GetPlannedExpenses
+import com.firkat.fillin.feature.plannedexpenses.domain.usecase.UpdatePlannedExpenseRule
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesViewModel
 import com.firkat.fillin.feature.purchasehistory.data.remote.PurchaseHistoryApi
 import com.firkat.fillin.feature.purchasehistory.data.repository.PurchaseHistoryRepositoryImpl
@@ -62,7 +69,20 @@ val appModule = module {
         )
     }
     factory { GetPlannedExpenses(repository = get()) }
-    viewModel { PlannedExpensesViewModel(getPlannedExpenses = get()) }
+    factory { CreatePlannedExpenseRule(repository = get()) }
+    factory { UpdatePlannedExpenseRule(repository = get()) }
+    factory { DeletePlannedExpenseRule(repository = get()) }
+    factory { ClosePlannedExpense(repository = get()) }
+    viewModel {
+        PlannedExpensesViewModel(
+            getPlannedExpenses = get(),
+            getCategories = get(),
+            createRule = get(),
+            updateRule = get(),
+            deleteRule = get(),
+            closeExpense = get(),
+        )
+    }
     single<PlannedIncomesRepository> {
         PlannedIncomesRepositoryImpl(
             api = get(),
@@ -78,5 +98,15 @@ val appModule = module {
         )
     }
     factory { GetCategories(repository = get()) }
-    viewModel { CategoriesViewModel(getCategories = get()) }
+    factory { CreateCategory(repository = get()) }
+    factory { UpdateCategory(repository = get()) }
+    factory { DeleteCategory(repository = get()) }
+    viewModel {
+        CategoriesViewModel(
+            getCategories = get(),
+            createCategory = get(),
+            updateCategory = get(),
+            deleteCategory = get(),
+        )
+    }
 }

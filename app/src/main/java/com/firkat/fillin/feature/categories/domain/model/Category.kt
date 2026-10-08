@@ -5,7 +5,12 @@ data class Category(
     val name: String,
     val kind: CategoryKind,
     val icon: CategoryIcon,
-)
+) {
+    val isOther: Boolean
+        get() = icon.code == OTHER_CATEGORY_ICON_CODE
+}
+
+const val OTHER_CATEGORY_ICON_CODE = "OTHER"
 
 enum class CategoryKind {
     Expense,

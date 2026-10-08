@@ -18,10 +18,19 @@ data class PlannedExpense(
     val version: Long,
     val createdAt: Instant,
     val modifiedAt: Instant,
-)
+    val ruleId: String = id,
+    val ruleVersion: Long = version,
+) {
+    val canBeClosed: Boolean
+        get() = status == PlannedExpenseStatus.Scheduled &&
+            paidAmount > BigDecimal.ZERO &&
+            paidAmount < plannedAmount &&
+            remainingAmount > BigDecimal.ZERO
+}
 
 enum class PlannedExpenseStatus {
     Scheduled,
+    Paid,
     Unknown,
 }
 
@@ -29,4 +38,14 @@ data class PlannedExpenses(
     val asOf: LocalDate,
     val throughInclusive: LocalDate,
     val items: List<PlannedExpense>,
+)
+
+enum class PlannedExpenseFrequency {
+    Monthly,
+    Weekly,
+}
+
+data class PlannedExpenseRule(
+    val id: String,
+    val version: Long,
 )

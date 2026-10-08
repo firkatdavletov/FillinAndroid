@@ -4,6 +4,8 @@ import com.firkat.fillin.feature.categories.data.remote.CategoriesApi
 import com.firkat.fillin.feature.categories.data.remote.dto.CategoriesResponseDto
 import com.firkat.fillin.feature.categories.data.remote.dto.CategoryDto
 import com.firkat.fillin.feature.categories.data.remote.dto.CategoryIconDto
+import com.firkat.fillin.feature.categories.data.remote.dto.CreateCategoryRequestDto
+import com.firkat.fillin.feature.categories.data.remote.dto.UpdateCategoryRequestDto
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesException
 import kotlinx.coroutines.runBlocking
@@ -89,6 +91,59 @@ class CategoriesRepositoryImplTest {
         assertSame(CategoriesException.InvalidResponse, exception)
     }
 
+    @Test
+    fun `creates category with owner token and api enum values`() = runBlocking {
+        val api = RecordingCategoriesApi(CategoriesResponseDto(emptyList()))
+        val repository = CategoriesRepositoryImpl(api = api, apiToken = "test-token")
+
+        val result = repository.createCategory(
+            name = "Кафе",
+            kind = CategoryKind.Expense,
+            iconCode = "FOOD",
+        )
+
+        assertEquals("Bearer test-token", api.authorization)
+        assertEquals(
+            CreateCategoryRequestDto(
+                name = "Кафе",
+                kind = "EXPENSE",
+                icon = "FOOD",
+            ),
+            api.createRequest,
+        )
+        assertEquals("Кафе", result.name)
+    }
+
+    @Test
+    fun `updates only supplied mutable category fields`() = runBlocking {
+        val api = RecordingCategoriesApi(CategoriesResponseDto(emptyList()))
+        val repository = CategoriesRepositoryImpl(api = api, apiToken = "test-token")
+
+        repository.updateCategory(
+            id = "category-id",
+            name = "Рестораны",
+            iconCode = null,
+        )
+
+        assertEquals("category-id", api.categoryId)
+        assertEquals(
+            UpdateCategoryRequestDto(name = "Рестораны"),
+            api.updateRequest,
+        )
+    }
+
+    @Test
+    fun `deletes category by id with owner token`() = runBlocking {
+        val api = RecordingCategoriesApi(CategoriesResponseDto(emptyList()))
+        val repository = CategoriesRepositoryImpl(api = api, apiToken = "test-token")
+
+        repository.deleteCategory("category-id")
+
+        assertEquals("Bearer test-token", api.authorization)
+        assertEquals("category-id", api.categoryId)
+        assertEquals(1, api.deleteCallCount)
+    }
+
     private fun category(
         id: String,
         name: String,
@@ -108,6 +163,10 @@ private class RecordingCategoriesApi(
 ) : CategoriesApi {
     var authorization: String? = null
     var callCount: Int = 0
+    var createRequest: CreateCategoryRequestDto? = null
+    var updateRequest: UpdateCategoryRequestDto? = null
+    var categoryId: String? = null
+    var deleteCallCount: Int = 0
 
     override suspend fun getCategories(
         authorization: String,
@@ -116,4 +175,58 @@ private class RecordingCategoriesApi(
         this.authorization = authorization
         return response
     }
+
+    override suspend fun createCategory(
+        authorization: String,
+        request: CreateCategoryRequestDto,
+    ): CategoryDto {
+        this.authorization = authorization
+        createRequest = request
+        return category(
+            id = "created-id",
+            name = request.name,
+            kind = request.kind,
+            iconCode = request.icon,
+            emoji = "🍔",
+        )
+    }
+
+    override suspend fun updateCategory(
+        authorization: String,
+        categoryId: String,
+        request: UpdateCategoryRequestDto,
+    ): CategoryDto {
+        this.authorization = authorization
+        this.categoryId = categoryId
+        updateRequest = request
+        return category(
+            id = categoryId,
+            name = request.name ?: "Категория",
+            kind = "EXPENSE",
+            iconCode = request.icon ?: "FOOD",
+            emoji = "🍔",
+        )
+    }
+
+    override suspend fun deleteCategory(
+        authorization: String,
+        categoryId: String,
+    ) {
+        this.authorization = authorization
+        this.categoryId = categoryId
+        deleteCallCount += 1
+    }
+
+    private fun category(
+        id: String,
+        name: String,
+        kind: String,
+        iconCode: String,
+        emoji: String,
+    ) = CategoryDto(
+        id = id,
+        name = name,
+        kind = kind,
+        icon = CategoryIconDto(code = iconCode, emoji = emoji),
+    )
 }

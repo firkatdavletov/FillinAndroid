@@ -20,3 +20,16 @@ data class CategoryIconDto(
     val code: String,
     val emoji: String,
 )
+
+@Serializable
+data class CreateCategoryRequestDto(
+    val name: String,
+    val kind: String,
+    val icon: String,
+)
+
+@Serializable
+data class UpdateCategoryRequestDto(
+    val name: String? = null,
+    val icon: String? = null,
+)
