@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.firkat.fillin.feature.categories.ui.CategoriesRoute
+import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesRoute
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesRoute
 import com.firkat.fillin.feature.purchasehistory.ui.PurchaseHistoryRoute
@@ -45,13 +46,15 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FillinApp() {
-    var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.History) }
+    var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(stringResource(selectedDestination.titleResource)) },
-            )
+            if (selectedDestination != AppDestination.Dashboard) {
+                CenterAlignedTopAppBar(
+                    title = { Text(stringResource(selectedDestination.titleResource)) },
+                )
+            }
         },
         bottomBar = {
             NavigationBar {
@@ -77,6 +80,17 @@ fun FillinApp() {
                 .padding(innerPadding),
         ) {
             when (selectedDestination) {
+                AppDestination.Dashboard -> DashboardRoute(
+                    onOpenPlannedExpenses = {
+                        selectedDestination = AppDestination.Planned
+                    },
+                    onOpenCategories = {
+                        selectedDestination = AppDestination.Categories
+                    },
+                    onAddOperation = {
+                        selectedDestination = AppDestination.History
+                    },
+                )
                 AppDestination.History -> PurchaseHistoryRoute()
                 AppDestination.Planned -> PlannedExpensesRoute()
                 AppDestination.Incomes -> PlannedIncomesRoute()
@@ -91,6 +105,11 @@ private enum class AppDestination(
     @DrawableRes val iconResource: Int,
     @StringRes val titleResource: Int,
 ) {
+    Dashboard(
+        labelResource = R.string.navigation_dashboard,
+        iconResource = R.drawable.ic_home,
+        titleResource = R.string.dashboard_title,
+    ),
     History(
         labelResource = R.string.navigation_history,
         iconResource = R.drawable.ic_receipt,

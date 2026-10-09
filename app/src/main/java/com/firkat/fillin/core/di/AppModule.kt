@@ -9,10 +9,18 @@ import com.firkat.fillin.feature.categories.domain.usecase.DeleteCategory
 import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
 import com.firkat.fillin.feature.categories.domain.usecase.UpdateCategory
 import com.firkat.fillin.feature.categories.ui.CategoriesViewModel
+import com.firkat.fillin.feature.dashboard.data.remote.DashboardApi
+import com.firkat.fillin.feature.dashboard.data.repository.DashboardRepositoryImpl
+import com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository
+import com.firkat.fillin.feature.dashboard.domain.usecase.GetDashboard
+import com.firkat.fillin.feature.dashboard.ui.DashboardViewModel
 import com.firkat.fillin.feature.plannedincomes.data.remote.PlannedIncomesApi
 import com.firkat.fillin.feature.plannedincomes.data.repository.PlannedIncomesRepositoryImpl
 import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesRepository
+import com.firkat.fillin.feature.plannedincomes.domain.usecase.CreatePlannedIncome
+import com.firkat.fillin.feature.plannedincomes.domain.usecase.DeletePlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.GetPlannedIncomes
+import com.firkat.fillin.feature.plannedincomes.domain.usecase.UpdatePlannedIncome
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesViewModel
 import com.firkat.fillin.feature.plannedexpenses.data.remote.PlannedExpensesApi
 import com.firkat.fillin.feature.plannedexpenses.data.repository.PlannedExpensesRepositoryImpl
@@ -54,6 +62,15 @@ val appModule = module {
     single<PlannedExpensesApi> { get<Retrofit>().create(PlannedExpensesApi::class.java) }
     single<PlannedIncomesApi> { get<Retrofit>().create(PlannedIncomesApi::class.java) }
     single<CategoriesApi> { get<Retrofit>().create(CategoriesApi::class.java) }
+    single<DashboardApi> { get<Retrofit>().create(DashboardApi::class.java) }
+    single<DashboardRepository> {
+        DashboardRepositoryImpl(
+            api = get(),
+            apiToken = BuildConfig.MOBILE_API_TOKEN,
+        )
+    }
+    factory { GetDashboard(repository = get()) }
+    viewModel { DashboardViewModel(getDashboard = get()) }
     single<PurchaseHistoryRepository> {
         PurchaseHistoryRepositoryImpl(
             api = get(),
@@ -90,7 +107,18 @@ val appModule = module {
         )
     }
     factory { GetPlannedIncomes(repository = get()) }
-    viewModel { PlannedIncomesViewModel(getPlannedIncomes = get()) }
+    factory { CreatePlannedIncome(repository = get()) }
+    factory { UpdatePlannedIncome(repository = get()) }
+    factory { DeletePlannedIncome(repository = get()) }
+    viewModel {
+        PlannedIncomesViewModel(
+            getPlannedIncomes = get(),
+            getCategories = get(),
+            createPlannedIncome = get(),
+            updatePlannedIncome = get(),
+            deletePlannedIncome = get(),
+        )
+    }
     single<CategoriesRepository> {
         CategoriesRepositoryImpl(
             api = get(),

@@ -32,3 +32,18 @@ data class PlannedIncomeMoneyDto(
     val amount: String,
     val currency: String,
 )
+
+@Serializable
+data class CreatePlannedIncomeRequestDto(
+    val categoryId: String,
+    val amount: String,
+    val dueOn: String,
+)
+
+@Serializable
+data class UpdatePlannedIncomeRequestDto(
+    val version: Long,
+    val categoryId: String? = null,
+    val amount: String? = null,
+    val dueOn: String? = null,
+)
