@@ -28,7 +28,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -102,7 +104,11 @@ fun PlannedExpensesScreen(
             )
 
             state.items.isEmpty() -> EmptyContent(
-                throughInclusive = state.throughInclusive,
+                throughInclusive = plannedExpensesPeriodEnd(
+                    asOf = state.asOf,
+                    throughInclusive = state.throughInclusive,
+                    period = state.selectedPeriod,
+                ),
             )
 
             else -> PlannedExpensesList(
@@ -389,8 +395,36 @@ private fun PlannedExpensesList(
     state: PlannedExpensesUiState,
     onEvent: (PlannedExpensesEvent) -> Unit,
 ) {
-    val overdueItems = remember(state.items) { state.items.filter(PlannedExpense::overdue) }
-    val upcomingItems = remember(state.items) { state.items.filterNot(PlannedExpense::overdue) }
+    val visibleItems = remember(
+        state.items,
+        state.asOf,
+        state.throughInclusive,
+        state.selectedPeriod,
+    ) {
+        plannedExpensesForPeriod(
+            items = state.items,
+            asOf = state.asOf,
+            throughInclusive = state.throughInclusive,
+            period = state.selectedPeriod,
+        )
+    }
+    val selectedThroughInclusive = remember(
+        state.asOf,
+        state.throughInclusive,
+        state.selectedPeriod,
+    ) {
+        plannedExpensesPeriodEnd(
+            asOf = state.asOf,
+            throughInclusive = state.throughInclusive,
+            period = state.selectedPeriod,
+        )
+    }
+    val overdueItems = remember(visibleItems) {
+        visibleItems.filter(PlannedExpense::overdue)
+    }
+    val upcomingItems = remember(visibleItems) {
+        visibleItems.filterNot(PlannedExpense::overdue)
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -402,8 +436,28 @@ private fun PlannedExpensesList(
         ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        item(key = "period-tabs") {
+            PlannedExpensesPeriodTabs(
+                selectedPeriod = state.selectedPeriod,
+                onPeriodSelected = {
+                    onEvent(PlannedExpensesEvent.PeriodSelected(it))
+                },
+            )
+        }
+
         item(key = "summary") {
-            PlannedExpensesSummary(state = state)
+            PlannedExpensesSummary(
+                items = visibleItems,
+                allItems = state.items,
+                asOf = state.asOf,
+                throughInclusive = selectedThroughInclusive,
+            )
+        }
+
+        if (visibleItems.isEmpty()) {
+            item(key = "empty-period") {
+                EmptyPeriodContent(throughInclusive = selectedThroughInclusive)
+            }
         }
 
         if (overdueItems.isNotEmpty()) {
@@ -451,8 +505,42 @@ private fun PlannedExpensesList(
 }
 
 @Composable
-private fun PlannedExpensesSummary(state: PlannedExpensesUiState) {
-    val totals = remember(state.items) { remainingTotals(state.items) }
+private fun PlannedExpensesPeriodTabs(
+    selectedPeriod: PlannedExpensesPeriod,
+    onPeriodSelected: (PlannedExpensesPeriod) -> Unit,
+) {
+    PrimaryTabRow(
+        selectedTabIndex = selectedPeriod.ordinal,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.primary,
+    ) {
+        PlannedExpensesPeriod.entries.forEach { period ->
+            Tab(
+                selected = selectedPeriod == period,
+                onClick = { onPeriodSelected(period) },
+                text = { Text(stringResource(period.labelResource)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlannedExpensesSummary(
+    items: List<PlannedExpense>,
+    allItems: List<PlannedExpense>,
+    asOf: LocalDate?,
+    throughInclusive: LocalDate?,
+) {
+    val totals = remember(items, allItems) {
+        remainingTotals(items).ifEmpty {
+            allItems.distinctBy(PlannedExpense::currency).map { expense ->
+                PlannedExpenseTotal(
+                    amount = BigDecimal.ZERO,
+                    currency = expense.currency,
+                )
+            }
+        }
+    }
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -476,23 +564,48 @@ private fun PlannedExpensesSummary(state: PlannedExpensesUiState) {
             Text(
                 text = pluralStringResource(
                     R.plurals.planned_expenses_count,
-                    state.items.size,
-                    state.items.size,
+                    items.size,
+                    items.size,
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            if (state.asOf != null && state.throughInclusive != null) {
+            if (asOf != null && throughInclusive != null) {
                 Text(
                     text = stringResource(
                         R.string.planned_expenses_period,
-                        formatShortDate(state.asOf),
-                        formatShortDate(state.throughInclusive),
+                        formatShortDate(asOf),
+                        formatShortDate(throughInclusive),
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun EmptyPeriodContent(
+    throughInclusive: LocalDate?,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp, vertical = 40.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = throughInclusive?.let {
+                stringResource(
+                    R.string.planned_expenses_empty_through,
+                    formatLongDate(it),
+                )
+            } ?: stringResource(R.string.planned_expenses_empty),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -747,6 +860,12 @@ private val PlannedExpenseFrequency.labelResource: Int
     @StringRes get() = when (this) {
         PlannedExpenseFrequency.Monthly -> R.string.planned_expenses_frequency_monthly
         PlannedExpenseFrequency.Weekly -> R.string.planned_expenses_frequency_weekly
+    }
+
+private val PlannedExpensesPeriod.labelResource: Int
+    @StringRes get() = when (this) {
+        PlannedExpensesPeriod.EndOfMonth -> R.string.planned_expenses_period_end_of_month
+        PlannedExpensesPeriod.EndOfYear -> R.string.planned_expenses_period_end_of_year
     }
 
 private val PlannedExpenseFrequency.scheduleLabelResource: Int

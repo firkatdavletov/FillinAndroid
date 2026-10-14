@@ -38,6 +38,9 @@ class PlannedExpensesViewModel(
     fun onEvent(event: PlannedExpensesEvent) {
         when (event) {
             PlannedExpensesEvent.Retry -> load()
+            is PlannedExpensesEvent.PeriodSelected -> _uiState.update {
+                it.copy(selectedPeriod = event.period)
+            }
             PlannedExpensesEvent.CreateRequested -> openCreateEditor()
             is PlannedExpensesEvent.EditRequested -> openEditEditor(event.expenseId)
             PlannedExpensesEvent.EditorClosed -> closeEditor()

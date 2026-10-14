@@ -65,6 +65,8 @@
     <string name="purchase_history_error_generic">Не удалось загрузить историю расходов</string>
     <string name="planned_expenses_title">Плановые расходы</string>
     <string name="planned_expenses_remaining">Осталось оплатить</string>
+    <string name="planned_expenses_period_end_of_month">До конца месяца</string>
+    <string name="planned_expenses_period_end_of_year">До конца года</string>
     <string name="planned_expenses_period">Актуально на %1$s · до %2$s</string>
     <string name="planned_expenses_overdue_section">Просрочено</string>
     <string name="planned_expenses_upcoming_section">Предстоит</string>

@@ -10,6 +10,7 @@ data class PlannedExpensesUiState(
     val asOf: LocalDate? = null,
     val throughInclusive: LocalDate? = null,
     val items: List<PlannedExpense> = emptyList(),
+    val selectedPeriod: PlannedExpensesPeriod = PlannedExpensesPeriod.EndOfMonth,
     val isLoading: Boolean = false,
     val error: PlannedExpensesError? = null,
     val expenseCategories: List<Category> = emptyList(),
@@ -19,6 +20,11 @@ data class PlannedExpensesUiState(
     val isClosingExpense: Boolean = false,
     val closeError: PlannedExpensesError? = null,
 )
+
+enum class PlannedExpensesPeriod {
+    EndOfMonth,
+    EndOfYear,
+}
 
 data class PlannedExpenseRuleEditorUiState(
     val original: PlannedExpense? = null,
@@ -79,6 +85,7 @@ enum class PlannedExpensesError {
 
 sealed interface PlannedExpensesEvent {
     data object Retry : PlannedExpensesEvent
+    data class PeriodSelected(val period: PlannedExpensesPeriod) : PlannedExpensesEvent
     data object CreateRequested : PlannedExpensesEvent
     data class EditRequested(val expenseId: String) : PlannedExpensesEvent
     data object EditorClosed : PlannedExpensesEvent
