@@ -2,7 +2,6 @@ package com.firkat.fillin.feature.categories.domain.usecase
 
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
-import com.firkat.fillin.feature.categories.domain.model.OTHER_CATEGORY_ICON_CODE
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesException
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository
 
@@ -16,11 +15,7 @@ class CreateCategory(
     ): Category {
         val normalizedName = name.trim()
         val normalizedIcon = iconCode.trim().uppercase()
-        if (
-            normalizedName.isEmpty() ||
-            normalizedIcon.isEmpty() ||
-            normalizedIcon == OTHER_CATEGORY_ICON_CODE
-        ) {
+        if (normalizedName.isEmpty() || normalizedIcon.isEmpty()) {
             throw CategoriesException.InvalidRequest
         }
         return repository.createCategory(

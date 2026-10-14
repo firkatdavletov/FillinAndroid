@@ -44,21 +44,41 @@ class CategoryCommandsTest {
     }
 
     @Test
-    fun `system other cannot be changed`() {
+    fun `category with other icon can be changed`() = runBlocking {
         val repository = RecordingCategoriesRepository()
         val other = category(name = "Другое", iconCode = "OTHER")
 
-        val exception = assertThrows(CategoriesException.InvalidRequest::class.java) {
-            runBlocking {
-                UpdateCategory(repository)(
-                    category = other,
-                    name = "Прочее",
-                    iconCode = "OTHER",
-                )
-            }
-        }
+        UpdateCategory(repository)(
+            category = other,
+            name = "Прочее",
+            iconCode = "food",
+        )
 
-        assertSame(CategoriesException.InvalidRequest, exception)
+        assertEquals("Прочее", repository.updatedName)
+        assertEquals("FOOD", repository.updatedIcon)
+    }
+
+    @Test
+    fun `other is accepted as a regular icon when creating`() = runBlocking {
+        val repository = RecordingCategoriesRepository()
+
+        CreateCategory(repository)(
+            name = "Прочее",
+            kind = CategoryKind.Expense,
+            iconCode = "other",
+        )
+
+        assertEquals("OTHER", repository.createdIcon)
+    }
+
+    @Test
+    fun `expense category with other icon can be deleted`() = runBlocking {
+        val repository = RecordingCategoriesRepository()
+        val category = category(name = "Прочее", iconCode = "OTHER")
+
+        DeleteCategory(repository)(category)
+
+        assertEquals(category.id, repository.deletedId)
     }
 
     @Test

@@ -12,8 +12,6 @@ class UpdateCategory(
         name: String,
         iconCode: String,
     ): Category {
-        if (category.isOther) throw CategoriesException.InvalidRequest
-
         val normalizedName = name.trim()
         val normalizedIcon = iconCode.trim().uppercase()
         if (normalizedName.isEmpty() || normalizedIcon.isEmpty()) {

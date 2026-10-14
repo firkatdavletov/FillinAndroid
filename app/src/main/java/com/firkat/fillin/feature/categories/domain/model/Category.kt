@@ -5,12 +5,7 @@ data class Category(
     val name: String,
     val kind: CategoryKind,
     val icon: CategoryIcon,
-) {
-    val isOther: Boolean
-        get() = icon.code == OTHER_CATEGORY_ICON_CODE
-}
-
-const val OTHER_CATEGORY_ICON_CODE = "OTHER"
+)
 
 enum class CategoryKind {
     Expense,
@@ -21,3 +16,27 @@ data class CategoryIcon(
     val code: String,
     val emoji: String,
 )
+
+enum class CategoryIconType(
+    val emoji: String,
+) {
+    FOOD("🍔"),
+    TRANSPORT("🚕"),
+    HOME("🏠"),
+    CLOTHES("👕"),
+    HEALTH("💊"),
+    ENTERTAINMENT("🎬"),
+    SPORT("⚽"),
+    EDUCATION("🎓"),
+    TRAVEL("✈️"),
+    PETS("🐾"),
+    INCOME("💰"),
+    OTHER("📦"),
+    ;
+
+    companion object {
+        fun fromCode(code: String): CategoryIconType? = entries.firstOrNull {
+            it.name == code.trim().uppercase()
+        }
+    }
+}

@@ -9,7 +9,7 @@ class DeleteCategory(
     private val repository: CategoriesRepository,
 ) {
     suspend operator fun invoke(category: Category) {
-        if (category.kind != CategoryKind.Expense || category.isOther) {
+        if (category.kind != CategoryKind.Expense) {
             throw CategoriesException.InvalidRequest
         }
         repository.deleteCategory(category.id)

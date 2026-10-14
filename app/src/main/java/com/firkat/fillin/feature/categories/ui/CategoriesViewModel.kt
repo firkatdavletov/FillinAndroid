@@ -38,8 +38,18 @@ class CategoriesViewModel(
             is CategoriesEvent.KindChanged -> updateEditor {
                 if (isCreating) copy(kind = event.kind, error = null) else this
             }
-            is CategoriesEvent.IconChanged -> updateEditor {
-                copy(iconCode = event.iconCode.uppercase(), error = null)
+            CategoriesEvent.IconPickerRequested -> updateEditor {
+                if (isSaving) this else copy(isIconPickerVisible = true)
+            }
+            CategoriesEvent.IconPickerDismissed -> updateEditor {
+                copy(isIconPickerVisible = false)
+            }
+            is CategoriesEvent.IconSelected -> updateEditor {
+                copy(
+                    iconCode = event.icon.name,
+                    error = null,
+                    isIconPickerVisible = false,
+                )
             }
             CategoriesEvent.SaveRequested -> save()
             CategoriesEvent.DeleteRequested -> updateEditor {

@@ -2,6 +2,7 @@ package com.firkat.fillin.feature.categories.ui
 
 import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,24 +10,30 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -39,7 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -47,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
+import com.firkat.fillin.feature.categories.domain.model.CategoryIconType
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -220,17 +227,11 @@ private fun CategoryItem(
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
             )
-            if (category.isOther) {
-                Text(
-                    text = stringResource(R.string.categories_system_category),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CategoryEditor(
     state: CategoryEditorUiState,
@@ -259,25 +260,11 @@ private fun CategoryEditor(
             fontWeight = FontWeight.SemiBold,
         )
 
-        if (state.isOther) {
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                shape = MaterialTheme.shapes.large,
-            ) {
-                Text(
-                    text = stringResource(R.string.categories_other_read_only),
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-        }
-
         OutlinedTextField(
             value = state.name,
             onValueChange = { onEvent(CategoriesEvent.NameChanged(it)) },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isSaving && !state.isOther,
+            enabled = !state.isSaving,
             label = { Text(stringResource(R.string.categories_name_label)) },
             singleLine = true,
         )
@@ -306,15 +293,10 @@ private fun CategoryEditor(
             }
         }
 
-        OutlinedTextField(
-            value = state.iconCode,
-            onValueChange = { onEvent(CategoriesEvent.IconChanged(it)) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isSaving && !state.isOther,
-            label = { Text(stringResource(R.string.categories_icon_label)) },
-            supportingText = { Text(stringResource(R.string.categories_icon_hint)) },
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-            singleLine = true,
+        CategoryIconSelector(
+            iconCode = state.iconCode,
+            enabled = !state.isSaving,
+            onClick = { onEvent(CategoriesEvent.IconPickerRequested) },
         )
 
         state.error?.let { error ->
@@ -325,32 +307,30 @@ private fun CategoryEditor(
             )
         }
 
-        if (!state.isOther) {
-            Button(
-                onClick = { onEvent(CategoriesEvent.SaveRequested) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = state.canSave,
-            ) {
-                if (state.isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text(
-                        stringResource(
-                            if (state.isCreating) {
-                                R.string.categories_create_submit
-                            } else {
-                                R.string.categories_save_submit
-                            },
-                        ),
-                    )
-                }
+        Button(
+            onClick = { onEvent(CategoriesEvent.SaveRequested) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state.canSave,
+        ) {
+            if (state.isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Text(
+                    stringResource(
+                        if (state.isCreating) {
+                            R.string.categories_create_submit
+                        } else {
+                            R.string.categories_save_submit
+                        },
+                    ),
+                )
             }
         }
 
-        if (state.original?.kind == CategoryKind.Expense && !state.isOther) {
+        if (state.original?.kind == CategoryKind.Expense) {
             OutlinedButton(
                 onClick = { onEvent(CategoriesEvent.DeleteRequested) },
                 modifier = Modifier.fillMaxWidth(),
@@ -385,6 +365,141 @@ private fun CategoryEditor(
                 }
             },
         )
+    }
+
+    if (state.isIconPickerVisible) {
+        CategoryIconPickerBottomSheet(
+            selectedIconCode = state.iconCode,
+            onIconSelected = { onEvent(CategoriesEvent.IconSelected(it)) },
+            onDismiss = { onEvent(CategoriesEvent.IconPickerDismissed) },
+        )
+    }
+}
+
+@Composable
+private fun CategoryIconSelector(
+    iconCode: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val selectedIcon = remember(iconCode) { CategoryIconType.fromCode(iconCode) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.categories_icon_label),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        OutlinedButton(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp),
+            enabled = enabled,
+            contentPadding = PaddingValues(horizontal = 16.dp),
+        ) {
+            if (selectedIcon != null) {
+                Text(
+                    text = selectedIcon.emoji,
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+                Text(
+                    text = selectedIcon.name,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp),
+                    textAlign = TextAlign.Start,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.categories_icon_select_action),
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Start,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+            Text(
+                text = "▾",
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryIconPickerBottomSheet(
+    selectedIconCode: String,
+    onIconSelected: (CategoryIconType) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.categories_icon_picker_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(384.dp)
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 16.dp),
+            ) {
+                gridItems(
+                    items = CategoryIconType.entries,
+                    key = CategoryIconType::name,
+                ) { icon ->
+                    val isSelected = icon.name == selectedIconCode.trim().uppercase()
+                    Surface(
+                        onClick = { onIconSelected(icon) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1.15f),
+                        shape = MaterialTheme.shapes.large,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHighest
+                        },
+                        contentColor = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        border = if (isSelected) {
+                            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                        } else {
+                            null
+                        },
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(
+                                text = icon.emoji,
+                                style = MaterialTheme.typography.headlineMedium,
+                            )
+                            Text(
+                                text = icon.name,
+                                modifier = Modifier.padding(top = 4.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -478,7 +593,7 @@ private fun CategoriesPreview() {
                         id = "salary",
                         name = "Зарплата",
                         kind = CategoryKind.Income,
-                        icon = CategoryIcon(code = "SALARY", emoji = "💰"),
+                        icon = CategoryIcon(code = "INCOME", emoji = "💰"),
                     ),
                 ),
             ),
