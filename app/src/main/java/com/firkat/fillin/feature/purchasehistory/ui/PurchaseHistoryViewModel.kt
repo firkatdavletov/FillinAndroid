@@ -8,6 +8,8 @@ import com.firkat.fillin.feature.purchasehistory.domain.usecase.GetPurchaseHisto
 import com.firkat.fillin.feature.purchasehistory.domain.usecase.RefundPurchase
 import com.firkat.fillin.feature.purchasehistory.domain.usecase.UpdatePurchaseAmount
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +25,8 @@ class PurchaseHistoryViewModel(
     val uiState: StateFlow<PurchaseHistoryUiState> = _uiState.asStateFlow()
 
     private var nextCursor: Long? = null
+    private var loadJob: Job? = null
+    private var failedLoadWasRefresh = false
 
     init {
         loadNextPage()
@@ -30,9 +34,9 @@ class PurchaseHistoryViewModel(
 
     fun onEvent(event: PurchaseHistoryEvent) {
         when (event) {
-            PurchaseHistoryEvent.LoadNextPage,
-            PurchaseHistoryEvent.Retry,
-            -> loadNextPage()
+            PurchaseHistoryEvent.LoadNextPage -> loadNextPage()
+            PurchaseHistoryEvent.Refresh -> loadNextPage(isRefreshing = true)
+            PurchaseHistoryEvent.Retry -> loadNextPage(isRefreshing = failedLoadWasRefresh)
             is PurchaseHistoryEvent.EditRequested -> openEditor(event.purchaseId)
             PurchaseHistoryEvent.EditorClosed -> closeEditor()
             is PurchaseHistoryEvent.AmountChanged -> updateEditor {
@@ -50,6 +54,7 @@ class PurchaseHistoryViewModel(
     }
 
     private fun openEditor(purchaseId: String) {
+        if (_uiState.value.isRefreshing) return
         val purchase = _uiState.value.purchases.firstOrNull { it.id == purchaseId } ?: return
         if (purchase.status != PurchaseStatus.Posted) {
             return
@@ -132,12 +137,15 @@ class PurchaseHistoryViewModel(
     }
 
     private fun reload() {
+        loadJob?.cancel()
+        failedLoadWasRefresh = false
         nextCursor = null
         _uiState.update {
             it.copy(
                 purchases = emptyList(),
                 isInitialLoading = false,
                 isLoadingNextPage = false,
+                isRefreshing = false,
                 canLoadMore = true,
                 error = null,
                 editor = null,
@@ -146,35 +154,44 @@ class PurchaseHistoryViewModel(
         loadNextPage()
     }
 
-    private fun loadNextPage() {
+    private fun loadNextPage(isRefreshing: Boolean = false) {
         val currentState = _uiState.value
         if (
             currentState.isInitialLoading ||
-            currentState.isLoadingNextPage ||
-            !currentState.canLoadMore
+            currentState.isRefreshing ||
+            (isRefreshing && currentState.editor != null) ||
+            (!isRefreshing && (currentState.isLoadingNextPage || !currentState.canLoadMore))
         ) {
             return
         }
 
-        val isInitialLoad = currentState.purchases.isEmpty()
+        // Refresh supersedes pagination, keeping the current data and cursor until it succeeds.
+        if (isRefreshing) loadJob?.cancel()
+        val requestedCursor = if (isRefreshing) null else nextCursor
+        val isInitialLoad = !isRefreshing && currentState.purchases.isEmpty()
         _uiState.update {
             it.copy(
                 isInitialLoading = isInitialLoad,
-                isLoadingNextPage = !isInitialLoad,
+                isLoadingNextPage = !isRefreshing && !isInitialLoad,
+                isRefreshing = isRefreshing,
                 error = null,
             )
         }
 
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             try {
-                val requestedCursor = nextCursor
                 val page = getPurchaseHistoryPage(cursor = requestedCursor)
+                // A cancelled page must never append stale data after a refresh or reload.
+                coroutineContext.ensureActive()
                 nextCursor = page.nextCursor
+                failedLoadWasRefresh = false
                 _uiState.update { state ->
                     state.copy(
-                        purchases = (state.purchases + page.items).distinctBy { it.id },
+                        purchases = (if (isRefreshing) page.items else state.purchases + page.items)
+                            .distinctBy { it.id },
                         isInitialLoading = false,
                         isLoadingNextPage = false,
+                        isRefreshing = false,
                         canLoadMore = page.nextCursor != null &&
                             page.nextCursor != requestedCursor,
                     )
@@ -182,18 +199,24 @@ class PurchaseHistoryViewModel(
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: PurchaseHistoryException) {
+                coroutineContext.ensureActive()
+                failedLoadWasRefresh = isRefreshing
                 _uiState.update {
                     it.copy(
                         isInitialLoading = false,
                         isLoadingNextPage = false,
+                        isRefreshing = false,
                         error = exception.toUiError(),
                     )
                 }
             } catch (exception: Exception) {
+                coroutineContext.ensureActive()
+                failedLoadWasRefresh = isRefreshing
                 _uiState.update {
                     it.copy(
                         isInitialLoading = false,
                         isLoadingNextPage = false,
+                        isRefreshing = false,
                         error = PurchaseHistoryError.Unknown,
                     )
                 }

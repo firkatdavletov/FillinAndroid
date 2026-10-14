@@ -7,6 +7,7 @@ import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 data class CategoriesUiState(
     val items: List<Category> = emptyList(),
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val error: CategoriesError? = null,
     val editor: CategoryEditorUiState? = null,
 )
@@ -53,6 +54,7 @@ enum class CategoriesError {
 }
 
 sealed interface CategoriesEvent {
+    data object Refresh : CategoriesEvent
     data object Retry : CategoriesEvent
     data object CreateRequested : CategoriesEvent
     data class EditRequested(val categoryId: String) : CategoriesEvent

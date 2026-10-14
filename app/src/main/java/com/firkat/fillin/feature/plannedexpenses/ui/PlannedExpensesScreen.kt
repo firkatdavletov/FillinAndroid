@@ -51,6 +51,8 @@ import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseStatus
 import com.firkat.fillin.ui.component.FeatureScaffold
+import com.firkat.fillin.ui.component.RefreshableContent
+import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.math.MathContext
@@ -105,27 +107,33 @@ fun PlannedExpensesScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            state.isLoading && state.items.isEmpty() -> LoadingContent()
+        RefreshableContent(
+            isRefreshing = state.isRefreshing,
+            onRefresh = { onEvent(PlannedExpensesEvent.Refresh) },
+            hasScrollableContent = state.items.isNotEmpty(),
+        ) {
+            when {
+                state.isLoading && state.items.isEmpty() -> LoadingContent()
 
-            state.error != null && state.items.isEmpty() -> ErrorContent(
-                error = state.error,
-                onRetry = { onEvent(PlannedExpensesEvent.Retry) },
-                modifier = Modifier.fillMaxSize(),
-            )
+                state.error != null && state.items.isEmpty() -> ErrorContent(
+                    error = state.error,
+                    onRetry = { onEvent(PlannedExpensesEvent.Retry) },
+                    modifier = Modifier.fillMaxSize(),
+                )
 
-            state.items.isEmpty() -> EmptyContent(
-                throughInclusive = plannedExpensesPeriodEnd(
-                    asOf = state.asOf,
-                    throughInclusive = state.throughInclusive,
-                    period = state.selectedPeriod,
-                ),
-            )
+                state.items.isEmpty() -> EmptyContent(
+                    throughInclusive = plannedExpensesPeriodEnd(
+                        asOf = state.asOf,
+                        throughInclusive = state.throughInclusive,
+                        period = state.selectedPeriod,
+                    ),
+                )
 
-            else -> PlannedExpensesList(
-                state = state,
-                onEvent = onEvent,
-            )
+                else -> PlannedExpensesList(
+                    state = state,
+                    onEvent = onEvent,
+                )
+            }
         }
 
         ExtendedFloatingActionButton(
@@ -440,6 +448,16 @@ private fun PlannedExpensesList(
         ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        state.error?.let {
+            item(key = "refresh-error") {
+                RefreshErrorContent(
+                    messageResource = it.messageResource,
+                    retryResource = R.string.planned_expenses_retry,
+                    onRetry = { onEvent(PlannedExpensesEvent.Refresh) },
+                )
+            }
+        }
+
         item(key = "period-tabs") {
             PlannedExpensesPeriodTabs(
                 selectedPeriod = state.selectedPeriod,

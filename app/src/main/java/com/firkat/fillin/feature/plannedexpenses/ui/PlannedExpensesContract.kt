@@ -12,6 +12,7 @@ data class PlannedExpensesUiState(
     val items: List<PlannedExpense> = emptyList(),
     val selectedPeriod: PlannedExpensesPeriod = PlannedExpensesPeriod.EndOfMonth,
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val error: PlannedExpensesError? = null,
     val expenseCategories: List<Category> = emptyList(),
     val isCategoriesLoading: Boolean = false,
@@ -84,6 +85,7 @@ enum class PlannedExpensesError {
 }
 
 sealed interface PlannedExpensesEvent {
+    data object Refresh : PlannedExpensesEvent
     data object Retry : PlannedExpensesEvent
     data class PeriodSelected(val period: PlannedExpensesPeriod) : PlannedExpensesEvent
     data object CreateRequested : PlannedExpensesEvent

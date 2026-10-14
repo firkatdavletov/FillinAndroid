@@ -31,6 +31,7 @@ class CategoriesViewModel(
     fun onEvent(event: CategoriesEvent) {
         when (event) {
             CategoriesEvent.Retry -> load()
+            CategoriesEvent.Refresh -> load(isRefreshing = true)
             CategoriesEvent.CreateRequested -> openCreateEditor()
             is CategoriesEvent.EditRequested -> openEditEditor(event.categoryId)
             CategoriesEvent.EditorClosed -> closeEditor()
@@ -62,10 +63,13 @@ class CategoriesViewModel(
         }
     }
 
-    private fun load() {
-        if (_uiState.value.isLoading) return
+    private fun load(isRefreshing: Boolean = false) {
+        if (_uiState.value.isLoading || _uiState.value.isRefreshing) return
+        if (isRefreshing && _uiState.value.editor != null) return
 
-        _uiState.update { it.copy(isLoading = true, error = null) }
+        _uiState.update {
+            it.copy(isLoading = !isRefreshing, isRefreshing = isRefreshing, error = null)
+        }
         viewModelScope.launch {
             try {
                 val categories = getCategories()
@@ -73,6 +77,7 @@ class CategoriesViewModel(
                     it.copy(
                         items = categories,
                         isLoading = false,
+                        isRefreshing = false,
                     )
                 }
             } catch (exception: CancellationException) {
@@ -81,6 +86,7 @@ class CategoriesViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         error = exception.toUiError(),
                     )
                 }
@@ -88,6 +94,7 @@ class CategoriesViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         error = CategoriesError.Unknown,
                     )
                 }
@@ -96,11 +103,12 @@ class CategoriesViewModel(
     }
 
     private fun openCreateEditor() {
-        if (_uiState.value.isLoading) return
+        if (_uiState.value.isLoading || _uiState.value.isRefreshing) return
         _uiState.update { it.copy(editor = CategoryEditorUiState()) }
     }
 
     private fun openEditEditor(categoryId: String) {
+        if (_uiState.value.isRefreshing) return
         val category = _uiState.value.items.firstOrNull { it.id == categoryId } ?: return
         _uiState.update {
             it.copy(

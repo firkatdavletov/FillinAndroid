@@ -48,6 +48,8 @@ import com.firkat.fillin.feature.dashboard.domain.model.FreeMoneyState
 import com.firkat.fillin.feature.dashboard.domain.model.Money
 import com.firkat.fillin.feature.dashboard.domain.model.PaceStatus
 import com.firkat.fillin.feature.dashboard.domain.model.UpcomingPayment
+import com.firkat.fillin.ui.component.RefreshableContent
+import com.firkat.fillin.ui.component.RefreshErrorContent
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.NumberFormat
@@ -87,28 +89,36 @@ fun DashboardScreen(
     onOpenCategories: () -> Unit,
     onAddOperation: () -> Unit,
 ) {
-    when {
-        state.dashboard != null -> DashboardContent(
-            dashboard = state.dashboard,
-            isRefreshing = state.isLoading,
-            onOpenPlannedExpenses = onOpenPlannedExpenses,
-            onOpenCategories = onOpenCategories,
-            onAddOperation = onAddOperation,
-        )
+    RefreshableContent(
+        isRefreshing = state.isRefreshing,
+        onRefresh = { onEvent(DashboardEvent.Refresh) },
+        hasScrollableContent = state.dashboard != null,
+    ) {
+        when {
+            state.dashboard != null -> DashboardContent(
+                dashboard = state.dashboard,
+                error = state.error,
+                onRetry = { onEvent(DashboardEvent.Refresh) },
+                onOpenPlannedExpenses = onOpenPlannedExpenses,
+                onOpenCategories = onOpenCategories,
+                onAddOperation = onAddOperation,
+            )
 
-        state.isLoading -> DashboardLoading()
+            state.isLoading -> DashboardLoading()
 
-        state.error != null -> DashboardErrorContent(
-            error = state.error,
-            onRetry = { onEvent(DashboardEvent.Retry) },
-        )
+            state.error != null -> DashboardErrorContent(
+                error = state.error,
+                onRetry = { onEvent(DashboardEvent.Retry) },
+            )
+        }
     }
 }
 
 @Composable
 private fun DashboardContent(
     dashboard: Dashboard,
-    isRefreshing: Boolean,
+    error: DashboardError?,
+    onRetry: () -> Unit,
     onOpenPlannedExpenses: () -> Unit,
     onOpenCategories: () -> Unit,
     onAddOperation: () -> Unit,
@@ -125,9 +135,13 @@ private fun DashboardContent(
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (isRefreshing) {
-            item(key = "refreshing") {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        error?.let {
+            item(key = "refresh-error") {
+                RefreshErrorContent(
+                    messageResource = it.messageResource,
+                    retryResource = R.string.dashboard_retry,
+                    onRetry = onRetry,
+                )
             }
         }
 

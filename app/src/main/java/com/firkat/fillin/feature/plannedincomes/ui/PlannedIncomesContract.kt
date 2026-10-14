@@ -9,6 +9,7 @@ data class PlannedIncomesUiState(
     val asOf: LocalDate? = null,
     val items: List<PlannedIncome> = emptyList(),
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val error: PlannedIncomesError? = null,
     val incomeCategories: List<Category> = emptyList(),
     val isCategoriesLoading: Boolean = false,
@@ -74,6 +75,7 @@ enum class PlannedIncomesError {
 }
 
 sealed interface PlannedIncomesEvent {
+    data object Refresh : PlannedIncomesEvent
     data object Retry : PlannedIncomesEvent
     data object CreateRequested : PlannedIncomesEvent
     data class EditRequested(val incomeId: String) : PlannedIncomesEvent

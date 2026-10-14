@@ -46,6 +46,7 @@ import com.firkat.fillin.R
 import com.firkat.fillin.feature.purchasehistory.domain.model.Purchase
 import com.firkat.fillin.feature.purchasehistory.domain.model.PurchaseStatus
 import com.firkat.fillin.ui.component.FeatureScaffold
+import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.text.NumberFormat
@@ -93,23 +94,29 @@ fun PurchaseHistoryScreen(
         return
     }
 
-    when {
-        state.isInitialLoading -> LoadingContent()
+    RefreshableContent(
+        isRefreshing = state.isRefreshing,
+        onRefresh = { onEvent(PurchaseHistoryEvent.Refresh) },
+        hasScrollableContent = state.purchases.isNotEmpty() && !state.isInitialLoading,
+    ) {
+        when {
+            state.isInitialLoading -> LoadingContent()
 
-        state.error != null && state.purchases.isEmpty() -> ErrorContent(
-            error = state.error,
-            onRetry = { onEvent(PurchaseHistoryEvent.Retry) },
-            modifier = Modifier.fillMaxSize(),
-        )
+            state.error != null && state.purchases.isEmpty() -> ErrorContent(
+                error = state.error,
+                onRetry = { onEvent(PurchaseHistoryEvent.Retry) },
+                modifier = Modifier.fillMaxSize(),
+            )
 
-        state.purchases.isEmpty() -> EmptyContent()
+            state.purchases.isEmpty() -> EmptyContent()
 
-        else -> PurchaseList(
-            state = state,
-            onEdit = { onEvent(PurchaseHistoryEvent.EditRequested(it)) },
-            onLoadNextPage = { onEvent(PurchaseHistoryEvent.LoadNextPage) },
-            onRetry = { onEvent(PurchaseHistoryEvent.Retry) },
-        )
+            else -> PurchaseList(
+                state = state,
+                onEdit = { onEvent(PurchaseHistoryEvent.EditRequested(it)) },
+                onLoadNextPage = { onEvent(PurchaseHistoryEvent.LoadNextPage) },
+                onRetry = { onEvent(PurchaseHistoryEvent.Retry) },
+            )
+        }
     }
 }
 
@@ -136,12 +143,14 @@ private fun PurchaseList(
     LaunchedEffect(
         reachedListEnd,
         state.isLoadingNextPage,
+        state.isRefreshing,
         state.canLoadMore,
         state.error,
     ) {
         if (
             reachedListEnd &&
             !state.isLoadingNextPage &&
+            !state.isRefreshing &&
             state.canLoadMore &&
             state.error == null
         ) {

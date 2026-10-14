@@ -36,6 +36,7 @@ class PlannedIncomesViewModel(
     fun onEvent(event: PlannedIncomesEvent) {
         when (event) {
             PlannedIncomesEvent.Retry -> load()
+            PlannedIncomesEvent.Refresh -> load(isRefreshing = true)
             PlannedIncomesEvent.CreateRequested -> openCreateEditor()
             is PlannedIncomesEvent.EditRequested -> openEditEditor(event.incomeId)
             PlannedIncomesEvent.EditorClosed -> closeEditor()
@@ -59,10 +60,13 @@ class PlannedIncomesViewModel(
         }
     }
 
-    private fun load() {
-        if (_uiState.value.isLoading) return
+    private fun load(isRefreshing: Boolean = false) {
+        if (_uiState.value.isLoading || _uiState.value.isRefreshing) return
+        if (isRefreshing && _uiState.value.editor != null) return
 
-        _uiState.update { it.copy(isLoading = true, error = null) }
+        _uiState.update {
+            it.copy(isLoading = !isRefreshing, isRefreshing = isRefreshing, error = null)
+        }
         viewModelScope.launch {
             try {
                 val plannedIncomes = getPlannedIncomes()
@@ -71,24 +75,25 @@ class PlannedIncomesViewModel(
                         asOf = plannedIncomes.asOf,
                         items = plannedIncomes.items,
                         isLoading = false,
+                        isRefreshing = false,
                     )
                 }
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: PlannedIncomesException) {
                 _uiState.update {
-                    it.copy(isLoading = false, error = exception.toUiError())
+                    it.copy(isLoading = false, isRefreshing = false, error = exception.toUiError())
                 }
             } catch (exception: Exception) {
                 _uiState.update {
-                    it.copy(isLoading = false, error = PlannedIncomesError.Unknown)
+                    it.copy(isLoading = false, isRefreshing = false, error = PlannedIncomesError.Unknown)
                 }
             }
         }
     }
 
     private fun openCreateEditor() {
-        if (_uiState.value.isLoading) return
+        if (_uiState.value.isLoading || _uiState.value.isRefreshing) return
         val today = LocalDate.now(ALMATY_ZONE)
         _uiState.update { state ->
             state.copy(
@@ -103,6 +108,7 @@ class PlannedIncomesViewModel(
     }
 
     private fun openEditEditor(incomeId: String) {
+        if (_uiState.value.isRefreshing) return
         val income = _uiState.value.items.firstOrNull { it.id == incomeId } ?: return
         _uiState.update {
             it.copy(

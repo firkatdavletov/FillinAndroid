@@ -46,6 +46,8 @@ import com.firkat.fillin.R
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
 import com.firkat.fillin.ui.component.FeatureScaffold
+import com.firkat.fillin.ui.component.RefreshableContent
+import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.text.NumberFormat
@@ -92,15 +94,21 @@ fun PlannedIncomesScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            state.isLoading && state.items.isEmpty() -> LoadingContent()
-            state.error != null && state.items.isEmpty() -> ErrorContent(
-                error = state.error,
-                onRetry = { onEvent(PlannedIncomesEvent.Retry) },
-                modifier = Modifier.fillMaxSize(),
-            )
-            state.items.isEmpty() -> EmptyContent()
-            else -> PlannedIncomesList(state = state, onEvent = onEvent)
+        RefreshableContent(
+            isRefreshing = state.isRefreshing,
+            onRefresh = { onEvent(PlannedIncomesEvent.Refresh) },
+            hasScrollableContent = state.items.isNotEmpty(),
+        ) {
+            when {
+                state.isLoading && state.items.isEmpty() -> LoadingContent()
+                state.error != null && state.items.isEmpty() -> ErrorContent(
+                    error = state.error,
+                    onRetry = { onEvent(PlannedIncomesEvent.Retry) },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                state.items.isEmpty() -> EmptyContent()
+                else -> PlannedIncomesList(state = state, onEvent = onEvent)
+            }
         }
 
         ExtendedFloatingActionButton(
@@ -292,6 +300,16 @@ private fun PlannedIncomesList(
         contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        state.error?.let {
+            item(key = "refresh-error") {
+                RefreshErrorContent(
+                    messageResource = it.messageResource,
+                    retryResource = R.string.planned_incomes_retry,
+                    onRetry = { onEvent(PlannedIncomesEvent.Refresh) },
+                )
+            }
+        }
+
         item(key = "summary") { PlannedIncomesSummary(state = state) }
 
         if (overdueItems.isNotEmpty()) {

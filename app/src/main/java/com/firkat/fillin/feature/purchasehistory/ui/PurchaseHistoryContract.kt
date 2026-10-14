@@ -8,6 +8,7 @@ data class PurchaseHistoryUiState(
     val purchases: List<Purchase> = emptyList(),
     val isInitialLoading: Boolean = false,
     val isLoadingNextPage: Boolean = false,
+    val isRefreshing: Boolean = false,
     val canLoadMore: Boolean = true,
     val error: PurchaseHistoryError? = null,
     val editor: PurchaseEditorUiState? = null,
@@ -49,6 +50,7 @@ enum class PurchaseHistoryError {
 }
 
 sealed interface PurchaseHistoryEvent {
+    data object Refresh : PurchaseHistoryEvent
     data object LoadNextPage : PurchaseHistoryEvent
     data object Retry : PurchaseHistoryEvent
     data class EditRequested(val purchaseId: String) : PurchaseHistoryEvent

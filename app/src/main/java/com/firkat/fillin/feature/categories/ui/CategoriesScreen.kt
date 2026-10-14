@@ -56,6 +56,8 @@ import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
 import com.firkat.fillin.feature.categories.domain.model.CategoryIconType
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.ui.component.FeatureScaffold
+import com.firkat.fillin.ui.component.RefreshableContent
+import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -95,24 +97,32 @@ fun CategoriesScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            state.isLoading && state.items.isEmpty() -> LoadingContent()
+        RefreshableContent(
+            isRefreshing = state.isRefreshing,
+            onRefresh = { onEvent(CategoriesEvent.Refresh) },
+            hasScrollableContent = state.items.isNotEmpty(),
+        ) {
+            when {
+                state.isLoading && state.items.isEmpty() -> LoadingContent()
 
-            state.error != null && state.items.isEmpty() -> ErrorContent(
-                error = state.error,
-                onRetry = { onEvent(CategoriesEvent.Retry) },
-                modifier = Modifier.fillMaxSize(),
-            )
+                state.error != null && state.items.isEmpty() -> ErrorContent(
+                    error = state.error,
+                    onRetry = { onEvent(CategoriesEvent.Retry) },
+                    modifier = Modifier.fillMaxSize(),
+                )
 
-            state.items.isEmpty() -> EmptyContent()
+                state.items.isEmpty() -> EmptyContent()
 
-            else -> CategoriesList(
-                items = state.items,
-                onCategoryClick = { onEvent(CategoriesEvent.EditRequested(it.id)) },
-            )
+                else -> CategoriesList(
+                    items = state.items,
+                    error = state.error,
+                    onRetry = { onEvent(CategoriesEvent.Refresh) },
+                    onCategoryClick = { onEvent(CategoriesEvent.EditRequested(it.id)) },
+                )
+            }
         }
 
-        if (!state.isLoading && state.error == null) {
+        if (!state.isLoading && !state.isRefreshing && state.error == null) {
             ExtendedFloatingActionButton(
                 onClick = { onEvent(CategoriesEvent.CreateRequested) },
                 modifier = Modifier
@@ -133,6 +143,8 @@ fun CategoriesScreen(
 @Composable
 private fun CategoriesList(
     items: List<Category>,
+    error: CategoriesError?,
+    onRetry: () -> Unit,
     onCategoryClick: (Category) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -152,6 +164,16 @@ private fun CategoriesList(
             bottom = 96.dp,
         ),
     ) {
+        error?.let {
+            item(key = "refresh-error") {
+                RefreshErrorContent(
+                    messageResource = it.messageResource,
+                    retryResource = R.string.categories_retry,
+                    onRetry = onRetry,
+                )
+            }
+        }
+
         categorySection(
             title = R.string.categories_expenses_section,
             categories = expenseCategories,

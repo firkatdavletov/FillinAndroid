@@ -5,6 +5,7 @@ import com.firkat.fillin.feature.dashboard.domain.model.Dashboard
 data class DashboardUiState(
     val dashboard: Dashboard? = null,
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val error: DashboardError? = null,
 )
 

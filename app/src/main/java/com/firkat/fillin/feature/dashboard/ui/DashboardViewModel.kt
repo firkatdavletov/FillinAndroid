@@ -23,15 +23,16 @@ class DashboardViewModel(
 
     fun onEvent(event: DashboardEvent) {
         when (event) {
-            DashboardEvent.Retry,
-            DashboardEvent.Refresh,
-            -> loadDashboard()
+            DashboardEvent.Retry -> loadDashboard()
+            DashboardEvent.Refresh -> loadDashboard(isRefreshing = true)
         }
     }
 
-    private fun loadDashboard() {
-        if (_uiState.value.isLoading) return
-        _uiState.update { it.copy(isLoading = true, error = null) }
+    private fun loadDashboard(isRefreshing: Boolean = false) {
+        if (_uiState.value.isLoading || _uiState.value.isRefreshing) return
+        _uiState.update {
+            it.copy(isLoading = !isRefreshing, isRefreshing = isRefreshing, error = null)
+        }
 
         viewModelScope.launch {
             try {
@@ -40,6 +41,7 @@ class DashboardViewModel(
                     it.copy(
                         dashboard = dashboard,
                         isLoading = false,
+                        isRefreshing = false,
                         error = null,
                     )
                 }
@@ -49,6 +51,7 @@ class DashboardViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         error = exception.toUiError(),
                     )
                 }
@@ -56,6 +59,7 @@ class DashboardViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         error = DashboardError.Unknown,
                     )
                 }
