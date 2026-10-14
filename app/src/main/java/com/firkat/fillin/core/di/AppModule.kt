@@ -35,6 +35,8 @@ import com.firkat.fillin.feature.purchasehistory.data.remote.PurchaseHistoryApi
 import com.firkat.fillin.feature.purchasehistory.data.repository.PurchaseHistoryRepositoryImpl
 import com.firkat.fillin.feature.purchasehistory.domain.repository.PurchaseHistoryRepository
 import com.firkat.fillin.feature.purchasehistory.domain.usecase.GetPurchaseHistoryPage
+import com.firkat.fillin.feature.purchasehistory.domain.usecase.RefundPurchase
+import com.firkat.fillin.feature.purchasehistory.domain.usecase.UpdatePurchaseAmount
 import com.firkat.fillin.feature.purchasehistory.ui.PurchaseHistoryViewModel
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -78,7 +80,15 @@ val appModule = module {
         )
     }
     factory { GetPurchaseHistoryPage(repository = get()) }
-    viewModel { PurchaseHistoryViewModel(getPurchaseHistoryPage = get()) }
+    factory { UpdatePurchaseAmount(repository = get()) }
+    factory { RefundPurchase(repository = get()) }
+    viewModel {
+        PurchaseHistoryViewModel(
+            getPurchaseHistoryPage = get(),
+            updatePurchaseAmount = get(),
+            refundPurchase = get(),
+        )
+    }
     single<PlannedExpensesRepository> {
         PlannedExpensesRepositoryImpl(
             api = get(),

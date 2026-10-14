@@ -9,8 +9,11 @@ data class Purchase(
     val description: String?,
     val amount: BigDecimal,
     val currency: String,
+    val originalAmount: BigDecimal,
+    val originalCurrency: String,
     val occurredOn: LocalDate,
     val status: PurchaseStatus,
+    val version: Long,
 )
 
 enum class PurchaseStatus {

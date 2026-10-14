@@ -84,7 +84,10 @@ class PurchaseDayGroupTest {
         description = null,
         amount = BigDecimal(amount),
         currency = currency,
+        originalAmount = BigDecimal(amount),
+        originalCurrency = currency,
         occurredOn = date,
         status = status,
+        version = 0,
     )
 }

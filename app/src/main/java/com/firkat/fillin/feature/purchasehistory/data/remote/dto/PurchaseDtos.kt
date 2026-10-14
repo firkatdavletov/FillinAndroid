@@ -16,6 +16,7 @@ data class PurchaseDto(
     val amountKzt: MoneyDto,
     val occurredOn: String,
     val status: String,
+    val version: Long,
     val description: String? = null,
 )
 
@@ -29,4 +30,10 @@ data class PurchaseCategoryDto(
 data class MoneyDto(
     val amount: String,
     val currency: String,
+)
+
+@Serializable
+data class UpdatePurchaseRequestDto(
+    val version: Long,
+    val amount: String,
 )

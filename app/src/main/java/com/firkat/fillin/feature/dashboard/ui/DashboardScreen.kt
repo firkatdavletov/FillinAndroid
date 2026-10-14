@@ -193,12 +193,6 @@ private fun DashboardHeader(
     onSettingsClick: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = stringResource(R.string.dashboard_family_budget),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            letterSpacing = 0.8.sp,
-        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -206,21 +200,9 @@ private fun DashboardHeader(
             Text(
                 text = formatMonth(date),
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
             )
-            IconButton(onClick = onCalendarClick) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_calendar),
-                    contentDescription = stringResource(R.string.dashboard_open_calendar),
-                )
-            }
-            IconButton(onClick = onSettingsClick) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_tune),
-                    contentDescription = stringResource(R.string.dashboard_open_settings),
-                )
-            }
         }
     }
 }
