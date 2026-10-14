@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
+import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.text.NumberFormat
@@ -60,7 +61,17 @@ fun PlannedIncomesRoute(
     viewModel: PlannedIncomesViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    PlannedIncomesScreen(state = state, onEvent = viewModel::onEvent)
+    FeatureScaffold(
+        titleResource = R.string.planned_incomes_title,
+        onNavigateBack = if (state.editor != null) {
+            { viewModel.onEvent(PlannedIncomesEvent.EditorClosed) }
+        } else {
+            null
+        },
+        navigateBackEnabled = state.editor?.isSaving != true,
+    ) {
+        PlannedIncomesScreen(state = state, onEvent = viewModel::onEvent)
+    }
 }
 
 @Composable
@@ -116,13 +127,6 @@ private fun PlannedIncomeEditor(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        TextButton(
-            onClick = { onEvent(PlannedIncomesEvent.EditorClosed) },
-            enabled = !editor.isSaving,
-        ) {
-            Text(stringResource(R.string.planned_incomes_editor_back))
-        }
-
         Text(
             text = stringResource(
                 if (editor.isCreating) {

@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.purchasehistory.domain.model.Purchase
 import com.firkat.fillin.feature.purchasehistory.domain.model.PurchaseStatus
+import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.text.NumberFormat
@@ -59,10 +60,20 @@ fun PurchaseHistoryRoute(
     viewModel: PurchaseHistoryViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    PurchaseHistoryScreen(
-        state = state,
-        onEvent = viewModel::onEvent,
-    )
+    FeatureScaffold(
+        titleResource = R.string.purchase_history_title,
+        onNavigateBack = if (state.editor != null) {
+            { viewModel.onEvent(PurchaseHistoryEvent.EditorClosed) }
+        } else {
+            null
+        },
+        navigateBackEnabled = state.editor?.isSaving != true,
+    ) {
+        PurchaseHistoryScreen(
+            state = state,
+            onEvent = viewModel::onEvent,
+        )
+    }
 }
 
 @Composable
@@ -227,13 +238,6 @@ private fun PurchaseEditor(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        TextButton(
-            onClick = { onEvent(PurchaseHistoryEvent.EditorClosed) },
-            enabled = !editor.isSaving,
-        ) {
-            Text(stringResource(R.string.purchase_history_editor_back))
-        }
-
         Text(
             text = stringResource(R.string.purchase_history_editor_title),
             style = MaterialTheme.typography.headlineSmall,

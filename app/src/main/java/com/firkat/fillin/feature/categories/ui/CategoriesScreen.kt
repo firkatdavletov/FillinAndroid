@@ -48,6 +48,7 @@ import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
+import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -56,10 +57,20 @@ fun CategoriesRoute(
     viewModel: CategoriesViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    CategoriesScreen(
-        state = state,
-        onEvent = viewModel::onEvent,
-    )
+    FeatureScaffold(
+        titleResource = R.string.categories_title,
+        onNavigateBack = if (state.editor != null) {
+            { viewModel.onEvent(CategoriesEvent.EditorClosed) }
+        } else {
+            null
+        },
+        navigateBackEnabled = state.editor?.isSaving != true,
+    ) {
+        CategoriesScreen(
+            state = state,
+            onEvent = viewModel::onEvent,
+        )
+    }
 }
 
 @Composable
@@ -236,13 +247,6 @@ private fun CategoryEditor(
             .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        TextButton(
-            onClick = { onEvent(CategoriesEvent.EditorClosed) },
-            enabled = !state.isSaving,
-        ) {
-            Text(stringResource(R.string.categories_editor_back))
-        }
-
         Text(
             text = stringResource(
                 if (state.isCreating) {

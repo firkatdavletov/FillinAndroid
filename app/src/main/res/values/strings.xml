@@ -5,6 +5,7 @@
     <string name="navigation_planned">План</string>
     <string name="navigation_planned_incomes">Доходы</string>
     <string name="navigation_categories">Категории</string>
+    <string name="navigation_back">Назад</string>
     <string name="dashboard_title">Главная</string>
     <string name="dashboard_family_budget">СЕМЕЙНЫЙ БЮДЖЕТ</string>
     <string name="dashboard_open_calendar">Открыть плановые платежи</string>
@@ -44,7 +45,6 @@
     <string name="purchase_history_no_description">Без описания</string>
     <string name="purchase_history_edit_action">Изменить</string>
     <string name="purchase_history_refunded_status">Возвращён</string>
-    <string name="purchase_history_editor_back">Назад к истории</string>
     <string name="purchase_history_editor_title">Изменение расхода</string>
     <string name="purchase_history_amount_label">Сумма расхода</string>
     <string name="purchase_history_amount_hint">Положительная сумма, не более двух знаков после запятой</string>
@@ -90,7 +90,6 @@
     <string name="planned_expenses_close_error_not_found">Платёж больше не существует или уже закрыт</string>
     <string name="planned_expenses_close_error_conflict">Платёж уже изменился либо у него нет проведённой оплаты. Обновите список и повторите действие</string>
     <string name="planned_expenses_close_error_generic">Не удалось завершить платёж</string>
-    <string name="planned_expenses_editor_back">Назад к плану</string>
     <string name="planned_expenses_editor_create_title">Новое правило расходов</string>
     <string name="planned_expenses_editor_edit_title">Изменение правила</string>
     <string name="planned_expenses_category_label">Расходная категория</string>
@@ -139,7 +138,6 @@
     <string name="planned_incomes_empty">Открытых запланированных доходов нет</string>
     <string name="planned_incomes_create_action">Запланировать доход</string>
     <string name="planned_incomes_edit_action">Изменить</string>
-    <string name="planned_incomes_editor_back">Назад к доходам</string>
     <string name="planned_incomes_editor_create_title">Новый плановый доход</string>
     <string name="planned_incomes_editor_edit_title">Изменение планового дохода</string>
     <string name="planned_incomes_category_label">Доходная категория</string>
@@ -176,7 +174,6 @@
     <string name="categories_incomes_section">Доходы</string>
     <string name="categories_empty">Активных категорий пока нет</string>
     <string name="categories_create_action">Новая категория</string>
-    <string name="categories_editor_back">Назад к категориям</string>
     <string name="categories_editor_create_title">Новая категория</string>
     <string name="categories_editor_edit_title">Редактирование категории</string>
     <string name="categories_name_label">Название</string>

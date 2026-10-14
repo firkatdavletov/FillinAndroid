@@ -7,11 +7,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -46,19 +45,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FillinApp() {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
 
     Scaffold(
-        topBar = {
-            if (selectedDestination != AppDestination.Dashboard) {
-                CenterAlignedTopAppBar(
-                    title = { Text(stringResource(selectedDestination.titleResource)) },
-                )
-            }
-        },
         bottomBar = {
             NavigationBar {
                 AppDestination.entries.forEach { destination ->
@@ -86,7 +77,8 @@ fun FillinApp() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding),
         ) {
             when (selectedDestination) {
                 AppDestination.Dashboard -> DashboardRoute(
@@ -112,31 +104,25 @@ fun FillinApp() {
 private enum class AppDestination(
     @StringRes val labelResource: Int,
     @DrawableRes val iconResource: Int,
-    @StringRes val titleResource: Int,
 ) {
     Dashboard(
         labelResource = R.string.navigation_dashboard,
         iconResource = R.drawable.ic_home,
-        titleResource = R.string.dashboard_title,
     ),
     History(
         labelResource = R.string.navigation_history,
         iconResource = R.drawable.ic_receipt,
-        titleResource = R.string.purchase_history_title,
     ),
     Planned(
         labelResource = R.string.navigation_planned,
         iconResource = R.drawable.ic_calendar,
-        titleResource = R.string.planned_expenses_title,
     ),
     Incomes(
         labelResource = R.string.navigation_planned_incomes,
         iconResource = R.drawable.ic_income,
-        titleResource = R.string.planned_incomes_title,
     ),
     Categories(
         labelResource = R.string.navigation_categories,
         iconResource = R.drawable.ic_categories,
-        titleResource = R.string.categories_title,
     ),
 }

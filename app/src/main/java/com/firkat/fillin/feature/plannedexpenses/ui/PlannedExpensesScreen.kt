@@ -50,6 +50,7 @@ import com.firkat.fillin.R
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseStatus
+import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.math.MathContext
@@ -66,10 +67,20 @@ fun PlannedExpensesRoute(
     viewModel: PlannedExpensesViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    PlannedExpensesScreen(
-        state = state,
-        onEvent = viewModel::onEvent,
-    )
+    FeatureScaffold(
+        titleResource = R.string.planned_expenses_title,
+        onNavigateBack = if (state.editor != null) {
+            { viewModel.onEvent(PlannedExpensesEvent.EditorClosed) }
+        } else {
+            null
+        },
+        navigateBackEnabled = state.editor?.isSaving != true,
+    ) {
+        PlannedExpensesScreen(
+            state = state,
+            onEvent = viewModel::onEvent,
+        )
+    }
 }
 
 @Composable
@@ -152,13 +163,6 @@ private fun PlannedExpenseRuleEditor(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        TextButton(
-            onClick = { onEvent(PlannedExpensesEvent.EditorClosed) },
-            enabled = !editor.isSaving,
-        ) {
-            Text(stringResource(R.string.planned_expenses_editor_back))
-        }
-
         Text(
             text = stringResource(
                 if (editor.isCreating) {
