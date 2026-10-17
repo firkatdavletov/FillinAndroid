@@ -1,12 +1,14 @@
 package com.firkat.fillin.feature.plannedoperations.ui
 
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationTotals
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperations
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsException
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsRepository
 import com.firkat.fillin.feature.plannedoperations.domain.usecase.GetPlannedOperations
+import java.math.BigDecimal
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -45,6 +47,7 @@ class PlannedOperationsViewModelTest {
         assertEquals(expected, model.uiState.value.filters)
         assertEquals(listOf(expected), repository.requests)
         assertFalse(model.uiState.value.isLoading)
+        assertEquals(EMPTY.totals, model.uiState.value.periodTotals)
     }
 
     @Test
@@ -99,13 +102,14 @@ class PlannedOperationsViewModelTest {
         }
         val model = model(repository)
         runCurrent()
-        val fresh = EMPTY.copy(dateTo = LocalDate.of(2026, 12, 31))
+        val fresh = EMPTY.copy(dateTo = LocalDate.of(2026, 12, 31), totals = TOTALS)
         repository.load = { fresh }
         model.onEvent(PlannedOperationsEvent.PeriodSelected(PlannedOperationPeriod.EndOfYear))
         runCurrent()
         stale.complete(EMPTY)
         runCurrent()
         assertEquals(fresh, model.uiState.value.operations)
+        assertEquals(TOTALS, model.uiState.value.periodTotals)
         assertNull(model.uiState.value.error)
     }
 
@@ -137,6 +141,7 @@ class PlannedOperationsViewModelTest {
         runCurrent()
         assertNull(model.uiState.value.operations)
         assertEquals(PlannedOperationsException.Forbidden, model.uiState.value.error)
+        assertNull(model.uiState.value.periodTotals)
     }
 
     @Test
@@ -147,6 +152,62 @@ class PlannedOperationsViewModelTest {
         assertEquals(leapDay, filter.dateTo)
         assertEquals(Instant.parse("2028-02-29T00:00:00Z").toEpochMilli(), leapDay.pickerMillis())
         assertEquals(leapDay, pickerDate(leapDay.pickerMillis()))
+    }
+
+    @Test
+    fun `type selection keeps whole period totals and clearing type reloads all operations`() = runTest {
+        val repository = FakePlansRepository { EMPTY.copy(totals = TOTALS) }
+        val model = model(repository)
+        runCurrent()
+        assertEquals(1, repository.requests.size)
+        assertEquals(TOTALS, model.uiState.value.periodTotals)
+        assertTrue(model.uiState.value.operations?.items.orEmpty().isEmpty())
+        val response = CompletableDeferred<PlannedOperations>()
+        repository.load = { response.await() }
+        model.onEvent(PlannedOperationsEvent.TypeSelected(PlannedOperationType.Income))
+        runCurrent()
+        assertNull(model.uiState.value.operations)
+        assertEquals(TOTALS, model.uiState.value.periodTotals)
+        response.complete(EMPTY.copy(totals = TOTALS))
+        runCurrent()
+        model.onEvent(PlannedOperationsEvent.TypeSelected(null))
+        runCurrent()
+        assertEquals(listOf(null, PlannedOperationType.Income, null), repository.requests.map { it.type })
+        assertEquals(TOTALS, model.uiState.value.periodTotals)
+    }
+
+    @Test
+    fun `changing dates clears old totals until the new period response arrives`() = runTest {
+        val repository = FakePlansRepository { EMPTY.copy(totals = TOTALS) }
+        val model = model(repository)
+        runCurrent()
+        val response = CompletableDeferred<PlannedOperations>()
+        repository.load = { response.await() }
+        model.onEvent(PlannedOperationsEvent.CustomPeriodApplied(FROM, FROM))
+        runCurrent()
+        assertNull(model.uiState.value.operations)
+        assertNull(model.uiState.value.periodTotals)
+        assertTrue(model.uiState.value.isLoading)
+        response.complete(EMPTY.copy(dateTo = FROM))
+        runCurrent()
+        assertEquals(PlannedOperationTotals(), model.uiState.value.periodTotals)
+    }
+
+    @Test
+    fun `failed refresh keeps totals and mutation reload replaces them with the latest server values`() = runTest {
+        val repository = FakePlansRepository { EMPTY.copy(totals = TOTALS) }
+        val model = model(repository)
+        runCurrent()
+        repository.load = { throw PlannedOperationsException.Network }
+        model.onEvent(PlannedOperationsEvent.Refresh)
+        runCurrent()
+        assertEquals(TOTALS, model.uiState.value.periodTotals)
+        repository.load = { EMPTY }
+        model.reloadAfterMutation()
+        assertNull(model.uiState.value.periodTotals)
+        runCurrent()
+        assertEquals(PlannedOperationTotals(), model.uiState.value.periodTotals)
+        assertNull(model.uiState.value.error)
     }
 
     private fun model(repository: PlannedOperationsRepository) = PlannedOperationsViewModel(
@@ -165,3 +226,5 @@ private class FakePlansRepository(var load: suspend () -> PlannedOperations = { 
 private val FROM = LocalDate.of(2026, 10, 1)
 private val TO = LocalDate.of(2026, 10, 31)
 private val EMPTY = PlannedOperations(LocalDate.of(2026, 10, 18), FROM, TO, emptyList())
+
+private val TOTALS = PlannedOperationTotals(BigDecimal("50000.12"), BigDecimal("1000000.34"))

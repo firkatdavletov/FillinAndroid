@@ -4,9 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -47,9 +45,6 @@ import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOper
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.RefreshableContent
-import java.math.BigDecimal
-import java.text.NumberFormat
-import java.util.Locale
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -156,7 +151,6 @@ fun PlannedOperationsScreen(
                                 }
                             }
                         }
-                        item(key = "summary") { PlannedOperationsSummary(items) }
                         items(items, key = { it.key }) { item ->
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
@@ -224,28 +218,6 @@ fun PlannedOperationsScreen(
         }
     }
     if (state.isPeriodPickerVisible) PlannedOperationsPeriodPicker(state, onEvent)
-}
-
-@Composable
-private fun PlannedOperationsSummary(items: List<PlannedOperation>) {
-    val expenses = items.filterIsInstance<PlannedOperation.Expense>()
-        .fold(BigDecimal.ZERO) { sum, item -> sum + item.expense.remainingAmount }
-    val incomes = items.filterIsInstance<PlannedOperation.Income>()
-        .fold(BigDecimal.ZERO) { sum, item -> sum + item.income.plannedAmount }
-    val format = NumberFormat.getNumberInstance(Locale.forLanguageTag("ru-RU")).apply {
-        minimumFractionDigits = 2
-        maximumFractionDigits = 2
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.planned_operations_to_pay), style = MaterialTheme.typography.labelMedium)
-            Text("${format.format(expenses)} ₸", style = MaterialTheme.typography.titleMedium)
-        }
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.planned_operations_to_receive), style = MaterialTheme.typography.labelMedium)
-            Text("${format.format(incomes)} ₸", style = MaterialTheme.typography.titleMedium)
-        }
-    }
 }
 
 private val PlannedOperationsException.messageResource: Int get() = when (this) {

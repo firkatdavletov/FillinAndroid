@@ -50,12 +50,11 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshableContent
+import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
-import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Currency
 import java.util.Locale
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -489,16 +488,6 @@ private val OperationHistoryError.messageResource: Int
         OperationHistoryError.InvalidResponse -> R.string.operation_history_error_invalid_response
         OperationHistoryError.Unknown -> R.string.operation_history_error_generic
     }
-
-internal fun formatMoney(amount: BigDecimal, currencyCode: String): String = runCatching {
-    NumberFormat.getCurrencyInstance(Locale.forLanguageTag("ru-KZ")).apply {
-        currency = Currency.getInstance(currencyCode)
-        minimumFractionDigits = 2
-        maximumFractionDigits = 2
-    }.format(amount)
-}.getOrElse {
-    "${amount.setScale(2).toPlainString()} $currencyCode"
-}
 
 private fun formatOperationAmount(amount: BigDecimal, currency: String, type: OperationType): String =
     (if (amount.signum() == 0) "" else if (type == OperationType.Income) "+" else "−") + formatMoney(amount, currency)

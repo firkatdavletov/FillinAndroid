@@ -10,7 +10,7 @@
   кнопкой «Применить». Для произвольного периода Chip показывает короткие даты (например, `16 Снт - 25 Окт`)
   и крестик. Если даты относятся к разным годам, показаны также годы. Нажатие на крестик возвращает
   период с начала текущего месяца до сегодня, сохраняя выбранный тип операции.
-- Под периодом находятся два равных блока: «Расходы» и «Доходы» с итогами за весь период в KZT.
+- Под периодом общий с экраном «Планы» Compose-компонент `OperationTotalsRow` показывает два равных блока: «Расходы» и «Доходы» с итогами за весь период в KZT.
   Нажатие на блок выбирает его тип: блок занимает всю строку, второй скрывается, справа появляется крестик.
   Крестик возвращает два блока и список всех типов. Отдельных фильтров типа и категории больше нет.
 
@@ -51,7 +51,7 @@
 
 ```sh
 ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
-ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.firkat.fillin.feature.operationhistory.ui.OperationHistoryScreenTest
+ANDROID_SERIAL=emulator-5554 ./gradlew --no-configuration-cache :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.firkat.fillin.feature.operationhistory.ui.OperationHistoryScreenTest
 ```
 
 Перед UI-прогоном выберите serial нужного тестового эмулятора через `adb devices`; `ANDROID_SERIAL`

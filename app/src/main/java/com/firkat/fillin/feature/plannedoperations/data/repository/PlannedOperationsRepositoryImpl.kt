@@ -8,6 +8,7 @@ import com.firkat.fillin.feature.plannedoperations.data.remote.PlannedOperations
 import com.firkat.fillin.feature.plannedoperations.data.remote.dto.PlannedOperationDto
 import com.firkat.fillin.feature.plannedoperations.data.remote.dto.PlannedOperationMoneyDto
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationTotals
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperations
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsException
@@ -46,6 +47,10 @@ class PlannedOperationsRepositoryImpl(
                 dateFrom = from,
                 dateTo = to,
                 items = items.sortedWith(compareBy({ it.dueOn }, { it.id })),
+                totals = PlannedOperationTotals(
+                    expenses = response.totals.expenses.amountValue(),
+                    incomes = response.totals.incomes.amountValue(),
+                ),
             )
         } catch (exception: CancellationException) {
             throw exception

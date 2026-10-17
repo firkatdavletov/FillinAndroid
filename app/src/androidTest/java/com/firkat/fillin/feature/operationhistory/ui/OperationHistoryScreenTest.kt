@@ -1,14 +1,14 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
-import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertIsNotSelected
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -23,6 +23,7 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTo
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.ui.component.FeatureScaffold
+import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.io.FileInputStream
 import java.math.BigDecimal

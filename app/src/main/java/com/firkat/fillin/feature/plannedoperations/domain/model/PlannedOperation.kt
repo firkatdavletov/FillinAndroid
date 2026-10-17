@@ -2,6 +2,7 @@ package com.firkat.fillin.feature.plannedoperations.domain.model
 
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
+import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -63,9 +64,15 @@ sealed interface PlannedOperation {
     }
 }
 
+data class PlannedOperationTotals(
+    val expenses: BigDecimal = BigDecimal.ZERO,
+    val incomes: BigDecimal = BigDecimal.ZERO,
+)
+
 data class PlannedOperations(
     val asOf: LocalDate,
     val dateFrom: LocalDate,
     val dateTo: LocalDate,
     val items: List<PlannedOperation>,
+    val totals: PlannedOperationTotals = PlannedOperationTotals(),
 )

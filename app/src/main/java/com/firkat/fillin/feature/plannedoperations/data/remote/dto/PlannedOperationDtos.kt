@@ -8,6 +8,13 @@ data class PlannedOperationsResponseDto(
     val dateFrom: String,
     val dateTo: String,
     val items: List<PlannedOperationDto>,
+    val totals: PlannedOperationTotalsDto,
+)
+
+@Serializable
+data class PlannedOperationTotalsDto(
+    val expenses: PlannedOperationMoneyDto,
+    val incomes: PlannedOperationMoneyDto,
 )
 
 @Serializable

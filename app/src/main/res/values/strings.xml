@@ -40,9 +40,9 @@
     <string name="dashboard_error_invalid_response">Сервер вернул некорректные данные</string>
     <string name="dashboard_error_generic">Не удалось загрузить главный экран</string>
     <string name="operation_history_title">История операций</string>
-    <string name="operation_history_expenses">Расходы</string>
-    <string name="operation_history_incomes">Доходы</string>
-    <string name="operation_history_reset_type">Показать все типы операций</string>
+    <string name="operation_totals_expenses">Расходы</string>
+    <string name="operation_totals_incomes">Доходы</string>
+    <string name="operation_totals_reset_type">Показать все типы операций</string>
     <string name="operation_history_all_types">Все операции</string>
     <string name="operation_history_all_categories">Все категории</string>
     <string name="operation_history_category_title">Категория</string>

@@ -44,6 +44,8 @@ class PlannedOperationsHttpTest {
         assertEquals("rule-id", expense.ruleId)
         assertEquals(3L, expense.ruleVersion)
         assertEquals("income", result.items[1].id)
+        assertEquals(BigDecimal("50000.12"), result.totals.expenses)
+        assertEquals(BigDecimal("1000000.34"), result.totals.incomes)
     }
 
     @Test
@@ -94,11 +96,28 @@ class PlannedOperationsHttpTest {
             response(EXPENSE.replace("\"rule\": {\"id\":\"rule-id\",\"version\":3},", "")),
             response(INCOME.replace("2026-10-31", "2026-11-01")),
             response(INCOME.replace("\"amount\":\"0.00\"", "\"amount\":\"10.00\"")),
+            response().replace("50000.12", "-1.00"),
+            response().replace("50000.12", "1.001"),
+            response().replace("1000000.34", "invalid"),
+            response().replace("KZT", "RUB"),
+            response().replace("\"totals\"", "\"missingTotals\""),
         ).forEach { body ->
             assertThrows(PlannedOperationsException.InvalidResponse::class.java) {
                 runBlocking { repository(mutableListOf(), body).getPlannedOperations(PlannedOperationsFilter()) }
             }
         }
+    }
+
+    @Test
+    fun `empty income selection returns both server totals in one request`() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val result = repository(requests, response()).getPlannedOperations(
+            PlannedOperationsFilter(type = PlannedOperationType.Income),
+        )
+        assertEquals(0, result.items.size)
+        assertEquals(BigDecimal("50000.12"), result.totals.expenses)
+        assertEquals(BigDecimal("1000000.34"), result.totals.incomes)
+        assertEquals(1, requests.size)
     }
 
     @Test
@@ -132,7 +151,8 @@ class PlannedOperationsHttpTest {
 }
 
 private fun response(vararg items: String, from: String = "2026-10-17") = """
-    {"asOf":"2026-10-17","dateFrom":"$from","dateTo":"2026-10-31","items":[${items.joinToString(",")}]}
+    {"asOf":"2026-10-17","dateFrom":"$from","dateTo":"2026-10-31","items":[${items.joinToString(",")}],
+     "totals":{"expenses":{"amount":"50000.12","currency":"KZT"},"incomes":{"amount":"1000000.34","currency":"KZT"}}}
 """.trimIndent()
 
 private val EXPENSE = """

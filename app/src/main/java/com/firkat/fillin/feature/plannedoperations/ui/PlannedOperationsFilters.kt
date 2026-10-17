@@ -11,7 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.SuggestionChip
@@ -28,6 +27,8 @@ import com.firkat.fillin.R
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.ui.component.DatePeriodChip
+import com.firkat.fillin.ui.component.OperationTotalsRow
+import com.firkat.fillin.ui.component.OperationTotalsType
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -38,7 +39,7 @@ import java.time.format.DateTimeFormatter
 internal fun PlannedOperationsFilters(state: PlannedOperationsUiState, onEvent: (PlannedOperationsEvent) -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         DatePeriodChip(
             dateFrom = state.periodDateFrom,
@@ -48,25 +49,24 @@ internal fun PlannedOperationsFilters(state: PlannedOperationsUiState, onEvent: 
             onReset = { onEvent(PlannedOperationsEvent.PeriodSelected(PlannedOperationPeriod.CurrentMonth)) },
             modifier = Modifier.testTag("planned-period-filter"),
         )
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            listOf(null, PlannedOperationType.Expense, PlannedOperationType.Income).forEach { type ->
-                FilterChip(
-                    selected = state.filters.type == type,
-                    onClick = { onEvent(PlannedOperationsEvent.TypeSelected(type)) },
-                    label = {
-                        Text(stringResource(when (type) {
-                            null -> R.string.planned_operations_all
-                            PlannedOperationType.Expense -> R.string.planned_operations_expenses
-                            PlannedOperationType.Income -> R.string.planned_operations_incomes
-                        }))
-                    },
-                    modifier = Modifier.testTag("planned-type-${type?.apiValue ?: "ALL"}"),
-                )
-            }
-        }
+        OperationTotalsRow(
+            expenses = state.periodTotals?.expenses,
+            incomes = state.periodTotals?.incomes,
+            selectedType = when (state.filters.type) {
+                PlannedOperationType.Expense -> OperationTotalsType.Expense
+                PlannedOperationType.Income -> OperationTotalsType.Income
+                null -> null
+            },
+            isLoading = state.isLoading,
+            onTypeSelected = { type ->
+                onEvent(PlannedOperationsEvent.TypeSelected(when (type) {
+                    OperationTotalsType.Expense -> PlannedOperationType.Expense
+                    OperationTotalsType.Income -> PlannedOperationType.Income
+                    null -> null
+                }))
+            },
+            testTagPrefix = "planned",
+        )
     }
 }
 

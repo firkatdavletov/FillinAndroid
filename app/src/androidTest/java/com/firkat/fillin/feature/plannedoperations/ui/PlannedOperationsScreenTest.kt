@@ -1,7 +1,12 @@
 package com.firkat.fillin.feature.plannedoperations.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -17,10 +22,12 @@ import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationTotals
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperations
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.ui.component.FeatureScaffold
+import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.io.FileInputStream
 import java.math.BigDecimal
@@ -39,14 +46,19 @@ class PlannedOperationsScreenTest {
     @Test
     fun filtersRemainAvailableForAnEmptyListAndEmitTypeAndPeriodSelections() {
         val events = mutableListOf<PlannedOperationsEvent>()
-        show(PlannedOperationsUiState(today = TODAY), events)
+        show(PlannedOperationsUiState(today = TODAY, periodTotals = PlannedOperationTotals()), events)
         composeRule.onNodeWithText("Запланированные операции").assertIsDisplayed()
-        composeRule.onNodeWithTag("planned-type-ALL").assertIsSelected()
+        composeRule.onNodeWithTag("planned-type-ALL").assertDoesNotExist()
+        composeRule.onNodeWithTag("planned-type-EXPENSE").assertIsDisplayed().assertIsNotSelected()
+        composeRule.onNodeWithTag("planned-type-INCOME").assertIsDisplayed().assertIsNotSelected()
+        composeRule.onNodeWithTag("planned-type-reset").assertDoesNotExist()
+        composeRule.onNodeWithTag("planned-total-EXPENSE", useUnmergedTree = true)
+            .assertTextEquals(formatMoney(BigDecimal.ZERO, "KZT"))
         composeRule.onNodeWithText("Октябрь").assertIsDisplayed()
         composeRule.onNodeWithTag("date-period-dropdown", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithTag("date-period-reset").assertDoesNotExist()
         val periodBounds = composeRule.onNodeWithTag("planned-period-filter").fetchSemanticsNode().boundsInRoot
-        val typeBounds = composeRule.onNodeWithTag("planned-type-ALL").fetchSemanticsNode().boundsInRoot
+        val typeBounds = composeRule.onNodeWithTag("planned-type-EXPENSE").fetchSemanticsNode().boundsInRoot
         assertTrue(periodBounds.bottom <= typeBounds.top)
         composeRule.onNodeWithText("Нет запланированных операций по выбранным фильтрам").assertIsDisplayed()
         screenshot("planned-empty.png")
@@ -125,18 +137,22 @@ class PlannedOperationsScreenTest {
                 today = TODAY,
                 operations = PlannedOperations(TODAY, TODAY, LocalDate.of(2026, 10, 31), listOf(
                     PlannedOperation.Expense(EXPENSE), PlannedOperation.Income(INCOME),
-                )),
+                ), totals = TOTALS),
             ),
             mutableListOf(),
             actions,
         )
-        composeRule.onNodeWithText("К оплате").assertIsDisplayed()
-        composeRule.onNodeWithText("К получению").assertIsDisplayed()
+        composeRule.onNodeWithTag("planned-total-EXPENSE", useUnmergedTree = true)
+            .assertTextEquals(formatMoney(TOTALS.expenses, "KZT"))
+        composeRule.onNodeWithTag("planned-total-INCOME", useUnmergedTree = true)
+            .assertTextEquals(formatMoney(TOTALS.incomes, "KZT"))
+        composeRule.onNodeWithText("К оплате").assertDoesNotExist()
+        composeRule.onNodeWithText("К получению").assertDoesNotExist()
         composeRule.onNodeWithText("Тестовая аренда").assertIsDisplayed()
         screenshot("planned-mixed.png")
         composeRule.onNodeWithText("Управлять правилом").performScrollTo().performClick()
         composeRule.onNodeWithText("Отметить оплаченным").performScrollTo().performClick()
-        composeRule.onNodeWithTag("planned-operations-list").performScrollToIndex(2)
+        composeRule.onNodeWithTag("planned-operations-list").performScrollToIndex(1)
         composeRule.onNodeWithText("Изменить").performScrollTo().performClick()
         composeRule.onNodeWithTag("planned-create").performClick()
         composeRule.onNodeWithTag("planned-create-expense").performClick()
@@ -147,17 +163,83 @@ class PlannedOperationsScreenTest {
         }
     }
 
+    @Test
+    fun selectingBlocksExpandsThemFiltersTheListAndResetRestoresBothTypes() {
+        val events = mutableListOf<PlannedOperationsEvent>()
+        show(
+            PlannedOperationsUiState(
+                today = TODAY,
+                operations = PlannedOperations(TODAY, TODAY, LocalDate.of(2026, 10, 31), listOf(
+                    PlannedOperation.Expense(EXPENSE), PlannedOperation.Income(INCOME),
+                ), totals = TOTALS),
+            ),
+            events,
+        )
+        val row = composeRule.onNodeWithTag("planned-type-totals").fetchSemanticsNode().boundsInRoot
+        val initial = composeRule.onNodeWithTag("planned-type-EXPENSE").fetchSemanticsNode().boundsInRoot
+        val other = composeRule.onNodeWithTag("planned-type-INCOME").fetchSemanticsNode().boundsInRoot
+        assertEquals(initial.width, other.width, 1f)
+        PlannedOperationType.entries.forEach { type ->
+            val hidden = if (type == PlannedOperationType.Expense) PlannedOperationType.Income else PlannedOperationType.Expense
+            composeRule.onNodeWithTag("planned-type-${type.apiValue}").performClick().assertIsSelected()
+            composeRule.onNodeWithTag("planned-type-${hidden.apiValue}").assertDoesNotExist()
+            val expanded = composeRule.onNodeWithTag("planned-type-${type.apiValue}").fetchSemanticsNode().boundsInRoot
+            assertEquals(row.width, expanded.width, 1f)
+            val visibleCategory = if (type == PlannedOperationType.Expense) "Тестовая аренда" else "Тестовая зарплата"
+            val hiddenCategory = if (type == PlannedOperationType.Expense) "Тестовая зарплата" else "Тестовая аренда"
+            composeRule.onNodeWithText(visibleCategory).assertIsDisplayed()
+            composeRule.onNodeWithText(hiddenCategory).assertDoesNotExist()
+            screenshot("planned-selected-${type.apiValue}.png")
+            composeRule.onNodeWithTag("planned-type-reset").performClick()
+            composeRule.onNodeWithTag("planned-type-EXPENSE").assertIsDisplayed().assertIsNotSelected()
+            composeRule.onNodeWithTag("planned-type-INCOME").assertIsDisplayed().assertIsNotSelected()
+            val restored = composeRule.onNodeWithTag("planned-type-EXPENSE").fetchSemanticsNode().boundsInRoot
+            assertEquals(initial.width, restored.width, 1f)
+            composeRule.onNodeWithTag("planned-total-EXPENSE", useUnmergedTree = true)
+                .assertTextEquals(formatMoney(TOTALS.expenses, "KZT"))
+            composeRule.onNodeWithTag("planned-total-INCOME", useUnmergedTree = true)
+                .assertTextEquals(formatMoney(TOTALS.incomes, "KZT"))
+        }
+        composeRule.runOnIdle {
+            assertEquals(listOf(
+                PlannedOperationsEvent.TypeSelected(PlannedOperationType.Expense),
+                PlannedOperationsEvent.TypeSelected(null),
+                PlannedOperationsEvent.TypeSelected(PlannedOperationType.Income),
+                PlannedOperationsEvent.TypeSelected(null),
+            ), events)
+        }
+    }
+
+    @Test
+    fun totalsShowLoadingWhileThePeriodIsUnknown() {
+        show(PlannedOperationsUiState(today = TODAY, isLoading = true), mutableListOf())
+        composeRule.onNodeWithTag("planned-totals-loading-EXPENSE", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("planned-totals-loading-INCOME", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("planned-total-EXPENSE", useUnmergedTree = true).assertDoesNotExist()
+    }
+
     private fun show(
         state: PlannedOperationsUiState,
         events: MutableList<PlannedOperationsEvent>,
         actions: MutableList<String> = mutableListOf(),
     ) {
+        var currentState by mutableStateOf(state)
         composeRule.setContent {
             FillinTheme(dynamicColor = false) {
                 FeatureScaffold(R.string.planned_operations_title) {
                     PlannedOperationsScreen(
-                        state = state,
-                        onEvent = events::add,
+                        state = currentState,
+                        onEvent = { event ->
+                            events += event
+                            if (event is PlannedOperationsEvent.TypeSelected) {
+                                currentState = currentState.copy(
+                                    filters = currentState.filters.copy(type = event.type),
+                                    operations = state.operations?.let { plans ->
+                                        plans.copy(items = plans.items.filter { event.type == null || it.type == event.type })
+                                    },
+                                )
+                            }
+                        },
                         onCreateExpense = { actions += "create-expense" },
                         onCreateIncome = { actions += "create-income" },
                         onEditExpense = { actions += "edit-expense" },
@@ -191,3 +273,5 @@ private val INCOME = PlannedIncome(
     currency = "KZT", dueOn = TODAY.plusDays(7), overdue = false, status = PlannedIncomeStatus.Scheduled,
     version = 0, createdAt = CREATED, modifiedAt = CREATED,
 )
+
+private val TOTALS = PlannedOperationTotals(EXPENSE.remainingAmount, INCOME.plannedAmount)

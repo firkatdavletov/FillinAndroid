@@ -2,10 +2,11 @@ package com.firkat.fillin.feature.plannedoperations.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationTotals
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperations
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsException
 import com.firkat.fillin.feature.plannedoperations.domain.usecase.GetPlannedOperations
 import java.time.Clock
@@ -23,6 +24,7 @@ data class PlannedOperationsUiState(
     val today: LocalDate = LocalDate.now(ZoneId.of("Asia/Almaty")),
     val filters: PlannedOperationsFilter = PlannedOperationsFilter.currentMonth(today),
     val operations: PlannedOperations? = null,
+    val periodTotals: PlannedOperationTotals? = operations?.totals,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val error: PlannedOperationsException? = null,
@@ -83,13 +85,16 @@ class PlannedOperationsViewModel(
     }
 
     fun reloadAfterMutation() {
-        _uiState.update { it.copy(operations = null) }
+        _uiState.update { it.copy(operations = null, periodTotals = null) }
         load()
     }
 
     private fun changeFilters(filters: PlannedOperationsFilter) {
         if (_uiState.value.filters == filters) return
-        _uiState.update { it.copy(filters = filters, operations = null) }
+        val periodChanged = _uiState.value.filters.copy(type = null) != filters.copy(type = null)
+        _uiState.update {
+            it.copy(filters = filters, operations = null, periodTotals = it.periodTotals.takeUnless { periodChanged })
+        }
         load()
     }
 
@@ -104,7 +109,7 @@ class PlannedOperationsViewModel(
                 val operations = getPlannedOperations(filters)
                 coroutineContext.ensureActive()
                 _uiState.update {
-                    it.copy(operations = operations, isLoading = false, isRefreshing = false)
+                    it.copy(operations = operations, periodTotals = operations.totals, isLoading = false, isRefreshing = false)
                 }
             } catch (exception: CancellationException) {
                 throw exception
@@ -113,6 +118,10 @@ class PlannedOperationsViewModel(
                 _uiState.update {
                     it.copy(
                         operations = it.operations.takeUnless {
+                            exception == PlannedOperationsException.Unauthorized ||
+                                exception == PlannedOperationsException.Forbidden
+                        },
+                        periodTotals = it.periodTotals.takeUnless {
                             exception == PlannedOperationsException.Unauthorized ||
                                 exception == PlannedOperationsException.Forbidden
                         },
