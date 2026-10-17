@@ -6,6 +6,13 @@ import kotlinx.serialization.Serializable
 data class OperationPageDto(
     val items: List<OperationDto>,
     val nextCursor: Long?,
+    val totals: OperationTotalsDto,
+)
+
+@Serializable
+data class OperationTotalsDto(
+    val expenses: MoneyDto,
+    val incomes: MoneyDto,
 )
 
 @Serializable

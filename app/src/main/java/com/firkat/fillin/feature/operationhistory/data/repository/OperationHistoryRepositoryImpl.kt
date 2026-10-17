@@ -2,10 +2,12 @@ package com.firkat.fillin.feature.operationhistory.data.repository
 
 import com.firkat.fillin.feature.operationhistory.data.remote.OperationHistoryApi
 import com.firkat.fillin.feature.operationhistory.data.remote.dto.OperationDto
+import com.firkat.fillin.feature.operationhistory.data.remote.dto.OperationTotalsDto
 import com.firkat.fillin.feature.operationhistory.data.remote.dto.UpdatePurchaseRequestDto
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPage
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
@@ -38,6 +40,7 @@ class OperationHistoryRepositoryImpl(
             OperationPage(
                 items = response.items.map(OperationDto::toDomain),
                 nextCursor = response.nextCursor,
+                totals = response.totals.toDomain(),
             )
         }
     }
@@ -98,6 +101,16 @@ class OperationHistoryRepositoryImpl(
     }
 
     private data class RequestContext(val authorization: String)
+}
+
+private fun OperationTotalsDto.toDomain(): OperationPeriodTotals {
+    if (expenses.currency != "KZT" || incomes.currency != "KZT") {
+        throw OperationHistoryException.InvalidResponse
+    }
+    return OperationPeriodTotals(
+        expenses = expenses.amount.toBigDecimal(),
+        incomes = incomes.amount.toBigDecimal(),
+    )
 }
 
 private fun <T> Response<T>.requireBody(expectedCode: Int): T {

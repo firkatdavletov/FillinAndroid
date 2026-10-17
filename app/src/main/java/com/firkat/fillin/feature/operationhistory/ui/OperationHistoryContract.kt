@@ -13,8 +13,6 @@ data class OperationHistoryUiState(
     val operations: List<Operation> = emptyList(),
     val filters: OperationHistoryFilter = OperationHistoryFilter.currentMonth(LocalDate.now(ZoneId.of("Asia/Almaty"))),
     val periodTotals: OperationPeriodTotals? = null,
-    val isTotalsLoading: Boolean = false,
-    val totalsError: OperationHistoryError? = null,
     val isPeriodFilterVisible: Boolean = false,
     val isCustomPeriod: Boolean = false,
     val isInitialLoading: Boolean = false,
@@ -63,7 +61,6 @@ enum class OperationHistoryError {
 
 sealed interface OperationHistoryEvent {
     data class TypeSelected(val type: OperationType?) : OperationHistoryEvent
-    data object TotalsRetry : OperationHistoryEvent
     data object PeriodFilterOpened : OperationHistoryEvent
     data object PeriodFilterClosed : OperationHistoryEvent
     data object PeriodFilterReset : OperationHistoryEvent

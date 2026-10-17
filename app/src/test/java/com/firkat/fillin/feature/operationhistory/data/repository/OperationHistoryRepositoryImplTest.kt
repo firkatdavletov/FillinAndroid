@@ -5,6 +5,7 @@ import com.firkat.fillin.feature.operationhistory.data.remote.dto.MoneyDto
 import com.firkat.fillin.feature.operationhistory.data.remote.dto.OperationCategoryDto
 import com.firkat.fillin.feature.operationhistory.data.remote.dto.OperationDto
 import com.firkat.fillin.feature.operationhistory.data.remote.dto.OperationPageDto
+import com.firkat.fillin.feature.operationhistory.data.remote.dto.OperationTotalsDto
 import com.firkat.fillin.feature.operationhistory.data.remote.dto.UpdatePurchaseRequestDto
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
@@ -47,6 +48,7 @@ class OperationHistoryRepositoryImplTest {
                     ),
                 ),
                 nextCursor = 42,
+                totals = TEST_TOTALS,
             ),
         )
         val repository = OperationHistoryRepositoryImpl(
@@ -60,6 +62,8 @@ class OperationHistoryRepositoryImplTest {
         assertEquals(20, api.limit)
         assertEquals(12345L, api.cursor)
         assertEquals(42L, page.nextCursor)
+        assertEquals(BigDecimal("50000.12"), page.totals.expenses)
+        assertEquals(BigDecimal("1000000.34"), page.totals.incomes)
         assertEquals(BigDecimal("15000.10"), page.items.single().amount)
         assertEquals(BigDecimal("30.00"), page.items.single().originalAmount)
         assertEquals("USD", page.items.single().originalCurrency)
@@ -70,7 +74,7 @@ class OperationHistoryRepositoryImplTest {
 
     @Test
     fun `repository rejects missing api token before network request`() {
-        val api = RecordingApi(response = OperationPageDto(emptyList(), null))
+        val api = RecordingApi(response = OperationPageDto(emptyList(), null, TEST_TOTALS))
         val repository = OperationHistoryRepositoryImpl(api = api, apiToken = "")
 
         val exception = assertThrows(OperationHistoryException.MissingApiToken::class.java) {
@@ -83,7 +87,7 @@ class OperationHistoryRepositoryImplTest {
 
     @Test
     fun `updates original amount with current optimistic version`() = runBlocking {
-        val api = RecordingApi(response = OperationPageDto(listOf(purchaseDto()), null))
+        val api = RecordingApi(response = OperationPageDto(listOf(purchaseDto()), null, TEST_TOTALS))
         val repository = OperationHistoryRepositoryImpl(api = api, apiToken = "owner-token")
 
         val result = repository.updatePurchase(
@@ -102,7 +106,7 @@ class OperationHistoryRepositoryImplTest {
 
     @Test
     fun `refunds full outstanding amount with current optimistic version`() = runBlocking {
-        val api = RecordingApi(response = OperationPageDto(emptyList(), null))
+        val api = RecordingApi(response = OperationPageDto(emptyList(), null, TEST_TOTALS))
         val repository = OperationHistoryRepositoryImpl(api = api, apiToken = "owner-token")
 
         repository.refundPurchase(id = "purchase-id", version = 6)
@@ -184,3 +188,5 @@ private fun purchaseDto(
 )
 
 private val TEST_FILTER = OperationHistoryFilter.currentMonth(LocalDate.of(2026, 10, 17))
+
+private val TEST_TOTALS = OperationTotalsDto(MoneyDto("50000.12", "KZT"), MoneyDto("1000000.34", "KZT"))

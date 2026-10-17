@@ -32,4 +32,5 @@ enum class OperationStatus {
 data class OperationPage(
     val items: List<Operation>,
     val nextCursor: Long?,
+    val totals: OperationPeriodTotals = OperationPeriodTotals(),
 )

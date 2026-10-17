@@ -3,6 +3,7 @@ package com.firkat.fillin.feature.operationhistory.ui
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPage
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
@@ -44,29 +45,31 @@ class OperationHistoryRefreshTest {
 
     @Test
     fun `refresh replaces all loaded pages and uses the new first-page cursor`() = runTest {
-        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10) }
+        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10, BEFORE_TOTALS) }
         val viewModel = viewModel(repository)
         runCurrent()
-        repository.load = { OperationPage(listOf(purchase("second")), null) }
+        repository.load = { OperationPage(listOf(purchase("second")), null, BEFORE_TOTALS) }
         viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
         runCurrent()
 
-        repository.load = { OperationPage(listOf(purchase("new")), 20) }
+        repository.load = { OperationPage(listOf(purchase("new")), 20, AFTER_TOTALS) }
         viewModel.onEvent(OperationHistoryEvent.Refresh)
         runCurrent()
         assertEquals(listOf("new"), viewModel.uiState.value.operations.map { it.id })
+        assertEquals(AFTER_TOTALS, viewModel.uiState.value.periodTotals)
         assertTrue(viewModel.uiState.value.canLoadMore)
 
-        repository.load = { OperationPage(listOf(purchase("new-second")), null) }
+        repository.load = { OperationPage(listOf(purchase("new-second")), null, AFTER_TOTALS) }
         viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
         runCurrent()
         assertEquals(listOf(null, 10L, null, 20L), repository.cursors)
         assertEquals(listOf("new", "new-second"), viewModel.uiState.value.operations.map { it.id })
+        assertEquals(AFTER_TOTALS, viewModel.uiState.value.periodTotals)
     }
 
     @Test
     fun `refresh keeps visible data and ignores duplicate refresh and pagination events`() = runTest {
-        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10) }
+        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10, BEFORE_TOTALS) }
         val viewModel = viewModel(repository)
         runCurrent()
         val response = CompletableDeferred<OperationPage>()
@@ -81,19 +84,20 @@ class OperationHistoryRefreshTest {
         assertFalse(viewModel.uiState.value.isInitialLoading)
         assertFalse(viewModel.uiState.value.isLoadingNextPage)
         assertEquals(listOf("old"), viewModel.uiState.value.operations.map { it.id })
+        assertEquals(BEFORE_TOTALS, viewModel.uiState.value.periodTotals)
         assertEquals(listOf(null, null), repository.cursors)
 
         viewModel.onEvent(OperationHistoryEvent.EditRequested("old"))
         assertNull(viewModel.uiState.value.editor)
 
-        response.complete(OperationPage(listOf(purchase("new")), null))
+        response.complete(OperationPage(listOf(purchase("new")), null, AFTER_TOTALS))
         runCurrent()
         assertFalse(viewModel.uiState.value.isRefreshing)
     }
 
     @Test
     fun `failed refresh preserves data and retry requests the first page`() = runTest {
-        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10) }
+        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10, BEFORE_TOTALS) }
         val viewModel = viewModel(repository)
         runCurrent()
         repository.load = { throw OperationHistoryException.Network }
@@ -104,8 +108,9 @@ class OperationHistoryRefreshTest {
         assertFalse(viewModel.uiState.value.isRefreshing)
         assertEquals(OperationHistoryError.Network, viewModel.uiState.value.error)
         assertEquals(listOf("old"), viewModel.uiState.value.operations.map { it.id })
+        assertEquals(BEFORE_TOTALS, viewModel.uiState.value.periodTotals)
 
-        repository.load = { OperationPage(listOf(purchase("new")), null) }
+        repository.load = { OperationPage(listOf(purchase("new")), null, AFTER_TOTALS) }
         viewModel.onEvent(OperationHistoryEvent.Retry)
         assertTrue(viewModel.uiState.value.isRefreshing)
         runCurrent()
@@ -113,6 +118,7 @@ class OperationHistoryRefreshTest {
         assertNull(viewModel.uiState.value.error)
         assertFalse(viewModel.uiState.value.isRefreshing)
         assertEquals(listOf("new"), viewModel.uiState.value.operations.map { it.id })
+        assertEquals(AFTER_TOTALS, viewModel.uiState.value.periodTotals)
     }
 
     @Test
@@ -122,18 +128,19 @@ class OperationHistoryRefreshTest {
         runCurrent()
         assertFalse(viewModel.uiState.value.canLoadMore)
 
-        repository.load = { OperationPage(listOf(purchase("new")), null) }
+        repository.load = { OperationPage(listOf(purchase("new")), null, AFTER_TOTALS) }
         viewModel.onEvent(OperationHistoryEvent.Refresh)
         runCurrent()
 
         assertEquals(listOf(null, null), repository.cursors)
         assertEquals(listOf("new"), viewModel.uiState.value.operations.map { it.id })
+        assertEquals(AFTER_TOTALS, viewModel.uiState.value.periodTotals)
         assertFalse(viewModel.uiState.value.isRefreshing)
     }
 
     @Test
     fun `refresh supersedes pagination even when cancelled request returns late`() = runTest {
-        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10) }
+        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10, BEFORE_TOTALS) }
         val viewModel = viewModel(repository)
         runCurrent()
         val stalePage = CompletableDeferred<OperationPage>()
@@ -148,13 +155,14 @@ class OperationHistoryRefreshTest {
         viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
         runCurrent()
 
-        repository.load = { OperationPage(listOf(purchase("new")), 20) }
+        repository.load = { OperationPage(listOf(purchase("new")), 20, AFTER_TOTALS) }
         viewModel.onEvent(OperationHistoryEvent.Refresh)
         runCurrent()
         stalePage.complete(OperationPage(listOf(purchase("stale")), 99))
         runCurrent()
 
         assertEquals(listOf("new"), viewModel.uiState.value.operations.map { it.id })
+        assertEquals(AFTER_TOTALS, viewModel.uiState.value.periodTotals)
         assertFalse(viewModel.uiState.value.isRefreshing)
         assertNull(viewModel.uiState.value.error)
         repository.load = { OperationPage(emptyList(), null) }
@@ -183,14 +191,14 @@ class OperationHistoryRefreshTest {
 
     @Test
     fun `pagination retry retains existing items and retries the failed cursor`() = runTest {
-        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10) }
+        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10, BEFORE_TOTALS) }
         val viewModel = viewModel(repository)
         runCurrent()
         repository.load = { throw OperationHistoryException.Network }
         viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
         runCurrent()
 
-        repository.load = { OperationPage(listOf(purchase("second")), null) }
+        repository.load = { OperationPage(listOf(purchase("second")), null, BEFORE_TOTALS) }
         viewModel.onEvent(OperationHistoryEvent.Retry)
         runCurrent()
 
@@ -203,7 +211,6 @@ class OperationHistoryRefreshTest {
         getOperationHistoryPage = GetOperationHistoryPage(repository),
         updatePurchaseAmount = UpdatePurchaseAmount(repository),
         refundPurchase = RefundPurchase(repository),
-        getCategories = com.firkat.fillin.feature.categories.domain.usecase.GetCategories(HistoryCategoriesRepository()),
     )
 
     private fun purchase(id: String) = Operation(
@@ -236,3 +243,6 @@ private class RefreshRepository(
     override suspend fun refundPurchase(id: String, version: Long) =
         error("Unexpected refund")
 }
+
+private val BEFORE_TOTALS = OperationPeriodTotals(BigDecimal("15000.00"), BigDecimal("100000.00"))
+private val AFTER_TOTALS = OperationPeriodTotals(BigDecimal("20000.00"), BigDecimal("200000.00"))

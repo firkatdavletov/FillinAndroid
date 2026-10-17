@@ -7,7 +7,6 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
 import com.firkat.fillin.feature.operationhistory.domain.usecase.GetOperationHistoryPage
-import com.firkat.fillin.feature.operationhistory.domain.usecase.GetOperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
 import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
 import java.time.Clock
@@ -24,7 +23,6 @@ import kotlinx.coroutines.launch
 
 class OperationHistoryViewModel(
     private val getOperationHistoryPage: GetOperationHistoryPage,
-    private val getOperationPeriodTotals: GetOperationPeriodTotals,
     private val updatePurchaseAmount: UpdatePurchaseAmount,
     private val refundPurchase: RefundPurchase,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
@@ -36,18 +34,15 @@ class OperationHistoryViewModel(
 
     private var nextCursor: Long? = null
     private var loadJob: Job? = null
-    private var totalsJob: Job? = null
     private var failedLoadWasRefresh = false
 
     init {
         loadNextPage()
-        loadTotals()
     }
 
     fun onEvent(event: OperationHistoryEvent) {
         when (event) {
             is OperationHistoryEvent.TypeSelected -> selectType(event.type)
-            OperationHistoryEvent.TotalsRetry -> loadTotals()
             OperationHistoryEvent.PeriodFilterOpened -> _uiState.update { it.copy(isPeriodFilterVisible = true) }
             OperationHistoryEvent.PeriodFilterClosed -> _uiState.update { it.copy(isPeriodFilterVisible = false) }
             OperationHistoryEvent.PeriodFilterReset -> {
@@ -104,38 +99,7 @@ class OperationHistoryViewModel(
         val previous = _uiState.value.filters
         val periodChanged = previous.dateFrom != filters.dateFrom || previous.dateTo != filters.dateTo
         _uiState.update { it.copy(filters = filters) }
-        reload(refreshTotals = periodChanged)
-    }
-
-    private fun loadTotals(keepPrevious: Boolean = false) {
-        totalsJob?.cancel()
-        val filters = _uiState.value.filters
-        _uiState.update {
-            it.copy(
-                periodTotals = it.periodTotals.takeIf { keepPrevious },
-                isTotalsLoading = true,
-                totalsError = null,
-            )
-        }
-        totalsJob = viewModelScope.launch {
-            try {
-                val totals = getOperationPeriodTotals(filters.dateFrom, filters.dateTo)
-                coroutineContext.ensureActive()
-                _uiState.update { it.copy(periodTotals = totals, isTotalsLoading = false) }
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: OperationHistoryException) {
-                coroutineContext.ensureActive()
-                _uiState.update {
-                    it.copy(isTotalsLoading = false, totalsError = exception.toUiError())
-                }
-            } catch (exception: Exception) {
-                coroutineContext.ensureActive()
-                _uiState.update {
-                    it.copy(isTotalsLoading = false, totalsError = OperationHistoryError.Unknown)
-                }
-            }
-        }
+        reload(clearTotals = periodChanged)
     }
 
     private fun closeEditor() {
@@ -154,16 +118,8 @@ class OperationHistoryViewModel(
 
         viewModelScope.launch {
             try {
-                val updated = updatePurchaseAmount(editor.original, amount)
-                _uiState.update { state ->
-                    state.copy(
-                        operations = state.operations.map { purchase ->
-                            if (purchase.id == updated.id) updated else purchase
-                        },
-                        editor = null,
-                    )
-                }
-                loadTotals()
+                updatePurchaseAmount(editor.original, amount)
+                reload()
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: OperationHistoryException) {
@@ -213,13 +169,14 @@ class OperationHistoryViewModel(
         _uiState.update { state -> state.copy(editor = state.editor?.transform()) }
     }
 
-    private fun reload(refreshTotals: Boolean = true) {
+    private fun reload(clearTotals: Boolean = true) {
         loadJob?.cancel()
         failedLoadWasRefresh = false
         nextCursor = null
         _uiState.update {
             it.copy(
                 operations = emptyList(),
+                periodTotals = it.periodTotals.takeUnless { clearTotals },
                 isInitialLoading = false,
                 isLoadingNextPage = false,
                 isRefreshing = false,
@@ -229,7 +186,6 @@ class OperationHistoryViewModel(
             )
         }
         loadNextPage()
-        if (refreshTotals) loadTotals()
     }
 
     private fun loadNextPage(isRefreshing: Boolean = false) {
@@ -244,10 +200,7 @@ class OperationHistoryViewModel(
         }
 
         // Refresh supersedes pagination, keeping the current data and cursor until it succeeds.
-        if (isRefreshing) {
-            loadJob?.cancel()
-            loadTotals(keepPrevious = true)
-        }
+        if (isRefreshing) loadJob?.cancel()
         val requestedCursor = if (isRefreshing) null else nextCursor
         val requestedFilters = currentState.filters
         val isInitialLoad = !isRefreshing && currentState.operations.isEmpty()
@@ -271,6 +224,7 @@ class OperationHistoryViewModel(
                     state.copy(
                         operations = (if (isRefreshing) page.items else state.operations + page.items)
                             .distinctBy { it.id },
+                        periodTotals = page.totals,
                         isInitialLoading = false,
                         isLoadingNextPage = false,
                         isRefreshing = false,

@@ -3,8 +3,11 @@ package com.firkat.fillin.feature.operationhistory.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -55,7 +58,7 @@ internal fun OperationHistoryFilters(
             modifier = Modifier.testTag("history-period-filter"),
         )
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).testTag("history-type-totals"),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             OperationType.entries.filter { state.filters.type == null || state.filters.type == it }.forEach { type ->
@@ -86,6 +89,7 @@ private fun OperationTotalBlock(
     }
     Surface(
         modifier = modifier
+            .fillMaxHeight()
             .testTag("history-type-${type.apiValue}")
             .clip(shape)
             .selectable(
@@ -94,13 +98,13 @@ private fun OperationTotalBlock(
                 onClick = { onEvent(OperationHistoryEvent.TypeSelected(type)) },
             ),
         shape = shape,
-        color = if (type == OperationType.Expense) colors.secondaryContainer else colors.tertiaryContainer,
-        contentColor = if (type == OperationType.Expense) colors.onSecondaryContainer else colors.onTertiaryContainer,
+        color = colors.secondaryContainer,
+        contentColor = colors.onSecondaryContainer,
         border = if (selected) BorderStroke(1.dp, colors.primary) else null,
     ) {
         Row(
             modifier = Modifier.heightIn(min = 88.dp).padding(start = 12.dp, end = if (selected) 0.dp else 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             Column(
                 modifier = Modifier.weight(1f).padding(vertical = 12.dp),
@@ -114,20 +118,14 @@ private fun OperationTotalBlock(
                     style = MaterialTheme.typography.labelLarge,
                 )
                 when {
-                    state.totalsError != null -> TextButton(
-                        onClick = { onEvent(OperationHistoryEvent.TotalsRetry) },
-                        modifier = Modifier.testTag("history-totals-retry-${type.apiValue}"),
-                    ) {
-                        Text(stringResource(R.string.operation_history_retry))
-                    }
-                    state.isTotalsLoading && amount == null -> CircularProgressIndicator(
+                    state.isInitialLoading && amount == null -> CircularProgressIndicator(
                         modifier = Modifier.size(24.dp).testTag("history-totals-loading-${type.apiValue}"),
                         strokeWidth = 2.dp,
                     )
                     else -> Text(
                         text = amount?.let { formatMoney(it, "KZT") } ?: "—",
                         modifier = Modifier.testTag("history-total-${type.apiValue}"),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = if (selected) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -135,7 +133,7 @@ private fun OperationTotalBlock(
             if (selected) {
                 IconButton(
                     onClick = { onEvent(OperationHistoryEvent.TypeSelected(null)) },
-                    modifier = Modifier.testTag("history-type-reset"),
+                    modifier = Modifier.align(Alignment.CenterVertically).testTag("history-type-reset"),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_close),

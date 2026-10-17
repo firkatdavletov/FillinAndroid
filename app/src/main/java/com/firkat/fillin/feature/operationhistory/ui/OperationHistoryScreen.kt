@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.ui.component.FeatureScaffold
@@ -516,6 +517,7 @@ private fun OperationHistoryPreview() {
     FillinTheme(dynamicColor = false) {
         OperationHistoryScreen(
             state = OperationHistoryUiState(
+                periodTotals = OperationPeriodTotals(expenses = BigDecimal("15000.00")),
                 operations = listOf(
                     Operation(
                         id = "preview",

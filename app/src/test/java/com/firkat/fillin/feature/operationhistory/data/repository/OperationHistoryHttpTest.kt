@@ -4,6 +4,7 @@ import com.firkat.fillin.feature.operationhistory.data.remote.OperationHistoryAp
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
+import java.math.BigDecimal
 import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -40,12 +41,15 @@ class OperationHistoryHttpTest {
         assertEquals("2026-10-17", request.url.queryParameter("dateTo"))
         assertEquals(OperationType.Income, page.items.single().type)
         assertEquals("salary-id", page.items.single().categoryId)
+        assertEquals(BigDecimal("50000.12"), page.totals.expenses)
+        assertEquals(BigDecimal("1000000.34"), page.totals.incomes)
+        assertEquals(1, requests.size)
     }
 
     @Test
     fun `all types and all categories omit optional query filters`() = runBlocking {
         val requests = mutableListOf<Request>()
-        repository(requests, """{"items":[],"nextCursor":null}""")
+        repository(requests, emptyResponse())
             .getOperations(20, null, FILTER.copy(type = null, categoryId = null))
 
         val request = requests.single()
@@ -60,6 +64,31 @@ class OperationHistoryHttpTest {
         val repository = repository(mutableListOf(), response("EXPENSE_REFUND"))
         assertThrows(OperationHistoryException.InvalidResponse::class.java) {
             runBlocking { repository.getOperations(20, null, FILTER) }
+        }
+    }
+
+    @Test
+    fun `empty filtered page still carries signed period totals`() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val page = repository(requests, emptyResponse(expenses = "-2.15"))
+            .getOperations(20, 123, FILTER.copy(type = OperationType.Income))
+        assertEquals(emptyList<Any>(), page.items)
+        assertEquals(BigDecimal("-2.15"), page.totals.expenses)
+        assertEquals(BigDecimal("0.00"), page.totals.incomes)
+        assertEquals(1, requests.size)
+    }
+
+    @Test
+    fun `missing or malformed totals are not presented as zero`() {
+        val bodies = listOf(
+            """{"items":[],"nextCursor":null}""",
+            emptyResponse(expenses = "invalid"),
+            emptyResponse().replace("KZT", "RUB"),
+        )
+        bodies.forEach { body ->
+            assertThrows(OperationHistoryException.InvalidResponse::class.java) {
+                runBlocking { repository(mutableListOf(), body).getOperations(20, null, FILTER) }
+            }
         }
     }
 
@@ -98,6 +127,21 @@ private fun response(type: String) = """
         "status": "POSTED",
         "version": 0
       }],
-      "nextCursor": null
+      "nextCursor": null,
+      "totals": {
+        "expenses": {"amount": "50000.12", "currency": "KZT"},
+        "incomes": {"amount": "1000000.34", "currency": "KZT"}
+      }
+    }
+""".trimIndent()
+
+private fun emptyResponse(expenses: String = "0.00") = """
+    {
+      "items": [],
+      "nextCursor": null,
+      "totals": {
+        "expenses": {"amount": "$expenses", "currency": "KZT"},
+        "incomes": {"amount": "0.00", "currency": "KZT"}
+      }
     }
 """.trimIndent()

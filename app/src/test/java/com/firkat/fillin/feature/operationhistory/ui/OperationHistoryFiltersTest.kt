@@ -1,13 +1,9 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
-import com.firkat.fillin.feature.categories.domain.model.Category
-import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
-import com.firkat.fillin.feature.categories.domain.model.CategoryKind
-import com.firkat.fillin.feature.categories.domain.repository.CategoriesException
-import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPage
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
@@ -51,13 +47,13 @@ class OperationHistoryFiltersTest {
     }
 
     @Test
-    fun `defaults to expenses in all categories from the first day of the current month in Almaty`() = runTest {
+    fun `defaults to all types and uses server totals without loading the rest of the period`() = runTest {
         val repository = FilterHistoryRepository()
         val viewModel = viewModel(repository)
         runCurrent()
 
         val expected = OperationHistoryFilter(
-            type = OperationType.Expense,
+            type = null,
             categoryId = null,
             dateFrom = LocalDate.of(2026, 10, 1),
             dateTo = LocalDate.of(2026, 10, 18),
@@ -65,6 +61,10 @@ class OperationHistoryFiltersTest {
         assertEquals(expected, viewModel.uiState.value.filters)
         assertFalse(viewModel.uiState.value.isCustomPeriod)
         assertEquals(listOf(HistoryRequest(null, expected)), repository.requests)
+        assertEquals(listOf(20), repository.limits)
+        assertEquals(TOTALS, viewModel.uiState.value.periodTotals)
+        assertEquals(1, viewModel.uiState.value.operations.size)
+        assertTrue(viewModel.uiState.value.canLoadMore)
     }
 
     @Test
@@ -74,10 +74,6 @@ class OperationHistoryFiltersTest {
         runCurrent()
         val defaultPeriod = viewModel.uiState.value.filters
         viewModel.onEvent(OperationHistoryEvent.TypeSelected(OperationType.Income))
-        runCurrent()
-        viewModel.onEvent(OperationHistoryEvent.CategoryFilterOpened)
-        runCurrent()
-        viewModel.onEvent(OperationHistoryEvent.CategorySelected("salary"))
         runCurrent()
         viewModel.onEvent(OperationHistoryEvent.PeriodFilterOpened)
         viewModel.onEvent(OperationHistoryEvent.PeriodSelected(LocalDate.of(2026, 9, 16), TO))
@@ -90,7 +86,7 @@ class OperationHistoryFiltersTest {
 
         viewModel.onEvent(OperationHistoryEvent.PeriodFilterReset)
         runCurrent()
-        val expected = defaultPeriod.copy(type = OperationType.Income, categoryId = "salary")
+        val expected = defaultPeriod.copy(type = OperationType.Income)
         assertEquals(expected, viewModel.uiState.value.filters)
         assertFalse(viewModel.uiState.value.isCustomPeriod)
         assertFalse(viewModel.uiState.value.isPeriodFilterVisible)
@@ -117,19 +113,15 @@ class OperationHistoryFiltersTest {
     }
 
     @Test
-    fun `uses the same combined filters for pagination refresh and all categories`() = runTest {
+    fun `type selection pagination refresh and clearing type preserve the chosen period`() = runTest {
         val repository = FilterHistoryRepository()
         val viewModel = viewModel(repository)
         runCurrent()
         viewModel.onEvent(OperationHistoryEvent.TypeSelected(OperationType.Income))
         runCurrent()
-        viewModel.onEvent(OperationHistoryEvent.CategoryFilterOpened)
-        runCurrent()
-        viewModel.onEvent(OperationHistoryEvent.CategorySelected("salary"))
-        runCurrent()
         viewModel.onEvent(OperationHistoryEvent.PeriodSelected(FROM, TO))
         runCurrent()
-        val expected = OperationHistoryFilter(OperationType.Income, "salary", FROM, TO)
+        val expected = OperationHistoryFilter(OperationType.Income, null, FROM, TO)
         assertEquals(HistoryRequest(null, expected), repository.requests.last())
 
         viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
@@ -138,9 +130,10 @@ class OperationHistoryFiltersTest {
         viewModel.onEvent(OperationHistoryEvent.Refresh)
         runCurrent()
         assertEquals(HistoryRequest(null, expected), repository.requests.last())
-        viewModel.onEvent(OperationHistoryEvent.CategorySelected(null))
+        viewModel.onEvent(OperationHistoryEvent.TypeSelected(null))
         runCurrent()
-        assertEquals(HistoryRequest(null, expected.copy(categoryId = null)), repository.requests.last())
+        assertEquals(HistoryRequest(null, expected.copy(type = null)), repository.requests.last())
+        assertEquals(TOTALS, viewModel.uiState.value.periodTotals)
     }
 
     @Test
@@ -159,12 +152,13 @@ class OperationHistoryFiltersTest {
         viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
         runCurrent()
 
-        repository.load = { OperationPage(listOf(operation("income", OperationType.Income)), 20) }
+        repository.load = { OperationPage(listOf(operation("income", OperationType.Income)), 20, TOTALS) }
         viewModel.onEvent(OperationHistoryEvent.TypeSelected(OperationType.Income))
         runCurrent()
-        stale.complete(OperationPage(listOf(operation("stale")), 99))
+        stale.complete(OperationPage(listOf(operation("stale")), 99, OperationPeriodTotals()))
         runCurrent()
         assertEquals(listOf("income"), viewModel.uiState.value.operations.map { it.id })
+        assertEquals(TOTALS, viewModel.uiState.value.periodTotals)
         assertNull(viewModel.uiState.value.error)
         viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
         runCurrent()
@@ -173,46 +167,78 @@ class OperationHistoryFiltersTest {
     }
 
     @Test
-    fun `switching type resets an incompatible category and preserves a compatible one`() = runTest {
-        val viewModel = viewModel(FilterHistoryRepository())
+    fun `type changes keep period totals while a new page is loading`() = runTest {
+        val repository = FilterHistoryRepository()
+        val viewModel = viewModel(repository)
         runCurrent()
-        viewModel.onEvent(OperationHistoryEvent.CategoryFilterOpened)
+        val response = CompletableDeferred<OperationPage>()
+        repository.load = { response.await() }
+
+        viewModel.onEvent(OperationHistoryEvent.TypeSelected(OperationType.Expense))
         runCurrent()
-        assertEquals(listOf("food"), viewModel.uiState.value.availableCategories.map { it.id })
-        viewModel.onEvent(OperationHistoryEvent.CategorySelected("food"))
+        assertTrue(viewModel.uiState.value.isInitialLoading)
+        assertEquals(TOTALS, viewModel.uiState.value.periodTotals)
+        response.complete(OperationPage(listOf(operation("expense")), null, TOTALS))
         runCurrent()
-        viewModel.onEvent(OperationHistoryEvent.TypeSelected(null))
+        val requestCount = repository.requests.size
+        viewModel.onEvent(OperationHistoryEvent.TypeSelected(OperationType.Expense))
         runCurrent()
-        assertEquals("food", viewModel.uiState.value.filters.categoryId)
-        assertEquals(2, viewModel.uiState.value.availableCategories.size)
-        viewModel.onEvent(OperationHistoryEvent.TypeSelected(OperationType.Income))
-        runCurrent()
-        assertNull(viewModel.uiState.value.filters.categoryId)
-        assertEquals(listOf("salary"), viewModel.uiState.value.availableCategories.map { it.id })
-        viewModel.onEvent(OperationHistoryEvent.CategorySelected("food"))
-        runCurrent()
-        assertNull(viewModel.uiState.value.filters.categoryId)
+        assertEquals(requestCount, repository.requests.size)
     }
 
     @Test
-    fun `category loading failure can be retried without losing history`() = runTest {
+    fun `a new period clears old totals and a late response cannot restore them`() = runTest {
         val repository = FilterHistoryRepository()
-        val categories = HistoryCategoriesRepository { throw CategoriesException.Network }
-        val viewModel = viewModel(repository, categories)
+        val viewModel = viewModel(repository)
         runCurrent()
-        viewModel.onEvent(OperationHistoryEvent.CategoryFilterOpened)
+        val stale = CompletableDeferred<OperationPage>()
+        repository.load = {
+            try {
+                stale.await()
+            } catch (exception: CancellationException) {
+                withContext(NonCancellable) { stale.await() }
+            }
+        }
+        viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
         runCurrent()
-        assertEquals(OperationHistoryError.Network, viewModel.uiState.value.categoriesError)
-        assertFalse(viewModel.uiState.value.isCategoriesLoading)
-        assertTrue(viewModel.uiState.value.isCategoryFilterVisible)
+        val response = CompletableDeferred<OperationPage>()
+        repository.load = { response.await() }
+        viewModel.onEvent(OperationHistoryEvent.PeriodSelected(FROM, FROM))
+        runCurrent()
+        assertNull(viewModel.uiState.value.periodTotals)
+        assertTrue(viewModel.uiState.value.isInitialLoading)
+        stale.complete(OperationPage(listOf(operation("stale")), null, TOTALS))
+        runCurrent()
+        assertNull(viewModel.uiState.value.periodTotals)
+        response.complete(OperationPage(emptyList(), null, OperationPeriodTotals()))
+        runCurrent()
+        assertEquals(OperationPeriodTotals(), viewModel.uiState.value.periodTotals)
+        assertTrue(viewModel.uiState.value.operations.isEmpty())
+    }
 
-        categories.load = { CATEGORIES }
-        viewModel.onEvent(OperationHistoryEvent.CategoriesRetry)
+    @Test
+    fun `editing and refunding reload the list together with server totals`() = runTest {
+        val repository = FilterHistoryRepository()
+        val viewModel = viewModel(repository)
         runCurrent()
-        assertNull(viewModel.uiState.value.categoriesError)
-        assertEquals(CATEGORIES, viewModel.uiState.value.categories)
-        assertEquals(listOf("expense"), viewModel.uiState.value.operations.map { it.id })
-        assertEquals(1, repository.requests.size)
+        val edited = operation("expense").copy(amount = BigDecimal("200.00"), originalAmount = BigDecimal("200.00"))
+        val afterEdit = OperationPeriodTotals(BigDecimal("50100.12"), TOTALS.incomes)
+        repository.load = { OperationPage(listOf(edited), null, afterEdit) }
+        viewModel.onEvent(OperationHistoryEvent.EditRequested("expense"))
+        viewModel.onEvent(OperationHistoryEvent.AmountChanged("200.00"))
+        viewModel.onEvent(OperationHistoryEvent.SaveRequested)
+        runCurrent()
+        assertNull(viewModel.uiState.value.editor)
+        assertEquals(edited, viewModel.uiState.value.operations.single())
+        assertEquals(afterEdit, viewModel.uiState.value.periodTotals)
+
+        repository.load = { OperationPage(listOf(edited), null, TOTALS) }
+        viewModel.onEvent(OperationHistoryEvent.EditRequested("expense"))
+        viewModel.onEvent(OperationHistoryEvent.RefundRequested)
+        viewModel.onEvent(OperationHistoryEvent.RefundConfirmed)
+        runCurrent()
+        assertEquals(TOTALS, viewModel.uiState.value.periodTotals)
+        assertEquals(listOf<Long?>(null, null, null), repository.requests.map { it.cursor })
     }
 
     @Test
@@ -254,14 +280,10 @@ class OperationHistoryFiltersTest {
         assertEquals(date, pickerMillisToDate(date.toPickerMillis()))
     }
 
-    private fun viewModel(
-        repository: OperationHistoryRepository,
-        categories: HistoryCategoriesRepository = HistoryCategoriesRepository { CATEGORIES },
-    ) = OperationHistoryViewModel(
+    private fun viewModel(repository: OperationHistoryRepository) = OperationHistoryViewModel(
         getOperationHistoryPage = GetOperationHistoryPage(repository),
         updatePurchaseAmount = UpdatePurchaseAmount(repository),
         refundPurchase = RefundPurchase(repository),
-        getCategories = GetCategories(categories),
         clock = Clock.fixed(Instant.parse("2026-10-17T19:30:00Z"), ZoneId.of("Asia/Almaty")),
     )
 }
@@ -269,16 +291,18 @@ class OperationHistoryFiltersTest {
 private data class HistoryRequest(val cursor: Long?, val filter: OperationHistoryFilter)
 
 private class FilterHistoryRepository(
-    var load: suspend (Long?) -> OperationPage = { OperationPage(listOf(operation("expense")), 10) },
+    var load: suspend (Long?) -> OperationPage = { OperationPage(listOf(operation("expense")), 10, TOTALS) },
 ) : OperationHistoryRepository {
     val requests = mutableListOf<HistoryRequest>()
+    val limits = mutableListOf<Int>()
     override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage {
         requests += HistoryRequest(cursor, filter)
+        limits += limit
         return load(cursor)
     }
     override suspend fun updatePurchase(id: String, version: Long, amount: BigDecimal): Operation =
-        error("Unexpected mutation")
-    override suspend fun refundPurchase(id: String, version: Long) = error("Unexpected mutation")
+        operation(id).copy(amount = amount, originalAmount = amount, version = version + 1)
+    override suspend fun refundPurchase(id: String, version: Long) = Unit
 }
 
 private fun operation(id: String, type: OperationType = OperationType.Expense) = Operation(
@@ -297,7 +321,4 @@ private fun operation(id: String, type: OperationType = OperationType.Expense) =
 
 private val FROM = LocalDate.of(2026, 10, 1)
 private val TO = LocalDate.of(2026, 10, 17)
-private val CATEGORIES = listOf(
-    Category("food", "Продукты", CategoryKind.Expense, CategoryIcon("FOOD", "🍔")),
-    Category("salary", "Зарплата", CategoryKind.Income, CategoryIcon("INCOME", "💰")),
-)
+private val TOTALS = OperationPeriodTotals(BigDecimal("50000.12"), BigDecimal("1000000.34"))
