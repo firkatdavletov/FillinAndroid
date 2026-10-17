@@ -28,8 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
-import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesRoute
-import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesRoute
+import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
 import com.firkat.fillin.ui.theme.FillinTheme
 
@@ -93,8 +92,7 @@ fun FillinApp() {
                     },
                 )
                 AppDestination.History -> OperationHistoryRoute()
-                AppDestination.Planned -> PlannedExpensesRoute()
-                AppDestination.Incomes -> PlannedIncomesRoute()
+                AppDestination.Planned -> PlannedOperationsRoute()
                 AppDestination.Categories -> CategoriesRoute()
             }
         }
@@ -116,10 +114,6 @@ private enum class AppDestination(
     Planned(
         labelResource = R.string.navigation_planned,
         iconResource = R.drawable.ic_calendar,
-    ),
-    Incomes(
-        labelResource = R.string.navigation_planned_incomes,
-        iconResource = R.drawable.ic_income,
     ),
     Categories(
         labelResource = R.string.navigation_categories,

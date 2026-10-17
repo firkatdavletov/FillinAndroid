@@ -31,6 +31,11 @@ import com.firkat.fillin.feature.plannedexpenses.domain.usecase.DeletePlannedExp
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.GetPlannedExpenses
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.UpdatePlannedExpenseRule
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesViewModel
+import com.firkat.fillin.feature.plannedoperations.data.remote.PlannedOperationsApi
+import com.firkat.fillin.feature.plannedoperations.data.repository.PlannedOperationsRepositoryImpl
+import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsRepository
+import com.firkat.fillin.feature.plannedoperations.domain.usecase.GetPlannedOperations
+import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsViewModel
 import com.firkat.fillin.feature.operationhistory.data.remote.OperationHistoryApi
 import com.firkat.fillin.feature.operationhistory.data.repository.OperationHistoryRepositoryImpl
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
@@ -63,6 +68,7 @@ val appModule = module {
     single<OperationHistoryApi> { get<Retrofit>().create(OperationHistoryApi::class.java) }
     single<PlannedExpensesApi> { get<Retrofit>().create(PlannedExpensesApi::class.java) }
     single<PlannedIncomesApi> { get<Retrofit>().create(PlannedIncomesApi::class.java) }
+    single<PlannedOperationsApi> { get<Retrofit>().create(PlannedOperationsApi::class.java) }
     single<CategoriesApi> { get<Retrofit>().create(CategoriesApi::class.java) }
     single<DashboardApi> { get<Retrofit>().create(DashboardApi::class.java) }
     single<DashboardRepository> {
@@ -101,7 +107,7 @@ val appModule = module {
     factory { UpdatePlannedExpenseRule(repository = get()) }
     factory { DeletePlannedExpenseRule(repository = get()) }
     factory { ClosePlannedExpense(repository = get()) }
-    viewModel {
+    viewModel { parameters ->
         PlannedExpensesViewModel(
             getPlannedExpenses = get(),
             getCategories = get(),
@@ -109,6 +115,7 @@ val appModule = module {
             updateRule = get(),
             deleteRule = get(),
             closeExpense = get(),
+            editorOnly = parameters.getOrNull<Boolean>() ?: false,
         )
     }
     single<PlannedIncomesRepository> {
@@ -121,15 +128,21 @@ val appModule = module {
     factory { CreatePlannedIncome(repository = get()) }
     factory { UpdatePlannedIncome(repository = get()) }
     factory { DeletePlannedIncome(repository = get()) }
-    viewModel {
+    viewModel { parameters ->
         PlannedIncomesViewModel(
             getPlannedIncomes = get(),
             getCategories = get(),
             createPlannedIncome = get(),
             updatePlannedIncome = get(),
             deletePlannedIncome = get(),
+            editorOnly = parameters.getOrNull<Boolean>() ?: false,
         )
     }
+    single<PlannedOperationsRepository> {
+        PlannedOperationsRepositoryImpl(api = get(), apiToken = BuildConfig.MOBILE_API_TOKEN)
+    }
+    factory { GetPlannedOperations(repository = get()) }
+    viewModel { PlannedOperationsViewModel(getPlannedOperations = get()) }
     single<CategoriesRepository> {
         CategoriesRepositoryImpl(
             api = get(),

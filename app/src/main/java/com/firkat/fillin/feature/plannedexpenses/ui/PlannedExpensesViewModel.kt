@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesException
 import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
+import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesException
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.ClosePlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.CreatePlannedExpenseRule
@@ -27,12 +28,13 @@ class PlannedExpensesViewModel(
     private val updateRule: UpdatePlannedExpenseRule,
     private val deleteRule: DeletePlannedExpenseRule,
     private val closeExpense: ClosePlannedExpense,
+    private val editorOnly: Boolean = false,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlannedExpensesUiState())
     val uiState: StateFlow<PlannedExpensesUiState> = _uiState.asStateFlow()
 
     init {
-        load()
+        if (!editorOnly) load()
     }
 
     fun onEvent(event: PlannedExpensesEvent) {
@@ -79,6 +81,10 @@ class PlannedExpensesViewModel(
     }
 
     private fun load(isRefreshing: Boolean = false) {
+        if (editorOnly) {
+            _uiState.update { it.copy(changeVersion = it.changeVersion + 1) }
+            return
+        }
         val currentState = _uiState.value
         if (currentState.isLoading || currentState.isRefreshing) return
         if (
@@ -141,6 +147,11 @@ class PlannedExpensesViewModel(
     private fun openEditEditor(expenseId: String) {
         if (_uiState.value.isRefreshing) return
         val expense = _uiState.value.items.firstOrNull { it.id == expenseId } ?: return
+        edit(expense)
+    }
+
+    fun edit(expense: PlannedExpense) {
+        if (_uiState.value.isRefreshing) return
         _uiState.update {
             it.copy(
                 editor = PlannedExpenseRuleEditorUiState(
@@ -245,8 +256,14 @@ class PlannedExpensesViewModel(
         val expense = _uiState.value.items.firstOrNull { it.id == expenseId }
             ?.takeIf { it.canBeClosed }
             ?: return
+        requestClose(expense)
+    }
+
+    fun requestClose(expense: PlannedExpense) {
+        if (_uiState.value.isClosingExpense || _uiState.value.isRefreshing || !expense.canBeClosed) return
         _uiState.update {
             it.copy(
+                items = if (editorOnly) listOf(expense) else it.items,
                 closeConfirmationExpenseId = expense.id,
                 closeError = null,
             )

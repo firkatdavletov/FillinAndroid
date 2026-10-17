@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesException
 import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
+import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesException
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.CreatePlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.DeletePlannedIncome
@@ -25,12 +26,13 @@ class PlannedIncomesViewModel(
     private val createPlannedIncome: CreatePlannedIncome,
     private val updatePlannedIncome: UpdatePlannedIncome,
     private val deletePlannedIncome: DeletePlannedIncome,
+    private val editorOnly: Boolean = false,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlannedIncomesUiState())
     val uiState: StateFlow<PlannedIncomesUiState> = _uiState.asStateFlow()
 
     init {
-        load()
+        if (!editorOnly) load()
     }
 
     fun onEvent(event: PlannedIncomesEvent) {
@@ -61,6 +63,10 @@ class PlannedIncomesViewModel(
     }
 
     private fun load(isRefreshing: Boolean = false) {
+        if (editorOnly) {
+            _uiState.update { it.copy(changeVersion = it.changeVersion + 1) }
+            return
+        }
         if (_uiState.value.isLoading || _uiState.value.isRefreshing) return
         if (isRefreshing && _uiState.value.editor != null) return
 
@@ -110,6 +116,11 @@ class PlannedIncomesViewModel(
     private fun openEditEditor(incomeId: String) {
         if (_uiState.value.isRefreshing) return
         val income = _uiState.value.items.firstOrNull { it.id == incomeId } ?: return
+        edit(income)
+    }
+
+    fun edit(income: PlannedIncome) {
+        if (_uiState.value.isRefreshing) return
         _uiState.update {
             it.copy(
                 editor = PlannedIncomeEditorUiState(

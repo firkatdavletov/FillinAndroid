@@ -348,7 +348,7 @@ private fun DeleteRuleConfirmation(onEvent: (PlannedExpensesEvent) -> Unit) {
 }
 
 @Composable
-private fun CloseExpenseConfirmation(
+internal fun CloseExpenseConfirmation(
     expense: PlannedExpense,
     isClosing: Boolean,
     error: PlannedExpensesError?,
@@ -656,7 +656,7 @@ private fun SectionTitle(
 }
 
 @Composable
-private fun PlannedExpenseItem(
+internal fun PlannedExpenseItem(
     expense: PlannedExpense,
     onManageRule: () -> Unit,
     onClose: () -> Unit,

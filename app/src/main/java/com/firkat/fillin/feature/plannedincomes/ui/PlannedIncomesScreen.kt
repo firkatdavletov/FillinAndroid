@@ -413,7 +413,7 @@ private fun SectionTitle(title: String, count: Int, modifier: Modifier = Modifie
 }
 
 @Composable
-private fun PlannedIncomeItem(income: PlannedIncome, onEdit: () -> Unit) {
+internal fun PlannedIncomeItem(income: PlannedIncome, onEdit: () -> Unit) {
     val dueColor = if (income.overdue) {
         MaterialTheme.colorScheme.error
     } else {

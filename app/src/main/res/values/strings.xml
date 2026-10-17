@@ -2,7 +2,7 @@
     <string name="app_name">Fillin</string>
     <string name="navigation_dashboard">Главная</string>
     <string name="navigation_history">Операции</string>
-    <string name="navigation_planned">План</string>
+    <string name="navigation_planned">Планы</string>
     <string name="navigation_planned_incomes">Доходы</string>
     <string name="navigation_categories">Категории</string>
     <string name="navigation_back">Назад</string>
@@ -213,4 +213,28 @@
     <string name="categories_error_conflict">Категория с такими данными уже существует</string>
     <string name="categories_error_invalid_response">Сервер вернул некорректные данные</string>
     <string name="categories_error_generic">Не удалось выполнить действие с категорией</string>
+    <string name="planned_operations_title">Запланированные операции</string>
+    <string name="planned_operations_all">Все</string>
+    <string name="planned_operations_expenses">Расходы</string>
+    <string name="planned_operations_incomes">Доходы</string>
+    <string name="planned_operations_expense">Расход</string>
+    <string name="planned_operations_income">Доход</string>
+    <string name="planned_operations_month">До конца месяца</string>
+    <string name="planned_operations_year">До конца года</string>
+    <string name="planned_operations_custom">Период…</string>
+    <string name="planned_operations_choose_period">Выберите период</string>
+    <string name="planned_operations_apply">Применить</string>
+    <string name="planned_operations_cancel">Отмена</string>
+    <string name="planned_operations_empty">Нет запланированных операций по выбранным фильтрам</string>
+    <string name="planned_operations_retry">Повторить</string>
+    <string name="planned_operations_add">Добавить</string>
+    <string name="planned_operations_to_pay">К оплате</string>
+    <string name="planned_operations_to_receive">К получению</string>
+    <string name="planned_operations_error_token">Доступ к бюджету ещё не настроен</string>
+    <string name="planned_operations_error_unauthorized">Не удалось авторизоваться. Проверьте настройки подключения</string>
+    <string name="planned_operations_error_forbidden">Нет доступа к семейному бюджету</string>
+    <string name="planned_operations_error_request">Не удалось применить фильтры. Проверьте выбранный период</string>
+    <string name="planned_operations_error_network">Нет соединения. Проверьте интернет и повторите</string>
+    <string name="planned_operations_error_response">Не удалось прочитать ответ сервера</string>
+    <string name="planned_operations_error_unknown">Не удалось загрузить запланированные операции</string>
 </resources>

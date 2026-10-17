@@ -14,6 +14,7 @@ data class PlannedIncomesUiState(
     val incomeCategories: List<Category> = emptyList(),
     val isCategoriesLoading: Boolean = false,
     val editor: PlannedIncomeEditorUiState? = null,
+    val changeVersion: Long = 0,
 )
 
 data class PlannedIncomeEditorUiState(

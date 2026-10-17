@@ -20,6 +20,7 @@ data class PlannedExpensesUiState(
     val closeConfirmationExpenseId: String? = null,
     val isClosingExpense: Boolean = false,
     val closeError: PlannedExpensesError? = null,
+    val changeVersion: Long = 0,
 )
 
 enum class PlannedExpensesPeriod {
