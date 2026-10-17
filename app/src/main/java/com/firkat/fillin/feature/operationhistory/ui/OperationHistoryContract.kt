@@ -1,9 +1,8 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
-import com.firkat.fillin.feature.categories.domain.model.Category
-import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import java.math.BigDecimal
@@ -12,28 +11,19 @@ import java.time.ZoneId
 
 data class OperationHistoryUiState(
     val operations: List<Operation> = emptyList(),
-    val filters: OperationHistoryFilter = OperationHistoryFilter.lastMonth(LocalDate.now(ZoneId.of("Asia/Almaty"))),
-    val categories: List<Category> = emptyList(),
-    val isCategoriesLoading: Boolean = false,
-    val categoriesError: OperationHistoryError? = null,
-    val isCategoryFilterVisible: Boolean = false,
+    val filters: OperationHistoryFilter = OperationHistoryFilter.currentMonth(LocalDate.now(ZoneId.of("Asia/Almaty"))),
+    val periodTotals: OperationPeriodTotals? = null,
+    val isTotalsLoading: Boolean = false,
+    val totalsError: OperationHistoryError? = null,
     val isPeriodFilterVisible: Boolean = false,
+    val isCustomPeriod: Boolean = false,
     val isInitialLoading: Boolean = false,
     val isLoadingNextPage: Boolean = false,
     val isRefreshing: Boolean = false,
     val canLoadMore: Boolean = true,
     val error: OperationHistoryError? = null,
     val editor: PurchaseEditorUiState? = null,
-) {
-    val availableCategories: List<Category>
-        get() = categories.filter {
-            when (filters.type) {
-                OperationType.Expense -> it.kind == CategoryKind.Expense
-                OperationType.Income -> it.kind == CategoryKind.Income
-                null -> true
-            }
-        }
-}
+)
 
 data class PurchaseEditorUiState(
     val original: Operation,
@@ -73,12 +63,10 @@ enum class OperationHistoryError {
 
 sealed interface OperationHistoryEvent {
     data class TypeSelected(val type: OperationType?) : OperationHistoryEvent
-    data object CategoryFilterOpened : OperationHistoryEvent
-    data object CategoryFilterClosed : OperationHistoryEvent
-    data object CategoriesRetry : OperationHistoryEvent
-    data class CategorySelected(val categoryId: String?) : OperationHistoryEvent
+    data object TotalsRetry : OperationHistoryEvent
     data object PeriodFilterOpened : OperationHistoryEvent
     data object PeriodFilterClosed : OperationHistoryEvent
+    data object PeriodFilterReset : OperationHistoryEvent
     data class PeriodSelected(val dateFrom: LocalDate, val dateTo: LocalDate) : OperationHistoryEvent
     data object Refresh : OperationHistoryEvent
     data object LoadNextPage : OperationHistoryEvent

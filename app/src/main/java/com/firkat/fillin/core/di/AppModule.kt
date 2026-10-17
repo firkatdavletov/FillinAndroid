@@ -40,6 +40,7 @@ import com.firkat.fillin.feature.operationhistory.data.remote.OperationHistoryAp
 import com.firkat.fillin.feature.operationhistory.data.repository.OperationHistoryRepositoryImpl
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
 import com.firkat.fillin.feature.operationhistory.domain.usecase.GetOperationHistoryPage
+import com.firkat.fillin.feature.operationhistory.domain.usecase.GetOperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
 import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryViewModel
@@ -86,14 +87,15 @@ val appModule = module {
         )
     }
     factory { GetOperationHistoryPage(repository = get()) }
+    factory { GetOperationPeriodTotals(repository = get()) }
     factory { UpdatePurchaseAmount(repository = get()) }
     factory { RefundPurchase(repository = get()) }
     viewModel {
         OperationHistoryViewModel(
             getOperationHistoryPage = get(),
+            getOperationPeriodTotals = get(),
             updatePurchaseAmount = get(),
             refundPurchase = get(),
-            getCategories = get(),
         )
     }
     single<PlannedExpensesRepository> {

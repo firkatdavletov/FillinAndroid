@@ -25,6 +25,7 @@ import java.io.FileInputStream
 import java.math.BigDecimal
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,7 +42,12 @@ class OperationHistoryScreenTest {
         composeRule.onNodeWithText("История операций").assertIsDisplayed()
         composeRule.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
         composeRule.onNodeWithText("Все категории").assertIsDisplayed()
-        composeRule.onNodeWithText("17.09.2026 — 17.10.2026").assertIsDisplayed()
+        composeRule.onNodeWithText("Октябрь").assertIsDisplayed()
+        composeRule.onNodeWithTag("date-period-dropdown", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("date-period-reset").assertDoesNotExist()
+        val periodBounds = composeRule.onNodeWithTag("history-period-filter").fetchSemanticsNode().boundsInRoot
+        val typeBounds = composeRule.onNodeWithTag("history-type-EXPENSE").fetchSemanticsNode().boundsInRoot
+        assertTrue(periodBounds.bottom <= typeBounds.top)
         composeRule.onNodeWithText("Нет операций по выбранным фильтрам").assertIsDisplayed()
         screenshot("history-default.png")
 
@@ -58,6 +64,42 @@ class OperationHistoryScreenTest {
                 events,
             )
         }
+    }
+
+    @Test
+    fun customPeriodChipOpensThePickerAndItsCrossOnlyResetsThePeriod() {
+        val events = mutableListOf<OperationHistoryEvent>()
+        show(
+            OperationHistoryUiState(
+                filters = FILTER.copy(dateFrom = LocalDate.of(2026, 9, 16), dateTo = LocalDate.of(2026, 10, 25)),
+                isCustomPeriod = true,
+            ),
+            events,
+        )
+        composeRule.onNodeWithText("16 Снт - 25 Окт").assertIsDisplayed()
+        composeRule.onNodeWithTag("history-period-filter").assertIsSelected()
+        composeRule.onNodeWithTag("date-period-dropdown", useUnmergedTree = true).assertDoesNotExist()
+        screenshot("history-custom-period.png")
+        composeRule.onNodeWithTag("history-period-filter").performClick()
+        composeRule.onNodeWithTag("date-period-reset").performClick()
+        composeRule.runOnIdle {
+            assertEquals(
+                listOf(OperationHistoryEvent.PeriodFilterOpened, OperationHistoryEvent.PeriodFilterReset),
+                events,
+            )
+        }
+    }
+
+    @Test
+    fun periodChipIncludesYearsWhenTheRangeCrossesNewYear() {
+        show(
+            OperationHistoryUiState(
+                filters = FILTER.copy(dateFrom = LocalDate.of(2025, 12, 31), dateTo = LocalDate.of(2026, 1, 2)),
+                isCustomPeriod = true,
+            ),
+            mutableListOf(),
+        )
+        composeRule.onNodeWithText("31 Дек 2025 - 2 Янв 2026").assertIsDisplayed()
     }
 
     @Test
@@ -142,7 +184,7 @@ class OperationHistoryScreenTest {
     }
 }
 
-private val FILTER = OperationHistoryFilter.lastMonth(LocalDate.of(2026, 10, 17))
+private val FILTER = OperationHistoryFilter.currentMonth(LocalDate.of(2026, 10, 17))
 private val CATEGORIES = listOf(
     Category("food", "Продукты", CategoryKind.Expense, CategoryIcon("FOOD", "🍔")),
     Category("salary", "Зарплата", CategoryKind.Income, CategoryIcon("INCOME", "💰")),

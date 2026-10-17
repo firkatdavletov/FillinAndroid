@@ -20,13 +20,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class PlannedOperationsUiState(
-    val filters: PlannedOperationsFilter = PlannedOperationsFilter(),
+    val today: LocalDate = LocalDate.now(ZoneId.of("Asia/Almaty")),
+    val filters: PlannedOperationsFilter = PlannedOperationsFilter.currentMonth(today),
     val operations: PlannedOperations? = null,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val error: PlannedOperationsException? = null,
     val isPeriodPickerVisible: Boolean = false,
-    val today: LocalDate = LocalDate.now(ZoneId.of("Asia/Almaty")),
 )
 
 sealed interface PlannedOperationsEvent {
@@ -56,10 +56,13 @@ class PlannedOperationsViewModel(
         when (event) {
             is PlannedOperationsEvent.TypeSelected -> changeFilters(filters.copy(type = event.type))
             is PlannedOperationsEvent.PeriodSelected -> {
-                if (event.period == PlannedOperationPeriod.Custom) {
-                    onEvent(PlannedOperationsEvent.CustomPeriodOpened)
-                } else {
-                    changeFilters(filters.copy(period = event.period, dateFrom = null, dateTo = null))
+                _uiState.update { it.copy(isPeriodPickerVisible = false) }
+                when (event.period) {
+                    PlannedOperationPeriod.Custom -> onEvent(PlannedOperationsEvent.CustomPeriodOpened)
+                    PlannedOperationPeriod.CurrentMonth -> changeFilters(
+                        PlannedOperationsFilter.currentMonth(today()).copy(type = filters.type),
+                    )
+                    else -> changeFilters(filters.copy(period = event.period, dateFrom = null, dateTo = null))
                 }
             }
             PlannedOperationsEvent.CustomPeriodOpened -> _uiState.update { it.copy(isPeriodPickerVisible = true) }

@@ -3,6 +3,7 @@ package com.firkat.fillin.feature.plannedoperations.domain.model
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import java.time.LocalDate
+import java.time.YearMonth
 
 enum class PlannedOperationType(val apiValue: String) {
     Expense("EXPENSE"),
@@ -10,6 +11,7 @@ enum class PlannedOperationType(val apiValue: String) {
 }
 
 enum class PlannedOperationPeriod(val apiValue: String) {
+    CurrentMonth("CUSTOM"),
     EndOfMonth("END_OF_MONTH"),
     EndOfYear("END_OF_YEAR"),
     Custom("CUSTOM"),
@@ -22,12 +24,23 @@ data class PlannedOperationsFilter(
     val dateTo: LocalDate? = null,
 ) {
     init {
-        if (period == PlannedOperationPeriod.Custom) {
+        if (period == PlannedOperationPeriod.Custom || period == PlannedOperationPeriod.CurrentMonth) {
             require(dateFrom != null && dateTo != null && dateFrom <= dateTo)
             require(dateFrom.year >= 1)
+            if (period == PlannedOperationPeriod.CurrentMonth) {
+                require(dateFrom.dayOfMonth == 1 && dateTo == YearMonth.from(dateFrom).atEndOfMonth())
+            }
         } else {
             require(dateFrom == null && dateTo == null)
         }
+    }
+
+    companion object {
+        fun currentMonth(today: LocalDate) = PlannedOperationsFilter(
+            period = PlannedOperationPeriod.CurrentMonth,
+            dateFrom = today.withDayOfMonth(1),
+            dateTo = YearMonth.from(today).atEndOfMonth(),
+        )
     }
 }
 

@@ -51,7 +51,7 @@ class OperationHistoryFiltersTest {
     }
 
     @Test
-    fun `defaults to expenses in all categories for the last month in Almaty`() = runTest {
+    fun `defaults to expenses in all categories from the first day of the current month in Almaty`() = runTest {
         val repository = FilterHistoryRepository()
         val viewModel = viewModel(repository)
         runCurrent()
@@ -59,11 +59,61 @@ class OperationHistoryFiltersTest {
         val expected = OperationHistoryFilter(
             type = OperationType.Expense,
             categoryId = null,
-            dateFrom = LocalDate.of(2026, 9, 18),
+            dateFrom = LocalDate.of(2026, 10, 1),
             dateTo = LocalDate.of(2026, 10, 18),
         )
         assertEquals(expected, viewModel.uiState.value.filters)
+        assertFalse(viewModel.uiState.value.isCustomPeriod)
         assertEquals(listOf(HistoryRequest(null, expected)), repository.requests)
+    }
+
+    @Test
+    fun `resetting period preserves other filters and starts pagination from the current month`() = runTest {
+        val repository = FilterHistoryRepository()
+        val viewModel = viewModel(repository)
+        runCurrent()
+        val defaultPeriod = viewModel.uiState.value.filters
+        viewModel.onEvent(OperationHistoryEvent.TypeSelected(OperationType.Income))
+        runCurrent()
+        viewModel.onEvent(OperationHistoryEvent.CategoryFilterOpened)
+        runCurrent()
+        viewModel.onEvent(OperationHistoryEvent.CategorySelected("salary"))
+        runCurrent()
+        viewModel.onEvent(OperationHistoryEvent.PeriodFilterOpened)
+        viewModel.onEvent(OperationHistoryEvent.PeriodSelected(LocalDate.of(2026, 9, 16), TO))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isCustomPeriod)
+        assertFalse(viewModel.uiState.value.isPeriodFilterVisible)
+        viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
+        runCurrent()
+        assertEquals(10L, repository.requests.last().cursor)
+
+        viewModel.onEvent(OperationHistoryEvent.PeriodFilterReset)
+        runCurrent()
+        val expected = defaultPeriod.copy(type = OperationType.Income, categoryId = "salary")
+        assertEquals(expected, viewModel.uiState.value.filters)
+        assertFalse(viewModel.uiState.value.isCustomPeriod)
+        assertFalse(viewModel.uiState.value.isPeriodFilterVisible)
+        assertEquals(HistoryRequest(null, expected), repository.requests.last())
+    }
+
+    @Test
+    fun `choosing the default dates restores the month label and resetting them avoids a duplicate load`() = runTest {
+        val repository = FilterHistoryRepository()
+        val viewModel = viewModel(repository)
+        runCurrent()
+        val defaultPeriod = viewModel.uiState.value.filters
+        viewModel.onEvent(OperationHistoryEvent.PeriodSelected(FROM, TO))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isCustomPeriod)
+
+        viewModel.onEvent(OperationHistoryEvent.PeriodSelected(defaultPeriod.dateFrom, defaultPeriod.dateTo))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.isCustomPeriod)
+        val requestCount = repository.requests.size
+        viewModel.onEvent(OperationHistoryEvent.PeriodFilterReset)
+        runCurrent()
+        assertEquals(requestCount, repository.requests.size)
     }
 
     @Test
@@ -193,9 +243,12 @@ class OperationHistoryFiltersTest {
     }
 
     @Test
-    fun `last month handles a leap year and picker days do not shift in the device timezone`() {
-        val month = OperationHistoryFilter.lastMonth(LocalDate.of(2024, 3, 31))
-        assertEquals(LocalDate.of(2024, 2, 29), month.dateFrom)
+    fun `current month handles month boundaries and picker days do not shift in the device timezone`() {
+        listOf(LocalDate.of(2024, 2, 29), LocalDate.of(2024, 3, 31), LocalDate.of(2026, 1, 1)).forEach { today ->
+            val month = OperationHistoryFilter.currentMonth(today)
+            assertEquals(LocalDate.of(today.year, today.month, 1), month.dateFrom)
+            assertEquals(today, month.dateTo)
+        }
         val date = LocalDate.of(2026, 10, 17)
         assertEquals(Instant.parse("2026-10-17T00:00:00Z").toEpochMilli(), date.toPickerMillis())
         assertEquals(date, pickerMillisToDate(date.toPickerMillis()))

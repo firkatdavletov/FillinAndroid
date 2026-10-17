@@ -2,14 +2,12 @@ package com.firkat.fillin.feature.operationhistory.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.firkat.fillin.feature.categories.domain.model.CategoryKind
-import com.firkat.fillin.feature.categories.domain.repository.CategoriesException
-import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
 import com.firkat.fillin.feature.operationhistory.domain.usecase.GetOperationHistoryPage
+import com.firkat.fillin.feature.operationhistory.domain.usecase.GetOperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
 import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
 import java.time.Clock
@@ -26,45 +24,37 @@ import kotlinx.coroutines.launch
 
 class OperationHistoryViewModel(
     private val getOperationHistoryPage: GetOperationHistoryPage,
+    private val getOperationPeriodTotals: GetOperationPeriodTotals,
     private val updatePurchaseAmount: UpdatePurchaseAmount,
     private val refundPurchase: RefundPurchase,
-    private val getCategories: GetCategories,
-    clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
+    private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
-        OperationHistoryUiState(filters = OperationHistoryFilter.lastMonth(LocalDate.now(clock))),
+        OperationHistoryUiState(filters = OperationHistoryFilter.currentMonth(LocalDate.now(clock))),
     )
     val uiState: StateFlow<OperationHistoryUiState> = _uiState.asStateFlow()
 
     private var nextCursor: Long? = null
     private var loadJob: Job? = null
+    private var totalsJob: Job? = null
     private var failedLoadWasRefresh = false
-    private var categoriesLoaded = false
 
     init {
         loadNextPage()
+        loadTotals()
     }
 
     fun onEvent(event: OperationHistoryEvent) {
         when (event) {
             is OperationHistoryEvent.TypeSelected -> selectType(event.type)
-            OperationHistoryEvent.CategoryFilterOpened -> {
-                _uiState.update { it.copy(isCategoryFilterVisible = true) }
-                loadCategories()
-            }
-            OperationHistoryEvent.CategoryFilterClosed -> _uiState.update {
-                it.copy(isCategoryFilterVisible = false)
-            }
-            OperationHistoryEvent.CategoriesRetry -> loadCategories(force = true)
-            is OperationHistoryEvent.CategorySelected -> selectCategory(event.categoryId)
+            OperationHistoryEvent.TotalsRetry -> loadTotals()
             OperationHistoryEvent.PeriodFilterOpened -> _uiState.update { it.copy(isPeriodFilterVisible = true) }
             OperationHistoryEvent.PeriodFilterClosed -> _uiState.update { it.copy(isPeriodFilterVisible = false) }
-            is OperationHistoryEvent.PeriodSelected -> {
-                if (!event.dateFrom.isAfter(event.dateTo)) {
-                    _uiState.update { it.copy(isPeriodFilterVisible = false) }
-                    changeFilters(_uiState.value.filters.copy(dateFrom = event.dateFrom, dateTo = event.dateTo))
-                }
+            OperationHistoryEvent.PeriodFilterReset -> {
+                val period = OperationHistoryFilter.currentMonth(LocalDate.now(clock))
+                selectPeriod(period.dateFrom, period.dateTo)
             }
+            is OperationHistoryEvent.PeriodSelected -> selectPeriod(event.dateFrom, event.dateTo)
             OperationHistoryEvent.LoadNextPage -> loadNextPage()
             OperationHistoryEvent.Refresh -> loadNextPage(isRefreshing = true)
             OperationHistoryEvent.Retry -> loadNextPage(isRefreshing = failedLoadWasRefresh)
@@ -94,50 +84,55 @@ class OperationHistoryViewModel(
     }
 
     private fun selectType(type: OperationType?) {
-        val state = _uiState.value
-        val selectedCategory = state.categories.firstOrNull { it.id == state.filters.categoryId }
-        val categoryMatches = type == null ||
-            (type == OperationType.Expense && selectedCategory?.kind == CategoryKind.Expense) ||
-            (type == OperationType.Income && selectedCategory?.kind == CategoryKind.Income)
-        changeFilters(state.filters.copy(type = type, categoryId = state.filters.categoryId.takeIf { categoryMatches }))
+        changeFilters(_uiState.value.filters.copy(type = type))
     }
 
-    private fun selectCategory(categoryId: String?) {
-        val state = _uiState.value
-        if (categoryId != null && state.availableCategories.none { it.id == categoryId }) return
-        _uiState.update { it.copy(isCategoryFilterVisible = false) }
-        changeFilters(state.filters.copy(categoryId = categoryId))
+    private fun selectPeriod(dateFrom: LocalDate, dateTo: LocalDate) {
+        if (dateFrom.isAfter(dateTo) || _uiState.value.editor != null) return
+        val defaultPeriod = OperationHistoryFilter.currentMonth(LocalDate.now(clock))
+        _uiState.update {
+            it.copy(
+                isPeriodFilterVisible = false,
+                isCustomPeriod = dateFrom != defaultPeriod.dateFrom || dateTo != defaultPeriod.dateTo,
+            )
+        }
+        changeFilters(_uiState.value.filters.copy(dateFrom = dateFrom, dateTo = dateTo))
     }
 
     private fun changeFilters(filters: OperationHistoryFilter) {
         if (_uiState.value.editor != null || _uiState.value.filters == filters) return
+        val previous = _uiState.value.filters
+        val periodChanged = previous.dateFrom != filters.dateFrom || previous.dateTo != filters.dateTo
         _uiState.update { it.copy(filters = filters) }
-        reload()
+        reload(refreshTotals = periodChanged)
     }
 
-    private fun loadCategories(force: Boolean = false) {
-        if (_uiState.value.isCategoriesLoading || (categoriesLoaded && !force)) return
-        _uiState.update { it.copy(isCategoriesLoading = true, categoriesError = null) }
-        viewModelScope.launch {
+    private fun loadTotals(keepPrevious: Boolean = false) {
+        totalsJob?.cancel()
+        val filters = _uiState.value.filters
+        _uiState.update {
+            it.copy(
+                periodTotals = it.periodTotals.takeIf { keepPrevious },
+                isTotalsLoading = true,
+                totalsError = null,
+            )
+        }
+        totalsJob = viewModelScope.launch {
             try {
-                val categories = getCategories()
-                categoriesLoaded = true
-                _uiState.update { it.copy(categories = categories, isCategoriesLoading = false) }
+                val totals = getOperationPeriodTotals(filters.dateFrom, filters.dateTo)
+                coroutineContext.ensureActive()
+                _uiState.update { it.copy(periodTotals = totals, isTotalsLoading = false) }
             } catch (exception: CancellationException) {
                 throw exception
-            } catch (exception: CategoriesException) {
-                val error = when (exception) {
-                    CategoriesException.MissingApiToken -> OperationHistoryError.MissingApiToken
-                    CategoriesException.Unauthorized -> OperationHistoryError.Unauthorized
-                    CategoriesException.Forbidden -> OperationHistoryError.Forbidden
-                    CategoriesException.Network -> OperationHistoryError.Network
-                    CategoriesException.InvalidResponse -> OperationHistoryError.InvalidResponse
-                    else -> OperationHistoryError.Unknown
-                }
-                _uiState.update { it.copy(isCategoriesLoading = false, categoriesError = error) }
-            } catch (exception: Exception) {
+            } catch (exception: OperationHistoryException) {
+                coroutineContext.ensureActive()
                 _uiState.update {
-                    it.copy(isCategoriesLoading = false, categoriesError = OperationHistoryError.Unknown)
+                    it.copy(isTotalsLoading = false, totalsError = exception.toUiError())
+                }
+            } catch (exception: Exception) {
+                coroutineContext.ensureActive()
+                _uiState.update {
+                    it.copy(isTotalsLoading = false, totalsError = OperationHistoryError.Unknown)
                 }
             }
         }
@@ -168,6 +163,7 @@ class OperationHistoryViewModel(
                         editor = null,
                     )
                 }
+                loadTotals()
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: OperationHistoryException) {
@@ -217,7 +213,7 @@ class OperationHistoryViewModel(
         _uiState.update { state -> state.copy(editor = state.editor?.transform()) }
     }
 
-    private fun reload() {
+    private fun reload(refreshTotals: Boolean = true) {
         loadJob?.cancel()
         failedLoadWasRefresh = false
         nextCursor = null
@@ -233,6 +229,7 @@ class OperationHistoryViewModel(
             )
         }
         loadNextPage()
+        if (refreshTotals) loadTotals()
     }
 
     private fun loadNextPage(isRefreshing: Boolean = false) {
@@ -247,7 +244,10 @@ class OperationHistoryViewModel(
         }
 
         // Refresh supersedes pagination, keeping the current data and cursor until it succeeds.
-        if (isRefreshing) loadJob?.cancel()
+        if (isRefreshing) {
+            loadJob?.cancel()
+            loadTotals(keepPrevious = true)
+        }
         val requestedCursor = if (isRefreshing) null else nextCursor
         val requestedFilters = currentState.filters
         val isInitialLoad = !isRefreshing && currentState.operations.isEmpty()

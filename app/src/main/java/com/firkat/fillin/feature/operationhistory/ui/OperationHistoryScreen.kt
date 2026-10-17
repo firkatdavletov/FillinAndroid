@@ -127,9 +127,6 @@ fun OperationHistoryScreen(
             }
         }
     }
-    if (state.isCategoryFilterVisible) {
-        OperationCategoryFilterDialog(state = state, onEvent = onEvent)
-    }
     if (state.isPeriodFilterVisible) {
         OperationPeriodFilterDialog(filters = state.filters, onEvent = onEvent)
     }
@@ -492,7 +489,7 @@ private val OperationHistoryError.messageResource: Int
         OperationHistoryError.Unknown -> R.string.operation_history_error_generic
     }
 
-private fun formatMoney(amount: BigDecimal, currencyCode: String): String = runCatching {
+internal fun formatMoney(amount: BigDecimal, currencyCode: String): String = runCatching {
     NumberFormat.getCurrencyInstance(Locale.forLanguageTag("ru-KZ")).apply {
         currency = Currency.getInstance(currencyCode)
         minimumFractionDigits = 2

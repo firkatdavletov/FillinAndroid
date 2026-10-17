@@ -36,12 +36,14 @@ class PlannedOperationsViewModelTest {
     @After fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `defaults to both types until month end using the Almaty date`() = runTest {
+    fun `defaults to both types for the whole current month using the Almaty date`() = runTest {
         val repository = FakePlansRepository()
         val model = model(repository)
         runCurrent()
         assertEquals(LocalDate.of(2026, 10, 18), model.uiState.value.today)
-        assertEquals(listOf(PlannedOperationsFilter()), repository.requests)
+        val expected = PlannedOperationsFilter(period = PlannedOperationPeriod.CurrentMonth, dateFrom = FROM, dateTo = TO)
+        assertEquals(expected, model.uiState.value.filters)
+        assertEquals(listOf(expected), repository.requests)
         assertFalse(model.uiState.value.isLoading)
     }
 
@@ -79,6 +81,12 @@ class PlannedOperationsViewModelTest {
             expected.copy(period = PlannedOperationPeriod.EndOfMonth, dateFrom = null, dateTo = null),
             repository.requests.last(),
         )
+        model.onEvent(PlannedOperationsEvent.CustomPeriodOpened)
+        assertTrue(model.uiState.value.isPeriodPickerVisible)
+        model.onEvent(PlannedOperationsEvent.PeriodSelected(PlannedOperationPeriod.CurrentMonth))
+        runCurrent()
+        assertFalse(model.uiState.value.isPeriodPickerVisible)
+        assertEquals(expected.copy(period = PlannedOperationPeriod.CurrentMonth), repository.requests.last())
     }
 
     @Test
@@ -112,7 +120,7 @@ class PlannedOperationsViewModelTest {
         model.onEvent(PlannedOperationsEvent.CustomPeriodApplied(TO, FROM))
         model.onEvent(PlannedOperationsEvent.CustomPeriodApplied(FROM, LocalDate.of(9999, 1, 1)))
         runCurrent()
-        assertEquals(listOf(PlannedOperationsFilter()), repository.requests)
+        assertEquals(listOf(PlannedOperationsFilter.currentMonth(EMPTY.asOf)), repository.requests)
         assertEquals(EMPTY, model.uiState.value.operations)
         model.onEvent(PlannedOperationsEvent.CustomPeriodApplied(FROM, FROM))
         runCurrent()
@@ -132,8 +140,11 @@ class PlannedOperationsViewModelTest {
     }
 
     @Test
-    fun `picker dates round trip without device timezone conversion`() {
+    fun `current month includes leap day and picker dates round trip without device timezone conversion`() {
         val leapDay = LocalDate.of(2028, 2, 29)
+        val filter = PlannedOperationsUiState(today = leapDay).filters
+        assertEquals(LocalDate.of(2028, 2, 1), filter.dateFrom)
+        assertEquals(leapDay, filter.dateTo)
         assertEquals(Instant.parse("2028-02-29T00:00:00Z").toEpochMilli(), leapDay.pickerMillis())
         assertEquals(leapDay, pickerDate(leapDay.pickerMillis()))
     }

@@ -42,6 +42,7 @@
     <string name="operation_history_title">История операций</string>
     <string name="operation_history_expenses">Расходы</string>
     <string name="operation_history_incomes">Доходы</string>
+    <string name="operation_history_reset_type">Показать все типы операций</string>
     <string name="operation_history_all_types">Все операции</string>
     <string name="operation_history_all_categories">Все категории</string>
     <string name="operation_history_category_title">Категория</string>
@@ -49,6 +50,23 @@
     <string name="operation_history_period_start">Начало</string>
     <string name="operation_history_period_end">Конец</string>
     <string name="operation_history_period">%1$s — %2$s</string>
+    <string name="date_period_chip_range">%1$s - %2$s</string>
+    <string name="date_period_chip_choose_period">Выберите период</string>
+    <string name="date_period_chip_reset">Сбросить период на текущий месяц</string>
+    <string-array name="date_period_chip_short_months">
+        <item>Янв</item>
+        <item>Фев</item>
+        <item>Мар</item>
+        <item>Апр</item>
+        <item>Май</item>
+        <item>Июн</item>
+        <item>Июл</item>
+        <item>Авг</item>
+        <item>Снт</item>
+        <item>Окт</item>
+        <item>Ноя</item>
+        <item>Дек</item>
+    </string-array>
     <string name="operation_history_apply">Применить</string>
     <string name="operation_history_close">Закрыть</string>
     <string name="operation_history_categories_error">Не удалось загрузить категории</string>
@@ -219,6 +237,7 @@
     <string name="planned_operations_incomes">Доходы</string>
     <string name="planned_operations_expense">Расход</string>
     <string name="planned_operations_income">Доход</string>
+    <string name="planned_operations_current_month">Текущий месяц</string>
     <string name="planned_operations_month">До конца месяца</string>
     <string name="planned_operations_year">До конца года</string>
     <string name="planned_operations_custom">Период…</string>

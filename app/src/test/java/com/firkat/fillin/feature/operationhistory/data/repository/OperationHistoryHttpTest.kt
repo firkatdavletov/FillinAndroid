@@ -36,7 +36,7 @@ class OperationHistoryHttpTest {
         assertEquals("123", request.url.queryParameter("cursor"))
         assertEquals("INCOME", request.url.queryParameter("type"))
         assertEquals("salary-id", request.url.queryParameter("categoryId"))
-        assertEquals("2026-09-17", request.url.queryParameter("dateFrom"))
+        assertEquals("2026-10-01", request.url.queryParameter("dateFrom"))
         assertEquals("2026-10-17", request.url.queryParameter("dateTo"))
         assertEquals(OperationType.Income, page.items.single().type)
         assertEquals("salary-id", page.items.single().categoryId)
@@ -52,7 +52,7 @@ class OperationHistoryHttpTest {
         assertNull(request.url.queryParameter("type"))
         assertNull(request.url.queryParameter("categoryId"))
         assertNull(request.url.queryParameter("cursor"))
-        assertEquals("2026-09-17", request.url.queryParameter("dateFrom"))
+        assertEquals("2026-10-01", request.url.queryParameter("dateFrom"))
     }
 
     @Test
@@ -85,7 +85,7 @@ class OperationHistoryHttpTest {
     }
 }
 
-private val FILTER = OperationHistoryFilter.lastMonth(LocalDate.of(2026, 10, 17))
+private val FILTER = OperationHistoryFilter.currentMonth(LocalDate.of(2026, 10, 17))
 private fun response(type: String) = """
     {
       "items": [{

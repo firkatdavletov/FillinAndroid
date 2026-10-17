@@ -1,39 +1,40 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
+import com.firkat.fillin.ui.component.DatePeriodChip
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -43,111 +44,106 @@ internal fun OperationHistoryFilters(
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        DatePeriodChip(
+            dateFrom = state.filters.dateFrom,
+            dateTo = state.filters.dateTo,
+            isDefaultPeriod = !state.isCustomPeriod,
+            onClick = { onEvent(OperationHistoryEvent.PeriodFilterOpened) },
+            onReset = { onEvent(OperationHistoryEvent.PeriodFilterReset) },
+            modifier = Modifier.testTag("history-period-filter"),
+        )
         Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            listOf(OperationType.Expense, OperationType.Income, null).forEach { type ->
-                FilterChip(
-                    selected = state.filters.type == type,
-                    onClick = { onEvent(OperationHistoryEvent.TypeSelected(type)) },
-                    label = {
-                        Text(
-                            stringResource(
-                                when (type) {
-                                    OperationType.Expense -> R.string.operation_history_expenses
-                                    OperationType.Income -> R.string.operation_history_incomes
-                                    null -> R.string.operation_history_all_types
-                                },
-                            ),
-                        )
-                    },
-                    modifier = Modifier.testTag("history-type-${type?.apiValue ?: "ALL"}"),
+            OperationType.entries.filter { state.filters.type == null || state.filters.type == it }.forEach { type ->
+                OperationTotalBlock(
+                    type = type,
+                    state = state,
+                    onEvent = onEvent,
+                    modifier = Modifier.weight(1f),
                 )
             }
-        }
-        OutlinedButton(
-            onClick = { onEvent(OperationHistoryEvent.CategoryFilterOpened) },
-            modifier = Modifier.fillMaxWidth().testTag("history-category-filter"),
-        ) {
-            val selected = state.categories.firstOrNull { it.id == state.filters.categoryId }
-            Text(selected?.name ?: stringResource(R.string.operation_history_all_categories))
-        }
-        OutlinedButton(
-            onClick = { onEvent(OperationHistoryEvent.PeriodFilterOpened) },
-            modifier = Modifier.fillMaxWidth().testTag("history-period-filter"),
-        ) {
-            Text(
-                stringResource(
-                    R.string.operation_history_period,
-                    state.filters.dateFrom.format(PERIOD_DATE_FORMAT),
-                    state.filters.dateTo.format(PERIOD_DATE_FORMAT),
-                ),
-            )
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
-internal fun OperationCategoryFilterDialog(
+private fun OperationTotalBlock(
+    type: OperationType,
     state: OperationHistoryUiState,
     onEvent: (OperationHistoryEvent) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    AlertDialog(
-        onDismissRequest = { onEvent(OperationHistoryEvent.CategoryFilterClosed) },
-        title = { Text(stringResource(R.string.operation_history_category_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                    item(key = "all-categories") {
-                        CategoryOption(
-                            name = stringResource(R.string.operation_history_all_categories),
-                            selected = state.filters.categoryId == null,
-                            onSelect = { onEvent(OperationHistoryEvent.CategorySelected(null)) },
-                        )
-                    }
-                    items(state.availableCategories, key = { it.id }) { category ->
-                        CategoryOption(
-                            name = "${category.icon.emoji} ${category.name}",
-                            selected = state.filters.categoryId == category.id,
-                            onSelect = { onEvent(OperationHistoryEvent.CategorySelected(category.id)) },
-                        )
-                    }
-                }
-                if (state.isCategoriesLoading) {
-                    CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
-                }
-                if (state.categoriesError != null) {
-                    Text(stringResource(R.string.operation_history_categories_error))
-                    TextButton(onClick = { onEvent(OperationHistoryEvent.CategoriesRetry) }) {
+    val selected = state.filters.type == type
+    val colors = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.medium
+    val amount = state.periodTotals?.let {
+        if (type == OperationType.Expense) it.expenses else it.incomes
+    }
+    Surface(
+        modifier = modifier
+            .testTag("history-type-${type.apiValue}")
+            .clip(shape)
+            .selectable(
+                selected = selected,
+                role = Role.Button,
+                onClick = { onEvent(OperationHistoryEvent.TypeSelected(type)) },
+            ),
+        shape = shape,
+        color = if (type == OperationType.Expense) colors.secondaryContainer else colors.tertiaryContainer,
+        contentColor = if (type == OperationType.Expense) colors.onSecondaryContainer else colors.onTertiaryContainer,
+        border = if (selected) BorderStroke(1.dp, colors.primary) else null,
+    ) {
+        Row(
+            modifier = Modifier.heightIn(min = 88.dp).padding(start = 12.dp, end = if (selected) 0.dp else 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = stringResource(
+                        if (type == OperationType.Expense) R.string.operation_history_expenses
+                        else R.string.operation_history_incomes,
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                when {
+                    state.totalsError != null -> TextButton(
+                        onClick = { onEvent(OperationHistoryEvent.TotalsRetry) },
+                        modifier = Modifier.testTag("history-totals-retry-${type.apiValue}"),
+                    ) {
                         Text(stringResource(R.string.operation_history_retry))
                     }
+                    state.isTotalsLoading && amount == null -> CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp).testTag("history-totals-loading-${type.apiValue}"),
+                        strokeWidth = 2.dp,
+                    )
+                    else -> Text(
+                        text = amount?.let { formatMoney(it, "KZT") } ?: "—",
+                        modifier = Modifier.testTag("history-total-${type.apiValue}"),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onEvent(OperationHistoryEvent.CategoryFilterClosed) }) {
-                Text(stringResource(R.string.operation_history_close))
+            if (selected) {
+                IconButton(
+                    onClick = { onEvent(OperationHistoryEvent.TypeSelected(null)) },
+                    modifier = Modifier.testTag("history-type-reset"),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_close),
+                        contentDescription = stringResource(R.string.operation_history_reset_type),
+                    )
+                }
             }
-        },
-    )
-}
-
-@Composable
-private fun CategoryOption(name: String, selected: Boolean, onSelect: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Text(name, style = MaterialTheme.typography.bodyLarge)
+        }
     }
 }
 

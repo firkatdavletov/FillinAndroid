@@ -27,6 +27,7 @@ import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,20 +42,53 @@ class PlannedOperationsScreenTest {
         show(PlannedOperationsUiState(today = TODAY), events)
         composeRule.onNodeWithText("Запланированные операции").assertIsDisplayed()
         composeRule.onNodeWithTag("planned-type-ALL").assertIsSelected()
-        composeRule.onNodeWithText("До конца месяца").assertIsDisplayed()
+        composeRule.onNodeWithText("Октябрь").assertIsDisplayed()
+        composeRule.onNodeWithTag("date-period-dropdown", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("date-period-reset").assertDoesNotExist()
+        val periodBounds = composeRule.onNodeWithTag("planned-period-filter").fetchSemanticsNode().boundsInRoot
+        val typeBounds = composeRule.onNodeWithTag("planned-type-ALL").fetchSemanticsNode().boundsInRoot
+        assertTrue(periodBounds.bottom <= typeBounds.top)
         composeRule.onNodeWithText("Нет запланированных операций по выбранным фильтрам").assertIsDisplayed()
         screenshot("planned-empty.png")
         composeRule.onNodeWithTag("planned-type-INCOME").performClick()
         composeRule.onNodeWithTag("planned-period-filter").performClick()
-        composeRule.onNodeWithTag("planned-period-END_OF_YEAR").performClick()
-        composeRule.onNodeWithTag("planned-period-filter").performClick()
-        composeRule.onNodeWithTag("planned-period-CUSTOM").performClick()
         composeRule.runOnIdle {
             assertEquals(
                 listOf(
                     PlannedOperationsEvent.TypeSelected(PlannedOperationType.Income),
-                    PlannedOperationsEvent.PeriodSelected(PlannedOperationPeriod.EndOfYear),
-                    PlannedOperationsEvent.PeriodSelected(PlannedOperationPeriod.Custom),
+                    PlannedOperationsEvent.CustomPeriodOpened,
+                ),
+                events,
+            )
+        }
+    }
+
+    @Test
+    fun customPeriodChipOpensCalendarAndResetsOnlyThePeriod() {
+        val events = mutableListOf<PlannedOperationsEvent>()
+        show(
+            PlannedOperationsUiState(
+                today = TODAY,
+                filters = PlannedOperationsFilter(
+                    type = PlannedOperationType.Income,
+                    period = PlannedOperationPeriod.Custom,
+                    dateFrom = LocalDate.of(2026, 9, 16),
+                    dateTo = LocalDate.of(2026, 10, 25),
+                ),
+            ),
+            events,
+        )
+        composeRule.onNodeWithText("16 Снт - 25 Окт").assertIsDisplayed()
+        composeRule.onNodeWithTag("planned-period-filter").assertIsSelected()
+        composeRule.onNodeWithTag("date-period-dropdown", useUnmergedTree = true).assertDoesNotExist()
+        screenshot("planned-custom-period.png")
+        composeRule.onNodeWithTag("planned-period-filter").performClick()
+        composeRule.onNodeWithTag("date-period-reset").performClick()
+        composeRule.runOnIdle {
+            assertEquals(
+                listOf(
+                    PlannedOperationsEvent.CustomPeriodOpened,
+                    PlannedOperationsEvent.PeriodSelected(PlannedOperationPeriod.CurrentMonth),
                 ),
                 events,
             )
@@ -69,10 +103,15 @@ class PlannedOperationsScreenTest {
         composeRule.onNodeWithText("Выберите период").assertIsDisplayed()
         screenshot("planned-period.png")
         composeRule.onNodeWithText("Применить").performClick()
+        composeRule.onNodeWithTag("planned-period-EndOfYear").performScrollTo().performClick()
         composeRule.onNodeWithText("Отмена").performClick()
         composeRule.runOnIdle {
             assertEquals(
-                listOf(PlannedOperationsEvent.CustomPeriodApplied(TODAY, TODAY), PlannedOperationsEvent.CustomPeriodClosed),
+                listOf(
+                    PlannedOperationsEvent.CustomPeriodApplied(TODAY, TODAY),
+                    PlannedOperationsEvent.PeriodSelected(PlannedOperationPeriod.EndOfYear),
+                    PlannedOperationsEvent.CustomPeriodClosed,
+                ),
                 events,
             )
         }

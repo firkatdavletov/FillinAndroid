@@ -25,17 +25,19 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 class PlannedOperationsHttpTest {
     @Test
-    fun `default request omits type and custom dates and maps both types with rule versions`() = runBlocking {
+    fun `current month request sends explicit dates and maps both types with rule versions`() = runBlocking {
         val requests = mutableListOf<Request>()
-        val result = repository(requests, response(EXPENSE, INCOME)).getPlannedOperations(PlannedOperationsFilter())
+        val filter = PlannedOperationsFilter.currentMonth(LocalDate.of(2026, 10, 17))
+        val result = repository(requests, response(EXPENSE, INCOME, from = "2026-10-01"))
+            .getPlannedOperations(filter)
 
         val request = requests.single()
         assertEquals("/api/v1/planned-operations", request.url.encodedPath)
         assertEquals("Bearer synthetic-test-token", request.header("Authorization"))
-        assertEquals("END_OF_MONTH", request.url.queryParameter("period"))
+        assertEquals("CUSTOM", request.url.queryParameter("period"))
         assertNull(request.url.queryParameter("type"))
-        assertNull(request.url.queryParameter("dateFrom"))
-        assertNull(request.url.queryParameter("dateTo"))
+        assertEquals("2026-10-01", request.url.queryParameter("dateFrom"))
+        assertEquals("2026-10-31", request.url.queryParameter("dateTo"))
         val expense = (result.items[0] as PlannedOperation.Expense).expense
         assertEquals(BigDecimal("60.00"), expense.remainingAmount)
         assertEquals(BigDecimal("40.00"), expense.paidAmount)

@@ -183,4 +183,4 @@ private fun purchaseDto(
     description = "супермаркет",
 )
 
-private val TEST_FILTER = OperationHistoryFilter.lastMonth(LocalDate.of(2026, 10, 17))
+private val TEST_FILTER = OperationHistoryFilter.currentMonth(LocalDate.of(2026, 10, 17))
