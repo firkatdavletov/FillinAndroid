@@ -221,7 +221,13 @@ private fun PlannedIncomeEditor(
 
         editor.error?.let { error ->
             Text(
-                text = stringResource(error.messageResource),
+                text = stringResource(
+                    if (error == PlannedIncomesError.Unknown) {
+                        R.string.planned_incomes_error_action
+                    } else {
+                        error.messageResource
+                    },
+                ),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
             )

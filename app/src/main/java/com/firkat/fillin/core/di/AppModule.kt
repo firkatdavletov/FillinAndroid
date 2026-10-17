@@ -31,13 +31,13 @@ import com.firkat.fillin.feature.plannedexpenses.domain.usecase.DeletePlannedExp
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.GetPlannedExpenses
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.UpdatePlannedExpenseRule
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesViewModel
-import com.firkat.fillin.feature.purchasehistory.data.remote.PurchaseHistoryApi
-import com.firkat.fillin.feature.purchasehistory.data.repository.PurchaseHistoryRepositoryImpl
-import com.firkat.fillin.feature.purchasehistory.domain.repository.PurchaseHistoryRepository
-import com.firkat.fillin.feature.purchasehistory.domain.usecase.GetPurchaseHistoryPage
-import com.firkat.fillin.feature.purchasehistory.domain.usecase.RefundPurchase
-import com.firkat.fillin.feature.purchasehistory.domain.usecase.UpdatePurchaseAmount
-import com.firkat.fillin.feature.purchasehistory.ui.PurchaseHistoryViewModel
+import com.firkat.fillin.feature.operationhistory.data.remote.OperationHistoryApi
+import com.firkat.fillin.feature.operationhistory.data.repository.OperationHistoryRepositoryImpl
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
+import com.firkat.fillin.feature.operationhistory.domain.usecase.GetOperationHistoryPage
+import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
+import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
+import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryViewModel
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import org.koin.core.module.dsl.viewModel
@@ -60,7 +60,7 @@ val appModule = module {
             )
             .build()
     }
-    single<PurchaseHistoryApi> { get<Retrofit>().create(PurchaseHistoryApi::class.java) }
+    single<OperationHistoryApi> { get<Retrofit>().create(OperationHistoryApi::class.java) }
     single<PlannedExpensesApi> { get<Retrofit>().create(PlannedExpensesApi::class.java) }
     single<PlannedIncomesApi> { get<Retrofit>().create(PlannedIncomesApi::class.java) }
     single<CategoriesApi> { get<Retrofit>().create(CategoriesApi::class.java) }
@@ -73,20 +73,21 @@ val appModule = module {
     }
     factory { GetDashboard(repository = get()) }
     viewModel { DashboardViewModel(getDashboard = get()) }
-    single<PurchaseHistoryRepository> {
-        PurchaseHistoryRepositoryImpl(
+    single<OperationHistoryRepository> {
+        OperationHistoryRepositoryImpl(
             api = get(),
             apiToken = BuildConfig.MOBILE_API_TOKEN,
         )
     }
-    factory { GetPurchaseHistoryPage(repository = get()) }
+    factory { GetOperationHistoryPage(repository = get()) }
     factory { UpdatePurchaseAmount(repository = get()) }
     factory { RefundPurchase(repository = get()) }
     viewModel {
-        PurchaseHistoryViewModel(
-            getPurchaseHistoryPage = get(),
+        OperationHistoryViewModel(
+            getOperationHistoryPage = get(),
             updatePurchaseAmount = get(),
             refundPurchase = get(),
+            getCategories = get(),
         )
     }
     single<PlannedExpensesRepository> {

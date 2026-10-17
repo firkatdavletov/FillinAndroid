@@ -30,7 +30,7 @@ import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesRoute
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesRoute
-import com.firkat.fillin.feature.purchasehistory.ui.PurchaseHistoryRoute
+import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
 import com.firkat.fillin.ui.theme.FillinTheme
 
 class MainActivity : ComponentActivity() {
@@ -92,7 +92,7 @@ fun FillinApp() {
                         selectedDestination = AppDestination.History
                     },
                 )
-                AppDestination.History -> PurchaseHistoryRoute()
+                AppDestination.History -> OperationHistoryRoute()
                 AppDestination.Planned -> PlannedExpensesRoute()
                 AppDestination.Incomes -> PlannedIncomesRoute()
                 AppDestination.Categories -> CategoriesRoute()
