@@ -3,6 +3,7 @@ package com.firkat.fillin.feature.operationhistory.ui
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -22,7 +23,9 @@ internal fun groupOperationsByDate(operations: List<Operation>): List<OperationD
     operations
         .groupBy(Operation::occurredOn)
         .map { (date, operationsForDate) ->
-            val postedOperations = operationsForDate.filter { it.status == OperationStatus.Posted }
+            val postedOperations = operationsForDate.filter {
+                it.status == OperationStatus.Posted && it.syncStatus != OperationSyncStatus.Rejected
+            }
             val totals = postedOperations
                 .groupBy { it.currency to it.type }
                 .map { (key, operationsForCurrency) ->

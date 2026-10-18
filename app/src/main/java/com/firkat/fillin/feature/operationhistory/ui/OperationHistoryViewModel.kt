@@ -2,273 +2,337 @@ package com.firkat.fillin.feature.operationhistory.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
+import com.firkat.fillin.feature.operationhistory.domain.repository.NewOperation
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
-import com.firkat.fillin.feature.operationhistory.domain.usecase.GetOperationHistoryPage
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
 import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
-import java.time.Clock
-import java.time.LocalDate
-import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneId
 
 class OperationHistoryViewModel(
-    private val getOperationHistoryPage: GetOperationHistoryPage,
+    private val history: OperationHistoryStore,
     private val updatePurchaseAmount: UpdatePurchaseAmount,
     private val refundPurchase: RefundPurchase,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(
-        OperationHistoryUiState(filters = OperationHistoryFilter.currentMonth(LocalDate.now(clock))),
+    private data class Query(
+        val filter: OperationHistoryFilter,
+        val limit: Int = 20,
     )
+
+    private val initialFilter = OperationHistoryFilter.currentMonth(LocalDate.now(clock))
+    private val query = MutableStateFlow(Query(initialFilter))
+    private val _uiState = MutableStateFlow(OperationHistoryUiState(filters = initialFilter, isInitialLoading = true))
     val uiState: StateFlow<OperationHistoryUiState> = _uiState.asStateFlow()
 
-    private var nextCursor: Long? = null
-    private var loadJob: Job? = null
-    private var failedLoadWasRefresh = false
-
     init {
-        loadNextPage()
+        viewModelScope.launch {
+            history.context.collect { context ->
+                _uiState.update {
+                    it.copy(
+                        offline = context,
+                        isRefreshing = context.isSyncing,
+                        editor = it.editor?.copy(isOnline = context.isOnline),
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            query.collectLatest { requested ->
+                try {
+                    history.observeHistory(requested.filter, requested.limit).collect { page ->
+                        _uiState.update {
+                            it.copy(
+                                operations = page.items,
+                                periodTotals = page.totals.takeIf { page.isComplete },
+                                canLoadMore = page.nextCursor != null,
+                                isInitialLoading = false,
+                                isLoadingNextPage = false,
+                                error = null,
+                            )
+                        }
+                    }
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (exception: Exception) {
+                    _uiState.update {
+                        it.copy(
+                            isInitialLoading = false,
+                            isLoadingNextPage = false,
+                            error = OperationHistoryError.Unknown,
+                        )
+                    }
+                }
+            }
+        }
+        history.requestSync()
     }
 
     fun onEvent(event: OperationHistoryEvent) {
         when (event) {
-            is OperationHistoryEvent.TypeSelected -> selectType(event.type)
-            OperationHistoryEvent.PeriodFilterOpened -> _uiState.update { it.copy(isPeriodFilterVisible = true) }
-            OperationHistoryEvent.PeriodFilterClosed -> _uiState.update { it.copy(isPeriodFilterVisible = false) }
+            OperationHistoryEvent.CreateRequested -> {
+                openCreator()
+            }
+
+            is OperationHistoryEvent.CorrectRejectedRequested -> {
+                openCreator(event.id)
+            }
+
+            OperationHistoryEvent.CreateClosed -> {
+                if (_uiState.value.createEditor?.isSaving != true) {
+                    _uiState.update { it.copy(createEditor = null) }
+                }
+            }
+
+            is OperationHistoryEvent.CreateTypeChanged -> {
+                updateCreator { copy(type = event.type, categoryId = null, error = null) }
+            }
+
+            is OperationHistoryEvent.CreateAmountChanged -> {
+                updateCreator { copy(amount = event.value, error = null) }
+            }
+
+            is OperationHistoryEvent.CreateCategoryChanged -> {
+                updateCreator { copy(categoryId = event.id, error = null) }
+            }
+
+            is OperationHistoryEvent.CreateDateChanged -> {
+                updateCreator { copy(occurredOn = event.date, error = null) }
+            }
+
+            is OperationHistoryEvent.CreateDescriptionChanged -> {
+                updateCreator { copy(description = event.value, error = null) }
+            }
+
+            OperationHistoryEvent.CreateSaved -> {
+                create()
+            }
+
+            is OperationHistoryEvent.TypeSelected -> {
+                selectFilter(_uiState.value.filters.copy(type = event.type))
+            }
+
+            OperationHistoryEvent.PeriodFilterOpened -> {
+                _uiState.update { it.copy(isPeriodFilterVisible = true) }
+            }
+
+            OperationHistoryEvent.PeriodFilterClosed -> {
+                _uiState.update { it.copy(isPeriodFilterVisible = false) }
+            }
+
             OperationHistoryEvent.PeriodFilterReset -> {
                 val period = OperationHistoryFilter.currentMonth(LocalDate.now(clock))
                 selectPeriod(period.dateFrom, period.dateTo)
             }
-            is OperationHistoryEvent.PeriodSelected -> selectPeriod(event.dateFrom, event.dateTo)
-            OperationHistoryEvent.LoadNextPage -> loadNextPage()
-            OperationHistoryEvent.Refresh -> loadNextPage(isRefreshing = true)
-            OperationHistoryEvent.Retry -> loadNextPage(isRefreshing = failedLoadWasRefresh)
-            is OperationHistoryEvent.EditRequested -> openEditor(event.purchaseId)
-            OperationHistoryEvent.EditorClosed -> closeEditor()
-            is OperationHistoryEvent.AmountChanged -> updateEditor {
-                copy(amount = event.amount, error = null)
+
+            is OperationHistoryEvent.PeriodSelected -> {
+                selectPeriod(event.dateFrom, event.dateTo)
             }
-            OperationHistoryEvent.SaveRequested -> save()
-            OperationHistoryEvent.RefundRequested -> updateEditor {
-                if (canRefund) copy(isRefundConfirmationVisible = true) else this
+
+            OperationHistoryEvent.LoadNextPage -> {
+                if (_uiState.value.canLoadMore && !_uiState.value.isLoadingNextPage) {
+                    _uiState.update { it.copy(isLoadingNextPage = true) }
+                    query.update { it.copy(limit = it.limit + 20) }
+                }
             }
-            OperationHistoryEvent.RefundDismissed -> updateEditor {
-                copy(isRefundConfirmationVisible = false)
+
+            OperationHistoryEvent.Refresh, OperationHistoryEvent.Retry -> {
+                history.requestSync()
             }
-            OperationHistoryEvent.RefundConfirmed -> refund()
+
+            is OperationHistoryEvent.EditRequested -> {
+                openEditor(event.purchaseId)
+            }
+
+            OperationHistoryEvent.EditorClosed -> {
+                if (_uiState.value.editor?.isSaving != true) _uiState.update { it.copy(editor = null) }
+            }
+
+            is OperationHistoryEvent.AmountChanged -> {
+                updateEditor { copy(amount = event.amount, error = null) }
+            }
+
+            OperationHistoryEvent.SaveRequested -> {
+                save()
+            }
+
+            OperationHistoryEvent.RefundRequested -> {
+                updateEditor { if (canRefund) copy(isRefundConfirmationVisible = true) else this }
+            }
+
+            OperationHistoryEvent.RefundDismissed -> {
+                updateEditor { copy(isRefundConfirmationVisible = false) }
+            }
+
+            OperationHistoryEvent.RefundConfirmed -> {
+                refund()
+            }
         }
     }
 
-    private fun openEditor(purchaseId: String) {
-        if (_uiState.value.isRefreshing) return
-        val purchase = _uiState.value.operations.firstOrNull { it.id == purchaseId } ?: return
-        if (purchase.status != OperationStatus.Posted || purchase.type != OperationType.Expense) {
+    private fun openCreator(rejectedId: String? = null) {
+        val current = _uiState.value
+        if (!current.offline.initialSyncComplete || current.offline.syncError == "scope_changed") return
+        val rejected =
+            rejectedId?.let { id ->
+                current.operations.firstOrNull { it.id == id && it.syncStatus == OperationSyncStatus.Rejected }
+                    ?: return
+            }
+        _uiState.update {
+            it.copy(
+                createEditor =
+                    OperationCreateEditorUiState(
+                        type = rejected?.type ?: OperationType.Expense,
+                        amount = rejected?.originalAmount?.toPlainString().orEmpty(),
+                        categoryId = rejected?.categoryId?.takeIf { id -> current.offline.categories.any { it.id == id } },
+                        occurredOn = rejected?.occurredOn ?: LocalDate.now(clock),
+                        description = rejected?.description.orEmpty(),
+                        replacesRejectedId = rejectedId,
+                    ),
+            )
+        }
+    }
+
+    private fun create() {
+        val editor = _uiState.value.createEditor?.takeIf { it.canSave } ?: return
+        val amount = editor.parsedAmount ?: return
+        val category =
+            _uiState.value.offline.categories
+                .firstOrNull { it.id == editor.categoryId }
+        val expectedKind = if (editor.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
+        if (category?.kind != expectedKind || editor.occurredOn > LocalDate.now(clock) ||
+            _uiState.value.offline.accountingStartedOn
+                ?.let { editor.occurredOn < it } == true
+        ) {
+            updateCreator { copy(error = OperationHistoryError.InvalidRequest) }
             return
         }
-        _uiState.update { it.copy(editor = PurchaseEditorUiState(original = purchase)) }
-    }
-
-    private fun selectType(type: OperationType?) {
-        changeFilters(_uiState.value.filters.copy(type = type))
-    }
-
-    private fun selectPeriod(dateFrom: LocalDate, dateTo: LocalDate) {
-        if (dateFrom.isAfter(dateTo) || _uiState.value.editor != null) return
-        val defaultPeriod = OperationHistoryFilter.currentMonth(LocalDate.now(clock))
-        _uiState.update {
-            it.copy(
-                isPeriodFilterVisible = false,
-                isCustomPeriod = dateFrom != defaultPeriod.dateFrom || dateTo != defaultPeriod.dateTo,
-            )
-        }
-        changeFilters(_uiState.value.filters.copy(dateFrom = dateFrom, dateTo = dateTo))
-    }
-
-    private fun changeFilters(filters: OperationHistoryFilter) {
-        if (_uiState.value.editor != null || _uiState.value.filters == filters) return
-        val previous = _uiState.value.filters
-        val periodChanged = previous.dateFrom != filters.dateFrom || previous.dateTo != filters.dateTo
-        _uiState.update { it.copy(filters = filters) }
-        reload(clearTotals = periodChanged)
-    }
-
-    private fun closeEditor() {
-        val editor = _uiState.value.editor ?: return
-        if (editor.isSaving) return
-        val shouldReload = editor.error == OperationHistoryError.Conflict ||
-            editor.error == OperationHistoryError.NotFound
-        _uiState.update { it.copy(editor = null) }
-        if (shouldReload) reload()
-    }
-
-    private fun save() {
-        val editor = _uiState.value.editor?.takeIf(PurchaseEditorUiState::canSave) ?: return
-        val amount = editor.parsedAmount ?: return
-        updateEditor { copy(isSaving = true, error = null) }
-
+        updateCreator { copy(isSaving = true, error = null) }
         viewModelScope.launch {
             try {
-                updatePurchaseAmount(editor.original, amount)
-                reload()
+                history.create(
+                    NewOperation(
+                        editor.type,
+                        requireNotNull(editor.categoryId),
+                        amount,
+                        editor.occurredOn,
+                        editor.description,
+                    ),
+                    editor.replacesRejectedId,
+                )
+                _uiState.update { it.copy(createEditor = null) }
             } catch (exception: CancellationException) {
                 throw exception
-            } catch (exception: OperationHistoryException) {
-                showEditorError(exception.toUiError())
             } catch (exception: Exception) {
-                showEditorError(OperationHistoryError.Unknown)
+                updateCreator {
+                    copy(
+                        isSaving = false,
+                        error = (exception as? OperationHistoryException)?.toUiError() ?: OperationHistoryError.Unknown,
+                    )
+                }
             }
         }
     }
 
-    private fun refund() {
-        val editor = _uiState.value.editor ?: return
-        if (!editor.canRefund || !editor.isRefundConfirmationVisible) return
-        updateEditor {
-            copy(
-                isSaving = true,
-                error = null,
-                isRefundConfirmationVisible = false,
-            )
-        }
-
-        viewModelScope.launch {
-            try {
-                refundPurchase(editor.original)
-                reload()
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: OperationHistoryException) {
-                showEditorError(exception.toUiError())
-            } catch (exception: Exception) {
-                showEditorError(OperationHistoryError.Unknown)
-            }
-        }
-    }
-
-    private fun showEditorError(error: OperationHistoryError) {
-        updateEditor {
-            copy(
-                isSaving = false,
-                error = error,
-                isRefundConfirmationVisible = false,
-            )
-        }
-    }
-
-    private fun updateEditor(transform: PurchaseEditorUiState.() -> PurchaseEditorUiState) {
-        _uiState.update { state -> state.copy(editor = state.editor?.transform()) }
-    }
-
-    private fun reload(clearTotals: Boolean = true) {
-        loadJob?.cancel()
-        failedLoadWasRefresh = false
-        nextCursor = null
-        _uiState.update {
-            it.copy(
-                operations = emptyList(),
-                periodTotals = it.periodTotals.takeUnless { clearTotals },
-                isInitialLoading = false,
-                isLoadingNextPage = false,
-                isRefreshing = false,
-                canLoadMore = true,
-                error = null,
-                editor = null,
-            )
-        }
-        loadNextPage()
-    }
-
-    private fun loadNextPage(isRefreshing: Boolean = false) {
-        val currentState = _uiState.value
-        if (
-            currentState.isInitialLoading ||
-            currentState.isRefreshing ||
-            (isRefreshing && currentState.editor != null) ||
-            (!isRefreshing && (currentState.isLoadingNextPage || !currentState.canLoadMore))
+    private fun openEditor(id: String) {
+        val current = _uiState.value
+        val operation = current.operations.firstOrNull { it.id == id } ?: return
+        if (operation.type != OperationType.Expense || operation.status != OperationStatus.Posted ||
+            operation.syncStatus != OperationSyncStatus.Synced || !current.offline.isOnline
         ) {
             return
         }
+        _uiState.update { it.copy(editor = PurchaseEditorUiState(operation, isOnline = current.offline.isOnline)) }
+    }
 
-        // Refresh supersedes pagination, keeping the current data and cursor until it succeeds.
-        if (isRefreshing) loadJob?.cancel()
-        val requestedCursor = if (isRefreshing) null else nextCursor
-        val requestedFilters = currentState.filters
-        val isInitialLoad = !isRefreshing && currentState.operations.isEmpty()
+    private fun selectPeriod(
+        from: LocalDate,
+        to: LocalDate,
+    ) {
+        if (from > to || _uiState.value.editor != null || _uiState.value.createEditor != null) return
+        val period = OperationHistoryFilter.currentMonth(LocalDate.now(clock))
+        _uiState.update { it.copy(isPeriodFilterVisible = false, isCustomPeriod = from != period.dateFrom || to != period.dateTo) }
+        selectFilter(_uiState.value.filters.copy(dateFrom = from, dateTo = to))
+    }
+
+    private fun selectFilter(filter: OperationHistoryFilter) {
+        val state = _uiState.value
+        if (state.editor != null || state.createEditor != null || state.filters == filter) return
+        val changedPeriod = state.filters.dateFrom != filter.dateFrom || state.filters.dateTo != filter.dateTo
         _uiState.update {
             it.copy(
-                isInitialLoading = isInitialLoad,
-                isLoadingNextPage = !isRefreshing && !isInitialLoad,
-                isRefreshing = isRefreshing,
+                filters = filter,
+                operations = emptyList(),
+                isInitialLoading = true,
+                periodTotals = if (changedPeriod) null else it.periodTotals,
                 error = null,
             )
         }
+        query.value = Query(filter)
+    }
 
-        loadJob = viewModelScope.launch {
-            try {
-                val page = getOperationHistoryPage(cursor = requestedCursor, filter = requestedFilters)
-                // A cancelled page must never append stale data after a refresh or reload.
-                coroutineContext.ensureActive()
-                nextCursor = page.nextCursor
-                failedLoadWasRefresh = false
-                _uiState.update { state ->
-                    state.copy(
-                        operations = (if (isRefreshing) page.items else state.operations + page.items)
-                            .distinctBy { it.id },
-                        periodTotals = page.totals,
-                        isInitialLoading = false,
-                        isLoadingNextPage = false,
-                        isRefreshing = false,
-                        canLoadMore = page.nextCursor != null &&
-                            page.nextCursor != requestedCursor,
-                    )
-                }
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: OperationHistoryException) {
-                coroutineContext.ensureActive()
-                failedLoadWasRefresh = isRefreshing
-                _uiState.update {
-                    it.copy(
-                        isInitialLoading = false,
-                        isLoadingNextPage = false,
-                        isRefreshing = false,
-                        error = exception.toUiError(),
-                    )
-                }
-            } catch (exception: Exception) {
-                coroutineContext.ensureActive()
-                failedLoadWasRefresh = isRefreshing
-                _uiState.update {
-                    it.copy(
-                        isInitialLoading = false,
-                        isLoadingNextPage = false,
-                        isRefreshing = false,
-                        error = OperationHistoryError.Unknown,
-                    )
-                }
+    private fun save() {
+        val editor = _uiState.value.editor?.takeIf { it.canSave } ?: return
+        updateEditor { copy(isSaving = true, error = null) }
+        viewModelScope.launch { mutate { updatePurchaseAmount(editor.original, requireNotNull(editor.parsedAmount)) } }
+    }
+
+    private fun refund() {
+        val editor = _uiState.value.editor?.takeIf { it.canRefund && it.isRefundConfirmationVisible } ?: return
+        updateEditor { copy(isSaving = true, error = null, isRefundConfirmationVisible = false) }
+        viewModelScope.launch { mutate { refundPurchase(editor.original) } }
+    }
+
+    private suspend fun mutate(action: suspend () -> Unit) {
+        try {
+            action()
+            _uiState.update { it.copy(editor = null) }
+        } catch (
+            exception: CancellationException,
+        ) {
+            throw exception
+        } catch (exception: Exception) {
+            updateEditor {
+                copy(
+                    isSaving = false,
+                    error = (exception as? OperationHistoryException)?.toUiError() ?: OperationHistoryError.Unknown,
+                )
             }
         }
     }
+
+    private fun updateEditor(update: PurchaseEditorUiState.() -> PurchaseEditorUiState) {
+        _uiState.update { it.copy(editor = it.editor?.update()) }
+    }
+
+    private fun updateCreator(update: OperationCreateEditorUiState.() -> OperationCreateEditorUiState) {
+        _uiState.update { it.copy(createEditor = it.createEditor?.update()) }
+    }
 }
 
-private fun OperationHistoryException.toUiError(): OperationHistoryError = when (this) {
-    OperationHistoryException.MissingApiToken -> OperationHistoryError.MissingApiToken
-    OperationHistoryException.Unauthorized -> OperationHistoryError.Unauthorized
-    OperationHistoryException.Forbidden -> OperationHistoryError.Forbidden
-    OperationHistoryException.InvalidRequest -> OperationHistoryError.InvalidRequest
-    OperationHistoryException.NotFound -> OperationHistoryError.NotFound
-    OperationHistoryException.Conflict -> OperationHistoryError.Conflict
-    OperationHistoryException.Network -> OperationHistoryError.Network
-    OperationHistoryException.InvalidResponse -> OperationHistoryError.InvalidResponse
-    OperationHistoryException.Unknown -> OperationHistoryError.Unknown
-}
+private fun OperationHistoryException.toUiError(): OperationHistoryError =
+    when (this) {
+        OperationHistoryException.MissingApiToken -> OperationHistoryError.MissingApiToken
+        OperationHistoryException.Unauthorized -> OperationHistoryError.Unauthorized
+        OperationHistoryException.Forbidden -> OperationHistoryError.Forbidden
+        OperationHistoryException.InvalidRequest -> OperationHistoryError.InvalidRequest
+        OperationHistoryException.NotFound -> OperationHistoryError.NotFound
+        OperationHistoryException.Conflict -> OperationHistoryError.Conflict
+        OperationHistoryException.Network -> OperationHistoryError.Network
+        OperationHistoryException.InvalidResponse -> OperationHistoryError.InvalidResponse
+        OperationHistoryException.Unknown -> OperationHistoryError.Unknown
+    }

@@ -1,28 +1,16 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
-import com.firkat.fillin.feature.operationhistory.domain.model.Operation
-import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
-import com.firkat.fillin.feature.operationhistory.domain.model.OperationPage
-import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
-import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
-import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
-import com.firkat.fillin.feature.operationhistory.domain.usecase.GetOperationHistoryPage
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
 import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
-import java.math.BigDecimal
-import java.time.LocalDate
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -30,219 +18,146 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OperationHistoryRefreshTest {
-    @Before
-    fun setUp() {
+    @Before fun setUp() {
         Dispatchers.setMain(StandardTestDispatcher())
     }
 
-    @After
-    fun tearDown() {
+    @After fun tearDown() {
         Dispatchers.resetMain()
     }
 
-    @Test
-    fun `refresh replaces all loaded pages and uses the new first-page cursor`() = runTest {
-        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10, BEFORE_TOTALS) }
-        val viewModel = viewModel(repository)
-        runCurrent()
-        repository.load = { OperationPage(listOf(purchase("second")), null, BEFORE_TOTALS) }
-        viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
-        runCurrent()
-
-        repository.load = { OperationPage(listOf(purchase("new")), 20, AFTER_TOTALS) }
-        viewModel.onEvent(OperationHistoryEvent.Refresh)
-        runCurrent()
-        assertEquals(listOf("new"), viewModel.uiState.value.operations.map { it.id })
-        assertEquals(AFTER_TOTALS, viewModel.uiState.value.periodTotals)
-        assertTrue(viewModel.uiState.value.canLoadMore)
-
-        repository.load = { OperationPage(listOf(purchase("new-second")), null, AFTER_TOTALS) }
-        viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
-        runCurrent()
-        assertEquals(listOf(null, 10L, null, 20L), repository.cursors)
-        assertEquals(listOf("new", "new-second"), viewModel.uiState.value.operations.map { it.id })
-        assertEquals(AFTER_TOTALS, viewModel.uiState.value.periodTotals)
-    }
-
-    @Test
-    fun `refresh keeps visible data and ignores duplicate refresh and pagination events`() = runTest {
-        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10, BEFORE_TOTALS) }
-        val viewModel = viewModel(repository)
-        runCurrent()
-        val response = CompletableDeferred<OperationPage>()
-        repository.load = { response.await() }
-
-        viewModel.onEvent(OperationHistoryEvent.Refresh)
-        viewModel.onEvent(OperationHistoryEvent.Refresh)
-        viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
-        runCurrent()
-
-        assertTrue(viewModel.uiState.value.isRefreshing)
-        assertFalse(viewModel.uiState.value.isInitialLoading)
-        assertFalse(viewModel.uiState.value.isLoadingNextPage)
-        assertEquals(listOf("old"), viewModel.uiState.value.operations.map { it.id })
-        assertEquals(BEFORE_TOTALS, viewModel.uiState.value.periodTotals)
-        assertEquals(listOf(null, null), repository.cursors)
-
-        viewModel.onEvent(OperationHistoryEvent.EditRequested("old"))
-        assertNull(viewModel.uiState.value.editor)
-
-        response.complete(OperationPage(listOf(purchase("new")), null, AFTER_TOTALS))
-        runCurrent()
-        assertFalse(viewModel.uiState.value.isRefreshing)
-    }
-
-    @Test
-    fun `failed refresh preserves data and retry requests the first page`() = runTest {
-        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10, BEFORE_TOTALS) }
-        val viewModel = viewModel(repository)
-        runCurrent()
-        repository.load = { throw OperationHistoryException.Network }
-
-        viewModel.onEvent(OperationHistoryEvent.Refresh)
-        runCurrent()
-
-        assertFalse(viewModel.uiState.value.isRefreshing)
-        assertEquals(OperationHistoryError.Network, viewModel.uiState.value.error)
-        assertEquals(listOf("old"), viewModel.uiState.value.operations.map { it.id })
-        assertEquals(BEFORE_TOTALS, viewModel.uiState.value.periodTotals)
-
-        repository.load = { OperationPage(listOf(purchase("new")), null, AFTER_TOTALS) }
-        viewModel.onEvent(OperationHistoryEvent.Retry)
-        assertTrue(viewModel.uiState.value.isRefreshing)
-        runCurrent()
-        assertEquals(listOf(null, null, null), repository.cursors)
-        assertNull(viewModel.uiState.value.error)
-        assertFalse(viewModel.uiState.value.isRefreshing)
-        assertEquals(listOf("new"), viewModel.uiState.value.operations.map { it.id })
-        assertEquals(AFTER_TOTALS, viewModel.uiState.value.periodTotals)
-    }
-
-    @Test
-    fun `empty completed history can be refreshed`() = runTest {
-        val repository = RefreshRepository { OperationPage(emptyList(), null) }
-        val viewModel = viewModel(repository)
-        runCurrent()
-        assertFalse(viewModel.uiState.value.canLoadMore)
-
-        repository.load = { OperationPage(listOf(purchase("new")), null, AFTER_TOTALS) }
-        viewModel.onEvent(OperationHistoryEvent.Refresh)
-        runCurrent()
-
-        assertEquals(listOf(null, null), repository.cursors)
-        assertEquals(listOf("new"), viewModel.uiState.value.operations.map { it.id })
-        assertEquals(AFTER_TOTALS, viewModel.uiState.value.periodTotals)
-        assertFalse(viewModel.uiState.value.isRefreshing)
-    }
-
-    @Test
-    fun `refresh supersedes pagination even when cancelled request returns late`() = runTest {
-        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10, BEFORE_TOTALS) }
-        val viewModel = viewModel(repository)
-        runCurrent()
-        val stalePage = CompletableDeferred<OperationPage>()
-        repository.load = {
-            try {
-                stalePage.await()
-            } catch (exception: CancellationException) {
-                // Simulate a data source that swallows cancellation and returns a stale response.
-                withContext(NonCancellable) { stalePage.await() }
-            }
+    @Test fun `refresh schedules sync and keeps visible history and local page window on failure`() =
+        runTest {
+            val repository = FakeOfflineHistory()
+            repository.operations.value = (1..45).map { FakeOfflineHistory.purchase("entry-$it") }
+            val model = model(repository)
+            runCurrent()
+            assertEquals(20, model.uiState.value.operations.size)
+            model.onEvent(OperationHistoryEvent.LoadNextPage)
+            runCurrent()
+            assertEquals(40, model.uiState.value.operations.size)
+            model.onEvent(OperationHistoryEvent.Refresh)
+            runCurrent()
+            repository.context.value = repository.context.value.copy(isSyncing = true)
+            runCurrent()
+            assertTrue(model.uiState.value.isRefreshing)
+            assertEquals(40, model.uiState.value.operations.size)
+            repository.context.value = repository.context.value.copy(isSyncing = false, syncError = "network")
+            runCurrent()
+            assertFalse(model.uiState.value.isRefreshing)
+            assertEquals(40, model.uiState.value.operations.size)
+            assertEquals(40, repository.subscriptions.last().second)
+            model.onEvent(OperationHistoryEvent.Retry)
+            assertEquals(3, repository.syncRequests)
         }
-        viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
-        runCurrent()
 
-        repository.load = { OperationPage(listOf(purchase("new")), 20, AFTER_TOTALS) }
-        viewModel.onEvent(OperationHistoryEvent.Refresh)
-        runCurrent()
-        stalePage.complete(OperationPage(listOf(purchase("stale")), 99))
-        runCurrent()
+    @Test fun `bootstrap blocks creation and incomplete history does not show final totals`() =
+        runTest {
+            val repository = FakeOfflineHistory()
+            repository.context.value = repository.context.value.copy(initialSyncComplete = false)
+            val model = model(repository)
+            runCurrent()
+            model.onEvent(OperationHistoryEvent.CreateRequested)
+            assertNull(model.uiState.value.createEditor)
+            assertNull(model.uiState.value.periodTotals)
+        }
 
-        assertEquals(listOf("new"), viewModel.uiState.value.operations.map { it.id })
-        assertEquals(AFTER_TOTALS, viewModel.uiState.value.periodTotals)
-        assertFalse(viewModel.uiState.value.isRefreshing)
-        assertNull(viewModel.uiState.value.error)
-        repository.load = { OperationPage(emptyList(), null) }
-        viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
-        runCurrent()
-        assertEquals(listOf(null, 10L, null, 20L), repository.cursors)
-    }
+    @Test fun `offline save closes form only after local creation and observes pending entry`() =
+        runTest {
+            val repository = FakeOfflineHistory()
+            repository.context.value = repository.context.value.copy(isOnline = false)
+            val model = model(repository)
+            runCurrent()
+            model.onEvent(OperationHistoryEvent.CreateRequested)
+            model.onEvent(OperationHistoryEvent.CreateAmountChanged("123,45"))
+            model.onEvent(OperationHistoryEvent.CreateCategoryChanged("expense-category"))
+            model.onEvent(OperationHistoryEvent.CreateSaved)
+            runCurrent()
+            assertNull(model.uiState.value.createEditor)
+            assertEquals("123.45", repository.created!!.amount.toPlainString())
+            assertEquals(
+                OperationSyncStatus.Pending,
+                model.uiState.value.operations
+                    .last()
+                    .syncStatus,
+            )
+        }
 
-    @Test
-    fun `refresh during initial load does not start a second request`() = runTest {
-        val response = CompletableDeferred<OperationPage>()
-        val repository = RefreshRepository { response.await() }
-        val viewModel = viewModel(repository)
-        runCurrent()
+    @Test fun `local write failure retains form and error without pretending to save`() =
+        runTest {
+            val repository = FakeOfflineHistory().apply { creationError = OperationHistoryException.Unknown }
+            val model = model(repository)
+            runCurrent()
+            model.onEvent(OperationHistoryEvent.CreateRequested)
+            model.onEvent(OperationHistoryEvent.CreateAmountChanged("12.00"))
+            model.onEvent(OperationHistoryEvent.CreateCategoryChanged("expense-category"))
+            model.onEvent(OperationHistoryEvent.CreateSaved)
+            runCurrent()
+            assertEquals(
+                OperationHistoryError.Unknown,
+                model.uiState.value.createEditor!!
+                    .error,
+            )
+            assertFalse(
+                model.uiState.value.createEditor!!
+                    .isSaving,
+            )
+            assertNull(repository.created)
+        }
 
-        viewModel.onEvent(OperationHistoryEvent.Refresh)
-        runCurrent()
-        assertEquals(listOf<Long?>(null), repository.cursors)
-        assertTrue(viewModel.uiState.value.isInitialLoading)
-        assertFalse(viewModel.uiState.value.isRefreshing)
+    @Test fun `only definitively rejected entries can be corrected into a new local request`() =
+        runTest {
+            val repository = FakeOfflineHistory()
+            repository.operations.value = listOf(FakeOfflineHistory.purchase("rejected").copy(syncStatus = OperationSyncStatus.Rejected))
+            val model = model(repository)
+            runCurrent()
+            model.onEvent(OperationHistoryEvent.CorrectRejectedRequested("rejected"))
+            model.onEvent(OperationHistoryEvent.CreateAmountChanged("13.00"))
+            model.onEvent(OperationHistoryEvent.CreateSaved)
+            runCurrent()
+            assertEquals("rejected", repository.replaced)
+            assertEquals(
+                listOf("created"),
+                model.uiState.value.operations
+                    .map { it.id },
+            )
+            model.onEvent(OperationHistoryEvent.CorrectRejectedRequested("created"))
+            assertNull(model.uiState.value.createEditor)
+        }
 
-        response.complete(OperationPage(emptyList(), null))
-        runCurrent()
-        assertFalse(viewModel.uiState.value.isInitialLoading)
-    }
+    @Test fun `loss of connectivity disables an already open online editor`() =
+        runTest {
+            val repository = FakeOfflineHistory()
+            val model = model(repository)
+            runCurrent()
+            model.onEvent(OperationHistoryEvent.EditRequested("first"))
+            model.onEvent(OperationHistoryEvent.AmountChanged("19.00"))
+            assertTrue(
+                model.uiState.value.editor!!
+                    .canSave,
+            )
+            repository.context.value = repository.context.value.copy(isOnline = false)
+            runCurrent()
+            assertFalse(
+                model.uiState.value.editor!!
+                    .canSave,
+            )
+            model.onEvent(OperationHistoryEvent.SaveRequested)
+            runCurrent()
+            assertEquals(0, repository.edits)
+        }
 
-    @Test
-    fun `pagination retry retains existing items and retries the failed cursor`() = runTest {
-        val repository = RefreshRepository { OperationPage(listOf(purchase("old")), 10, BEFORE_TOTALS) }
-        val viewModel = viewModel(repository)
-        runCurrent()
-        repository.load = { throw OperationHistoryException.Network }
-        viewModel.onEvent(OperationHistoryEvent.LoadNextPage)
-        runCurrent()
-
-        repository.load = { OperationPage(listOf(purchase("second")), null, BEFORE_TOTALS) }
-        viewModel.onEvent(OperationHistoryEvent.Retry)
-        runCurrent()
-
-        assertEquals(listOf(null, 10L, 10L), repository.cursors)
-        assertEquals(listOf("old", "second"), viewModel.uiState.value.operations.map { it.id })
-        assertNull(viewModel.uiState.value.error)
-    }
-
-    private fun viewModel(repository: OperationHistoryRepository) = OperationHistoryViewModel(
-        getOperationHistoryPage = GetOperationHistoryPage(repository),
-        updatePurchaseAmount = UpdatePurchaseAmount(repository),
-        refundPurchase = RefundPurchase(repository),
-    )
-
-    private fun purchase(id: String) = Operation(
-        id = id,
-        categoryName = "Продукты",
-        description = null,
-        amount = BigDecimal("1000.00"),
-        currency = "KZT",
-        originalAmount = BigDecimal("1000.00"),
-        originalCurrency = "KZT",
-        occurredOn = LocalDate.of(2026, 10, 14),
-        status = OperationStatus.Posted,
-        version = 1,
-    )
+    private fun model(repository: FakeOfflineHistory) =
+        OperationHistoryViewModel(
+            repository,
+            UpdatePurchaseAmount(repository),
+            RefundPurchase(repository),
+            Clock.fixed(Instant.parse("2026-10-18T05:00:00Z"), ZoneId.of("Asia/Almaty")),
+        )
 }
-
-private class RefreshRepository(
-    var load: suspend (Long?) -> OperationPage,
-) : OperationHistoryRepository {
-    val cursors = mutableListOf<Long?>()
-
-    override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage {
-        cursors += cursor
-        return load(cursor)
-    }
-
-    override suspend fun updatePurchase(id: String, version: Long, amount: BigDecimal): Operation =
-        error("Unexpected purchase update")
-
-    override suspend fun refundPurchase(id: String, version: Long) =
-        error("Unexpected refund")
-}
-
-private val BEFORE_TOTALS = OperationPeriodTotals(BigDecimal("15000.00"), BigDecimal("100000.00"))
-private val AFTER_TOTALS = OperationPeriodTotals(BigDecimal("20000.00"), BigDecimal("200000.00"))

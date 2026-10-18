@@ -16,9 +16,15 @@ data class Operation(
     val version: Long,
     val type: OperationType = OperationType.Expense,
     val categoryId: String = "",
+    val syncStatus: OperationSyncStatus = OperationSyncStatus.Synced,
+    val syncError: String? = null,
 )
 
-enum class OperationType(val apiValue: String) {
+enum class OperationSyncStatus { Synced, Pending, Rejected }
+
+enum class OperationType(
+    val apiValue: String,
+) {
     Expense("EXPENSE"),
     Income("INCOME"),
 }
@@ -33,4 +39,5 @@ data class OperationPage(
     val items: List<Operation>,
     val nextCursor: Long?,
     val totals: OperationPeriodTotals = OperationPeriodTotals(),
+    val isComplete: Boolean = true,
 )

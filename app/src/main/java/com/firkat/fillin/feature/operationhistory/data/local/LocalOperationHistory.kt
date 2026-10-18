@@ -1,0 +1,82 @@
+package com.firkat.fillin.feature.operationhistory.data.local
+
+import com.firkat.fillin.feature.operationhistory.domain.model.Operation
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationPage
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
+import java.math.BigDecimal
+import java.time.Instant
+import java.time.LocalDate
+
+/** Aggregate exact decimal values across the period, independently of page and type filters. */
+internal fun localHistory(
+    content: LocalHistoryContent?,
+    filter: OperationHistoryFilter,
+    limit: Int,
+): OperationPage {
+    require(limit > 0)
+    val categories = content?.categories.orEmpty().associateBy { it.id }
+    val period =
+        content?.operations.orEmpty().filter {
+            it.occurredOn >= filter.dateFrom.toString() &&
+                it.occurredOn <= filter.dateTo.toString()
+        }
+    var expenses = BigDecimal.ZERO
+    var incomes = BigDecimal.ZERO
+    period.filter { it.status == "POSTED" && it.syncStatus != "REJECTED" }.forEach {
+        when (it.type) {
+            "EXPENSE" -> expenses += it.amountKzt.toBigDecimal()
+            "EXPENSE_REFUND" -> expenses -= it.amountKzt.toBigDecimal()
+            "INCOME" -> incomes += it.amountKzt.toBigDecimal()
+        }
+    }
+    val rows =
+        period
+            .filter {
+                it.type != "EXPENSE_REFUND" &&
+                    (filter.type == null || it.type == filter.type.apiValue) &&
+                    (filter.categoryId == null || it.categoryId == filter.categoryId)
+            }.sortedWith(
+                compareByDescending<LocalOperation> { it.occurredOn }
+                    .thenByDescending { Instant.parse(it.createdAt) }
+                    .thenByDescending { it.sequence }
+                    .thenByDescending { it.id },
+            )
+    return OperationPage(
+        rows.take(limit).map {
+            Operation(
+                id = it.id,
+                categoryName = categories[it.categoryId]?.name ?: "Категория недоступна",
+                description = it.description,
+                amount = it.amountKzt.toBigDecimal(),
+                currency = "KZT",
+                originalAmount = it.originalAmount.toBigDecimal(),
+                originalCurrency = it.originalCurrency,
+                occurredOn = LocalDate.parse(it.occurredOn),
+                status = if (it.status == "POSTED") OperationStatus.Posted else OperationStatus.Voided,
+                version = it.version,
+                type = if (it.type == "INCOME") OperationType.Income else OperationType.Expense,
+                categoryId = it.categoryId,
+                syncStatus =
+                    when (it.syncStatus) {
+                        "PENDING" -> OperationSyncStatus.Pending
+                        "REJECTED" -> OperationSyncStatus.Rejected
+                        else -> OperationSyncStatus.Synced
+                    },
+                syncError = it.syncError,
+            )
+        },
+        if (rows.size >
+            limit
+        ) {
+            limit.toLong()
+        } else {
+            null
+        },
+        OperationPeriodTotals(expenses, incomes),
+        content?.sync?.initialSyncComplete == true,
+    )
+}
