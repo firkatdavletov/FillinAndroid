@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
@@ -176,10 +177,6 @@ internal fun OperationSyncStatusBanner(context: OfflineHistoryContext) {
                     R.string.operation_sync_initial
                 }
 
-                context.isSyncing -> {
-                    R.string.operation_sync_running
-                }
-
                 !context.isOnline -> {
                     R.string.operation_sync_offline
                 }
@@ -195,18 +192,27 @@ internal fun OperationSyncStatusBanner(context: OfflineHistoryContext) {
                 color = if (context.syncError == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
             )
         }
-        context.lastSyncedAt?.let { time ->
-            Text(
-                stringResource(
-                    R.string.operation_sync_last,
-                    time
-                        .atZone(ZoneId.of("Asia/Almaty"))
-                        .format(DateTimeFormatter.ofPattern("dd.MM HH:mm")),
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        val syncStatus =
+            if (context.isSyncing) {
+                stringResource(R.string.operation_sync_running)
+            } else {
+                context.lastSyncedAt?.let { time ->
+                    stringResource(
+                        R.string.operation_sync_last,
+                        time
+                            .atZone(ZoneId.of("Asia/Almaty"))
+                            .format(DateTimeFormatter.ofPattern("dd.MM HH:mm")),
+                    )
+                }.orEmpty()
+            }
+        Text(
+            text = syncStatus,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            minLines = 1,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         if (context.pendingCount > 0) {
             Text(
                 stringResource(R.string.operation_sync_pending_count, context.pendingCount),

@@ -45,7 +45,7 @@ class OperationHistoryFiltersTest {
             assertNull(model.uiState.value.filters.type)
             assertEquals(repository.totals.value, model.uiState.value.periodTotals)
             assertEquals(20, repository.subscriptions.single().second)
-            assertEquals(1, repository.syncRequests)
+            assertEquals(0, repository.syncRequests)
         }
 
     @Test fun `period reset preserves type and same dates avoid a duplicate subscription`() =

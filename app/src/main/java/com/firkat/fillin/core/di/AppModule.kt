@@ -23,6 +23,7 @@ import com.firkat.fillin.feature.operationhistory.data.repository.OfflineOperati
 import com.firkat.fillin.feature.operationhistory.data.repository.OperationHistoryRepositoryImpl
 import com.firkat.fillin.feature.operationhistory.data.sync.AndroidOperationConnectivity
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationConnectivity
+import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncRequests
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncStorage
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationWorkerFactory
@@ -111,7 +112,8 @@ val appModule = module {
     }
     single<OperationSyncApi> { get<Retrofit>().create(OperationSyncApi::class.java) }
     single<OperationSyncStorage> { RoomOperationSyncStorage(get()) }
-    single<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext()) { get() } }
+    single { OperationSyncRequests(get<OperationsSynchronizer>()::synchronize) }
+    single<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get()) }
     single { AndroidOperationConnectivity(androidContext(), get()) }
     single<OperationConnectivity> { get<AndroidOperationConnectivity>() }
     single { OperationsSynchronizer(get(), get(), BuildConfig.MOBILE_API_TOKEN, get()) }

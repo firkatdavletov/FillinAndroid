@@ -54,7 +54,7 @@ class OperationHistoryRefreshTest {
             assertEquals(40, model.uiState.value.operations.size)
             assertEquals(40, repository.subscriptions.last().second)
             model.onEvent(OperationHistoryEvent.Retry)
-            assertEquals(3, repository.syncRequests)
+            assertEquals(2, repository.syncRequests)
         }
 
     @Test fun `bootstrap blocks creation and incomplete history does not show final totals`() =

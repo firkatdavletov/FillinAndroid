@@ -36,7 +36,6 @@ open class FillinApplication :
                     }
                 },
             )
-            getKoin().get<OperationSyncScheduler>().schedule()
         }
     }
 }

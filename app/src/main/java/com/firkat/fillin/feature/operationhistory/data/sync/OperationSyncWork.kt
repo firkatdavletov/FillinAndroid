@@ -14,52 +14,39 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class WorkManagerOperationSyncScheduler(
     private val context: Context,
-    private val synchronizer: () -> OperationsSynchronizer,
+    private val requests: OperationSyncRequests,
 ) : OperationSyncScheduler {
-    private val foregroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     override fun schedule() {
         val request =
             OneTimeWorkRequestBuilder<OperationSyncWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
-        // Appending also preserves a wake-up arriving just as the current worker finishes its last query.
-        WorkManager.getInstance(context).enqueueUniqueWork("operation-history-sync", ExistingWorkPolicy.APPEND_OR_REPLACE, request)
         // An explicit foreground retry must not wait behind an older worker's exponential backoff.
         val manager = context.getSystemService(ConnectivityManager::class.java)
         if (manager.getNetworkCapabilities(manager.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true) {
-            foregroundScope.launch {
-                try {
-                    synchronizer().synchronize()
-                } catch (exception: CancellationException) {
-                    throw exception
-                } catch (_: Exception) {
-                    // Persistent work still owns delivery if local storage is temporarily unavailable.
-                }
-            }
+            // Register before enqueueing so even a worker that starts immediately shares this attempt.
+            requests.startForeground(request.id)
         }
+        // Appending also preserves a wake-up arriving just as the current worker finishes its last query.
+        WorkManager.getInstance(context).enqueueUniqueWork("operation-history-sync", ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 }
 
 class OperationSyncWorker(
     context: Context,
     parameters: WorkerParameters,
-    private val sync: OperationsSynchronizer,
+    private val requests: OperationSyncRequests,
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result = try {
-        when (sync.synchronize()) {
+        when (requests.runWorker(id)) {
             SyncResult.Completed, SyncResult.Blocked -> Result.success()
             SyncResult.Retry -> Result.retry()
         }
@@ -71,14 +58,14 @@ class OperationSyncWorker(
 }
 
 class OperationWorkerFactory(
-    private val sync: () -> OperationsSynchronizer,
+    private val requests: () -> OperationSyncRequests,
 ) : WorkerFactory() {
     override fun createWorker(
         appContext: Context,
         workerClassName: String,
         workerParameters: WorkerParameters,
     ): ListenableWorker? =
-        if (workerClassName == OperationSyncWorker::class.java.name) OperationSyncWorker(appContext, workerParameters, sync()) else null
+        if (workerClassName == OperationSyncWorker::class.java.name) OperationSyncWorker(appContext, workerParameters, requests()) else null
 }
 
 interface OperationConnectivity {

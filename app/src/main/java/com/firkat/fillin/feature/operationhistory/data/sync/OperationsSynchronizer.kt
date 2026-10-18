@@ -71,7 +71,8 @@ class OperationsSynchronizer(
             try {
                 storage.setRunning(true)
                 pull()
-                for (command in storage.pending()) {
+                val pendingCommands = storage.pending()
+                for (command in pendingCommands) {
                     val request = json.decodeFromString<CreateOperationDto>(command.payload)
                     val state = storage.state()
                     if (command.scopeKey != state.scopeKey || request.householdId != state.householdId ||
@@ -114,7 +115,7 @@ class OperationsSynchronizer(
                         }
                     }
                 }
-                pull()
+                if (pendingCommands.isNotEmpty()) pull()
                 storage.finish(null, clock.instant().toString())
                 SyncResult.Completed
             } catch (exception: CancellationException) {

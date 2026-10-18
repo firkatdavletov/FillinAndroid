@@ -22,11 +22,13 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryF
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
+import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.io.FileInputStream
 import java.math.BigDecimal
+import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -38,6 +40,48 @@ import org.junit.runner.RunWith
 class OperationHistoryScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun syncReplacesLastSyncTimeWithoutMovingContent() {
+        assertSyncDoesNotMoveContent(Instant.parse("2026-10-18T05:00:00Z"))
+    }
+
+    @Test
+    fun syncStatusReservesItsLineBeforeTheFirstTimestamp() {
+        assertSyncDoesNotMoveContent(null)
+    }
+
+    private fun assertSyncDoesNotMoveContent(lastSyncedAt: Instant?) {
+        var state by mutableStateOf(
+            OperationHistoryUiState(
+                filters = FILTER,
+                offline = OfflineHistoryContext(initialSyncComplete = true, isOnline = true, lastSyncedAt = lastSyncedAt),
+            ),
+        )
+        composeRule.setContent {
+            FillinTheme(dynamicColor = false) {
+                FeatureScaffold(titleResource = R.string.operation_history_title) {
+                    OperationHistoryScreen(state, onEvent = {})
+                }
+            }
+        }
+        val contentBounds = composeRule.onNodeWithTag("history-type-totals").fetchSemanticsNode().boundsInRoot
+        val resources = InstrumentationRegistry.getInstrumentation().targetContext.resources
+        val running = resources.getString(R.string.operation_sync_running)
+        val lastSync = resources.getString(R.string.operation_sync_last, "18.10 10:00")
+        listOf(true, false, true, false).forEach { syncing ->
+            composeRule.runOnIdle { state = state.copy(offline = state.offline.copy(isSyncing = syncing)) }
+            val updatedBounds = composeRule.onNodeWithTag("history-type-totals").fetchSemanticsNode().boundsInRoot
+            assertEquals(contentBounds, updatedBounds)
+            if (syncing) {
+                composeRule.onNodeWithText(running).assertIsDisplayed()
+                composeRule.onNodeWithText(lastSync).assertDoesNotExist()
+            } else {
+                composeRule.onNodeWithText(running).assertDoesNotExist()
+                if (lastSyncedAt != null) composeRule.onNodeWithText(lastSync).assertIsDisplayed()
+            }
+        }
+    }
 
     @Test
     fun defaultFiltersStayVisibleWithAnEmptyHistory() {

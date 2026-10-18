@@ -5,6 +5,7 @@ import com.firkat.fillin.feature.operationhistory.data.local.OperationSyncState
 import com.firkat.fillin.feature.operationhistory.data.remote.CreateOperationDto
 import com.firkat.fillin.feature.operationhistory.data.remote.CreatedOperationDto
 import com.firkat.fillin.feature.operationhistory.data.remote.OperationSyncApi
+import com.firkat.fillin.feature.operationhistory.data.remote.SyncChangeDto
 import com.firkat.fillin.feature.operationhistory.data.remote.SyncOperationDto
 import com.firkat.fillin.feature.operationhistory.data.remote.SyncPageDto
 import com.firkat.fillin.feature.operationhistory.data.remote.SyncScopeDto
@@ -25,6 +26,69 @@ import java.io.IOException
 
 class OperationsSynchronizerTest {
     private val json = Json { ignoreUnknownKeys = true }
+
+    @Test
+    fun `empty outbox completes after one changes request`() =
+        runTest {
+            val store = MemoryStorage().apply {
+                commands.clear()
+                state = state.copy(errorCode = "network")
+            }
+            val api = FakeApi()
+            val sync = OperationsSynchronizer(api, store, "synthetic", json)
+
+            assertEquals(SyncResult.Completed, sync.synchronize())
+            assertEquals(listOf("before"), api.changeCursors)
+            assertTrue(api.requests.isEmpty())
+            assertEquals("after", store.state.cursor)
+            assertNotNull(store.state.lastSyncedAt)
+            assertNull(store.state.errorCode)
+            assertFalse(store.state.isSyncing)
+            assertFalse(sync.running.value)
+        }
+
+    @Test
+    fun `queued operations are followed by a second pull even after outbox is acknowledged`() =
+        runTest {
+            val store = MemoryStorage()
+            val api = FakeApi()
+
+            assertEquals(SyncResult.Completed, OperationsSynchronizer(api, store, "synthetic", json).synchronize())
+            assertEquals(listOf("changes", "create", "changes"), api.events)
+            assertEquals(listOf("before", "after"), api.changeCursors)
+            assertEquals(listOf(REQUEST), api.requests)
+            assertTrue(store.pending().isEmpty())
+        }
+
+    @Test
+    fun `first pull reconciling a lost response skips upload and second pull`() =
+        runTest {
+            val store = MemoryStorage()
+            val api = FakeApi().apply {
+                page = PAGE.copy(changes = listOf(SyncChangeDto(1, "LEDGER", false, operation = operation(REQUEST))))
+            }
+
+            assertEquals(SyncResult.Completed, OperationsSynchronizer(api, store, "synthetic", json).synchronize())
+            assertEquals(listOf("before"), api.changeCursors)
+            assertTrue(api.requests.isEmpty())
+            assertTrue(store.pending().isEmpty())
+        }
+
+    @Test
+    fun `empty outbox still downloads all pages of the initial pull`() =
+        runTest {
+            val store = MemoryStorage().apply { commands.clear() }
+            val api = FakeApi().apply {
+                get = { cursor ->
+                    if (cursor == "before") PAGE.copy(nextCursor = "middle", hasMore = true) else PAGE
+                }
+            }
+
+            assertEquals(SyncResult.Completed, OperationsSynchronizer(api, store, "synthetic", json).synchronize())
+            assertEquals(listOf("before", "middle"), api.changeCursors)
+            assertTrue(api.requests.isEmpty())
+            assertEquals("after", store.state.cursor)
+        }
 
     @Test
     fun `lost creation response preserves immutable request and retry uses same UUID`() =
@@ -162,6 +226,9 @@ class OperationsSynchronizerTest {
 
         override suspend fun apply(page: SyncPageDto) {
             if (page.scope.key != state.scopeKey) throw SyncBlockedException("scope_changed")
+            for (change in page.changes) {
+                change.operation?.requestId?.let { requestId -> commands.removeAll { it.requestId == requestId } }
+            }
             state = state.copy(cursor = page.nextCursor)
         }
 
@@ -191,6 +258,9 @@ class OperationsSynchronizerTest {
     private class FakeApi : OperationSyncApi {
         var page = PAGE
         val requests = mutableListOf<CreateOperationDto>()
+        val changeCursors = mutableListOf<String?>()
+        val events = mutableListOf<String>()
+        var get: suspend (String?) -> SyncPageDto = { page }
         var post: suspend (
             CreateOperationDto,
         ) -> Response<CreatedOperationDto> = { Response.success(CreatedOperationDto(it.requestId, operation(it))) }
@@ -198,13 +268,18 @@ class OperationsSynchronizerTest {
         override suspend fun changes(
             authorization: String,
             cursor: String?,
-        ) = page
+        ): SyncPageDto {
+            changeCursors += cursor
+            events += "changes"
+            return get(cursor)
+        }
 
         override suspend fun create(
             authorization: String,
             request: CreateOperationDto,
         ): Response<CreatedOperationDto> {
             requests += request
+            events += "create"
             return post(request)
         }
     }

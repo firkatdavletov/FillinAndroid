@@ -79,7 +79,6 @@ class OperationHistoryViewModel(
                 }
             }
         }
-        history.requestSync()
     }
 
     fun onEvent(event: OperationHistoryEvent) {
