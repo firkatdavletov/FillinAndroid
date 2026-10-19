@@ -115,3 +115,11 @@ val BUDGET_MIGRATION_1_2 =
             )
         }
     }
+
+val BUDGET_MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE local_operations ADD COLUMN occurredAt TEXT")
+        db.execSQL("DELETE FROM sync_staging_pages")
+        db.execSQL("UPDATE operation_sync_state SET cursor = NULL, lastRevision = 0, initialSyncComplete = 0, protocolVersion = 3, isSyncing = 0")
+    }
+}

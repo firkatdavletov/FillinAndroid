@@ -41,6 +41,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
+import com.firkat.fillin.feature.sync.ui.BudgetSyncPanel
+import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.dashboard.domain.model.Dashboard
 import com.firkat.fillin.feature.dashboard.domain.model.ExpenseCategory
@@ -70,15 +74,20 @@ fun DashboardRoute(
     onOpenCategories: () -> Unit,
     onAddOperation: () -> Unit,
     viewModel: DashboardViewModel = koinViewModel(),
+    syncViewModel: BudgetSyncViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    DashboardScreen(
-        state = state,
-        onEvent = viewModel::onEvent,
-        onOpenPlannedExpenses = onOpenPlannedExpenses,
-        onOpenCategories = onOpenCategories,
-        onAddOperation = onAddOperation,
-    )
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onEvent(DashboardEvent.Resume) }
+    Column {
+        BudgetSyncPanel(syncViewModel)
+        DashboardScreen(
+            state = state,
+            onEvent = viewModel::onEvent,
+            onOpenPlannedExpenses = onOpenPlannedExpenses,
+            onOpenCategories = onOpenCategories,
+            onAddOperation = onAddOperation,
+        )
+    }
 }
 
 @Composable
@@ -105,6 +114,12 @@ fun DashboardScreen(
             )
 
             state.isLoading -> DashboardLoading()
+
+            state.awaitingInitialSync && state.error == null -> Box(
+                modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center,
+            ) {
+                Text(stringResource(R.string.dashboard_initial_sync), textAlign = TextAlign.Center)
+            }
 
             state.error != null -> DashboardErrorContent(
                 error = state.error,
@@ -226,11 +241,12 @@ private fun FreeMoneySummary(dashboard: Dashboard) {
     val statusColor = when (dashboard.freeMoney.state) {
         FreeMoneyState.Available -> DashboardGreen
         FreeMoneyState.Deficit -> DashboardRed
-        FreeMoneyState.Unknown -> MaterialTheme.colorScheme.onSurfaceVariant
+        FreeMoneyState.NoFreeFunds, FreeMoneyState.Unknown -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val statusText = when (dashboard.freeMoney.state) {
         FreeMoneyState.Available -> stringResource(R.string.dashboard_obligations_accounted)
         FreeMoneyState.Deficit -> stringResource(R.string.dashboard_free_money_deficit)
+        FreeMoneyState.NoFreeFunds -> stringResource(R.string.dashboard_no_free_money)
         FreeMoneyState.Unknown -> stringResource(R.string.dashboard_free_money_unknown)
     }
 
@@ -372,7 +388,7 @@ private fun BudgetExecutionCard(dashboard: Dashboard) {
     val total = dashboard.budgetExecution.total
     val spent = total.spent ?: dashboard.monthActuals.netExpenses
     val planned = total.plannedAmount
-    val progress = total.usedPercent
+    val progress = (total.usedPercent ?: BigDecimal.ZERO)
         .divide(BigDecimal(100), 4, RoundingMode.HALF_UP)
         .toFloat()
         .coerceIn(0f, 1f)
@@ -443,7 +459,7 @@ private fun BudgetExecutionCard(dashboard: Dashboard) {
                 Text(
                     text = stringResource(
                         R.string.dashboard_used_percent,
-                        formatPercent(total.usedPercent),
+                        total.usedPercent?.let(::formatPercent) ?: "—",
                     ),
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyLarge,
@@ -694,13 +710,8 @@ private fun DashboardErrorContent(
 
 private val DashboardError.messageResource: Int
     @StringRes get() = when (this) {
-        DashboardError.MissingApiToken,
-        DashboardError.Unauthorized,
-        -> R.string.dashboard_error_unauthorized
-
         DashboardError.Forbidden -> R.string.dashboard_error_forbidden
-        DashboardError.Network -> R.string.dashboard_error_network
-        DashboardError.InvalidResponse -> R.string.dashboard_error_invalid_response
+        DashboardError.LocalData -> R.string.dashboard_error_local_data
         DashboardError.Unknown -> R.string.dashboard_error_generic
     }
 

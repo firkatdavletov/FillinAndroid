@@ -35,6 +35,7 @@ data class LocalOperation(
     val requestId: String?,
     val syncStatus: String = "SYNCED",
     val syncError: String? = null,
+    val occurredAt: String? = null,
 )
 
 @Entity(tableName = "local_categories", primaryKeys = ["scopeKey", "id"])
@@ -73,7 +74,7 @@ data class OperationSyncState(
     val lastSyncedAt: String? = null,
     val errorCode: String? = null,
     @ColumnInfo(defaultValue = "''") val role: String = "",
-    @ColumnInfo(defaultValue = "2") val protocolVersion: Int = 2,
+    @ColumnInfo(defaultValue = "2") val protocolVersion: Int = 3,
 )
 
 data class LocalHistoryContent(
@@ -142,7 +143,7 @@ interface OperationDao {
         LocalOperation::class, LocalCategory::class, OperationOutbox::class, OperationSyncState::class,
         LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class OperationDatabase : RoomDatabase() {

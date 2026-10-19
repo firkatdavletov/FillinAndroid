@@ -6,6 +6,9 @@
     <string name="navigation_planned_incomes">Доходы</string>
     <string name="navigation_categories">Категории</string>
     <string name="navigation_back">Назад</string>
+    <string name="dashboard_initial_sync">Для расчёта Главной нужна первая полная синхронизация</string>
+    <string name="dashboard_no_free_money">Свободных средств нет</string>
+    <string name="dashboard_error_local_data">Не удалось рассчитать показатели из локальных данных</string>
     <string name="dashboard_title">Главная</string>
     <string name="dashboard_family_budget">СЕМЕЙНЫЙ БЮДЖЕТ</string>
     <string name="dashboard_open_calendar">Открыть плановые платежи</string>

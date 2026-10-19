@@ -11,7 +11,7 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface OperationSyncApi {
-    @GET("api/v2/sync/changes")
+    @GET("api/v3/sync/changes")
     suspend fun changes(
         @Header("Authorization") authorization: String,
         @Query("cursor") cursor: String?,
@@ -53,6 +53,9 @@ data class SyncChangeDto(
     val operation: SyncOperationDto? = null,
     val category: SyncCategoryDto? = null,
     val record: com.firkat.fillin.feature.sync.data.SyncPlanRecord? = null,
+    val budgetSettings: com.firkat.fillin.feature.sync.data.SyncBudgetSettings? = null,
+    val savingsGoal: com.firkat.fillin.feature.sync.data.SyncSavingsGoal? = null,
+    val variableSpendingExclusion: com.firkat.fillin.feature.sync.data.SyncVariableSpendingExclusion? = null,
 )
 
 @Serializable
@@ -71,6 +74,7 @@ data class SyncOperationDto(
     val description: String? = null,
     val refundOf: String? = null,
     val requestId: String? = null,
+    val occurredAt: String? = null,
 )
 
 @Serializable

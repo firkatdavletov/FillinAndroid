@@ -2,77 +2,73 @@ package com.firkat.fillin.feature.dashboard.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.firkat.fillin.feature.dashboard.domain.repository.DashboardException
-import com.firkat.fillin.feature.dashboard.domain.usecase.GetDashboard
+import com.firkat.fillin.feature.dashboard.domain.usecase.ObserveDashboard
+import com.firkat.fillin.feature.sync.domain.BudgetSyncControl
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class DashboardViewModel(
-    private val getDashboard: GetDashboard,
-) : ViewModel() {
+class DashboardViewModel(private val observeDashboard: ObserveDashboard, private val sync: BudgetSyncControl) :
+    ViewModel() {
     private val _uiState = MutableStateFlow(DashboardUiState())
-    val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
+    val uiState = _uiState.asStateFlow()
+    private var observation: Job? = null
+    private var accessDenied = false
 
     init {
-        loadDashboard()
-    }
-
-    fun onEvent(event: DashboardEvent) {
-        when (event) {
-            DashboardEvent.Retry -> loadDashboard()
-            DashboardEvent.Refresh -> loadDashboard(isRefreshing = true)
-        }
-    }
-
-    private fun loadDashboard(isRefreshing: Boolean = false) {
-        if (_uiState.value.isLoading || _uiState.value.isRefreshing) return
-        _uiState.update {
-            it.copy(isLoading = !isRefreshing, isRefreshing = isRefreshing, error = null)
-        }
-
         viewModelScope.launch {
-            try {
-                val dashboard = getDashboard()
+            sync.context.collect { context ->
+                val denied = context.error in setOf("unauthorized", "access_denied", "scope_changed")
+                accessDenied = denied
                 _uiState.update {
                     it.copy(
-                        dashboard = dashboard,
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = null,
-                    )
-                }
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: DashboardException) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = exception.toUiError(),
-                    )
-                }
-            } catch (exception: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = DashboardError.Unknown,
+                        dashboard = it.dashboard.takeIf { context.ready && !denied },
+                        awaitingInitialSync = !context.ready,
+                        isRefreshing = context.syncing,
+                        error = if (denied) {
+                            DashboardError.Forbidden
+                        } else {
+                            it.error.takeUnless { error ->
+                                error ==
+                                    DashboardError.Forbidden
+                            }
+                        }
                     )
                 }
             }
         }
+        observe()
     }
-}
 
-private fun DashboardException.toUiError(): DashboardError = when (this) {
-    DashboardException.MissingApiToken -> DashboardError.MissingApiToken
-    DashboardException.Unauthorized -> DashboardError.Unauthorized
-    DashboardException.Forbidden -> DashboardError.Forbidden
-    DashboardException.Network -> DashboardError.Network
-    DashboardException.InvalidResponse -> DashboardError.InvalidResponse
-    DashboardException.Unknown -> DashboardError.Unknown
+    fun onEvent(event: DashboardEvent) {
+        when (event) {
+            DashboardEvent.Refresh, DashboardEvent.Retry -> {
+                observeDashboard.requestSync()
+                observe()
+            }
+
+            DashboardEvent.Resume -> observe()
+        }
+    }
+
+    private fun observe() {
+        observation?.cancel()
+        observation = viewModelScope.launch {
+            try {
+                observeDashboard().collect { dashboard ->
+                    if (accessDenied) return@collect
+                    _uiState.update {
+                        it.copy(dashboard = dashboard, isLoading = false, error = null, awaitingInitialSync = false)
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update { it.copy(dashboard = null, isLoading = false, error = DashboardError.LocalData) }
+            }
+        }
+    }
 }

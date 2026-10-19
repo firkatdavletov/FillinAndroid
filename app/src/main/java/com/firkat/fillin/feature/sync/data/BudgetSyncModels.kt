@@ -67,3 +67,12 @@ internal fun BudgetSyncCommand.entityKind(): String =
         type == "CLOSE_EXPENSE" -> "RECURRING_OCCURRENCE"
         else -> error("Unknown command")
     }
+
+@Serializable
+data class SyncBudgetSettings(val id: String, val openingBalance: String, val protectedReserve: String)
+
+@Serializable
+data class SyncSavingsGoal(val id: String, val allocatedAmount: String)
+
+@Serializable
+data class SyncVariableSpendingExclusion(val id: String)

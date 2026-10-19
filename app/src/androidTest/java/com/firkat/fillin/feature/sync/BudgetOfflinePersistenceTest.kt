@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.core.database.BUDGET_MIGRATION_1_2
+import com.firkat.fillin.core.database.BUDGET_MIGRATION_2_3
 import com.firkat.fillin.feature.categories.data.repository.OfflineCategoriesRepository
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.data.OfflineTestEnvironment
@@ -44,7 +45,7 @@ class BudgetOfflinePersistenceTest {
     @get:Rule val migrations =
         MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), OperationDatabase::class.java)
 
-    private fun open() = Room.databaseBuilder(context, OperationDatabase::class.java, name).addMigrations(BUDGET_MIGRATION_1_2).build()
+    private fun open() = Room.databaseBuilder(context, OperationDatabase::class.java, name).addMigrations(BUDGET_MIGRATION_1_2, BUDGET_MIGRATION_2_3).build()
 
     @After fun cleanup() {
         database.close()

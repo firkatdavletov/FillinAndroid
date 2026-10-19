@@ -22,6 +22,7 @@ class OfflineDependenciesTest {
         val koin = application.getKoin()
         assertTrue(koin.get<OperationHistoryStore>() is OfflineOperationHistoryRepository)
         assertNotNull(koin.get<OperationsSynchronizer>())
+        assertTrue(koin.get<com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository>() is com.firkat.fillin.feature.dashboard.data.repository.OfflineDashboardRepository)
         assertNotNull(koin.get<com.firkat.fillin.feature.sync.domain.BudgetSyncControl>())
         assertTrue(
             koin.get<com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository>() is com.firkat.fillin.feature.categories.data.repository.OfflineCategoriesRepository,

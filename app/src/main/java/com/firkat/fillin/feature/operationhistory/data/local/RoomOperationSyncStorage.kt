@@ -8,6 +8,9 @@ import com.firkat.fillin.feature.operationhistory.data.remote.SyncOperationDto
 import com.firkat.fillin.feature.operationhistory.data.remote.SyncPageDto
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncStorage
 import com.firkat.fillin.feature.operationhistory.data.sync.SyncBlockedException
+import com.firkat.fillin.feature.sync.data.SyncBudgetSettings
+import com.firkat.fillin.feature.sync.data.SyncSavingsGoal
+import com.firkat.fillin.feature.sync.data.SyncVariableSpendingExclusion
 import kotlinx.serialization.json.Json
 import java.math.BigDecimal
 import java.time.Instant
@@ -65,6 +68,18 @@ class RoomOperationSyncStorage(
                         require(c.kind in setOf("EXPENSE", "INCOME"))
                     }
 
+                    "BUDGET_SETTINGS" -> {
+                        val settings = requireNotNull(change.budgetSettings)
+                        require(settings.id == scope.householdId)
+                        requireDecimal(settings.openingBalance)
+                        requireDecimal(settings.protectedReserve, nonNegative = true)
+                    }
+                    "SAVINGS_GOAL" -> {
+                        val goal = requireNotNull(change.savingsGoal)
+                        UUID.fromString(goal.id)
+                        requireDecimal(goal.allocatedAmount, nonNegative = true)
+                    }
+                    "VARIABLE_SPENDING_EXCLUSION" -> UUID.fromString(requireNotNull(change.variableSpendingExclusion).id)
                     "RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH" -> {
                         val record = requireNotNull(change.record)
                         UUID.fromString(record.id)
@@ -72,10 +87,10 @@ class RoomOperationSyncStorage(
                         record.ruleId?.let(UUID::fromString)
                         record.ledgerId?.let(UUID::fromString)
                         if (record.ledgerId == null) {
-                        require(record.version != null && record.version >= 0)
-                        require(record.createdAt != null && record.modifiedAt != null)
-                    }
-                    record.amount?.let { requireMoney(it.toBigDecimal()) }
+                            require(record.version != null && record.version >= 0)
+                            require(record.createdAt != null && record.modifiedAt != null)
+                        }
+                        record.amount?.let { requireMoney(it.toBigDecimal()) }
                         record.startsOn?.let(LocalDate::parse)
                         record.dueOn?.let(LocalDate::parse)
                         record.createdAt?.let(Instant::parse)
@@ -159,8 +174,20 @@ class RoomOperationSyncStorage(
                             }
 
                             else -> {
-                                val record = requireNotNull(change.record)
-                                val key = record.id + (record.ledgerId?.let { ":$it" } ?: "")
+                                val (key, payload) = when (change.kind) {
+                                    "BUDGET_SETTINGS" -> requireNotNull(change.budgetSettings).let {
+                                        it.id to json.encodeToString(it)
+                                    }
+                                    "SAVINGS_GOAL" -> requireNotNull(change.savingsGoal).let {
+                                        it.id to json.encodeToString(it)
+                                    }
+                                    "VARIABLE_SPENDING_EXCLUSION" -> requireNotNull(change.variableSpendingExclusion).let {
+                                        it.id to json.encodeToString(it)
+                                    }
+                                    else -> requireNotNull(change.record).let { record ->
+                                        (record.id + (record.ledgerId?.let { ":$it" } ?: "")) to json.encodeToString(record)
+                                    }
+                                }
                                 if (change.deleted) {
                                     database.budget().deleteRecord(scope.key, change.kind, key)
                                 } else {
@@ -169,7 +196,7 @@ class RoomOperationSyncStorage(
                                             scope.key,
                                             change.kind,
                                             key,
-                                            json.encodeToString(record),
+                                            payload,
                                             change.revision,
                                         ),
                                     )
@@ -192,7 +219,7 @@ class RoomOperationSyncStorage(
                     initialSyncComplete = previous.initialSyncComplete || !page.hasMore,
                     errorCode = null,
                     role = scope.role,
-                    protocolVersion = 2,
+                    protocolVersion = 3,
                 ),
             )
         }
@@ -202,6 +229,10 @@ class RoomOperationSyncStorage(
     override suspend fun acknowledge(response: CreatedOperationDto) =
         database.withTransaction {
             upsert(response.operation, state().scopeKey)
+            // Keep the local income-match projection until the atomic pull publishes its canonical link.
+            if (response.operation.type == "INCOME") {
+                dao.operation(response.operation.id)?.let { dao.putOperation(it.copy(syncStatus = "ACKNOWLEDGED")) }
+            }
             dao.complete(response.requestId)
         }
 
@@ -251,6 +282,7 @@ internal fun SyncOperationDto.toLocal(scope: String): LocalOperation {
     if (originalCurrency == "KZT") require(originalAmount.toBigDecimal().compareTo(amountKzt.toBigDecimal()) == 0)
     LocalDate.parse(occurredOn)
     Instant.parse(createdAt)
+    occurredAt?.let(Instant::parse)
     return LocalOperation(
         id,
         scope,
@@ -267,9 +299,16 @@ internal fun SyncOperationDto.toLocal(scope: String): LocalOperation {
         description,
         refundOf,
         requestId,
+        occurredAt = occurredAt,
     )
 }
 
 internal fun requireMoney(amount: BigDecimal) {
     require(amount.signum() > 0 && amount.scale() <= 2 && amount <= BigDecimal("99999999999999999.99"))
+}
+
+private fun requireDecimal(value: String, nonNegative: Boolean = false) {
+    val amount = value.toBigDecimal()
+    require(amount.scale() <= 2 && amount.abs() <= BigDecimal("99999999999999999.99"))
+    require(!nonNegative || amount.signum() >= 0)
 }

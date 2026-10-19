@@ -92,7 +92,7 @@ class OperationSyncHttpTest {
             val page = api.changes("Bearer synthetic-test-token", "opaque:+/%=")
             assertNull(requests.first().url.queryParameter("cursor"))
             assertEquals("opaque:+/%=", requests.last().url.queryParameter("cursor"))
-            assertEquals("/api/v2/sync/changes", requests.last().url.encodedPath)
+            assertEquals("/api/v3/sync/changes", requests.last().url.encodedPath)
             assertEquals("household-uuid:member-uuid", page.scope.key)
             assertEquals("next-opaque-cursor", page.nextCursor)
             assertFalse(page.hasMore)

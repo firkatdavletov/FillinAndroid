@@ -9,13 +9,16 @@ import com.firkat.fillin.feature.plannedincomes.domain.model.*
 import com.firkat.fillin.feature.plannedoperations.domain.model.*
 import kotlinx.serialization.json.Json
 import java.math.BigDecimal
+import com.firkat.fillin.feature.dashboard.domain.calculation.*
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 
 /** A server snapshot plus an ordered overlay. Import never rewrites a user's queued intent. */
 internal class BudgetProjection(
-    content: BudgetContent,
+    private val content: BudgetContent,
     private val json: Json,
     private val today: LocalDate,
 ) {
@@ -36,7 +39,7 @@ internal class BudgetProjection(
     private var rulesApplied = false
 
     init {
-        content.records.forEach {
+        content.records.filter { it.kind in PLAN_KINDS }.forEach {
             val record = json.decodeFromString<SyncPlanRecord>(it.payload)
             when (it.kind) {
                 "RECURRING_RULE" -> rules[record.id] = record
@@ -307,7 +310,7 @@ internal class BudgetProjection(
 
     private fun paid(id: String): BigDecimal =
         expenseLinks.filter { it.id == id }.sumOf { link ->
-            operations[link.ledgerId]?.takeIf { it.status == "POSTED" }?.originalAmount?.toBigDecimal() ?: BigDecimal.ZERO
+            operations[link.ledgerId]?.takeIf { it.status == "POSTED" && it.syncStatus != "REJECTED" }?.originalAmount?.toBigDecimal() ?: BigDecimal.ZERO
         }
 
     private fun materialize(
@@ -355,6 +358,90 @@ internal class BudgetProjection(
                     due.plusWeeks(1)
                 }
         }
+    }
+
+    fun dashboardInput(asOf: Instant): DashboardCalculationInput {
+        val settings = content.records.single { it.kind == "BUDGET_SETTINGS" }
+            .let { json.decodeFromString<SyncBudgetSettings>(it.payload) }
+        val horizon = YearMonth.from(today.plusMonths(2)).atEndOfMonth()
+        val plans = plans(
+            PlannedOperationsFilter(
+                period = PlannedOperationPeriod.Custom,
+                dateFrom = LocalDate.of(1, 1, 1),
+                dateTo = horizon
+            )
+        )
+        val eligible = operations.values.filter { it.status == "POSTED" && it.syncStatus != "REJECTED" }
+        val fulfilled = incomeLinks.filter { link ->
+            eligible.any { it.id == link.ledgerId }
+        }.mapTo(hashSetOf()) { it.id }
+        // The server matches queued KZT incomes when they are posted, in queue order.
+        val matchedLedgerIds = incomeLinks.mapTo(hashSetOf()) { it.ledgerId }
+        eligible.filter {
+            it.syncStatus in setOf("PENDING", "ACKNOWLEDGED") && it.id !in matchedLedgerIds &&
+                it.type == "INCOME" && it.originalCurrency == "KZT"
+        }
+            .sortedWith(compareBy<LocalOperation>(
+                { if (it.syncStatus == "ACKNOWLEDGED") 0 else 1 },
+                { if (it.syncStatus == "ACKNOWLEDGED") it.sequence else 0 },
+                { Instant.parse(it.createdAt) },
+            )).forEach { operation ->
+                val date = LocalDate.parse(operation.occurredOn)
+                incomes.values.filter {
+                    it.status == "SCHEDULED" && it.id !in fulfilled &&
+                        it.categoryId == operation.categoryId
+                }
+                    .minWithOrNull(
+                        compareBy<SyncPlanRecord>(
+                            { kotlin.math.abs(ChronoUnit.DAYS.between(LocalDate.parse(it.dueOn), date)) },
+                            { it.dueOn },
+                            { it.id }
+                        )
+                    )?.let { fulfilled += it.id }
+            }
+        val excluded = expenseLinks.mapNotNullTo(hashSetOf()) { it.ledgerId }
+        content.records.filter { it.kind == "VARIABLE_SPENDING_EXCLUSION" }.forEach {
+            excluded += json.decodeFromString<SyncVariableSpendingExclusion>(it.payload).id
+        }
+        return DashboardCalculationInput(
+            asOf,
+            Instant.parse(requireNotNull(content.sync.accountingStartedAt)),
+            settings.openingBalance.toBigDecimal(), settings.protectedReserve.toBigDecimal(),
+            content.records.filter { it.kind == "SAVINGS_GOAL" }.sumOf {
+                json.decodeFromString<SyncSavingsGoal>(it.payload).allocatedAmount.toBigDecimal()
+            },
+            eligible.map {
+                DashboardOperation(
+                    it.id,
+                    it.categoryId,
+                    when (it.type) {
+                        "INCOME" -> DashboardOperationKind.Income
+                        "EXPENSE" -> DashboardOperationKind.Expense
+                        "EXPENSE_REFUND" -> DashboardOperationKind.Refund
+                        else -> error("Unknown operation type")
+                    },
+                    it.amountKzt.toBigDecimal(),
+                    LocalDate.parse(it.occurredOn),
+                    it.occurredAt?.let(Instant::parse)
+                        ?: LocalDate.parse(it.occurredOn).atStartOfDay(ZoneId.of("Asia/Almaty")).toInstant(),
+                    it.refundOf
+                )
+            },
+            categories.values.map { DashboardCategory(it.id, it.name, it.kind == "EXPENSE") },
+            plans.items.filterIsInstance<PlannedOperation.Expense>().map {
+                DashboardPayment(it.id, it.expense.categoryName, it.dueOn, it.expense.remainingAmount)
+            },
+            incomes.values.filter { it.status == "SCHEDULED" && it.id !in fulfilled }.map {
+                DashboardExpectedIncome(LocalDate.parse(it.dueOn), requireNotNull(it.amount).toBigDecimal())
+            },
+            excluded,
+            operations.values.filter { it.type == "EXPENSE" }.mapTo(hashSetOf()) { it.id }
+        )
+    }
+
+    companion object {
+        private val PLAN_KINDS =
+            setOf("RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH")
     }
 
     private fun instant(value: String?): Instant = value?.let(Instant::parse) ?: Instant.EPOCH

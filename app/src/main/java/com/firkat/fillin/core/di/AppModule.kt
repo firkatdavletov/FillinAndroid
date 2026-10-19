@@ -10,10 +10,9 @@ import com.firkat.fillin.feature.categories.domain.usecase.DeleteCategory
 import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
 import com.firkat.fillin.feature.categories.domain.usecase.UpdateCategory
 import com.firkat.fillin.feature.categories.ui.CategoriesViewModel
-import com.firkat.fillin.feature.dashboard.data.remote.DashboardApi
-import com.firkat.fillin.feature.dashboard.data.repository.DashboardRepositoryImpl
+import com.firkat.fillin.feature.dashboard.data.repository.OfflineDashboardRepository
 import com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository
-import com.firkat.fillin.feature.dashboard.domain.usecase.GetDashboard
+import com.firkat.fillin.feature.dashboard.domain.usecase.ObserveDashboard
 import com.firkat.fillin.feature.dashboard.ui.DashboardViewModel
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
 import com.firkat.fillin.feature.operationhistory.data.local.RoomOperationSyncStorage
@@ -87,15 +86,9 @@ val appModule =
         single<PlannedIncomesApi> { get<Retrofit>().create(PlannedIncomesApi::class.java) }
         single<PlannedOperationsApi> { get<Retrofit>().create(PlannedOperationsApi::class.java) }
         single<CategoriesApi> { get<Retrofit>().create(CategoriesApi::class.java) }
-        single<DashboardApi> { get<Retrofit>().create(DashboardApi::class.java) }
-        single<DashboardRepository> {
-            DashboardRepositoryImpl(
-                api = get(),
-                apiToken = BuildConfig.MOBILE_API_TOKEN,
-            )
-        }
-        factory { GetDashboard(repository = get()) }
-        viewModel { DashboardViewModel(getDashboard = get()) }
+        single<DashboardRepository> { OfflineDashboardRepository(get(), get(), get()) }
+        factory { ObserveDashboard(repository = get()) }
+        viewModel { DashboardViewModel(observeDashboard = get(), sync = get()) }
         single<OperationHistoryRepository>(named("remoteOperations")) {
             OperationHistoryRepositoryImpl(
                 api = get(),
@@ -111,7 +104,10 @@ val appModule =
                     .joinToString("") { "%02x".format(it) }
             Room
                 .databaseBuilder(androidContext(), OperationDatabase::class.java, "operations-$backend.db")
-                .addMigrations(com.firkat.fillin.core.database.BUDGET_MIGRATION_1_2)
+                .addMigrations(
+                    com.firkat.fillin.core.database.BUDGET_MIGRATION_1_2,
+                    com.firkat.fillin.core.database.BUDGET_MIGRATION_2_3,
+                )
                 .build()
         }
         single<OperationSyncApi> { get<Retrofit>().create(OperationSyncApi::class.java) }

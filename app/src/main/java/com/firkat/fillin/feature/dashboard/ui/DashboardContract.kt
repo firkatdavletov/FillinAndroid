@@ -7,18 +7,17 @@ data class DashboardUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val error: DashboardError? = null,
+    val awaitingInitialSync: Boolean = true,
 )
 
 enum class DashboardError {
-    MissingApiToken,
-    Unauthorized,
     Forbidden,
-    Network,
-    InvalidResponse,
+    LocalData,
     Unknown,
 }
 
 sealed interface DashboardEvent {
+    data object Resume : DashboardEvent
     data object Retry : DashboardEvent
     data object Refresh : DashboardEvent
 }

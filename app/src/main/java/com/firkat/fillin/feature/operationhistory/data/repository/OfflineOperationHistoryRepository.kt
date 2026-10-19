@@ -160,6 +160,7 @@ class OfflineOperationHistoryRepository(
                     null,
                     id,
                     "PENDING",
+                    occurredAt = at.toString(),
                 ),
             )
             dao.enqueue(OperationOutbox(id, state.scopeKey, id, json.encodeToString(request)))

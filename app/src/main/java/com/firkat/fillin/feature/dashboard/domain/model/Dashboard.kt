@@ -33,6 +33,7 @@ data class FreeMoney(
 
 enum class FreeMoneyState {
     Available,
+    NoFreeFunds,
     Deficit,
     Unknown,
 }
@@ -62,7 +63,7 @@ enum class BudgetBasis {
 data class BudgetProgress(
     val spent: Money?,
     val plannedAmount: Money?,
-    val usedPercent: BigDecimal,
+    val usedPercent: BigDecimal?,
     val paceStatus: PaceStatus,
 )
 
