@@ -39,8 +39,8 @@ class BudgetStore(
             } else {
                 val blocked = content.sync.errorCode in setOf("scope_changed", "unauthorized", "access_denied")
                 BudgetSyncContext(
-                    content.sync.initialSyncComplete,
-                    content.sync.initialSyncComplete && content.sync.role == "OWNER" && !blocked,
+                    content.sync.localReady || content.sync.initialSyncComplete,
+                    (content.sync.localReady || content.sync.initialSyncComplete) && content.sync.role == "OWNER" && (!blocked || content.sync.protocolVersion >= 4),
                     content.sync.isSyncing,
                     content.commands.count {
                         it.status == "PENDING" ||
@@ -61,6 +61,9 @@ class BudgetStore(
                         }.sortedBy {
                             it.createdOrder
                         }.map { issue(content, it).let { issue -> "${issue.title}: ${issue.local}" } },
+                    cloudEnabled = content.sync.cloudEnabled,
+                    lastSyncedAt = content.sync.lastSyncedAt,
+                    keepLocalAccess = content.sync.protocolVersion >= 4,
                 )
             }
         }
@@ -68,7 +71,7 @@ class BudgetStore(
     fun observeCategories() =
         dao.observeContent().map { content ->
             if (content == null ||
-                content.sync.errorCode in setOf("unauthorized", "access_denied", "scope_changed")
+                content.sync.protocolVersion < 4 && content.sync.errorCode in setOf("unauthorized", "access_denied", "scope_changed")
             ) {
                 emptyList()
             } else {
@@ -80,12 +83,11 @@ class BudgetStore(
         dao
             .observeContent()
             .filter {
-                it?.sync?.initialSyncComplete ==
-                    true ||
+                (it?.sync?.localReady == true || it?.sync?.initialSyncComplete == true) ||
                     it?.sync?.errorCode in setOf("unauthorized", "access_denied", "scope_changed")
             }.map { content ->
-                if (content?.sync?.initialSyncComplete != true) throw BudgetLocalFailure("not_initialized")
-                if (content.sync.errorCode in
+                if (content == null || !(content.sync.localReady || content.sync.initialSyncComplete)) throw BudgetLocalFailure("not_initialized")
+                if (content.sync.protocolVersion < 4 && content.sync.errorCode in
                     setOf("unauthorized", "access_denied", "scope_changed")
                 ) {
                     throw BudgetLocalFailure("forbidden")
@@ -118,9 +120,9 @@ class BudgetStore(
     ): String {
         database.withTransaction {
             val content = dao.content() ?: throw BudgetLocalFailure("not_initialized")
-            writable(content)
+            writable(content, type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION"))
             val projection = project(content)
-            val command =
+            var command =
                 edit(
                     BudgetSyncCommand(
                         UUID.randomUUID().toString(),
@@ -131,13 +133,37 @@ class BudgetStore(
                         today().toString(),
                     ),
                 )
+            if (content.sync.protocolVersion >= 4) {
+                val category = projection.categories[entityId]
+                val income = projection.incomes[entityId]
+                if (type == "UPDATE_CATEGORY" && category != null) command = command.copy(name = command.name ?: category.name, icon = command.icon ?: category.iconCode, kind = category.kind)
+                if (type == "UPDATE_INCOME" && income != null) command = command.copy(categoryId = command.categoryId ?: income.categoryId, amount = command.amount ?: income.amount, dueOn = command.dueOn ?: income.dueOn)
+                if (type == "UPDATE_RULE") {
+                    projection.plans(PlannedOperationsFilter())
+                    projection.rules[entityId]?.let { rule -> command = command.copy(categoryId = rule.categoryId, frequency = rule.frequency, scheduleValue = rule.scheduleValue, startsOn = rule.startsOn) }
+                }
+                if (type in setOf("UPDATE_OPERATION", "REFUND_OPERATION")) {
+                    projection.operations[entityId]?.let { operation ->
+                        command = command.copy(categoryId = operation.categoryId, kind = operation.type, occurredOn = operation.occurredOn, description = operation.description)
+                    }
+                }
+            }
             val kind = command.entityKind()
-            val prior =
+            var prior =
                 content.commands
                     .filter {
                         it.entityId == entityId && it.kind == kind && it.status != "CANCELLED" &&
                             !(it.status == "ACKNOWLEDGED" && (it.receiptRevision ?: Long.MAX_VALUE) <= content.sync.lastRevision)
                     }.maxByOrNull { it.createdOrder }
+            if (prior?.status in setOf("CONFLICT", "REJECTED") && content.sync.protocolVersion >= 4) {
+                val failed = requireNotNull(prior)
+                dao.update(failed.copy(status = "CANCELLED"))
+                content.commands.filter { it.requestId != failed.requestId && (it.predecessor == failed.requestId || it.dependency == failed.requestId) }.forEach { child ->
+                    require(child.wirePayload == null)
+                    dao.update(child.copy(predecessor = if (child.predecessor == failed.requestId) command.requestId else child.predecessor, dependency = if (child.dependency == failed.requestId) command.requestId else child.dependency, status = "PENDING", errorCode = null))
+                }
+                prior = null
+            }
             if (prior?.status in setOf("CONFLICT", "REJECTED", "BLOCKED")) throw BudgetLocalFailure("conflict")
             if (expectedVersion != null) {
                 val visible =
@@ -153,6 +179,10 @@ class BudgetStore(
 
                         "RECURRING_OCCURRENCE" -> {
                             projection.occurrences[entityId]?.version
+                        }
+
+                        "LEDGER" -> {
+                            projection.operations[entityId]?.version
                         }
 
                         else -> {
@@ -185,6 +215,7 @@ class BudgetStore(
                     order,
                     prior?.requestId,
                     dependency,
+                    protocolVersion = if (content.sync.protocolVersion >= 4) 4 else 2,
                 ),
             )
         }
@@ -192,10 +223,13 @@ class BudgetStore(
         return entityId
     }
 
-    private fun writable(content: BudgetContent) {
-        if (!content.sync.initialSyncComplete) throw BudgetLocalFailure("not_initialized")
-        if (content.sync.role != "OWNER" ||
-            content.sync.errorCode in setOf("unauthorized", "access_denied", "scope_changed")
+    private fun writable(
+        content: BudgetContent,
+        allowMember: Boolean = false,
+    ) {
+        if (!(content.sync.localReady || content.sync.initialSyncComplete)) throw BudgetLocalFailure("not_initialized")
+        if ((content.sync.role != "OWNER" && !(allowMember && content.sync.role == "MEMBER")) ||
+            content.sync.protocolVersion < 4 && content.sync.errorCode in setOf("unauthorized", "access_denied", "scope_changed")
         ) {
             throw BudgetLocalFailure("forbidden")
         }
@@ -206,7 +240,9 @@ class BudgetStore(
         kind: String,
         id: String,
     ): Long? =
-        if (kind ==
+        if (kind == "LEDGER") {
+            c.operations.find { it.id == id }?.version
+        } else if (kind ==
             "CATEGORY"
         ) {
             c.categories.find { it.id == id }?.revision
@@ -222,11 +258,11 @@ class BudgetStore(
         p: BudgetProjection,
         content: BudgetContent,
     ) {
-        UUID.fromString(c.entityId)
+        if (c.type != "CLOSE_EXPENSE" || !c.entityId.contains("@")) UUID.fromString(c.entityId)
         c.amount?.let { requireMoney(it.toBigDecimal()) }
         c.categoryId?.let { id ->
             val category = p.categories[id] ?: throw BudgetLocalFailure("invalid")
-            val expected = if (c.type.endsWith("INCOME")) "INCOME" else "EXPENSE"
+            val expected = if (c.type.endsWith("INCOME") || c.type == "CREATE_OPERATION" && c.kind == "INCOME") "INCOME" else "EXPENSE"
             if (category.archived || category.kind != expected) throw BudgetLocalFailure("invalid")
         }
         if (c.type.endsWith("CATEGORY")) {
@@ -245,7 +281,7 @@ class BudgetStore(
                 ) {
                     throw BudgetLocalFailure("invalid")
                 }
-                if (old?.dictionaryKey == "OTHER") throw BudgetLocalFailure("invalid")
+                if (old?.dictionaryKey == "OTHER" && name != old.name) throw BudgetLocalFailure("invalid")
             }
             c.icon?.let { if (CategoryIconType.fromCode(it) == null) throw BudgetLocalFailure("invalid") }
             if (c.type == "CREATE_CATEGORY" &&
@@ -262,7 +298,14 @@ class BudgetStore(
                 throw BudgetLocalFailure("invalid")
             }
         }
-        c.dueOn?.let { if (LocalDate.parse(it) < LocalDate.parse(c.authoredOn)) throw BudgetLocalFailure("invalid") }
+        if (c.type in setOf("UPDATE_OPERATION", "REFUND_OPERATION")) {
+            val operation = p.operations[c.entityId] ?: throw BudgetLocalFailure("not_found")
+            if (operation.type != "EXPENSE" || operation.originalCurrency != "KZT" || operation.status != "POSTED") throw BudgetLocalFailure("invalid")
+            val refunds = p.operations.values.filter { it.refundOf == c.entityId && it.status == "POSTED" && it.syncStatus != "REJECTED" }
+            if (c.type == "UPDATE_OPERATION" && refunds.isNotEmpty()) throw BudgetLocalFailure("invalid")
+            if (c.type == "REFUND_OPERATION" && operation.originalAmount.toBigDecimal() <= refunds.sumOf { it.originalAmount.toBigDecimal() }) throw BudgetLocalFailure("invalid")
+        }
+        c.dueOn?.let { if (LocalDate.parse(it) < LocalDate.parse(c.authoredOn) && !(c.type == "UPDATE_INCOME" && it == p.incomes[c.entityId]?.dueOn)) throw BudgetLocalFailure("invalid") }
         if (c.type == "CREATE_RULE") {
             val start = LocalDate.parse(c.startsOn)
             val accountingStart =
@@ -310,12 +353,50 @@ class BudgetStore(
                 return@withTransaction null
             }
             if (parents.any { it.status != "ACKNOWLEDGED" }) return@withTransaction null
-            val intent = json.decodeFromString<BudgetSyncCommand>(current.intent)
+            var intent = json.decodeFromString<BudgetSyncCommand>(current.intent)
+            if (current.kind == "LEDGER" && intent.type != "CREATE_OPERATION") {
+                val legacyCreate = database.operations().outboxForOperation(intent.entityId)
+                if (legacyCreate != null) {
+                    if (legacyCreate.errorCode != null) dao.update(current.copy(status = "BLOCKED", errorCode = "dependency_failed"))
+                    return@withTransaction null
+                }
+            }
+            if (current.protocolVersion >= 4 && intent.type == "CLOSE_EXPENSE") {
+                val projection = project(requireNotNull(dao.content()))
+                projection.plans(PlannedOperationsFilter())
+                val occurrence = projection.occurrences[intent.entityId]
+                intent = intent.copy(ruleId = occurrence?.ruleId, dueOn = occurrence?.dueOn)
+            }
             val prior = current.predecessor?.let { dao.command(it) }
             val wire = if (prior != null) intent.copy(expectedToken = prior.receiptToken) else intent
             dao.update(current.copy(wirePayload = json.encodeToString(wire)))
             wire
         }
+
+    suspend fun promoteLegacyConflict(item: BudgetOutbox) =
+        database.withTransaction {
+            val current = dao.command(item.requestId) ?: return@withTransaction
+            val intent = json.decodeFromString<BudgetSyncCommand>(current.intent)
+            val replacement = intent.copy(requestId = UUID.randomUUID().toString())
+            dao.update(current.copy(status = "CANCELLED"))
+            dao.enqueue(current.copy(requestId = replacement.requestId, intent = json.encodeToString(replacement), wirePayload = null, status = "PENDING", errorCode = null, receiptRevision = null, receiptToken = null, protocolVersion = 4))
+            dao.commands(current.scopeKey).filter { it.requestId != current.requestId && (it.predecessor == current.requestId || it.dependency == current.requestId) }.forEach { child ->
+                require(child.wirePayload == null)
+                dao.update(child.copy(predecessor = if (child.predecessor == current.requestId) replacement.requestId else child.predecessor, dependency = if (child.dependency == current.requestId) replacement.requestId else child.dependency, status = "PENDING", errorCode = null))
+            }
+        }
+
+    suspend fun cancelRejectedOperation(id: String) {
+        val content = requireNotNull(dao.content())
+        content.commands.filter { it.entityId == id && it.status in setOf("REJECTED", "BLOCKED") }.forEach { dao.update(it.copy(status = "CANCELLED")) }
+    }
+
+    suspend fun hasFailures(): Boolean =
+        dao
+            .content()
+            ?.commands
+            .orEmpty()
+            .any { it.status in setOf("CONFLICT", "REJECTED", "BLOCKED") }
 
     suspend fun pending(): List<BudgetOutbox> =
         dao
@@ -469,6 +550,7 @@ class BudgetStore(
                 }?.let { json.decodeFromString<SyncPlanRecord>(it.payload) }
         val title =
             when (item.kind) {
+                "LEDGER" -> "Операция"
                 "CATEGORY" -> "Категория"
                 "RECURRING_RULE" -> "Правило расхода"
                 "EXPECTED_INCOME" -> "Плановый доход"

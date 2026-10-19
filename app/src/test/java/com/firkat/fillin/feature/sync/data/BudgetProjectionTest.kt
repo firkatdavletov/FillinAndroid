@@ -212,6 +212,39 @@ class BudgetProjectionTest {
         )
     }
 
+    @Test fun `v4 pending local changes remain visible over remotely archived and cancelled records`() {
+        val categoryIntent = BudgetSyncCommand("category-change", "h", "m", "UPDATE_CATEGORY", "expense", today.toString(), name = "Мой расход", kind = "EXPENSE", icon = "HOME")
+        val base =
+            content(
+                listOf(
+                    BudgetOutbox(categoryIntent.requestId, "scope", "expense", "CATEGORY", json.encodeToString(categoryIntent), 1, protocolVersion = 4),
+                    command("UPDATE_RULE", "150.00", order = 2).copy(protocolVersion = 4),
+                    command("UPDATE_INCOME", "60.00", id = "other", order = 3).copy(protocolVersion = 4),
+                ),
+            )
+        val remote =
+            base.copy(
+                sync = base.sync.copy(protocolVersion = 4),
+                categories = base.categories.map { if (it.id == "expense") it.copy(archived = true) else it },
+                records =
+                    base.records.map { row ->
+                        when {
+                            row.kind == "RECURRING_RULE" -> record(row.kind, rule.copy(active = false))
+                            row.kind == "RECURRING_OCCURRENCE" -> record(row.kind, occurrence.copy(status = "CANCELLED"))
+                            row.kind == "EXPECTED_INCOME" && row.id == "other" -> record(row.kind, json.decodeFromString<SyncPlanRecord>(row.payload).copy(status = "CANCELLED"))
+                            else -> row
+                        }
+                    },
+            )
+        val projection = BudgetProjection(remote, json, today)
+        assertEquals("Мой расход", projection.categoryList().first { it.id == "expense" }.name)
+        val plans = projection.plans(filter)
+        assertTrue(plans.items.any { it.id == "occurrence" })
+        assertTrue(projection.rules.getValue("r").active == true)
+        assertEquals(BigDecimal("60.00"), plans.totals.incomes)
+        assertEquals(plans, projection.plans(filter))
+    }
+
     companion object {
         private const val AT = "2026-01-01T00:00:00Z"
     }

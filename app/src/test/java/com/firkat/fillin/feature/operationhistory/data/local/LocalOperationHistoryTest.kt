@@ -33,7 +33,7 @@ class LocalOperationHistoryTest {
         val all = localHistory(content, FILTER, 1)
         assertEquals(page.totals, all.totals)
         assertNotNull(all.nextCursor)
-        assertFalse(localHistory(content.copy(sync = content.sync.copy(initialSyncComplete = false)), FILTER, 1).isComplete)
+        assertFalse(localHistory(content.copy(sync = content.sync.copy(initialSyncComplete = false, localReady = false)), FILTER, 1).isComplete)
     }
 
     @Test

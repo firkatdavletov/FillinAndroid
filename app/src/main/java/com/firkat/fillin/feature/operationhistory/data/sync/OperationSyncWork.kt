@@ -17,13 +17,24 @@ import androidx.work.WorkerParameters
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class WorkManagerOperationSyncScheduler(
     private val context: Context,
     private val requests: OperationSyncRequests,
+    private val database: com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase? = null,
 ) : OperationSyncScheduler {
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+
     override fun schedule() {
+        scope.launch {
+            if (database != null && database.operations().state()?.let { it.cloudEnabled && (it.localReady || it.initialSyncComplete) } != true) return@launch
+            scheduleEnabled()
+        }
+    }
+
+    private fun scheduleEnabled() {
         val request =
             OneTimeWorkRequestBuilder<OperationSyncWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -45,16 +56,17 @@ class OperationSyncWorker(
     parameters: WorkerParameters,
     private val requests: OperationSyncRequests,
 ) : CoroutineWorker(context, parameters) {
-    override suspend fun doWork(): Result = try {
-        when (requests.runWorker(id)) {
-            SyncResult.Completed, SyncResult.Blocked -> Result.success()
-            SyncResult.Retry -> Result.retry()
+    override suspend fun doWork(): Result =
+        try {
+            when (requests.runWorker(id)) {
+                SyncResult.Completed, SyncResult.Blocked -> Result.success()
+                SyncResult.Retry -> Result.retry()
+            }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (_: Exception) {
+            Result.retry()
         }
-    } catch (exception: CancellationException) {
-        throw exception
-    } catch (_: Exception) {
-        Result.retry()
-    }
 }
 
 class OperationWorkerFactory(
@@ -64,8 +76,7 @@ class OperationWorkerFactory(
         appContext: Context,
         workerClassName: String,
         workerParameters: WorkerParameters,
-    ): ListenableWorker? =
-        if (workerClassName == OperationSyncWorker::class.java.name) OperationSyncWorker(appContext, workerParameters, requests()) else null
+    ): ListenableWorker? = if (workerClassName == OperationSyncWorker::class.java.name) OperationSyncWorker(appContext, workerParameters, requests()) else null
 }
 
 interface OperationConnectivity {

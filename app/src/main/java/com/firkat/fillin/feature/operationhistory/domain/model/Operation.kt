@@ -18,6 +18,7 @@ data class Operation(
     val categoryId: String = "",
     val syncStatus: OperationSyncStatus = OperationSyncStatus.Synced,
     val syncError: String? = null,
+    val refundedAmount: BigDecimal = BigDecimal.ZERO,
 )
 
 enum class OperationSyncStatus { Synced, Pending, Rejected }

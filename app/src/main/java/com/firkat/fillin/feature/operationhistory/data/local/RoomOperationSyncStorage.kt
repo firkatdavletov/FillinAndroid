@@ -24,6 +24,7 @@ class RoomOperationSyncStorage(
             ignoreUnknownKeys = true
             explicitNulls = false
         },
+    private val publishReady: Boolean = true,
 ) : OperationSyncStorage {
     private val dao get() = database.operations()
 
@@ -74,12 +75,17 @@ class RoomOperationSyncStorage(
                         requireDecimal(settings.openingBalance)
                         requireDecimal(settings.protectedReserve, nonNegative = true)
                     }
+
                     "SAVINGS_GOAL" -> {
                         val goal = requireNotNull(change.savingsGoal)
                         UUID.fromString(goal.id)
                         requireDecimal(goal.allocatedAmount, nonNegative = true)
                     }
-                    "VARIABLE_SPENDING_EXCLUSION" -> UUID.fromString(requireNotNull(change.variableSpendingExclusion).id)
+
+                    "VARIABLE_SPENDING_EXCLUSION" -> {
+                        UUID.fromString(requireNotNull(change.variableSpendingExclusion).id)
+                    }
+
                     "RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH" -> {
                         val record = requireNotNull(change.record)
                         UUID.fromString(record.id)
@@ -174,20 +180,32 @@ class RoomOperationSyncStorage(
                             }
 
                             else -> {
-                                val (key, payload) = when (change.kind) {
-                                    "BUDGET_SETTINGS" -> requireNotNull(change.budgetSettings).let {
-                                        it.id to json.encodeToString(it)
+                                val (key, payload) =
+                                    when (change.kind) {
+                                        "BUDGET_SETTINGS" -> {
+                                            requireNotNull(change.budgetSettings).let {
+                                                it.id to json.encodeToString(it)
+                                            }
+                                        }
+
+                                        "SAVINGS_GOAL" -> {
+                                            requireNotNull(change.savingsGoal).let {
+                                                it.id to json.encodeToString(it)
+                                            }
+                                        }
+
+                                        "VARIABLE_SPENDING_EXCLUSION" -> {
+                                            requireNotNull(change.variableSpendingExclusion).let {
+                                                it.id to json.encodeToString(it)
+                                            }
+                                        }
+
+                                        else -> {
+                                            requireNotNull(change.record).let { record ->
+                                                (record.id + (record.ledgerId?.let { ":$it" } ?: "")) to json.encodeToString(record)
+                                            }
+                                        }
                                     }
-                                    "SAVINGS_GOAL" -> requireNotNull(change.savingsGoal).let {
-                                        it.id to json.encodeToString(it)
-                                    }
-                                    "VARIABLE_SPENDING_EXCLUSION" -> requireNotNull(change.variableSpendingExclusion).let {
-                                        it.id to json.encodeToString(it)
-                                    }
-                                    else -> requireNotNull(change.record).let { record ->
-                                        (record.id + (record.ledgerId?.let { ":$it" } ?: "")) to json.encodeToString(record)
-                                    }
-                                }
                                 if (change.deleted) {
                                     database.budget().deleteRecord(scope.key, change.kind, key)
                                 } else {
@@ -208,6 +226,8 @@ class RoomOperationSyncStorage(
                 database.budget().cleanReceipts(scope.key, maxOf(page.snapshotRevision, revision))
                 database.budget().clearStaged()
             }
+
+            if (!page.hasMore && previous.protocolVersion >= 4) require(database.budget().record(scope.key, "BUDGET_SETTINGS", scope.householdId) != null)
             dao.putState(
                 previous.copy(
                     scopeKey = scope.key,
@@ -216,10 +236,11 @@ class RoomOperationSyncStorage(
                     accountingStartedAt = scope.accountingStartedAt,
                     cursor = page.nextCursor,
                     lastRevision = if (page.hasMore) previous.lastRevision else maxOf(page.snapshotRevision, revision),
-                    initialSyncComplete = previous.initialSyncComplete || !page.hasMore,
+                    initialSyncComplete = previous.initialSyncComplete || (!page.hasMore && publishReady),
                     errorCode = null,
                     role = scope.role,
-                    protocolVersion = 3,
+                    protocolVersion = if (previous.protocolVersion >= 4) 4 else 3,
+                    localReady = previous.localReady || (!page.hasMore && publishReady),
                 ),
             )
         }
@@ -242,7 +263,16 @@ class RoomOperationSyncStorage(
     ) {
         val candidate = operation.toLocal(scope)
         operation.requestId?.let { requestId ->
-            dao.byRequest(requestId)?.takeIf { it.id != operation.id }?.let { dao.deleteOperation(it.id) }
+            dao.byRequest(requestId)?.takeIf { it.id != operation.id }?.let { local ->
+                // Legacy v1 assigned server IDs. Rebind only commands that have never been attempted;
+                // their immutable HTTP payload is still absent. v4-created objects keep client UUIDs.
+                database.budget().commands(scope).filter { it.entityId == local.id && it.status !in setOf("CANCELLED", "ACKNOWLEDGED") }.forEach { command ->
+                    require(command.wirePayload == null)
+                    val intent = json.decodeFromString<com.firkat.fillin.feature.sync.data.BudgetSyncCommand>(command.intent)
+                    database.budget().update(command.copy(entityId = operation.id, intent = json.encodeToString(intent.copy(entityId = operation.id))))
+                }
+                dao.deleteOperation(local.id)
+            }
             dao.complete(requestId)
         }
         val current = dao.operation(operation.id)
@@ -307,7 +337,10 @@ internal fun requireMoney(amount: BigDecimal) {
     require(amount.signum() > 0 && amount.scale() <= 2 && amount <= BigDecimal("99999999999999999.99"))
 }
 
-private fun requireDecimal(value: String, nonNegative: Boolean = false) {
+private fun requireDecimal(
+    value: String,
+    nonNegative: Boolean = false,
+) {
     val amount = value.toBigDecimal()
     require(amount.scale() <= 2 && amount.abs() <= BigDecimal("99999999999999999.99"))
     require(!nonNegative || amount.signum() >= 0)

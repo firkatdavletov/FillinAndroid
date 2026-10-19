@@ -251,7 +251,7 @@ class OperationHistoryViewModel(
         val current = _uiState.value
         val operation = current.operations.firstOrNull { it.id == id } ?: return
         if (operation.type != OperationType.Expense || operation.status != OperationStatus.Posted ||
-            operation.syncStatus != OperationSyncStatus.Synced || !current.offline.isOnline
+            operation.syncStatus == OperationSyncStatus.Rejected || operation.originalCurrency != "KZT"
         ) {
             return
         }

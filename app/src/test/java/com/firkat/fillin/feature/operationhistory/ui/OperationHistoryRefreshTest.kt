@@ -131,7 +131,7 @@ class OperationHistoryRefreshTest {
             assertNull(model.uiState.value.createEditor)
         }
 
-    @Test fun `loss of connectivity disables an already open online editor`() =
+    @Test fun `loss of connectivity keeps local editing available`() =
         runTest {
             val repository = FakeOfflineHistory()
             val model = model(repository)
@@ -144,13 +144,13 @@ class OperationHistoryRefreshTest {
             )
             repository.context.value = repository.context.value.copy(isOnline = false)
             runCurrent()
-            assertFalse(
+            assertTrue(
                 model.uiState.value.editor!!
                     .canSave,
             )
             model.onEvent(OperationHistoryEvent.SaveRequested)
             runCurrent()
-            assertEquals(0, repository.edits)
+            assertEquals(1, repository.edits)
         }
 
     private fun model(repository: FakeOfflineHistory) =

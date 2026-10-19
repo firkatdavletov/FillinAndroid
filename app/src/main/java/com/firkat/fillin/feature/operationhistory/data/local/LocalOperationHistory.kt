@@ -67,6 +67,12 @@ internal fun localHistory(
                         else -> OperationSyncStatus.Synced
                     },
                 syncError = it.syncError,
+                refundedAmount =
+                    content
+                        ?.operations
+                        .orEmpty()
+                        .filter { refund -> refund.refundOf == it.id && refund.status == "POSTED" && refund.syncStatus != "REJECTED" }
+                        .sumOf { refund -> refund.originalAmount.toBigDecimal() },
             )
         },
         if (rows.size >
@@ -77,6 +83,6 @@ internal fun localHistory(
             null
         },
         OperationPeriodTotals(expenses, incomes),
-        content?.sync?.initialSyncComplete == true,
+        content?.sync?.let { it.localReady || it.initialSyncComplete } == true,
     )
 }

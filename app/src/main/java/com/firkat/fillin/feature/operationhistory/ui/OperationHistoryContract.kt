@@ -43,13 +43,13 @@ data class PurchaseEditorUiState(
 
     val canSave: Boolean
         get() =
-            isOnline && !isSaving &&
+            !isSaving && original.originalCurrency == "KZT" && original.refundedAmount.signum() == 0 &&
                 original.type == OperationType.Expense &&
                 original.status == OperationStatus.Posted &&
                 parsedAmount?.let { it.compareTo(original.originalAmount) != 0 } == true
 
     val canRefund: Boolean
-        get() = isOnline && !isSaving && original.status == OperationStatus.Posted && original.type == OperationType.Expense
+        get() = !isSaving && original.originalCurrency == "KZT" && original.refundedAmount < original.originalAmount && original.status == OperationStatus.Posted && original.type == OperationType.Expense
 }
 
 data class OperationCreateEditorUiState(

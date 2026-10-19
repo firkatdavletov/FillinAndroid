@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -142,7 +143,7 @@ class OperationHistoryFiltersTest {
             )
         }
 
-    @Test fun `income pending rejected and offline entries cannot open the online purchase editor`() =
+    @Test fun `income and rejected entries cannot open purchase editor but offline expense can`() =
         runTest {
             val repository = FakeOfflineHistory()
             repository.operations.value =
@@ -153,7 +154,7 @@ class OperationHistoryFiltersTest {
                 )
             val model = model(repository)
             runCurrent()
-            for (id in listOf("income", "pending", "rejected")) {
+            for (id in listOf("income", "rejected")) {
                 model.onEvent(OperationHistoryEvent.EditRequested(id))
                 assertNull(model.uiState.value.editor)
             }
@@ -161,7 +162,7 @@ class OperationHistoryFiltersTest {
             repository.context.value = repository.context.value.copy(isOnline = false)
             runCurrent()
             model.onEvent(OperationHistoryEvent.EditRequested("first"))
-            assertNull(model.uiState.value.editor)
+            assertNotNull(model.uiState.value.editor)
         }
 
     @Test fun `reversed periods are ignored and a single day is valid`() =

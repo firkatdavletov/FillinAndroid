@@ -32,6 +32,7 @@ data class BudgetOutbox(
     val errorCode: String? = null,
     val receiptRevision: Long? = null,
     val receiptToken: Long? = null,
+    @ColumnInfo(defaultValue = "2") val protocolVersion: Int = 2,
 )
 
 @Entity(tableName = "sync_staging_pages")
@@ -79,6 +80,13 @@ interface BudgetDao {
     @Query("SELECT * FROM budget_outbox WHERE requestId = :id")
     suspend fun command(id: String): BudgetOutbox?
 
+    @Query("SELECT * FROM budget_sync_records WHERE scopeKey = :scope AND kind = :kind AND id = :id")
+    suspend fun record(
+        scope: String,
+        kind: String,
+        id: String,
+    ): LocalSyncRecord?
+
     @Insert suspend fun stage(page: SyncStagingPage)
 
     @Query("SELECT * FROM sync_staging_pages ORDER BY id")
@@ -116,10 +124,24 @@ val BUDGET_MIGRATION_1_2 =
         }
     }
 
-val BUDGET_MIGRATION_2_3 = object : Migration(2, 3) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE local_operations ADD COLUMN occurredAt TEXT")
-        db.execSQL("DELETE FROM sync_staging_pages")
-        db.execSQL("UPDATE operation_sync_state SET cursor = NULL, lastRevision = 0, initialSyncComplete = 0, protocolVersion = 3, isSyncing = 0")
+val BUDGET_MIGRATION_2_3 =
+    object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE local_operations ADD COLUMN occurredAt TEXT")
+            db.execSQL("DELETE FROM sync_staging_pages")
+            db.execSQL("UPDATE operation_sync_state SET cursor = NULL, lastRevision = 0, initialSyncComplete = 0, protocolVersion = 3, isSyncing = 0")
+        }
     }
-}
+
+val BUDGET_MIGRATION_3_4 =
+    object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE operation_sync_state ADD COLUMN localReady INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE operation_sync_state ADD COLUMN cloudEnabled INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE operation_sync_state ADD COLUMN cloudBound INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE operation_sync_state ADD COLUMN bootstrapPayload TEXT")
+            db.execSQL("ALTER TABLE budget_outbox ADD COLUMN protocolVersion INTEGER NOT NULL DEFAULT 2")
+            db.execSQL("UPDATE operation_sync_state SET localReady = initialSyncComplete, cloudEnabled = CASE WHEN scopeKey <> '' THEN 1 ELSE 0 END, cloudBound = CASE WHEN scopeKey <> '' THEN 1 ELSE 0 END, protocolVersion = 4, cursor = NULL, lastRevision = 0, isSyncing = 0")
+            db.execSQL("DELETE FROM sync_staging_pages")
+        }
+    }

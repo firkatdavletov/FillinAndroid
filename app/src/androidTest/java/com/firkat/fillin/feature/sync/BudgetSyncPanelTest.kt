@@ -7,73 +7,41 @@ import com.firkat.fillin.feature.sync.domain.*
 import com.firkat.fillin.feature.sync.ui.*
 import com.firkat.fillin.ui.theme.FillinTheme
 import kotlinx.coroutines.flow.MutableStateFlow
-import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
 class BudgetSyncPanelTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun conflictOffersBothVersionsAndExplicitResolution() {
-        val control =
-            FakeControl(
-                BudgetSyncContext(
-                    ready = true,
-                    canWrite = true,
-                    issues =
-                        listOf(
-                            BudgetSyncIssue(
-                                "request",
-                                "Категория",
-                                "Изменение · Моя правка",
-                                "Серверная версия",
-                                "CONFLICT",
-                                true,
-                            ),
-                        ),
-                ),
-            )
+    @Test fun localModeDoesNotRequireInitialServerSyncOrOfferConflictChooser() {
+        val control = FakeControl(BudgetSyncContext(ready = true, canWrite = true))
         compose.setContent { FillinTheme { BudgetSyncPanel(remember { BudgetSyncViewModel(control) }) } }
-        compose.onNodeWithText("Категория: конфликт").performClick()
-        compose.onNodeWithText("На устройстве: Изменение · Моя правка").assertIsDisplayed()
-        compose.onNodeWithText("На сервере: Серверная версия").assertIsDisplayed()
-        compose.onNodeWithText("Применить мою правку").performClick()
-        compose.runOnIdle { assertEquals("request" to true, control.resolved) }
-        compose.onNodeWithText("Категория: конфликт").assertDoesNotExist()
+        compose.onNodeWithText("Для работы офлайн нужна первая полная синхронизация").assertDoesNotExist()
+        compose.onNodeWithText("Принять серверную").assertDoesNotExist()
     }
 
-    @Test fun pendingDeletionRemainsVisibleAndInitialSyncIsExplained() {
-        val control = FakeControl(BudgetSyncContext())
-        compose.setContent { FillinTheme { BudgetSyncPanel(remember { BudgetSyncViewModel(control) }) } }
-        compose.onNodeWithText("Для работы офлайн нужна первая полная синхронизация").assertIsDisplayed()
-        compose.runOnIdle {
-            control.context.value =
-                BudgetSyncContext(
-                    ready = true,
-                    canWrite = true,
-                    pending = 1,
-                    pendingActions = listOf("Категория: Удаление · Тестовая"),
-                )
-        }
-        compose.onNodeWithText("Показать ожидающие изменения").performClick()
-        compose.onNodeWithText("Категория: Удаление · Тестовая").assertIsDisplayed()
+    @Test fun cloudScreenShowsControlsAndLastSuccessfulSync() {
+        val control = FakeControl(BudgetSyncContext(ready = true, canWrite = true, cloudEnabled = true, lastSyncedAt = "2026-10-18T05:00:00Z", pending = 2))
+        compose.setContent { FillinTheme { BudgetSyncScreen(remember { BudgetSyncViewModel(control) }) } }
+        compose.onNodeWithText("Синхронизация").assertIsDisplayed()
+        compose.onNodeWithText("Включить облачную синхронизацию").assertIsNotEnabled()
+        compose.onNodeWithText("Отключить облачную синхронизацию").assertIsEnabled()
+        compose.onNodeWithText("Синхронизировать").assertIsEnabled()
+        compose.onNodeWithText("Последняя успешная синхронизация: 18.10.2026 10:00").assertExists()
+        compose.runOnIdle { control.context.value = control.context.value.copy(syncing = true) }
+        compose.onNodeWithText("Синхронизировать").assertIsNotEnabled()
     }
 
     private class FakeControl(
         initial: BudgetSyncContext,
     ) : BudgetSyncControl {
         override val context = MutableStateFlow(initial)
-        var resolved: Pair<String, Boolean>? = null
 
         override fun requestSync() = Unit
 
         override suspend fun resolve(
             id: String,
             reapply: Boolean,
-        ) {
-            resolved = id to reapply
-            context.value =
-                context.value.copy(issues = emptyList())
-        }
+        ) = error("Manual resolution is not part of the UI")
     }
 }

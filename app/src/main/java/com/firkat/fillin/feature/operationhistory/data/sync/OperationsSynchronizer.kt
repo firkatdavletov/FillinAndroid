@@ -47,8 +47,8 @@ interface OperationSyncStorage {
 enum class SyncResult { Completed, Retry, Blocked }
 
 class SyncBlockedException(
-    val code: String,
-) : Exception()
+    code: String,
+) : com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure(code)
 
 /** All entry points share this mutex; the database outbox is the durable queue. */
 class OperationsSynchronizer(
@@ -59,6 +59,8 @@ class OperationsSynchronizer(
     private val clock: Clock = Clock.systemUTC(),
     private val budget: BudgetStore? = null,
     private val budgetApi: BudgetSyncApi? = null,
+    private val cloud: CloudBudgetSession? = null,
+    private val cloudApi: CloudBudgetApi? = null,
 ) {
     private val mutex = Mutex()
     private val _running = MutableStateFlow(false)
@@ -66,6 +68,7 @@ class OperationsSynchronizer(
 
     suspend fun synchronize(): SyncResult =
         mutex.withLock {
+            if (cloud != null && !cloud.enabled()) return@withLock SyncResult.Completed
             if (apiToken.isBlank()) {
                 storage.finish("missing_api_token")
                 return@withLock SyncResult.Blocked
@@ -73,6 +76,7 @@ class OperationsSynchronizer(
             _running.value = true
             try {
                 storage.setRunning(true)
+                cloud?.ensureBound()
                 pull()
                 val budgetCommands = budget?.pending().orEmpty()
                 pushBudget(budgetCommands, deferDeletes = true)
@@ -86,6 +90,7 @@ class OperationsSynchronizer(
                     ) {
                         throw SyncBlockedException("scope_changed")
                     }
+                    cloud?.checkEnabled()
                     val response = api.create("Bearer $apiToken", request)
                     if (response.isSuccessful) {
                         val body = response.body() ?: throw IOException("Invalid operation response")
@@ -123,14 +128,20 @@ class OperationsSynchronizer(
                     }
                 }
                 pushBudget(
-                    budgetCommands.filter {
-                        json.decodeFromString<BudgetSyncCommand>(it.intent).type ==
-                            "DELETE_CATEGORY"
+                    (budget?.pending().orEmpty()).filter {
+                        it.kind == "LEDGER" || json.decodeFromString<BudgetSyncCommand>(it.intent).type == "DELETE_CATEGORY"
                     },
                     deferDeletes = false,
                 )
                 if (pendingCommands.isNotEmpty() || budgetCommands.isNotEmpty()) pull()
+                val remaining = budget?.pending().orEmpty()
+                if (cloud != null && (remaining.isNotEmpty() || budget?.hasFailures() == true)) {
+                    storage.finish("pending_changes")
+                    return@withLock if (remaining.isNotEmpty()) SyncResult.Retry else SyncResult.Blocked
+                }
                 storage.finish(null, clock.instant().toString())
+                SyncResult.Completed
+            } catch (_: CloudDisabledException) {
                 SyncResult.Completed
             } catch (exception: CancellationException) {
                 throw exception
@@ -181,7 +192,13 @@ class OperationsSynchronizer(
             ) {
                 throw SyncBlockedException("scope_changed")
             }
-            val response = remote.command("Bearer $apiToken", command)
+            cloud?.checkEnabled()
+            val response =
+                if (item.protocolVersion >= 4 && cloudApi != null) {
+                    cloudApi.command("Bearer $apiToken", command)
+                } else {
+                    remote.command("Bearer $apiToken", command)
+                }
             if (response.isSuccessful) {
                 store.acknowledge(item, response.body() ?: throw IOException("Invalid command response"))
             } else {
@@ -208,7 +225,11 @@ class OperationsSynchronizer(
                     }
 
                     response.code() == 409 && error != null -> {
-                        store.fail(item, "CONFLICT", error.code)
+                        if (cloud != null && item.protocolVersion < 4) {
+                            store.promoteLegacyConflict(item)
+                        } else {
+                            store.fail(item, "CONFLICT", error.code)
+                        }
                     }
 
                     response.code() in setOf(400, 404, 422) && error != null -> {
@@ -230,7 +251,13 @@ class OperationsSynchronizer(
     private suspend fun pull() {
         do {
             val before = storage.state()
-            val page = api.changes("Bearer $apiToken", before.cursor)
+            cloud?.checkEnabled()
+            val page =
+                if (before.protocolVersion >= 4 && cloudApi != null) {
+                    cloudApi.changes("Bearer $apiToken", before.cursor)
+                } else {
+                    api.changes("Bearer $apiToken", before.cursor)
+                }
             require(page.nextCursor.isNotBlank() && (!page.hasMore || page.nextCursor != before.cursor))
             storage.apply(page)
         } while (page.hasMore)

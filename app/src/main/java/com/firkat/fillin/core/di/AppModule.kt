@@ -107,8 +107,27 @@ val appModule =
                 .addMigrations(
                     com.firkat.fillin.core.database.BUDGET_MIGRATION_1_2,
                     com.firkat.fillin.core.database.BUDGET_MIGRATION_2_3,
-                )
-                .build()
+                    com.firkat.fillin.core.database.BUDGET_MIGRATION_3_4,
+                ).build()
+        }
+        single<com.firkat.fillin.feature.sync.data.CloudBudgetApi> { get<Retrofit>().create(com.firkat.fillin.feature.sync.data.CloudBudgetApi::class.java) }
+        single {
+            com.firkat.fillin.feature.sync.data
+                .CloudBudgetSession(get(), get(), BuildConfig.MOBILE_API_TOKEN, get(), OperationSyncScheduler { get<OperationSyncScheduler>().schedule() })
+        }
+        single<com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupRepository> { get<com.firkat.fillin.feature.sync.data.CloudBudgetSession>() }
+        single<com.firkat.fillin.feature.sync.domain.CloudSyncSettings> { get<com.firkat.fillin.feature.sync.data.CloudBudgetSession>() }
+        factory {
+            com.firkat.fillin.feature.budgetsetup.domain
+                .CreateLocalBudget(get())
+        }
+        factory {
+            com.firkat.fillin.feature.budgetsetup.domain
+                .ConnectExistingBudget(get())
+        }
+        viewModel {
+            com.firkat.fillin.feature.budgetsetup.ui
+                .BudgetSetupViewModel(get(), get(), get())
         }
         single<OperationSyncApi> { get<Retrofit>().create(OperationSyncApi::class.java) }
         single<OperationSyncStorage> { RoomOperationSyncStorage(get(), get()) }
@@ -129,14 +148,14 @@ val appModule =
         }
         viewModel {
             com.firkat.fillin.feature.sync.ui
-                .BudgetSyncViewModel(get())
+                .BudgetSyncViewModel(get(), get())
         }
         single { OperationSyncRequests(get<OperationsSynchronizer>()::synchronize) }
-        single<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get()) }
+        single<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get(), get()) }
         single { AndroidOperationConnectivity(androidContext(), get()) }
         single<OperationConnectivity> { get<AndroidOperationConnectivity>() }
         single {
-            OperationsSynchronizer(get(), get(), BuildConfig.MOBILE_API_TOKEN, get(), budget = get(), budgetApi = get())
+            OperationsSynchronizer(get(), get(), BuildConfig.MOBILE_API_TOKEN, get(), budget = get(), budgetApi = get(), cloud = get(), cloudApi = get())
         }
         single { OperationWorkerFactory { get() } }
         single {

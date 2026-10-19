@@ -75,6 +75,10 @@ data class OperationSyncState(
     val errorCode: String? = null,
     @ColumnInfo(defaultValue = "''") val role: String = "",
     @ColumnInfo(defaultValue = "2") val protocolVersion: Int = 3,
+    @ColumnInfo(defaultValue = "0") val localReady: Boolean = initialSyncComplete,
+    @ColumnInfo(defaultValue = "0") val cloudEnabled: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val cloudBound: Boolean = false,
+    val bootstrapPayload: String? = null,
 )
 
 data class LocalHistoryContent(
@@ -128,6 +132,9 @@ interface OperationDao {
     @Query("SELECT * FROM operation_outbox WHERE scopeKey = :scopeKey AND errorCode IS NULL ORDER BY rowid")
     suspend fun pending(scopeKey: String): List<OperationOutbox>
 
+    @Query("SELECT * FROM operation_outbox WHERE operationId = :operationId LIMIT 1")
+    suspend fun outboxForOperation(operationId: String): OperationOutbox?
+
     @Query("UPDATE operation_outbox SET errorCode = :error WHERE requestId = :requestId")
     suspend fun commandError(
         requestId: String,
@@ -143,7 +150,7 @@ interface OperationDao {
         LocalOperation::class, LocalCategory::class, OperationOutbox::class, OperationSyncState::class,
         LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class OperationDatabase : RoomDatabase() {

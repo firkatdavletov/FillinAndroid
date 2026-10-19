@@ -42,6 +42,10 @@ data class BudgetSyncCommand(
     val scheduleValue: Int? = null,
     val startsOn: String? = null,
     val dueOn: String? = null,
+    val ruleId: String? = null,
+    val occurredOn: String? = null,
+    val description: String? = null,
+    val refundId: String? = null,
 )
 
 @Serializable
@@ -61,6 +65,7 @@ interface BudgetSyncApi {
 
 internal fun BudgetSyncCommand.entityKind(): String =
     when {
+        type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION") -> "LEDGER"
         type.endsWith("CATEGORY") -> "CATEGORY"
         type.endsWith("RULE") -> "RECURRING_RULE"
         type.endsWith("INCOME") -> "EXPECTED_INCOME"
@@ -69,10 +74,19 @@ internal fun BudgetSyncCommand.entityKind(): String =
     }
 
 @Serializable
-data class SyncBudgetSettings(val id: String, val openingBalance: String, val protectedReserve: String)
+data class SyncBudgetSettings(
+    val id: String,
+    val openingBalance: String,
+    val protectedReserve: String,
+)
 
 @Serializable
-data class SyncSavingsGoal(val id: String, val allocatedAmount: String)
+data class SyncSavingsGoal(
+    val id: String,
+    val allocatedAmount: String,
+)
 
 @Serializable
-data class SyncVariableSpendingExclusion(val id: String)
+data class SyncVariableSpendingExclusion(
+    val id: String,
+)

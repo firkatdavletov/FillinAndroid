@@ -19,6 +19,9 @@ data class BudgetSyncContext(
     val error: String? = null,
     val issues: List<BudgetSyncIssue> = emptyList(),
     val pendingActions: List<String> = emptyList(),
+    val cloudEnabled: Boolean = false,
+    val lastSyncedAt: String? = null,
+    val keepLocalAccess: Boolean = false,
 )
 
 interface BudgetSyncControl {

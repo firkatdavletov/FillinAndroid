@@ -475,16 +475,18 @@ private fun OperationItem(
                 TextButton(onClick = onEdit) { Text(stringResource(R.string.operation_sync_correct)) }
             }
 
-            OperationSyncStatus.Synced -> Unit
+            OperationSyncStatus.Synced -> {
+                Unit
+            }
         }
         when (purchase.status) {
             OperationStatus.Posted -> {
                 if (purchase.type == OperationType.Expense &&
-                    purchase.syncStatus == OperationSyncStatus.Synced
+                    purchase.originalCurrency == "KZT" && purchase.syncStatus != OperationSyncStatus.Rejected
                 ) {
                     TextButton(
                         onClick = onEdit,
-                        enabled = online && purchase.syncStatus == OperationSyncStatus.Synced,
+                        enabled = purchase.originalCurrency == "KZT",
                         modifier = Modifier.align(Alignment.End),
                     ) {
                         Text(stringResource(R.string.operation_history_edit_action))
@@ -501,7 +503,9 @@ private fun OperationItem(
                 )
             }
 
-            OperationStatus.Unknown -> Unit
+            OperationStatus.Unknown -> {
+                Unit
+            }
         }
     }
 }

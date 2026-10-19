@@ -63,7 +63,7 @@ class OfflineOperationHistoryRepository(
                             CategoryIcon(it.iconCode, it.iconEmoji),
                         )
                     },
-                initialSyncComplete = content?.sync?.initialSyncComplete == true,
+                initialSyncComplete = content?.sync?.let { it.localReady || it.initialSyncComplete } == true,
                 isSyncing = running,
                 isOnline = online,
                 lastSyncedAt = content?.sync?.lastSyncedAt?.let(Instant::parse),
@@ -82,7 +82,7 @@ class OfflineOperationHistoryRepository(
                                 date
                             }
                         },
-                syncError = content?.sync?.errorCode,
+                syncError = content?.sync?.takeIf { it.protocolVersion < 4 }?.errorCode,
                 pendingCount = content?.operations.orEmpty().count { it.syncStatus == "PENDING" },
                 rejectedCount = content?.operations.orEmpty().count { it.syncStatus == "REJECTED" },
             )
@@ -100,8 +100,8 @@ class OfflineOperationHistoryRepository(
         replacesRejectedId: String?,
     ) {
         database.withTransaction {
-            val state = dao.state()?.takeIf { it.initialSyncComplete } ?: throw OperationHistoryException.InvalidRequest
-            if (state.errorCode == "scope_changed") throw OperationHistoryException.Forbidden
+            val state = dao.state()?.takeIf { it.localReady || it.initialSyncComplete } ?: throw OperationHistoryException.InvalidRequest
+            if (state.protocolVersion < 4 && state.errorCode == "scope_changed") throw OperationHistoryException.Forbidden
             try {
                 requireMoney(operation.amount)
             } catch (_: IllegalArgumentException) {
@@ -126,6 +126,7 @@ class OfflineOperationHistoryRepository(
                 val previous =
                     dao.operation(id)?.takeIf { it.scopeKey == state.scopeKey && it.syncStatus == "REJECTED" }
                         ?: throw OperationHistoryException.InvalidRequest
+                budgetStore?.cancelRejectedOperation(previous.id)
                 dao.deleteOperation(previous.id)
                 previous.requestId?.let { dao.complete(it) }
             }
@@ -163,7 +164,13 @@ class OfflineOperationHistoryRepository(
                     occurredAt = at.toString(),
                 ),
             )
-            dao.enqueue(OperationOutbox(id, state.scopeKey, id, json.encodeToString(request)))
+            if (state.protocolVersion >= 4 && budgetStore != null) {
+                budgetStore.enqueue("CREATE_OPERATION", id) {
+                    it.copy(categoryId = request.categoryId, amount = request.amount, kind = request.type, occurredOn = request.occurredOn, description = request.description)
+                }
+            } else {
+                dao.enqueue(OperationOutbox(id, state.scopeKey, id, json.encodeToString(request)))
+            }
         }
         // A scheduler failure must not turn a committed local save into an apparent failure.
         // Startup will discover the durable outbox again.
@@ -186,6 +193,11 @@ class OfflineOperationHistoryRepository(
         version: Long,
         amount: BigDecimal,
     ): Operation {
+        if (dao.state()?.protocolVersion == 4 && budgetStore != null) {
+            budgetStore.enqueue("UPDATE_OPERATION", id, version) { it.copy(amount = amount.toPlainString()) }
+            return observeHistory(OperationHistoryFilter.currentMonth(LocalDate.now(clock)), Int.MAX_VALUE).first().items.firstOrNull { it.id == id }
+                ?: budgetStore.historySnapshot()!!.let { localHistory(it, OperationHistoryFilter(dateFrom = LocalDate.of(1, 1, 1), dateTo = LocalDate.now(clock)), Int.MAX_VALUE).items.first { it.id == id } }
+        }
         requireOnlineOperation(id)
         val result = remote.updatePurchase(id, version, amount)
         database.withTransaction {
@@ -219,6 +231,13 @@ class OfflineOperationHistoryRepository(
         id: String,
         version: Long,
     ) {
+        if (dao.state()?.protocolVersion == 4 && budgetStore != null) {
+            val content = requireNotNull(budgetStore.historySnapshot())
+            val operation = content.operations.firstOrNull { it.id == id } ?: throw OperationHistoryException.NotFound
+            val remaining = operation.originalAmount.toBigDecimal() - content.operations.filter { it.refundOf == id && it.status == "POSTED" && it.syncStatus != "REJECTED" }.sumOf { it.originalAmount.toBigDecimal() }
+            budgetStore.enqueue("REFUND_OPERATION", id, version) { it.copy(amount = remaining.toPlainString(), refundId = UUID.randomUUID().toString()) }
+            return
+        }
         requireOnlineOperation(id)
         remote.refundPurchase(id, version)
         refreshAfterMutation()
