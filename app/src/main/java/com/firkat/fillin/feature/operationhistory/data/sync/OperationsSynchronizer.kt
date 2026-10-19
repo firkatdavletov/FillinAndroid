@@ -7,14 +7,15 @@ import com.firkat.fillin.feature.operationhistory.data.remote.CreatedOperationDt
 import com.firkat.fillin.feature.operationhistory.data.remote.OperationSyncApi
 import com.firkat.fillin.feature.operationhistory.data.remote.SyncApiError
 import com.firkat.fillin.feature.operationhistory.data.remote.SyncPageDto
+import com.firkat.fillin.feature.sync.data.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
@@ -56,6 +57,8 @@ class OperationsSynchronizer(
     private val apiToken: String,
     private val json: Json,
     private val clock: Clock = Clock.systemUTC(),
+    private val budget: BudgetStore? = null,
+    private val budgetApi: BudgetSyncApi? = null,
 ) {
     private val mutex = Mutex()
     private val _running = MutableStateFlow(false)
@@ -71,9 +74,12 @@ class OperationsSynchronizer(
             try {
                 storage.setRunning(true)
                 pull()
+                val budgetCommands = budget?.pending().orEmpty()
+                pushBudget(budgetCommands, deferDeletes = true)
                 val pendingCommands = storage.pending()
                 for (command in pendingCommands) {
                     val request = json.decodeFromString<CreateOperationDto>(command.payload)
+                    if (budget != null && !budget.operationCategoryReady(request.categoryId)) continue
                     val state = storage.state()
                     if (command.scopeKey != state.scopeKey || request.householdId != state.householdId ||
                         request.memberId != state.memberId || request.requestId != command.requestId
@@ -105,7 +111,8 @@ class OperationsSynchronizer(
                                 throw SyncBlockedException(error?.code ?: "conflict")
                             }
 
-                            response.code() in listOf(400, 422) && error?.code in setOf("invalid_operation", "invalid_request") -> {
+                            response.code() in listOf(400, 422) &&
+                                error?.code in setOf("invalid_operation", "invalid_request") -> {
                                 storage.reject(command, error?.reason ?: requireNotNull(error).code)
                             }
 
@@ -115,7 +122,14 @@ class OperationsSynchronizer(
                         }
                     }
                 }
-                if (pendingCommands.isNotEmpty()) pull()
+                pushBudget(
+                    budgetCommands.filter {
+                        json.decodeFromString<BudgetSyncCommand>(it.intent).type ==
+                            "DELETE_CATEGORY"
+                    },
+                    deferDeletes = false,
+                )
+                if (pendingCommands.isNotEmpty() || budgetCommands.isNotEmpty()) pull()
                 storage.finish(null, clock.instant().toString())
                 SyncResult.Completed
             } catch (exception: CancellationException) {
@@ -147,6 +161,71 @@ class OperationsSynchronizer(
                 withContext(NonCancellable) { storage.setRunning(false) }
             }
         }
+
+    private suspend fun pushBudget(
+        commands: List<com.firkat.fillin.core.database.BudgetOutbox>,
+        deferDeletes: Boolean,
+    ) {
+        val store = budget ?: return
+        val remote = budgetApi ?: return
+        for (item in commands) {
+            if (deferDeletes &&
+                json.decodeFromString<BudgetSyncCommand>(item.intent).type == "DELETE_CATEGORY"
+            ) {
+                continue
+            }
+            val command = store.prepare(item) ?: continue
+            val state = storage.state()
+            if (item.scopeKey != state.scopeKey || command.householdId != state.householdId ||
+                command.memberId != state.memberId
+            ) {
+                throw SyncBlockedException("scope_changed")
+            }
+            val response = remote.command("Bearer $apiToken", command)
+            if (response.isSuccessful) {
+                store.acknowledge(item, response.body() ?: throw IOException("Invalid command response"))
+            } else {
+                val error =
+                    response.errorBody()?.string()?.let {
+                        runCatching { json.decodeFromString<SyncApiError>(it) }.getOrNull()
+                    }
+                when {
+                    response.code() == 401 -> {
+                        throw SyncBlockedException("unauthorized")
+                    }
+
+                    response.code() == 403 -> {
+                        throw SyncBlockedException("access_denied")
+                    }
+
+                    response.code() == 409 && error?.code in
+                        setOf(
+                            "scope_changed",
+                            "idempotency_conflict",
+                        )
+                    -> {
+                        throw SyncBlockedException(requireNotNull(error).code)
+                    }
+
+                    response.code() == 409 && error != null -> {
+                        store.fail(item, "CONFLICT", error.code)
+                    }
+
+                    response.code() in setOf(400, 404, 422) && error != null -> {
+                        store.fail(
+                            item,
+                            "REJECTED",
+                            error.reason ?: error.code,
+                        )
+                    }
+
+                    else -> {
+                        throw HttpException(response)
+                    }
+                }
+            }
+        }
+    }
 
     private suspend fun pull() {
         do {

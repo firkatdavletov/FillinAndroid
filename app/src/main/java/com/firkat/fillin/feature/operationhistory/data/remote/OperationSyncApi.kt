@@ -1,8 +1,8 @@
 package com.firkat.fillin.feature.operationhistory.data.remote
 
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -11,7 +11,7 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface OperationSyncApi {
-    @GET("api/v1/sync/changes")
+    @GET("api/v2/sync/changes")
     suspend fun changes(
         @Header("Authorization") authorization: String,
         @Query("cursor") cursor: String?,
@@ -42,6 +42,7 @@ data class SyncPageDto(
     val changes: List<SyncChangeDto>,
     val nextCursor: String,
     val hasMore: Boolean,
+    val snapshotRevision: Long = 0,
 )
 
 @Serializable
@@ -51,6 +52,7 @@ data class SyncChangeDto(
     val deleted: Boolean,
     val operation: SyncOperationDto? = null,
     val category: SyncCategoryDto? = null,
+    val record: com.firkat.fillin.feature.sync.data.SyncPlanRecord? = null,
 )
 
 @Serializable
@@ -79,6 +81,7 @@ data class SyncCategoryDto(
     val iconCode: String,
     val iconEmoji: String,
     val archived: Boolean,
+    val dictionaryKey: String? = null,
 )
 
 @Serializable

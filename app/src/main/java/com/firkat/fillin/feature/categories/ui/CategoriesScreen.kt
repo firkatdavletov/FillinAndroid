@@ -1,7 +1,7 @@
 package com.firkat.fillin.feature.categories.ui
 
-import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -55,30 +54,36 @@ import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
 import com.firkat.fillin.feature.categories.domain.model.CategoryIconType
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
+import com.firkat.fillin.feature.sync.ui.BudgetSyncPanel
+import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.FeatureScaffold
-import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.component.RefreshErrorContent
+import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.foundation.lazy.grid.items as gridItems
 
 @Composable
 fun CategoriesRoute(
     viewModel: CategoriesViewModel = koinViewModel(),
+    syncViewModel: BudgetSyncViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val sync by syncViewModel.context.collectAsStateWithLifecycle()
     FeatureScaffold(
         titleResource = R.string.categories_title,
-        onNavigateBack = if (state.editor != null) {
-            { viewModel.onEvent(CategoriesEvent.EditorClosed) }
-        } else {
-            null
-        },
+        onNavigateBack =
+            if (state.editor != null) {
+                { viewModel.onEvent(CategoriesEvent.EditorClosed) }
+            } else {
+                null
+            },
         navigateBackEnabled = state.editor?.isSaving != true,
     ) {
-        CategoriesScreen(
-            state = state,
-            onEvent = viewModel::onEvent,
-        )
+        Column {
+            BudgetSyncPanel(syncViewModel)
+            CategoriesScreen(state = state, onEvent = viewModel::onEvent, canWrite = sync.canWrite)
+        }
     }
 }
 
@@ -86,6 +91,7 @@ fun CategoriesRoute(
 fun CategoriesScreen(
     state: CategoriesUiState,
     onEvent: (CategoriesEvent) -> Unit,
+    canWrite: Boolean = true,
 ) {
     val editor = state.editor
     if (editor != null) {
@@ -103,31 +109,40 @@ fun CategoriesScreen(
             hasScrollableContent = state.items.isNotEmpty(),
         ) {
             when {
-                state.isLoading && state.items.isEmpty() -> LoadingContent()
+                state.isLoading && state.items.isEmpty() -> {
+                    LoadingContent()
+                }
 
-                state.error != null && state.items.isEmpty() -> ErrorContent(
-                    error = state.error,
-                    onRetry = { onEvent(CategoriesEvent.Retry) },
-                    modifier = Modifier.fillMaxSize(),
-                )
+                state.error != null && state.items.isEmpty() -> {
+                    ErrorContent(
+                        error = state.error,
+                        onRetry = { onEvent(CategoriesEvent.Retry) },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
 
-                state.items.isEmpty() -> EmptyContent()
+                state.items.isEmpty() -> {
+                    EmptyContent()
+                }
 
-                else -> CategoriesList(
-                    items = state.items,
-                    error = state.error,
-                    onRetry = { onEvent(CategoriesEvent.Refresh) },
-                    onCategoryClick = { onEvent(CategoriesEvent.EditRequested(it.id)) },
-                )
+                else -> {
+                    CategoriesList(
+                        items = state.items,
+                        error = state.error,
+                        onRetry = { onEvent(CategoriesEvent.Refresh) },
+                        onCategoryClick = { if (canWrite) onEvent(CategoriesEvent.EditRequested(it.id)) },
+                    )
+                }
             }
         }
 
-        if (!state.isLoading && !state.isRefreshing && state.error == null) {
+        if (canWrite && !state.isLoading && !state.isRefreshing && state.error == null) {
             ExtendedFloatingActionButton(
                 onClick = { onEvent(CategoriesEvent.CreateRequested) },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp),
                 icon = {
                     Text(
                         text = "+",
@@ -148,21 +163,24 @@ private fun CategoriesList(
     onCategoryClick: (Category) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val expenseCategories = remember(items) {
-        items.filter { it.kind == CategoryKind.Expense }
-    }
-    val incomeCategories = remember(items) {
-        items.filter { it.kind == CategoryKind.Income }
-    }
+    val expenseCategories =
+        remember(items) {
+            items.filter { it.kind == CategoryKind.Expense }
+        }
+    val incomeCategories =
+        remember(items) {
+            items.filter { it.kind == CategoryKind.Income }
+        }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            top = 8.dp,
-            end = 16.dp,
-            bottom = 96.dp,
-        ),
+        contentPadding =
+            PaddingValues(
+                start = 16.dp,
+                top = 8.dp,
+                end = 16.dp,
+                bottom = 96.dp,
+            ),
     ) {
         error?.let {
             item(key = "refresh-error") {
@@ -224,10 +242,11 @@ private fun CategoryItem(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -264,20 +283,22 @@ private fun CategoryEditor(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = stringResource(
-                if (state.isCreating) {
-                    R.string.categories_editor_create_title
-                } else {
-                    R.string.categories_editor_edit_title
-                },
-            ),
+            text =
+                stringResource(
+                    if (state.isCreating) {
+                        R.string.categories_editor_create_title
+                    } else {
+                        R.string.categories_editor_edit_title
+                    },
+                ),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
         )
@@ -286,7 +307,7 @@ private fun CategoryEditor(
             value = state.name,
             onValueChange = { onEvent(CategoriesEvent.NameChanged(it)) },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isSaving,
+            enabled = !state.isSaving && state.original?.dictionaryKey != "OTHER",
             label = { Text(stringResource(R.string.categories_name_label)) },
             singleLine = true,
         )
@@ -357,9 +378,10 @@ private fun CategoryEditor(
                 onClick = { onEvent(CategoriesEvent.DeleteRequested) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = state.canDelete,
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error,
-                ),
+                colors =
+                    ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
             ) {
                 Text(stringResource(R.string.categories_delete_action))
             }
@@ -413,9 +435,10 @@ private fun CategoryIconSelector(
         )
         OutlinedButton(
             onClick = onClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(64.dp),
             enabled = enabled,
             contentPadding = PaddingValues(horizontal = 16.dp),
         ) {
@@ -426,9 +449,10 @@ private fun CategoryIconSelector(
                 )
                 Text(
                     text = selectedIcon.name,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp),
                     textAlign = TextAlign.Start,
                     style = MaterialTheme.typography.bodyLarge,
                 )
@@ -457,10 +481,11 @@ private fun CategoryIconPickerBottomSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp),
         ) {
             Text(
                 text = stringResource(R.string.categories_icon_picker_title),
@@ -469,10 +494,11 @@ private fun CategoryIconPickerBottomSheet(
             )
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(384.dp)
-                    .padding(top = 16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(384.dp)
+                        .padding(top = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
@@ -484,25 +510,29 @@ private fun CategoryIconPickerBottomSheet(
                     val isSelected = icon.name == selectedIconCode.trim().uppercase()
                     Surface(
                         onClick = { onIconSelected(icon) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1.15f),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1.15f),
                         shape = MaterialTheme.shapes.large,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainerHighest
-                        },
-                        contentColor = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                        border = if (isSelected) {
-                            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                        } else {
-                            null
-                        },
+                        color =
+                            if (isSelected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHighest
+                            },
+                        contentColor =
+                            if (isSelected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        border =
+                            if (isSelected) {
+                                BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                            } else {
+                                null
+                            },
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -538,9 +568,10 @@ private fun LoadingContent(modifier: Modifier = Modifier) {
 @Composable
 private fun EmptyContent(modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 32.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -578,47 +609,57 @@ private fun ErrorContent(
 }
 
 private val CategoryKind.labelResource: Int
-    @StringRes get() = when (this) {
-        CategoryKind.Expense -> R.string.categories_kind_expense
-        CategoryKind.Income -> R.string.categories_kind_income
-    }
+    @StringRes get() =
+        when (this) {
+            CategoryKind.Expense -> R.string.categories_kind_expense
+            CategoryKind.Income -> R.string.categories_kind_income
+        }
 
 private val CategoriesError.messageResource: Int
-    @StringRes get() = when (this) {
-        CategoriesError.MissingApiToken,
-        CategoriesError.Unauthorized,
-        -> R.string.categories_error_unauthorized
+    @StringRes get() =
+        when (this) {
+            CategoriesError.MissingApiToken,
+            CategoriesError.Unauthorized,
+            -> R.string.categories_error_unauthorized
 
-        CategoriesError.Forbidden -> R.string.categories_error_forbidden
-        CategoriesError.InvalidRequest -> R.string.categories_error_invalid_request
-        CategoriesError.NotFound -> R.string.categories_error_not_found
-        CategoriesError.Conflict -> R.string.categories_error_conflict
-        CategoriesError.Network -> R.string.categories_error_network
-        CategoriesError.InvalidResponse -> R.string.categories_error_invalid_response
-        CategoriesError.Unknown -> R.string.categories_error_generic
-    }
+            CategoriesError.Forbidden -> R.string.categories_error_forbidden
+
+            CategoriesError.InvalidRequest -> R.string.categories_error_invalid_request
+
+            CategoriesError.NotFound -> R.string.categories_error_not_found
+
+            CategoriesError.Conflict -> R.string.categories_error_conflict
+
+            CategoriesError.Network -> R.string.categories_error_network
+
+            CategoriesError.InvalidResponse -> R.string.categories_error_invalid_response
+
+            CategoriesError.Unknown -> R.string.categories_error_generic
+        }
 
 @Preview(showBackground = true)
 @Composable
 private fun CategoriesPreview() {
     FillinTheme(dynamicColor = false) {
         CategoriesScreen(
-            state = CategoriesUiState(
-                items = listOf(
-                    Category(
-                        id = "groceries",
-                        name = "Продукты",
-                        kind = CategoryKind.Expense,
-                        icon = CategoryIcon(code = "FOOD", emoji = "🍔"),
-                    ),
-                    Category(
-                        id = "salary",
-                        name = "Зарплата",
-                        kind = CategoryKind.Income,
-                        icon = CategoryIcon(code = "INCOME", emoji = "💰"),
-                    ),
+            state =
+                CategoriesUiState(
+                    items =
+                        listOf(
+                            Category(
+                                id = "groceries",
+                                name = "Продукты",
+                                kind = CategoryKind.Expense,
+                                icon = CategoryIcon(code = "FOOD", emoji = "🍔"),
+                            ),
+                            Category(
+                                id = "salary",
+                                name = "Зарплата",
+                                kind = CategoryKind.Income,
+                                icon = CategoryIcon(code = "INCOME", emoji = "💰"),
+                            ),
+                        ),
                 ),
-            ),
             onEvent = {},
         )
     }
@@ -629,13 +670,15 @@ private fun CategoriesPreview() {
 private fun CategoryEditorPreview() {
     FillinTheme(dynamicColor = false) {
         CategoriesScreen(
-            state = CategoriesUiState(
-                editor = CategoryEditorUiState(
-                    name = "Кафе",
-                    kind = CategoryKind.Expense,
-                    iconCode = "FOOD",
+            state =
+                CategoriesUiState(
+                    editor =
+                        CategoryEditorUiState(
+                            name = "Кафе",
+                            kind = CategoryKind.Expense,
+                            iconCode = "FOOD",
+                        ),
                 ),
-            ),
             onEvent = {},
         )
     }

@@ -6,12 +6,16 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.YearMonth
 
-enum class PlannedOperationType(val apiValue: String) {
+enum class PlannedOperationType(
+    val apiValue: String,
+) {
     Expense("EXPENSE"),
     Income("INCOME"),
 }
 
-enum class PlannedOperationPeriod(val apiValue: String) {
+enum class PlannedOperationPeriod(
+    val apiValue: String,
+) {
     CurrentMonth("CUSTOM"),
     EndOfMonth("END_OF_MONTH"),
     EndOfYear("END_OF_YEAR"),
@@ -37,11 +41,12 @@ data class PlannedOperationsFilter(
     }
 
     companion object {
-        fun currentMonth(today: LocalDate) = PlannedOperationsFilter(
-            period = PlannedOperationPeriod.CurrentMonth,
-            dateFrom = today.withDayOfMonth(1),
-            dateTo = YearMonth.from(today).atEndOfMonth(),
-        )
+        fun currentMonth(today: LocalDate) =
+            PlannedOperationsFilter(
+                period = PlannedOperationPeriod.CurrentMonth,
+                dateFrom = today.withDayOfMonth(1),
+                dateTo = YearMonth.from(today).atEndOfMonth(),
+            )
     }
 }
 
@@ -51,13 +56,18 @@ sealed interface PlannedOperation {
     val type: PlannedOperationType
     val key: String get() = "${type.apiValue}:$id"
 
-    data class Expense(val expense: PlannedExpense) : PlannedOperation {
+    data class Expense(
+        val expense: PlannedExpense,
+    ) : PlannedOperation {
+        override val key: String get() = "EXPENSE:${expense.ruleId}:${expense.dueOn}"
         override val id: String get() = expense.id
         override val dueOn: LocalDate get() = expense.dueOn
         override val type = PlannedOperationType.Expense
     }
 
-    data class Income(val income: PlannedIncome) : PlannedOperation {
+    data class Income(
+        val income: PlannedIncome,
+    ) : PlannedOperation {
         override val id: String get() = income.id
         override val dueOn: LocalDate get() = income.dueOn
         override val type = PlannedOperationType.Income

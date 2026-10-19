@@ -44,6 +44,8 @@ android {
         buildConfigField("String", "MOBILE_API_TOKEN", "\"$escapedMobileApiToken\"")
     }
 
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+
     buildTypes {
         release {
             optimization {

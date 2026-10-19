@@ -6,5 +6,9 @@ import com.firkat.fillin.feature.categories.domain.repository.CategoriesReposito
 class GetCategories(
     private val repository: CategoriesRepository,
 ) {
+    fun observe() = repository.observeCategories()
+
+    fun requestSync() = repository.requestSync()
+
     suspend operator fun invoke(): List<Category> = repository.getCategories()
 }

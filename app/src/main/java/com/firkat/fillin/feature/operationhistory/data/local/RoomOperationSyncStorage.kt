@@ -1,11 +1,14 @@
 package com.firkat.fillin.feature.operationhistory.data.local
 
 import androidx.room.withTransaction
+import com.firkat.fillin.core.database.LocalSyncRecord
+import com.firkat.fillin.core.database.SyncStagingPage
 import com.firkat.fillin.feature.operationhistory.data.remote.CreatedOperationDto
 import com.firkat.fillin.feature.operationhistory.data.remote.SyncOperationDto
 import com.firkat.fillin.feature.operationhistory.data.remote.SyncPageDto
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncStorage
 import com.firkat.fillin.feature.operationhistory.data.sync.SyncBlockedException
+import kotlinx.serialization.json.Json
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -13,6 +16,11 @@ import java.util.UUID
 
 class RoomOperationSyncStorage(
     private val database: OperationDatabase,
+    private val json: Json =
+        Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        },
 ) : OperationSyncStorage {
     private val dao get() = database.operations()
 
@@ -29,42 +37,77 @@ class RoomOperationSyncStorage(
             val scope = page.scope
             UUID.fromString(scope.householdId)
             UUID.fromString(scope.memberId)
-            require(scope.currency == "KZT" && scope.timeZone == "Asia/Almaty")
+            require(scope.currency == "KZT" && scope.timeZone == "Asia/Almaty" && scope.role in setOf("OWNER", "MEMBER"))
             Instant.parse(scope.accountingStartedAt)
-            if (previous.scopeKey.isNotEmpty() && previous.scopeKey != scope.key) throw SyncBlockedException("scope_changed")
-            var revision = previous.lastRevision
-            for (change in page.changes) {
+            if (previous.scopeKey.isNotEmpty() &&
+                previous.scopeKey != scope.key
+            ) {
+                throw SyncBlockedException("scope_changed")
+            }
+            val staged = database.budget().staged().map { json.decodeFromString<SyncPageDto>(it.payload) }
+            require(staged.all { it.scope.key == scope.key && it.snapshotRevision == page.snapshotRevision })
+            var revision =
+                staged
+                    .lastOrNull()
+                    ?.changes
+                    ?.lastOrNull()
+                    ?.revision ?: previous.lastRevision
+            page.changes.forEach { change ->
                 require(change.revision > revision)
                 when (change.kind) {
                     "LEDGER" -> {
-                        val operation = requireNotNull(change.operation)
-                        if (change.deleted) {
-                            val current = dao.operation(operation.id)
-                            if (current == null || current.version <= operation.version) dao.deleteOperation(operation.id)
-                        } else {
-                            upsert(operation, scope.key)
-                        }
+                        requireNotNull(change.operation).toLocal(scope.key)
                     }
 
                     "CATEGORY" -> {
-                        val category = requireNotNull(change.category)
-                        UUID.fromString(category.id)
-                        require(category.kind in setOf("EXPENSE", "INCOME"))
-                        if (change.deleted) {
-                            dao.deleteCategory(scope.key, category.id)
-                        } else {
-                            dao.putCategory(
-                                LocalCategory(
-                                    scope.key,
-                                    category.id,
-                                    category.name,
-                                    category.kind,
-                                    category.iconCode,
-                                    category.iconEmoji,
-                                    category.archived,
-                                    change.revision,
-                                ),
-                            )
+                        val c = requireNotNull(change.category)
+                        UUID.fromString(c.id)
+                        require(c.kind in setOf("EXPENSE", "INCOME"))
+                    }
+
+                    "RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH" -> {
+                        val record = requireNotNull(change.record)
+                        UUID.fromString(record.id)
+                        record.categoryId?.let(UUID::fromString)
+                        record.ruleId?.let(UUID::fromString)
+                        record.ledgerId?.let(UUID::fromString)
+                        if (record.ledgerId == null) {
+                        require(record.version != null && record.version >= 0)
+                        require(record.createdAt != null && record.modifiedAt != null)
+                    }
+                    record.amount?.let { requireMoney(it.toBigDecimal()) }
+                        record.startsOn?.let(LocalDate::parse)
+                        record.dueOn?.let(LocalDate::parse)
+                        record.createdAt?.let(Instant::parse)
+                        record.modifiedAt?.let(Instant::parse)
+                        when (change.kind) {
+                            "RECURRING_RULE" -> {
+                                require(
+                                    record.categoryId != null && record.amount != null && record.startsOn != null &&
+                                        record.active != null,
+                                )
+                                require(record.frequency in setOf("MONTHLY", "WEEKLY"))
+                                require(record.scheduleValue in if (record.frequency == "MONTHLY") 1..31 else 1..7)
+                            }
+
+                            "EXPECTED_INCOME", "RECURRING_OCCURRENCE" -> {
+                                require(record.categoryId != null && record.amount != null && record.dueOn != null)
+                                require(
+                                    record.status in
+                                        if (change.kind ==
+                                            "EXPECTED_INCOME"
+                                        ) {
+                                            setOf("SCHEDULED", "CANCELLED")
+                                        } else {
+                                            setOf("SCHEDULED", "CANCELLED", "PAID")
+                                        },
+                                )
+                                if (change.kind == "RECURRING_OCCURRENCE") require(record.ruleId != null)
+                            }
+
+                            else -> {
+                                require(record.ledgerId != null)
+                            }
                         }
                     }
 
@@ -74,6 +117,70 @@ class RoomOperationSyncStorage(
                 }
                 revision = change.revision
             }
+            if (page.hasMore) {
+                database.budget().stage(SyncStagingPage(payload = json.encodeToString(page)))
+            } else {
+                (staged + page).forEach { part ->
+                    part.changes.forEach { change ->
+                        when (change.kind) {
+                            "LEDGER" -> {
+                                val operation = requireNotNull(change.operation)
+                                if (change.deleted) {
+                                    val current = dao.operation(operation.id)
+                                    if (current == null ||
+                                        current.version <= operation.version
+                                    ) {
+                                        dao.deleteOperation(operation.id)
+                                    }
+                                } else {
+                                    upsert(operation, scope.key)
+                                }
+                            }
+
+                            "CATEGORY" -> {
+                                val category = requireNotNull(change.category)
+                                if (change.deleted) {
+                                    dao.deleteCategory(scope.key, category.id)
+                                } else {
+                                    dao.putCategory(
+                                        LocalCategory(
+                                            scope.key,
+                                            category.id,
+                                            category.name,
+                                            category.kind,
+                                            category.iconCode,
+                                            category.iconEmoji,
+                                            category.archived,
+                                            change.revision,
+                                            category.dictionaryKey,
+                                        ),
+                                    )
+                                }
+                            }
+
+                            else -> {
+                                val record = requireNotNull(change.record)
+                                val key = record.id + (record.ledgerId?.let { ":$it" } ?: "")
+                                if (change.deleted) {
+                                    database.budget().deleteRecord(scope.key, change.kind, key)
+                                } else {
+                                    database.budget().putRecord(
+                                        LocalSyncRecord(
+                                            scope.key,
+                                            change.kind,
+                                            key,
+                                            json.encodeToString(record),
+                                            change.revision,
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                database.budget().cleanReceipts(scope.key, maxOf(page.snapshotRevision, revision))
+                database.budget().clearStaged()
+            }
             dao.putState(
                 previous.copy(
                     scopeKey = scope.key,
@@ -81,9 +188,11 @@ class RoomOperationSyncStorage(
                     memberId = scope.memberId,
                     accountingStartedAt = scope.accountingStartedAt,
                     cursor = page.nextCursor,
-                    lastRevision = revision,
+                    lastRevision = if (page.hasMore) previous.lastRevision else maxOf(page.snapshotRevision, revision),
                     initialSyncComplete = previous.initialSyncComplete || !page.hasMore,
                     errorCode = null,
+                    role = scope.role,
+                    protocolVersion = 2,
                 ),
             )
         }
@@ -114,7 +223,9 @@ class RoomOperationSyncStorage(
         command: OperationOutbox,
         errorCode: String,
     ) = database.withTransaction {
-        dao.operation(command.operationId)?.let { dao.putOperation(it.copy(syncStatus = "REJECTED", syncError = errorCode)) }
+        dao.operation(command.operationId)?.let {
+            dao.putOperation(it.copy(syncStatus = "REJECTED", syncError = errorCode))
+        }
         dao.commandError(command.requestId, errorCode)
     }
 

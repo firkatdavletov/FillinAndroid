@@ -23,7 +23,7 @@ class UpdateCategory(
         if (changedName == null && changedIcon == null) return category
 
         return repository.updateCategory(
-            id = category.id,
+            category = category,
             name = changedName,
             iconCode = changedIcon,
         )

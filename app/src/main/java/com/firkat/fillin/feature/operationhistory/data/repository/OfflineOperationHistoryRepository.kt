@@ -44,12 +44,15 @@ class OfflineOperationHistoryRepository(
     private val connectivity: OperationConnectivity,
     private val json: Json,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
+    private val budgetStore: com.firkat.fillin.feature.sync.data.BudgetStore? = null,
 ) : OperationHistoryStore,
     OperationHistoryRepository {
     private val dao get() = database.operations()
 
+    private val localContent = budgetStore?.observeHistoryContent() ?: dao.observeContent()
+
     override val context: Flow<OfflineHistoryContext> =
-        combine(dao.observeContent(), connectivity.online, sync.running) { content, online, running ->
+        combine(localContent, connectivity.online, sync.running) { content, online, running ->
             OfflineHistoryContext(
                 categories =
                     content?.categories.orEmpty().filterNot { it.archived }.sortedBy { it.name }.map {
@@ -71,7 +74,13 @@ class OfflineOperationHistoryRepository(
                         ?.let(Instant::parse)
                         ?.let { start ->
                             val date = start.atZone(ZoneId.of("Asia/Almaty")).toLocalDate()
-                            if (date.atStartOfDay(ZoneId.of("Asia/Almaty")).toInstant() < start) date.plusDays(1) else date
+                            if (date.atStartOfDay(ZoneId.of("Asia/Almaty")).toInstant() <
+                                start
+                            ) {
+                                date.plusDays(1)
+                            } else {
+                                date
+                            }
                         },
                 syncError = content?.sync?.errorCode,
                 pendingCount = content?.operations.orEmpty().count { it.syncStatus == "PENDING" },
@@ -82,7 +91,7 @@ class OfflineOperationHistoryRepository(
     override fun observeHistory(
         filter: OperationHistoryFilter,
         limit: Int,
-    ): Flow<OperationPage> = dao.observeContent().map { localHistory(it, filter, limit) }.flowOn(Dispatchers.Default)
+    ): Flow<OperationPage> = localContent.map { localHistory(it, filter, limit) }.flowOn(Dispatchers.Default)
 
     override fun requestSync() = scheduler.schedule()
 
@@ -98,7 +107,9 @@ class OfflineOperationHistoryRepository(
             } catch (_: IllegalArgumentException) {
                 throw OperationHistoryException.InvalidRequest
             }
-            val category = dao.category(state.scopeKey, operation.categoryId)
+            val category =
+                budgetStore?.historySnapshot()?.categories?.find { it.id == operation.categoryId }
+                    ?: dao.category(state.scopeKey, operation.categoryId)
             if (category == null || category.archived ||
                 category.kind != operation.type.apiValue
             ) {

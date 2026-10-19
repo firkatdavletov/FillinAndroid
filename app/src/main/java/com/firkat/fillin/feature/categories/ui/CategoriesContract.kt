@@ -38,7 +38,7 @@ data class CategoryEditorUiState(
 
     val canDelete: Boolean
         get() = !isSaving &&
-            original?.kind == CategoryKind.Expense
+            original?.kind == CategoryKind.Expense && original.dictionaryKey != "OTHER"
 }
 
 enum class CategoriesError {

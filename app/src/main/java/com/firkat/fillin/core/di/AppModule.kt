@@ -56,7 +56,6 @@ import com.firkat.fillin.feature.plannedoperations.data.repository.PlannedOperat
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsRepository
 import com.firkat.fillin.feature.plannedoperations.domain.usecase.GetPlannedOperations
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsViewModel
-import java.security.MessageDigest
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import org.koin.android.ext.koin.androidContext
@@ -65,136 +64,165 @@ import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import java.security.MessageDigest
 
-val appModule = module {
-    single {
-        Json {
-            ignoreUnknownKeys = true
-            explicitNulls = false
+val appModule =
+    module {
+        single {
+            Json {
+                ignoreUnknownKeys = true
+                explicitNulls = false
+            }
+        }
+        single {
+            Retrofit
+                .Builder()
+                .baseUrl(BuildConfig.API_BASE_URL)
+                .addConverterFactory(
+                    get<Json>().asConverterFactory("application/json".toMediaType()),
+                ).build()
+        }
+        single<OperationHistoryApi> { get<Retrofit>().create(OperationHistoryApi::class.java) }
+        single<PlannedExpensesApi> { get<Retrofit>().create(PlannedExpensesApi::class.java) }
+        single<PlannedIncomesApi> { get<Retrofit>().create(PlannedIncomesApi::class.java) }
+        single<PlannedOperationsApi> { get<Retrofit>().create(PlannedOperationsApi::class.java) }
+        single<CategoriesApi> { get<Retrofit>().create(CategoriesApi::class.java) }
+        single<DashboardApi> { get<Retrofit>().create(DashboardApi::class.java) }
+        single<DashboardRepository> {
+            DashboardRepositoryImpl(
+                api = get(),
+                apiToken = BuildConfig.MOBILE_API_TOKEN,
+            )
+        }
+        factory { GetDashboard(repository = get()) }
+        viewModel { DashboardViewModel(getDashboard = get()) }
+        single<OperationHistoryRepository>(named("remoteOperations")) {
+            OperationHistoryRepositoryImpl(
+                api = get(),
+                apiToken = BuildConfig.MOBILE_API_TOKEN,
+            )
+        }
+        single {
+            val backend =
+                MessageDigest
+                    .getInstance("SHA-256")
+                    .digest(BuildConfig.API_BASE_URL.toByteArray())
+                    .take(8)
+                    .joinToString("") { "%02x".format(it) }
+            Room
+                .databaseBuilder(androidContext(), OperationDatabase::class.java, "operations-$backend.db")
+                .addMigrations(com.firkat.fillin.core.database.BUDGET_MIGRATION_1_2)
+                .build()
+        }
+        single<OperationSyncApi> { get<Retrofit>().create(OperationSyncApi::class.java) }
+        single<OperationSyncStorage> { RoomOperationSyncStorage(get(), get()) }
+        single<com.firkat.fillin.feature.sync.data.BudgetSyncApi> {
+            get<Retrofit>().create(com.firkat.fillin.feature.sync.data.BudgetSyncApi::class.java)
+        }
+        single {
+            com.firkat.fillin.feature.sync.data.BudgetStore(
+                get(),
+                OperationSyncScheduler {
+                    get<OperationSyncScheduler>().schedule()
+                },
+                get(),
+            )
+        }
+        single<com.firkat.fillin.feature.sync.domain.BudgetSyncControl> {
+            get<com.firkat.fillin.feature.sync.data.BudgetStore>()
+        }
+        viewModel {
+            com.firkat.fillin.feature.sync.ui
+                .BudgetSyncViewModel(get())
+        }
+        single { OperationSyncRequests(get<OperationsSynchronizer>()::synchronize) }
+        single<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get()) }
+        single { AndroidOperationConnectivity(androidContext(), get()) }
+        single<OperationConnectivity> { get<AndroidOperationConnectivity>() }
+        single {
+            OperationsSynchronizer(get(), get(), BuildConfig.MOBILE_API_TOKEN, get(), budget = get(), budgetApi = get())
+        }
+        single { OperationWorkerFactory { get() } }
+        single {
+            OfflineOperationHistoryRepository(
+                get(),
+                get(named("remoteOperations")),
+                get(),
+                get(),
+                get(),
+                get(),
+                budgetStore = get(),
+            )
+        }
+        single<OperationHistoryStore> { get<OfflineOperationHistoryRepository>() }
+        single<OperationHistoryRepository> { get<OfflineOperationHistoryRepository>() }
+        factory { UpdatePurchaseAmount(repository = get()) }
+        factory { RefundPurchase(repository = get()) }
+        viewModel {
+            OperationHistoryViewModel(
+                history = get(),
+                updatePurchaseAmount = get(),
+                refundPurchase = get(),
+            )
+        }
+        single<PlannedExpensesRepository> {
+            com.firkat.fillin.feature.plannedexpenses.data.repository
+                .OfflinePlannedExpensesRepository(get())
+        }
+        factory { GetPlannedExpenses(repository = get()) }
+        factory { CreatePlannedExpenseRule(repository = get()) }
+        factory { UpdatePlannedExpenseRule(repository = get()) }
+        factory { DeletePlannedExpenseRule(repository = get()) }
+        factory { ClosePlannedExpense(repository = get()) }
+        viewModel { parameters ->
+            PlannedExpensesViewModel(
+                getPlannedExpenses = get(),
+                getCategories = get(),
+                createRule = get(),
+                updateRule = get(),
+                deleteRule = get(),
+                closeExpense = get(),
+                editorOnly = parameters.getOrNull<Boolean>() ?: false,
+            )
+        }
+        single<PlannedIncomesRepository> {
+            com.firkat.fillin.feature.plannedincomes.data.repository
+                .OfflinePlannedIncomesRepository(get())
+        }
+        factory { GetPlannedIncomes(repository = get()) }
+        factory { CreatePlannedIncome(repository = get()) }
+        factory { UpdatePlannedIncome(repository = get()) }
+        factory { DeletePlannedIncome(repository = get()) }
+        viewModel { parameters ->
+            PlannedIncomesViewModel(
+                getPlannedIncomes = get(),
+                getCategories = get(),
+                createPlannedIncome = get(),
+                updatePlannedIncome = get(),
+                deletePlannedIncome = get(),
+                editorOnly = parameters.getOrNull<Boolean>() ?: false,
+            )
+        }
+        single<PlannedOperationsRepository> {
+            com.firkat.fillin.feature.plannedoperations.data.repository
+                .OfflinePlannedOperationsRepository(get())
+        }
+        factory { GetPlannedOperations(repository = get()) }
+        viewModel { PlannedOperationsViewModel(getPlannedOperations = get()) }
+        single<CategoriesRepository> {
+            com.firkat.fillin.feature.categories.data.repository
+                .OfflineCategoriesRepository(get())
+        }
+        factory { GetCategories(repository = get()) }
+        factory { CreateCategory(repository = get()) }
+        factory { UpdateCategory(repository = get()) }
+        factory { DeleteCategory(repository = get()) }
+        viewModel {
+            CategoriesViewModel(
+                getCategories = get(),
+                createCategory = get(),
+                updateCategory = get(),
+                deleteCategory = get(),
+            )
         }
     }
-    single {
-        Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
-            .addConverterFactory(
-                get<Json>().asConverterFactory("application/json".toMediaType()),
-            )
-            .build()
-    }
-    single<OperationHistoryApi> { get<Retrofit>().create(OperationHistoryApi::class.java) }
-    single<PlannedExpensesApi> { get<Retrofit>().create(PlannedExpensesApi::class.java) }
-    single<PlannedIncomesApi> { get<Retrofit>().create(PlannedIncomesApi::class.java) }
-    single<PlannedOperationsApi> { get<Retrofit>().create(PlannedOperationsApi::class.java) }
-    single<CategoriesApi> { get<Retrofit>().create(CategoriesApi::class.java) }
-    single<DashboardApi> { get<Retrofit>().create(DashboardApi::class.java) }
-    single<DashboardRepository> {
-        DashboardRepositoryImpl(
-            api = get(),
-            apiToken = BuildConfig.MOBILE_API_TOKEN,
-        )
-    }
-    factory { GetDashboard(repository = get()) }
-    viewModel { DashboardViewModel(getDashboard = get()) }
-    single<OperationHistoryRepository>(named("remoteOperations")) {
-        OperationHistoryRepositoryImpl(
-            api = get(),
-            apiToken = BuildConfig.MOBILE_API_TOKEN,
-        )
-    }
-    single {
-        val backend =
-            MessageDigest
-                .getInstance("SHA-256")
-                .digest(BuildConfig.API_BASE_URL.toByteArray())
-                .take(8)
-                .joinToString("") { "%02x".format(it) }
-        Room.databaseBuilder(androidContext(), OperationDatabase::class.java, "operations-$backend.db").build()
-    }
-    single<OperationSyncApi> { get<Retrofit>().create(OperationSyncApi::class.java) }
-    single<OperationSyncStorage> { RoomOperationSyncStorage(get()) }
-    single { OperationSyncRequests(get<OperationsSynchronizer>()::synchronize) }
-    single<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get()) }
-    single { AndroidOperationConnectivity(androidContext(), get()) }
-    single<OperationConnectivity> { get<AndroidOperationConnectivity>() }
-    single { OperationsSynchronizer(get(), get(), BuildConfig.MOBILE_API_TOKEN, get()) }
-    single { OperationWorkerFactory { get() } }
-    single {
-        OfflineOperationHistoryRepository(get(), get(named("remoteOperations")), get(), get(), get(), get())
-    }
-    single<OperationHistoryStore> { get<OfflineOperationHistoryRepository>() }
-    single<OperationHistoryRepository> { get<OfflineOperationHistoryRepository>() }
-    factory { UpdatePurchaseAmount(repository = get()) }
-    factory { RefundPurchase(repository = get()) }
-    viewModel {
-        OperationHistoryViewModel(
-            history = get(),
-            updatePurchaseAmount = get(),
-            refundPurchase = get(),
-        )
-    }
-    single<PlannedExpensesRepository> {
-        PlannedExpensesRepositoryImpl(
-            api = get(),
-            apiToken = BuildConfig.MOBILE_API_TOKEN,
-        )
-    }
-    factory { GetPlannedExpenses(repository = get()) }
-    factory { CreatePlannedExpenseRule(repository = get()) }
-    factory { UpdatePlannedExpenseRule(repository = get()) }
-    factory { DeletePlannedExpenseRule(repository = get()) }
-    factory { ClosePlannedExpense(repository = get()) }
-    viewModel { parameters ->
-        PlannedExpensesViewModel(
-            getPlannedExpenses = get(),
-            getCategories = get(),
-            createRule = get(),
-            updateRule = get(),
-            deleteRule = get(),
-            closeExpense = get(),
-            editorOnly = parameters.getOrNull<Boolean>() ?: false,
-        )
-    }
-    single<PlannedIncomesRepository> {
-        PlannedIncomesRepositoryImpl(
-            api = get(),
-            apiToken = BuildConfig.MOBILE_API_TOKEN,
-        )
-    }
-    factory { GetPlannedIncomes(repository = get()) }
-    factory { CreatePlannedIncome(repository = get()) }
-    factory { UpdatePlannedIncome(repository = get()) }
-    factory { DeletePlannedIncome(repository = get()) }
-    viewModel { parameters ->
-        PlannedIncomesViewModel(
-            getPlannedIncomes = get(),
-            getCategories = get(),
-            createPlannedIncome = get(),
-            updatePlannedIncome = get(),
-            deletePlannedIncome = get(),
-            editorOnly = parameters.getOrNull<Boolean>() ?: false,
-        )
-    }
-    single<PlannedOperationsRepository> {
-        PlannedOperationsRepositoryImpl(api = get(), apiToken = BuildConfig.MOBILE_API_TOKEN)
-    }
-    factory { GetPlannedOperations(repository = get()) }
-    viewModel { PlannedOperationsViewModel(getPlannedOperations = get()) }
-    single<CategoriesRepository> {
-        CategoriesRepositoryImpl(
-            api = get(),
-            apiToken = BuildConfig.MOBILE_API_TOKEN,
-        )
-    }
-    factory { GetCategories(repository = get()) }
-    factory { CreateCategory(repository = get()) }
-    factory { UpdateCategory(repository = get()) }
-    factory { DeleteCategory(repository = get()) }
-    viewModel {
-        CategoriesViewModel(
-            getCategories = get(),
-            createCategory = get(),
-            updateCategory = get(),
-            deleteCategory = get(),
-        )
-    }
-}

@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.operationhistory.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Embedded
@@ -12,6 +13,7 @@ import androidx.room.Query
 import androidx.room.Relation
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import com.firkat.fillin.core.database.*
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "local_operations", indices = [Index("scopeKey"), Index("requestId", unique = true)])
@@ -45,6 +47,7 @@ data class LocalCategory(
     val iconEmoji: String,
     val archived: Boolean,
     val revision: Long,
+    val dictionaryKey: String? = null,
 )
 
 @Entity(tableName = "operation_outbox", indices = [Index("scopeKey")])
@@ -69,6 +72,8 @@ data class OperationSyncState(
     val isSyncing: Boolean = false,
     val lastSyncedAt: String? = null,
     val errorCode: String? = null,
+    @ColumnInfo(defaultValue = "''") val role: String = "",
+    @ColumnInfo(defaultValue = "2") val protocolVersion: Int = 2,
 )
 
 data class LocalHistoryContent(
@@ -133,10 +138,15 @@ interface OperationDao {
 }
 
 @Database(
-    entities = [LocalOperation::class, LocalCategory::class, OperationOutbox::class, OperationSyncState::class],
-    version = 1,
+    entities = [
+        LocalOperation::class, LocalCategory::class, OperationOutbox::class, OperationSyncState::class,
+        LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class,
+    ],
+    version = 2,
     exportSchema = true,
 )
 abstract class OperationDatabase : RoomDatabase() {
     abstract fun operations(): OperationDao
+
+    abstract fun budget(): BudgetDao
 }

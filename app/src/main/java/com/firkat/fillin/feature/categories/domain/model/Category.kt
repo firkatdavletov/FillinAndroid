@@ -5,6 +5,8 @@ data class Category(
     val name: String,
     val kind: CategoryKind,
     val icon: CategoryIcon,
+    val dictionaryKey: String? = null,
+    val revision: Long = 0,
 )
 
 enum class CategoryKind {

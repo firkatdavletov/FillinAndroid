@@ -24,42 +24,85 @@ class CategoriesViewModel(
     private val _uiState = MutableStateFlow(CategoriesUiState())
     val uiState: StateFlow<CategoriesUiState> = _uiState.asStateFlow()
 
+    private var loadJob: kotlinx.coroutines.Job? = null
+
     init {
         load()
     }
 
     fun onEvent(event: CategoriesEvent) {
         when (event) {
-            CategoriesEvent.Retry -> load()
-            CategoriesEvent.Refresh -> load(isRefreshing = true)
-            CategoriesEvent.CreateRequested -> openCreateEditor()
-            is CategoriesEvent.EditRequested -> openEditEditor(event.categoryId)
-            CategoriesEvent.EditorClosed -> closeEditor()
-            is CategoriesEvent.NameChanged -> updateEditor { copy(name = event.name, error = null) }
-            is CategoriesEvent.KindChanged -> updateEditor {
-                if (isCreating) copy(kind = event.kind, error = null) else this
+            CategoriesEvent.Retry -> {
+                load()
             }
-            CategoriesEvent.IconPickerRequested -> updateEditor {
-                if (isSaving) this else copy(isIconPickerVisible = true)
+
+            CategoriesEvent.Refresh -> {
+                load(isRefreshing = true)
             }
-            CategoriesEvent.IconPickerDismissed -> updateEditor {
-                copy(isIconPickerVisible = false)
+
+            CategoriesEvent.CreateRequested -> {
+                openCreateEditor()
             }
-            is CategoriesEvent.IconSelected -> updateEditor {
-                copy(
-                    iconCode = event.icon.name,
-                    error = null,
-                    isIconPickerVisible = false,
-                )
+
+            is CategoriesEvent.EditRequested -> {
+                openEditEditor(event.categoryId)
             }
-            CategoriesEvent.SaveRequested -> save()
-            CategoriesEvent.DeleteRequested -> updateEditor {
-                if (canDelete) copy(isDeleteConfirmationVisible = true) else this
+
+            CategoriesEvent.EditorClosed -> {
+                closeEditor()
             }
-            CategoriesEvent.DeleteDismissed -> updateEditor {
-                copy(isDeleteConfirmationVisible = false)
+
+            is CategoriesEvent.NameChanged -> {
+                updateEditor { copy(name = event.name, error = null) }
             }
-            CategoriesEvent.DeleteConfirmed -> delete()
+
+            is CategoriesEvent.KindChanged -> {
+                updateEditor {
+                    if (isCreating) copy(kind = event.kind, error = null) else this
+                }
+            }
+
+            CategoriesEvent.IconPickerRequested -> {
+                updateEditor {
+                    if (isSaving) this else copy(isIconPickerVisible = true)
+                }
+            }
+
+            CategoriesEvent.IconPickerDismissed -> {
+                updateEditor {
+                    copy(isIconPickerVisible = false)
+                }
+            }
+
+            is CategoriesEvent.IconSelected -> {
+                updateEditor {
+                    copy(
+                        iconCode = event.icon.name,
+                        error = null,
+                        isIconPickerVisible = false,
+                    )
+                }
+            }
+
+            CategoriesEvent.SaveRequested -> {
+                save()
+            }
+
+            CategoriesEvent.DeleteRequested -> {
+                updateEditor {
+                    if (canDelete) copy(isDeleteConfirmationVisible = true) else this
+                }
+            }
+
+            CategoriesEvent.DeleteDismissed -> {
+                updateEditor {
+                    copy(isDeleteConfirmationVisible = false)
+                }
+            }
+
+            CategoriesEvent.DeleteConfirmed -> {
+                delete()
+            }
         }
     }
 
@@ -70,36 +113,40 @@ class CategoriesViewModel(
         _uiState.update {
             it.copy(isLoading = !isRefreshing, isRefreshing = isRefreshing, error = null)
         }
-        viewModelScope.launch {
-            try {
-                val categories = getCategories()
-                _uiState.update {
-                    it.copy(
-                        items = categories,
-                        isLoading = false,
-                        isRefreshing = false,
-                    )
-                }
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: CategoriesException) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = exception.toUiError(),
-                    )
-                }
-            } catch (exception: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = CategoriesError.Unknown,
-                    )
+        loadJob?.cancel()
+        if (isRefreshing) getCategories.requestSync()
+        loadJob =
+            viewModelScope.launch {
+                try {
+                    getCategories.observe().collect { categories ->
+                        _uiState.update {
+                            it.copy(
+                                items = categories,
+                                isLoading = false,
+                                isRefreshing = false,
+                            )
+                        }
+                    }
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (exception: CategoriesException) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isRefreshing = false,
+                            error = exception.toUiError(),
+                        )
+                    }
+                } catch (exception: Exception) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isRefreshing = false,
+                            error = CategoriesError.Unknown,
+                        )
+                    }
                 }
             }
-        }
     }
 
     private fun openCreateEditor() {
@@ -112,12 +159,13 @@ class CategoriesViewModel(
         val category = _uiState.value.items.firstOrNull { it.id == categoryId } ?: return
         _uiState.update {
             it.copy(
-                editor = CategoryEditorUiState(
-                    original = category,
-                    name = category.name,
-                    kind = category.kind,
-                    iconCode = category.icon.code,
-                ),
+                editor =
+                    CategoryEditorUiState(
+                        original = category,
+                        name = category.name,
+                        kind = category.kind,
+                        iconCode = category.icon.code,
+                    ),
             )
         }
     }
@@ -132,17 +180,18 @@ class CategoriesViewModel(
         updateEditor { copy(isSaving = true, error = null) }
         viewModelScope.launch {
             try {
-                val savedCategory = editor.original?.let { original ->
-                    updateCategory(
-                        category = original,
+                val savedCategory =
+                    editor.original?.let { original ->
+                        updateCategory(
+                            category = original,
+                            name = editor.name,
+                            iconCode = editor.iconCode,
+                        )
+                    } ?: createCategory(
                         name = editor.name,
+                        kind = editor.kind,
                         iconCode = editor.iconCode,
                     )
-                } ?: createCategory(
-                    name = editor.name,
-                    kind = editor.kind,
-                    iconCode = editor.iconCode,
-                )
                 _uiState.update { state ->
                     state.copy(
                         items = state.items.upsert(savedCategory),
@@ -213,14 +262,15 @@ private fun List<Category>.upsert(category: Category): List<Category> {
     return toMutableList().apply { this[index] = category }
 }
 
-private fun CategoriesException.toUiError(): CategoriesError = when (this) {
-    CategoriesException.MissingApiToken -> CategoriesError.MissingApiToken
-    CategoriesException.Unauthorized -> CategoriesError.Unauthorized
-    CategoriesException.Forbidden -> CategoriesError.Forbidden
-    CategoriesException.InvalidRequest -> CategoriesError.InvalidRequest
-    CategoriesException.NotFound -> CategoriesError.NotFound
-    CategoriesException.Conflict -> CategoriesError.Conflict
-    CategoriesException.Network -> CategoriesError.Network
-    CategoriesException.InvalidResponse -> CategoriesError.InvalidResponse
-    CategoriesException.Unknown -> CategoriesError.Unknown
-}
+private fun CategoriesException.toUiError(): CategoriesError =
+    when (this) {
+        CategoriesException.MissingApiToken -> CategoriesError.MissingApiToken
+        CategoriesException.Unauthorized -> CategoriesError.Unauthorized
+        CategoriesException.Forbidden -> CategoriesError.Forbidden
+        CategoriesException.InvalidRequest -> CategoriesError.InvalidRequest
+        CategoriesException.NotFound -> CategoriesError.NotFound
+        CategoriesException.Conflict -> CategoriesError.Conflict
+        CategoriesException.Network -> CategoriesError.Network
+        CategoriesException.InvalidResponse -> CategoriesError.InvalidResponse
+        CategoriesException.Unknown -> CategoriesError.Unknown
+    }

@@ -12,6 +12,6 @@ class DeleteCategory(
         if (category.kind != CategoryKind.Expense) {
             throw CategoriesException.InvalidRequest
         }
-        repository.deleteCategory(category.id)
+        repository.deleteCategory(category)
     }
 }

@@ -42,6 +42,8 @@ import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesScreen
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesViewModel
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsException
+import com.firkat.fillin.feature.sync.ui.BudgetSyncPanel
+import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.RefreshableContent
@@ -51,43 +53,60 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun PlannedOperationsRoute(
     viewModel: PlannedOperationsViewModel = koinViewModel(),
-    expenseEditor: PlannedExpensesViewModel = koinViewModel(
-        key = "planned-expense-editor",
-        parameters = { parametersOf(true) },
-    ),
-    incomeEditor: PlannedIncomesViewModel = koinViewModel(
-        key = "planned-income-editor",
-        parameters = { parametersOf(true) },
-    ),
+    syncViewModel: BudgetSyncViewModel = koinViewModel(),
+    expenseEditor: PlannedExpensesViewModel =
+        koinViewModel(
+            key = "planned-expense-editor",
+            parameters = { parametersOf(true) },
+        ),
+    incomeEditor: PlannedIncomesViewModel =
+        koinViewModel(
+            key = "planned-income-editor",
+            parameters = { parametersOf(true) },
+        ),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val sync by syncViewModel.context.collectAsStateWithLifecycle()
     val expenseState by expenseEditor.uiState.collectAsStateWithLifecycle()
     val incomeState by incomeEditor.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(expenseState.changeVersion, incomeState.changeVersion) {
         if (expenseState.changeVersion > 0 || incomeState.changeVersion > 0) viewModel.reloadAfterMutation()
     }
-    val closeEditor: (() -> Unit)? = when {
-        expenseState.editor != null -> ({ expenseEditor.onEvent(PlannedExpensesEvent.EditorClosed) })
-        incomeState.editor != null -> ({ incomeEditor.onEvent(PlannedIncomesEvent.EditorClosed) })
-        else -> null
-    }
+    val closeEditor: (() -> Unit)? =
+        when {
+            expenseState.editor != null -> ({ expenseEditor.onEvent(PlannedExpensesEvent.EditorClosed) })
+            incomeState.editor != null -> ({ incomeEditor.onEvent(PlannedIncomesEvent.EditorClosed) })
+            else -> null
+        }
     FeatureScaffold(
         titleResource = R.string.planned_operations_title,
         onNavigateBack = closeEditor,
         navigateBackEnabled = expenseState.editor?.isSaving != true && incomeState.editor?.isSaving != true,
     ) {
-        when {
-            expenseState.editor != null -> PlannedExpensesScreen(expenseState, expenseEditor::onEvent)
-            incomeState.editor != null -> PlannedIncomesScreen(incomeState, incomeEditor::onEvent)
-            else -> PlannedOperationsScreen(
-                state = state,
-                onEvent = viewModel::onEvent,
-                onCreateExpense = { expenseEditor.onEvent(PlannedExpensesEvent.CreateRequested) },
-                onCreateIncome = { incomeEditor.onEvent(PlannedIncomesEvent.CreateRequested) },
-                onEditExpense = expenseEditor::edit,
-                onEditIncome = incomeEditor::edit,
-                onCloseExpense = expenseEditor::requestClose,
-            )
+        Column {
+            BudgetSyncPanel(syncViewModel)
+            when {
+                expenseState.editor != null -> {
+                    PlannedExpensesScreen(expenseState, expenseEditor::onEvent)
+                }
+
+                incomeState.editor != null -> {
+                    PlannedIncomesScreen(incomeState, incomeEditor::onEvent)
+                }
+
+                else -> {
+                    PlannedOperationsScreen(
+                        state = state,
+                        onEvent = viewModel::onEvent,
+                        onCreateExpense = { expenseEditor.onEvent(PlannedExpensesEvent.CreateRequested) },
+                        onCreateIncome = { incomeEditor.onEvent(PlannedIncomesEvent.CreateRequested) },
+                        onEditExpense = expenseEditor::edit,
+                        onEditIncome = incomeEditor::edit,
+                        onCloseExpense = expenseEditor::requestClose,
+                        canWrite = sync.canWrite,
+                    )
+                }
+            }
         }
         expenseState.items.firstOrNull { it.id == expenseState.closeConfirmationExpenseId }?.let { expense ->
             CloseExpenseConfirmation(
@@ -109,6 +128,7 @@ fun PlannedOperationsScreen(
     onEditExpense: (PlannedExpense) -> Unit,
     onEditIncome: (PlannedIncome) -> Unit,
     onCloseExpense: (PlannedExpense) -> Unit,
+    canWrite: Boolean = true,
 ) {
     Column(Modifier.fillMaxSize()) {
         PlannedOperationsFilters(state, onEvent)
@@ -121,69 +141,96 @@ fun PlannedOperationsScreen(
                 hasScrollableContent = items.isNotEmpty(),
             ) {
                 when {
-                    state.isLoading && items.isEmpty() -> Box(
-                        Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                    items.isEmpty() -> Column(
-                        Modifier.fillMaxSize().padding(24.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(stringResource(state.error?.messageResource ?: R.string.planned_operations_empty))
-                        if (state.error != null) {
-                            TextButton(onClick = { onEvent(PlannedOperationsEvent.Retry) }) {
-                                Text(stringResource(R.string.planned_operations_retry))
-                            }
+                    state.isLoading && items.isEmpty() -> {
+                        Box(
+                            Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator()
                         }
                     }
-                    else -> LazyColumn(
-                        modifier = Modifier.fillMaxSize().testTag("planned-operations-list"),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        state.error?.let { error ->
-                            item(key = "error") {
-                                RefreshErrorContent(error.messageResource, R.string.planned_operations_retry) {
-                                    onEvent(PlannedOperationsEvent.Retry)
+
+                    items.isEmpty() -> {
+                        Column(
+                            Modifier.fillMaxSize().padding(24.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(stringResource(state.error?.messageResource ?: R.string.planned_operations_empty))
+                            if (state.error != null) {
+                                TextButton(onClick = { onEvent(PlannedOperationsEvent.Retry) }) {
+                                    Text(stringResource(R.string.planned_operations_retry))
                                 }
                             }
                         }
-                        items(items, key = { it.key }) { item ->
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(
-                                    text = stringResource(
-                                        if (item is PlannedOperation.Expense) {
-                                            R.string.planned_operations_expense
-                                        } else {
-                                            R.string.planned_operations_income
-                                        },
-                                    ),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (item is PlannedOperation.Expense) {
-                                        MaterialTheme.colorScheme.error
-                                    } else {
-                                        MaterialTheme.colorScheme.primary
-                                    },
-                                )
-                                when (item) {
-                                    is PlannedOperation.Expense -> PlannedExpenseItem(
-                                        expense = item.expense,
-                                        onManageRule = {
-                                            if (!state.isLoading && !state.isRefreshing) onEditExpense(item.expense)
-                                        },
-                                        onClose = {
-                                            if (!state.isLoading && !state.isRefreshing) onCloseExpense(item.expense)
-                                        },
+                    }
+
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().testTag("planned-operations-list"),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            state.error?.let { error ->
+                                item(key = "error") {
+                                    RefreshErrorContent(error.messageResource, R.string.planned_operations_retry) {
+                                        onEvent(PlannedOperationsEvent.Retry)
+                                    }
+                                }
+                            }
+                            items(items, key = { it.key }) { item ->
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text =
+                                            stringResource(
+                                                if (item is PlannedOperation.Expense) {
+                                                    R.string.planned_operations_expense
+                                                } else {
+                                                    R.string.planned_operations_income
+                                                },
+                                            ),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color =
+                                            if (item is PlannedOperation.Expense) {
+                                                MaterialTheme.colorScheme.error
+                                            } else {
+                                                MaterialTheme.colorScheme.primary
+                                            },
                                     )
-                                    is PlannedOperation.Income -> PlannedIncomeItem(
-                                        income = item.income,
-                                        onEdit = {
-                                            if (!state.isLoading && !state.isRefreshing) onEditIncome(item.income)
-                                        },
-                                    )
+                                    when (item) {
+                                        is PlannedOperation.Expense -> {
+                                            PlannedExpenseItem(
+                                                expense = item.expense,
+                                                onManageRule = {
+                                                    if (canWrite && !state.isLoading &&
+                                                        !state.isRefreshing
+                                                    ) {
+                                                        onEditExpense(item.expense)
+                                                    }
+                                                },
+                                                onClose = {
+                                                    if (canWrite && !state.isLoading &&
+                                                        !state.isRefreshing
+                                                    ) {
+                                                        onCloseExpense(item.expense)
+                                                    }
+                                                },
+                                            )
+                                        }
+
+                                        is PlannedOperation.Income -> {
+                                            PlannedIncomeItem(
+                                                income = item.income,
+                                                onEdit = {
+                                                    if (canWrite && !state.isLoading &&
+                                                        !state.isRefreshing
+                                                    ) {
+                                                        onEditIncome(item.income)
+                                                    }
+                                                },
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -192,10 +239,12 @@ fun PlannedOperationsScreen(
             }
             Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
                 var showCreateMenu by rememberSaveable { mutableStateOf(false) }
-                ExtendedFloatingActionButton(
-                    onClick = { showCreateMenu = true },
-                    modifier = Modifier.testTag("planned-create"),
-                ) { Text(stringResource(R.string.planned_operations_add)) }
+                if (canWrite) {
+                    ExtendedFloatingActionButton(
+                        onClick = { showCreateMenu = true },
+                        modifier = Modifier.testTag("planned-create"),
+                    ) { Text(stringResource(R.string.planned_operations_add)) }
+                }
                 DropdownMenu(expanded = showCreateMenu, onDismissRequest = { showCreateMenu = false }) {
                     DropdownMenuItem(
                         modifier = Modifier.testTag("planned-create-expense"),
@@ -220,12 +269,13 @@ fun PlannedOperationsScreen(
     if (state.isPeriodPickerVisible) PlannedOperationsPeriodPicker(state, onEvent)
 }
 
-private val PlannedOperationsException.messageResource: Int get() = when (this) {
-    PlannedOperationsException.MissingApiToken -> R.string.planned_operations_error_token
-    PlannedOperationsException.Unauthorized -> R.string.planned_operations_error_unauthorized
-    PlannedOperationsException.Forbidden -> R.string.planned_operations_error_forbidden
-    PlannedOperationsException.InvalidRequest -> R.string.planned_operations_error_request
-    PlannedOperationsException.Network -> R.string.planned_operations_error_network
-    PlannedOperationsException.InvalidResponse -> R.string.planned_operations_error_response
-    PlannedOperationsException.Unknown -> R.string.planned_operations_error_unknown
-}
+private val PlannedOperationsException.messageResource: Int get() =
+    when (this) {
+        PlannedOperationsException.MissingApiToken -> R.string.planned_operations_error_token
+        PlannedOperationsException.Unauthorized -> R.string.planned_operations_error_unauthorized
+        PlannedOperationsException.Forbidden -> R.string.planned_operations_error_forbidden
+        PlannedOperationsException.InvalidRequest -> R.string.planned_operations_error_request
+        PlannedOperationsException.Network -> R.string.planned_operations_error_network
+        PlannedOperationsException.InvalidResponse -> R.string.planned_operations_error_response
+        PlannedOperationsException.Unknown -> R.string.planned_operations_error_unknown
+    }
