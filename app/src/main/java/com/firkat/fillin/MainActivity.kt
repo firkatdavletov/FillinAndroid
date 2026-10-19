@@ -83,17 +83,7 @@ fun FillinApp() {
         ) {
             when (selectedDestination) {
                 AppDestination.Dashboard -> {
-                    DashboardRoute(
-                        onOpenPlannedExpenses = {
-                            selectedDestination = AppDestination.Planned
-                        },
-                        onOpenCategories = {
-                            selectedDestination = AppDestination.Categories
-                        },
-                        onAddOperation = {
-                            selectedDestination = AppDestination.History
-                        },
-                    )
+                    DashboardRoute()
                 }
 
                 AppDestination.History -> {

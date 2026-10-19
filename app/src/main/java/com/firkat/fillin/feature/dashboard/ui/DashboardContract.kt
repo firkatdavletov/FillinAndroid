@@ -1,20 +1,13 @@
 package com.firkat.fillin.feature.dashboard.ui
 
-import com.firkat.fillin.feature.dashboard.domain.model.Dashboard
+import com.firkat.fillin.feature.dashboard.domain.model.DashboardStatus
+import java.time.LocalDate
 
 data class DashboardUiState(
-    val dashboard: Dashboard? = null,
-    val isLoading: Boolean = false,
+    val date: LocalDate? = null,
+    val status: DashboardStatus = DashboardStatus.WaitingForBudget,
     val isRefreshing: Boolean = false,
-    val error: DashboardError? = null,
-    val awaitingInitialSync: Boolean = true,
 )
-
-enum class DashboardError {
-    Forbidden,
-    LocalData,
-    Unknown,
-}
 
 sealed interface DashboardEvent {
     data object Resume : DashboardEvent

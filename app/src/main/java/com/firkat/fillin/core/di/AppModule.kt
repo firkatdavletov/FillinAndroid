@@ -12,7 +12,7 @@ import com.firkat.fillin.feature.categories.domain.usecase.UpdateCategory
 import com.firkat.fillin.feature.categories.ui.CategoriesViewModel
 import com.firkat.fillin.feature.dashboard.data.repository.OfflineDashboardRepository
 import com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository
-import com.firkat.fillin.feature.dashboard.domain.usecase.ObserveDashboard
+import com.firkat.fillin.feature.dashboard.domain.DashboardDataSource
 import com.firkat.fillin.feature.dashboard.ui.DashboardViewModel
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
 import com.firkat.fillin.feature.operationhistory.data.local.RoomOperationSyncStorage
@@ -55,12 +55,26 @@ import com.firkat.fillin.feature.plannedoperations.data.repository.PlannedOperat
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsRepository
 import com.firkat.fillin.feature.plannedoperations.domain.usecase.GetPlannedOperations
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsViewModel
+import com.firkat.fillin.feature.dashboard.widgets.totalbalance.domain.ObserveTotalBalance
+import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceViewModel
+import com.firkat.fillin.feature.dashboard.widgets.availabletospend.domain.ObserveAvailableToSpend
+import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.AvailableToSpendViewModel
+import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
+import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.domain.ObserveBalanceForecast
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastViewModel
+import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.domain.ObserveMonthlyBudget
+import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.ui.MonthlyBudgetViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import org.koin.dsl.onClose
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.security.MessageDigest
@@ -87,8 +101,20 @@ val appModule =
         single<PlannedOperationsApi> { get<Retrofit>().create(PlannedOperationsApi::class.java) }
         single<CategoriesApi> { get<Retrofit>().create(CategoriesApi::class.java) }
         single<DashboardRepository> { OfflineDashboardRepository(get(), get(), get()) }
-        factory { ObserveDashboard(repository = get()) }
-        viewModel { DashboardViewModel(observeDashboard = get(), sync = get()) }
+        single {
+            DashboardDataSource(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        } onClose { it?.close() }
+        viewModel { DashboardViewModel(get()) }
+        factory { ObserveTotalBalance(get()) }
+        viewModel { TotalBalanceViewModel(get()) }
+        factory { ObserveAvailableToSpend(get()) }
+        viewModel { AvailableToSpendViewModel(get()) }
+        factory { ObserveDailyLimit(get()) }
+        viewModel { DailyLimitViewModel(get()) }
+        factory { ObserveBalanceForecast(get()) }
+        viewModel { BalanceForecastViewModel(get()) }
+        factory { ObserveMonthlyBudget(get()) }
+        viewModel { MonthlyBudgetViewModel(get()) }
         single<OperationHistoryRepository>(named("remoteOperations")) {
             OperationHistoryRepositoryImpl(
                 api = get(),

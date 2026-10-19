@@ -491,6 +491,11 @@ internal class BudgetProjection(
             },
             excluded,
             operations.values.filter { it.type == "EXPENSE" }.mapTo(hashSetOf()) { it.id },
+            // plans() has applied the queued commands and materialized recurring rules.
+            // Its visible items omit paid/closed expenses, so use the full occurrence set.
+            occurrences.values.filter { it.status in setOf("SCHEDULED", "PAID") }.map {
+                DashboardPlannedExpense(LocalDate.parse(it.dueOn), requireNotNull(it.amount).toBigDecimal())
+            },
         )
     }
 

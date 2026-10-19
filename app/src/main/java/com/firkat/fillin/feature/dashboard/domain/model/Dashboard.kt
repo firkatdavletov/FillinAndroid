@@ -13,6 +13,13 @@ data class Dashboard(
     val forecast: Forecast,
     val expenseCategories: List<ExpenseCategory>,
     val upcomingPayments: List<UpcomingPayment>,
+    val monthBudget: MonthBudget,
+)
+
+data class MonthBudget(
+    val planned: Money,
+    val spent: Money,
+    val remaining: Money,
 )
 
 data class Money(
