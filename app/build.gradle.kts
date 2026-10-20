@@ -5,6 +5,13 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.google.services) apply false
+}
+
+// A checkout without Firebase configuration must still support the local budget.
+val firebaseConfigured = layout.projectDirectory.file("google-services.json").asFile.isFile
+if (firebaseConfigured) {
+    pluginManager.apply("com.google.gms.google-services")
 }
 
 val localPropertiesFile = rootProject.layout.projectDirectory.file("local.properties")
@@ -42,6 +49,7 @@ android {
             "\"https://cheerful-art-production-c4f9.up.railway.app/\"",
         )
         buildConfigField("String", "MOBILE_API_TOKEN", "\"$escapedMobileApiToken\"")
+        buildConfigField("boolean", "FIREBASE_CONFIGURED", firebaseConfigured.toString())
     }
 
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
@@ -65,6 +73,12 @@ android {
 }
 
 dependencies {
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.google.identity)
+
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
