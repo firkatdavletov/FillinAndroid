@@ -78,6 +78,7 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.google.identity)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

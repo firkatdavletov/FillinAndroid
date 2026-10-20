@@ -81,6 +81,7 @@ import java.security.MessageDigest
 
 val appModule =
     module {
+        includes(com.firkat.fillin.feature.auth.di.authModule)
         single {
             Json {
                 ignoreUnknownKeys = true
