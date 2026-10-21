@@ -32,6 +32,7 @@ class CloudBudgetSession(
     private val json: Json,
     private val scheduler: OperationSyncScheduler,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
+    private val checkAccess: () -> Unit = {},
 ) : com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupRepository,
     com.firkat.fillin.feature.sync.domain.CloudSyncSettings {
     private val mutex = Mutex()
@@ -94,6 +95,7 @@ class CloudBudgetSession(
 
     override suspend fun connectExisting() =
         mutex.withLock {
+            checkAccess()
             requireToken()
             check(dao.state()?.let { it.localReady || it.initialSyncComplete } != true)
             val original = dao.state() ?: OperationSyncState()
@@ -117,6 +119,7 @@ class CloudBudgetSession(
                 }
                 val storage = RoomOperationSyncStorage(database, json, publishReady = false)
                 do {
+                    checkAccess()
                     val previous = storage.state()
                     val page = api.changes(authorization(), previous.cursor)
                     require(page.scope == remote.scope && page.nextCursor.isNotBlank() && (!page.hasMore || page.nextCursor != previous.cursor))
@@ -140,6 +143,7 @@ class CloudBudgetSession(
         }
 
     override suspend fun enable() {
+        checkAccess()
         requireToken()
         database.withTransaction {
             val state = requireNotNull(dao.state())
@@ -156,6 +160,7 @@ class CloudBudgetSession(
     suspend fun enabled(): Boolean = dao.state()?.let { it.cloudEnabled && (it.localReady || it.initialSyncComplete) } == true
 
     suspend fun checkEnabled() {
+        checkAccess()
         if (!enabled()) throw CloudDisabledException()
     }
 

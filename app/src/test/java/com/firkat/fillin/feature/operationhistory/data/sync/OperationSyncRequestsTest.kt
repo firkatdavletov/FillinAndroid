@@ -9,12 +9,25 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OperationSyncRequestsTest {
+    @Test fun `profile switch cancels foreground attempt even after worker has joined it`() = runTest {
+        val result = CompletableDeferred<SyncResult>()
+        val requests = OperationSyncRequests({ result.await() }, backgroundScope)
+        val id = UUID.randomUUID()
+        requests.startForeground(id)
+        val worker = async { requests.runWorker(id) }
+        runCurrent()
+        requests.cancelForeground()
+        runCurrent()
+        assertTrue(worker.isCancelled)
+    }
+
     @Test
     fun `worker arriving after foreground completion reuses its result without another sync`() = runTest {
         var calls = 0

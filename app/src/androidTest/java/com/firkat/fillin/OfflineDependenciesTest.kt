@@ -13,26 +13,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.android.ext.android.getKoin
+import kotlinx.coroutines.runBlocking
+import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 
 @RunWith(AndroidJUnit4::class)
 class OfflineDependenciesTest {
     @Test
-    fun productionDependencyGraphAndCustomWorkerFactoryResolveWithoutNetworkCalls() {
+    fun productionDependencyGraphAndCustomWorkerFactoryResolveWithoutNetworkCalls() = runBlocking {
         val application = ApplicationProvider.getApplicationContext<FillinApplication>()
-        val koin = application.getKoin()
-        assertTrue(koin.get<OperationHistoryStore>() is OfflineOperationHistoryRepository)
-        assertNotNull(koin.get<OperationsSynchronizer>())
-        assertTrue(koin.get<com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository>() is com.firkat.fillin.feature.dashboard.data.repository.OfflineDashboardRepository)
-        assertNotNull(koin.get<com.firkat.fillin.feature.sync.domain.BudgetSyncControl>())
+        val root = application.getKoin()
+        val manager = root.get<ActiveBudgetManager>()
+        manager.restore()
+        val lease = manager.active.value!!.retain()!!
+        val scope = lease.scope
+        try {
+        assertTrue(scope.get<OperationHistoryStore>() is OfflineOperationHistoryRepository)
+        assertNotNull(scope.get<OperationsSynchronizer>())
+        assertTrue(scope.get<com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository>() is com.firkat.fillin.feature.dashboard.data.repository.OfflineDashboardRepository)
+        assertNotNull(scope.get<com.firkat.fillin.feature.sync.domain.BudgetSyncControl>())
         assertTrue(
-            koin.get<com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository>() is com.firkat.fillin.feature.categories.data.repository.OfflineCategoriesRepository,
+            scope.get<com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository>() is com.firkat.fillin.feature.categories.data.repository.OfflineCategoriesRepository,
         )
         assertTrue(
-            koin.get<com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsRepository>() is com.firkat.fillin.feature.plannedoperations.data.repository.OfflinePlannedOperationsRepository,
+            scope.get<com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsRepository>() is com.firkat.fillin.feature.plannedoperations.data.repository.OfflinePlannedOperationsRepository,
         )
-        assertNotNull(koin.get<OperationSyncScheduler>())
+        assertNotNull(scope.get<OperationSyncScheduler>())
         assertTrue(application.workManagerConfiguration.workerFactory is OperationWorkerFactory)
         // Initialization only: this test does not enqueue production work.
         assertNotNull(WorkManager.getInstance(application))
+        } finally { lease.close() }
     }
 }

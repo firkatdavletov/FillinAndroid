@@ -1,0 +1,4 @@
+<resources>
+    <string name="budget_profile_open_failed">Не удалось открыть бюджет на устройстве. Данные сохранены. Повторите попытку.</string>
+    <string name="budget_profile_retry">Повторить</string>
+</resources>

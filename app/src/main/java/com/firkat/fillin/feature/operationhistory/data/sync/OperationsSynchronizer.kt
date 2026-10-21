@@ -61,6 +61,7 @@ class OperationsSynchronizer(
     private val budgetApi: BudgetSyncApi? = null,
     private val cloud: CloudBudgetSession? = null,
     private val cloudApi: CloudBudgetApi? = null,
+    private val canSynchronize: () -> Boolean = { true },
 ) {
     private val mutex = Mutex()
     private val _running = MutableStateFlow(false)
@@ -68,6 +69,7 @@ class OperationsSynchronizer(
 
     suspend fun synchronize(): SyncResult =
         mutex.withLock {
+            if (!canSynchronize()) return@withLock SyncResult.Completed
             if (cloud != null && !cloud.enabled()) return@withLock SyncResult.Completed
             if (apiToken.isBlank()) {
                 storage.finish("missing_api_token")
@@ -250,6 +252,7 @@ class OperationsSynchronizer(
 
     private suspend fun pull() {
         do {
+            if (!canSynchronize()) throw CloudDisabledException()
             val before = storage.state()
             cloud?.checkEnabled()
             val page =

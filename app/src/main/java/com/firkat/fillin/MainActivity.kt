@@ -38,8 +38,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FillinTheme {
-                com.firkat.fillin.feature.budgetsetup.ui
-                    .BudgetSetupGate { FillinApp() }
+                com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent {
+                    com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupGate { FillinApp() }
+                }
             }
         }
     }
