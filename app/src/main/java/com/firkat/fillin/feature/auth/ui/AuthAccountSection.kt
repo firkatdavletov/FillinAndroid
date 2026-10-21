@@ -25,6 +25,8 @@ import com.firkat.fillin.R
 import com.firkat.fillin.feature.auth.domain.AuthError
 import com.firkat.fillin.feature.auth.domain.AuthFailure
 import com.firkat.fillin.feature.auth.domain.AuthSession
+import com.firkat.fillin.feature.auth.domain.ServerProfileState
+import com.firkat.fillin.feature.auth.domain.ServerAuthError
 import kotlinx.coroutines.CancellationException
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -59,7 +61,7 @@ fun AuthAccountSection(
             }
         }
     }
-    AuthAccountContent(state, viewModel::signIn, viewModel::signOut)
+    AuthAccountContent(state, viewModel::signIn, viewModel::signOut, viewModel::retryServerAuthentication)
 }
 
 @Composable
@@ -67,6 +69,7 @@ fun AuthAccountContent(
     state: AuthUiState,
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
+    onRetryServer: () -> Unit = {},
 ) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -88,6 +91,7 @@ fun AuthAccountContent(
                         ?: stringResource(R.string.auth_google_account))
                     session.user.email?.takeIf(String::isNotBlank)?.let { Text(it) }
                     Text(stringResource(R.string.auth_budget_hint))
+                    ServerProfileContent(state.serverProfile, onRetryServer)
                     OutlinedButton(onClick = onSignOut, enabled = !state.busy) {
                         Text(stringResource(R.string.auth_sign_out))
                     }
@@ -99,6 +103,28 @@ fun AuthAccountContent(
             }
             state.error?.let { reason ->
                 Text(stringResource(reason.messageResource()), color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ServerProfileContent(state: ServerProfileState, onRetry: () -> Unit) {
+    when (state) {
+        ServerProfileState.Idle -> Unit
+        ServerProfileState.Loading -> Text(stringResource(R.string.auth_server_loading))
+        is ServerProfileState.Ready -> Text(stringResource(R.string.auth_server_ready))
+        is ServerProfileState.Failed -> {
+            val message = when (state.reason) {
+                ServerAuthError.NotConfigured -> R.string.auth_server_not_configured
+                ServerAuthError.Network -> R.string.auth_server_network_error
+                ServerAuthError.Unavailable -> R.string.auth_server_unavailable
+                ServerAuthError.Unauthorized -> R.string.auth_server_unauthorized
+                ServerAuthError.SessionChanged -> R.string.auth_server_session_changed
+            }
+            Text(stringResource(message), color = MaterialTheme.colorScheme.error)
+            if (state.reason != ServerAuthError.NotConfigured) {
+                OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.auth_server_retry)) }
             }
         }
     }

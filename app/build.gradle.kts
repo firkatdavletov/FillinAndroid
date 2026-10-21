@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.net.URI
 
 plugins {
     alias(libs.plugins.ksp)
@@ -28,6 +29,26 @@ val escapedMobileApiToken = mobileApiToken
     .replace("\\", "\\\\")
     .replace("\"", "\\\"")
 
+val apiBaseUrl = "https://cheerful-art-production-c4f9.up.railway.app/"
+
+// Firebase authentication uses the deployed backend unless a test server is specified.
+val firebaseApiBaseUrl = providers.gradleProperty("firebaseApiBaseUrl").orNull ?: run {
+    if (localPropertiesFile.asFile.exists()) {
+        Properties().apply { localPropertiesFile.asFile.reader().use(::load) }
+            .getProperty("FIREBASE_API_BASE_URL", apiBaseUrl)
+    } else apiBaseUrl
+}
+if (firebaseApiBaseUrl.isNotBlank()) {
+    val uri = URI(firebaseApiBaseUrl)
+    require(uri.userInfo == null && uri.query == null && uri.fragment == null && firebaseApiBaseUrl.endsWith("/")) {
+        "Firebase API base URL must end in / and contain no credentials, query or fragment"
+    }
+    require(uri.host != null && (uri.scheme == "https" ||
+        (uri.scheme == "http" && uri.host in setOf("127.0.0.1", "localhost") && uri.port > 0))) {
+        "Firebase API requires HTTPS; debug testing also permits localhost HTTP with an explicit port"
+    }
+}
+
 android {
     namespace = "com.firkat.fillin"
     compileSdk {
@@ -46,16 +67,20 @@ android {
         buildConfigField(
             "String",
             "API_BASE_URL",
-            "\"https://cheerful-art-production-c4f9.up.railway.app/\"",
+            "\"$apiBaseUrl\"",
         )
         buildConfigField("String", "MOBILE_API_TOKEN", "\"$escapedMobileApiToken\"")
         buildConfigField("boolean", "FIREBASE_CONFIGURED", firebaseConfigured.toString())
+        buildConfigField("String", "FIREBASE_API_BASE_URL", "\"$firebaseApiBaseUrl\"")
     }
 
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 
     buildTypes {
         release {
+            if (firebaseApiBaseUrl.startsWith("http://")) {
+                buildConfigField("String", "FIREBASE_API_BASE_URL", "\"\"")
+            }
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")

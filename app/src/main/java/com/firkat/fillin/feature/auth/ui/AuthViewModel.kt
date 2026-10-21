@@ -6,11 +6,19 @@ import com.firkat.fillin.feature.auth.domain.AuthError
 import com.firkat.fillin.feature.auth.domain.AuthFailure
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
+import com.firkat.fillin.feature.auth.domain.ServerAuthRepository
+import com.firkat.fillin.feature.auth.domain.ServerAuthFailure
+import com.firkat.fillin.feature.auth.domain.ServerAuthError
+import com.firkat.fillin.feature.auth.domain.ServerProfileState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -19,19 +27,54 @@ data class AuthUiState(
     val session: AuthSession = AuthSession.Loading,
     val busy: Boolean = false,
     val error: AuthError? = null,
+    val serverProfile: ServerProfileState = ServerProfileState.Idle,
 )
 
 data class GoogleSignInRequest(val id: Long)
 
-class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
+class AuthViewModel(
+    private val repository: AuthRepository,
+    private val serverAuth: ServerAuthRepository? = null,
+) : ViewModel() {
     private val busy = MutableStateFlow(false)
     private val error = MutableStateFlow<AuthError?>(null)
+    private val serverProfile = MutableStateFlow<ServerProfileState>(ServerProfileState.Idle)
+    private val profileReload = MutableStateFlow(0L)
     private val requests = Channel<GoogleSignInRequest>(Channel.BUFFERED)
     private var nextRequestId = 0L
     private var pendingRequestId: Long? = null
     val googleSignInRequests = requests.receiveAsFlow()
-    val state = combine(repository.session, busy, error, ::AuthUiState)
+    val state = combine(repository.session, busy, error, serverProfile, ::AuthUiState)
         .stateIn(viewModelScope, SharingStarted.Eagerly, AuthUiState(repository.session.value))
+
+    init {
+        if (serverAuth != null) viewModelScope.launch {
+            combine(
+                repository.session.map { (it as? AuthSession.Authenticated)?.user?.uid }.distinctUntilChanged(),
+                profileReload,
+            ) { uid, _ -> uid }.collectLatest { uid ->
+                serverProfile.value = ServerProfileState.Idle
+                if (uid == null) return@collectLatest
+                serverProfile.value = ServerProfileState.Loading
+                try {
+                    val user = serverAuth.authenticate(uid)
+                    if (currentUid() == uid) serverProfile.value = ServerProfileState.Ready(user)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: ServerAuthFailure) {
+                    if (currentUid() == uid) serverProfile.value = ServerProfileState.Failed(failure.reason)
+                } catch (_: Exception) {
+                    if (currentUid() == uid) serverProfile.value = ServerProfileState.Failed(ServerAuthError.Unavailable)
+                }
+            }
+        }
+    }
+
+    fun retryServerAuthentication() {
+        if (serverProfile.value !is ServerProfileState.Loading) profileReload.update { it + 1 }
+    }
+
+    private fun currentUid() = (repository.session.value as? AuthSession.Authenticated)?.user?.uid
 
     fun signIn() {
         if (busy.value || repository.session.value == AuthSession.Loading ||
