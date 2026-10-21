@@ -5,6 +5,10 @@ import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetprofile.di.BUDGET_SCOPE
 import com.firkat.fillin.feature.budgetprofile.domain.*
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncRequests
+import com.firkat.fillin.feature.operationhistory.data.sync.OperationsSynchronizer
+import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
+import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
+import androidx.room.withTransaction
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
@@ -112,6 +116,35 @@ class ActiveBudgetManager(
     }
 
     fun isCurrent(profile: BudgetProfile): Boolean = _active.value?.profile == profile && profile.accessibleTo(currentUid())
+
+    /** Publish ownership only after the old exchange has stopped; never move the database file. */
+    suspend fun attachLegacy(uid: String, budgetId: String, memberId: String, role: String) = mutex.withLock {
+        val previous = requireNotNull(_active.value)
+        check(previous.profile.kind == BudgetProfileKind.LEGACY && currentUid() == uid)
+        withContext(NonCancellable) {
+            _active.value = null
+            try {
+                cancelWork(previous.profile.syncIdentity)
+                previous.scope.get<OperationSyncRequests>().cancelForeground()
+                previous.scope.get<OperationsSynchronizer>().awaitIdle()
+                if (currentUid() != uid) throw BudgetConnectionFailure("account_changed")
+                val database = previous.scope.get<OperationDatabase>()
+                val state = requireNotNull(database.operations().state())
+                if (state.householdId != budgetId || state.memberId != memberId) throw BudgetConnectionFailure("scope_changed")
+                if (state.protocolVersion != 4 || database.operations().pending(state.scopeKey).isNotEmpty() || database.budget().commands(state.scopeKey).any { it.protocolVersion != 4 && it.status == "PENDING" }) {
+                    throw BudgetConnectionFailure("unsupported_legacy_queue")
+                }
+                registry.attachLegacy(previous.profile.id, uid, budgetId, role)
+                database.withTransaction {
+                    val latest = requireNotNull(database.operations().state())
+                    database.operations().putState(latest.copy(cloudEnabled = true, cloudBound = true, errorCode = null))
+                }
+            } finally {
+                previous.release()
+                activate(registry.selected(currentUid()))
+            }
+        }
+    }
 
     private fun currentUid(): String? = (auth.session.value as? AuthSession.Authenticated)?.user?.uid
 

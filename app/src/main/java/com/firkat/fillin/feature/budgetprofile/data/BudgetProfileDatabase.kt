@@ -20,6 +20,9 @@ interface BudgetProfileDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(profile: BudgetProfileEntity)
 
+    @Update
+    suspend fun update(profile: BudgetProfileEntity)
+
     @Query("SELECT * FROM budget_profiles WHERE id = :id")
     suspend fun find(id: String): BudgetProfileEntity?
 

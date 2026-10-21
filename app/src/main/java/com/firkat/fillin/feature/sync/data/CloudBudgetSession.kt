@@ -33,6 +33,7 @@ class CloudBudgetSession(
     private val scheduler: OperationSyncScheduler,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
     private val checkAccess: () -> Unit = {},
+    val firebase: Boolean = false,
 ) : com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupRepository,
     com.firkat.fillin.feature.sync.domain.CloudSyncSettings {
     private val mutex = Mutex()
@@ -195,7 +196,7 @@ class CloudBudgetSession(
     }
 
     private fun requireToken() {
-        if (apiToken.isBlank()) throw SyncBlockedException("missing_api_token")
+        if (!firebase && apiToken.isBlank()) throw SyncBlockedException("missing_api_token")
     }
 
     private fun authorization() = "Bearer $apiToken"

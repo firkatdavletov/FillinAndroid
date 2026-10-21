@@ -238,7 +238,14 @@ class BudgetProfilesDeviceTest {
                 single<CloudBudgetApi> { noNetwork.create(CloudBudgetApi::class.java) }
                 single<BudgetSyncApi> { noNetwork.create(BudgetSyncApi::class.java) }
                 // Device isolation tests must never enqueue work against the user's production budget.
-                scope(BUDGET_SCOPE) { scoped<OperationSyncScheduler> { OperationSyncScheduler {} } }
+                scope(BUDGET_SCOPE) {
+                    scoped<OperationSyncScheduler> { OperationSyncScheduler {} }
+                    // These T04 tests isolate storage/lifetime from the Firebase access policy tested in T05.
+                    scoped<CloudBudgetApi> { getKoin().get<CloudBudgetApi>() }
+                    scoped { CloudBudgetSession(get(), get(), "synthetic-test-token", get(), get(), checkAccess = {
+                        if (!get<ActiveBudgetManager>().isCurrent(get<BudgetProfile>())) throw CloudDisabledException()
+                    }) }
+                }
             })
         }
         val manager: ActiveBudgetManager = application.koin.get()

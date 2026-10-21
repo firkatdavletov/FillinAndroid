@@ -1,0 +1,116 @@
+package com.firkat.fillin.feature.budgetconnection.data
+
+import androidx.room.withTransaction
+import com.firkat.fillin.feature.budgetconnection.domain.*
+import com.firkat.fillin.feature.budgetprofile.data.*
+import com.firkat.fillin.feature.budgetprofile.domain.*
+import com.firkat.fillin.feature.operationhistory.data.local.*
+import com.firkat.fillin.feature.operationhistory.data.remote.SyncScopeDto
+import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
+import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
+import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.Json
+import retrofit2.HttpException
+import java.time.Instant
+import java.util.UUID
+
+class RoomBudgetConnectionRepository(
+    private val requests: FirebaseBudgetRequests,
+    private val profiles: BudgetProfileRegistry,
+    private val databases: BudgetDatabaseFactory,
+    private val active: ActiveBudgetManager,
+    private val scheduler: OperationSyncScheduler,
+    private val json: Json,
+) : BudgetConnectionRepository {
+    private val mutex = Mutex()
+
+    override suspend fun budgets(uid: String): List<AvailableBudget> = mapped {
+        requests.budgets(uid).budgetBody().map {
+            UUID.fromString(it.id); UUID.fromString(it.memberId)
+            require(it.name.isNotBlank() && it.role in setOf("OWNER", "MEMBER"))
+            AvailableBudget(it.id, it.name, it.memberId, it.role)
+        }.also { rows -> require(rows.map { it.id }.distinct().size == rows.size) }
+    }
+
+    override suspend fun connect(uid: String, budget: AvailableBudget) = mutex.withLock {
+        mapped {
+            val remote = requests.budget(uid, budget.id).budgetBody().scope
+            validate(remote, budget)
+            val current = active.active.value
+            if (current?.profile?.kind == BudgetProfileKind.LEGACY) {
+                val lease = current.retain() ?: throw BudgetConnectionFailure("account_changed")
+                try {
+                    val state = lease.scope.get<OperationDatabase>().operations().state()
+                    if (state?.householdId == budget.id && state.memberId == remote.memberId) {
+                        active.attachLegacy(uid, budget.id, remote.memberId, remote.role)
+                        scheduler.schedule()
+                        return@mapped
+                    }
+                } finally { lease.close() }
+            }
+            val profile = profiles.registerCloud(uid, budget.id, remote.role)
+            val database = databases.open(profile)
+            try {
+                val original = database.operations().state()
+                if (original?.let { it.localReady || it.initialSyncComplete } != true) {
+                    try {
+                        database.withTransaction {
+                            database.budget().clearStaged()
+                            database.operations().putState(OperationSyncState(scopeKey = remote.key, householdId = remote.householdId,
+                                memberId = remote.memberId, accountingStartedAt = remote.accountingStartedAt, role = remote.role,
+                                protocolVersion = 4, cloudEnabled = true, cloudBound = true))
+                        }
+                        val storage = RoomOperationSyncStorage(database, json, publishReady = false)
+                        do {
+                            val cursor = storage.state().cursor
+                            val page = requests.changes(uid, budget.id, cursor).budgetBody()
+                            require(page.scope == remote && page.nextCursor.isNotBlank() && (!page.hasMore || page.nextCursor != cursor))
+                            storage.apply(page)
+                        } while (page.hasMore)
+                        requests.ensureCurrent(uid)
+                        withContext(NonCancellable) {
+                            database.withTransaction {
+                                val complete = requireNotNull(database.operations().state())
+                                database.operations().putState(complete.copy(localReady = true, initialSyncComplete = true, lastSyncedAt = Instant.now().toString()))
+                            }
+                        }
+                    } catch (e: Exception) {
+                        withContext(NonCancellable) {
+                            database.withTransaction {
+                                database.budget().clearStaged()
+                                database.operations().putState(original ?: OperationSyncState())
+                            }
+                        }
+                        throw e
+                    }
+                } else {
+                    if (original.householdId != remote.householdId || original.memberId != remote.memberId) throw BudgetConnectionFailure("scope_changed")
+                    if (original.protocolVersion != 4) throw BudgetConnectionFailure("unsupported_legacy_queue")
+                    database.withTransaction {
+                        val latest = requireNotNull(database.operations().state())
+                        database.operations().putState(latest.copy(cloudEnabled = true, cloudBound = true, role = remote.role, errorCode = null))
+                    }
+                }
+            } finally { database.close() }
+            requests.ensureCurrent(uid)
+            active.select(profile.id)
+            scheduler.schedule()
+        }
+    }
+
+    private fun validate(scope: SyncScopeDto, budget: AvailableBudget) {
+        UUID.fromString(scope.householdId); UUID.fromString(scope.memberId)
+        require(scope.householdId == budget.id && scope.memberId == budget.memberId && scope.role in setOf("OWNER", "MEMBER"))
+        require(scope.currency == "KZT" && scope.timeZone == "Asia/Almaty")
+        Instant.parse(scope.accountingStartedAt)
+    }
+
+    private suspend fun <T> mapped(block: suspend () -> T): T = try { block() } catch (e: HttpException) {
+        e.response()?.errorBody()?.close()
+        throw BudgetConnectionFailure(when (e.code()) { 401 -> "unauthorized"; 403, 404 -> "access_denied"; else -> "server_unavailable" })
+    } catch (_: IllegalArgumentException) {
+        throw BudgetConnectionFailure("invalid_response")
+    }
+}

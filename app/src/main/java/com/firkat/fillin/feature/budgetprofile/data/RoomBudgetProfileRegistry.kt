@@ -17,7 +17,12 @@ class RoomBudgetProfileRegistry(
 
     override suspend fun initialize(): BudgetProfile = database.withTransaction {
         dao.insert(legacy.entity())
-        requireNotNull(dao.find(legacy.id)).profile()
+        val original = requireNotNull(dao.find(legacy.id)).profile()
+        if (original.kind != BudgetProfileKind.CLOUD) original else {
+            val fallback = BudgetProfile("local-$backend", "budget-local-$backend.db", BudgetProfileKind.LOCAL)
+            dao.insert(fallback.entity())
+            requireNotNull(dao.find(fallback.id)).profile()
+        }
     }
 
     override suspend fun find(id: String): BudgetProfile? = dao.find(id)?.profile()
@@ -43,6 +48,16 @@ class RoomBudgetProfileRegistry(
         val fallback = initialize()
         dao.selection(accountKey(uid))?.let { dao.find(it)?.profile() }
             ?.takeIf { it.accessibleTo(uid) } ?: fallback
+    }
+
+    override suspend fun attachLegacy(id: String, uid: String, budgetId: String, role: String): BudgetProfile = database.withTransaction {
+        val original = requireNotNull(find(id))
+        require(original.kind == BudgetProfileKind.LEGACY && role in setOf("OWNER", "MEMBER"))
+        check(dao.cloud(uid, budgetId) == null) { "Budget is already registered" }
+        val profile = original.copy(kind = BudgetProfileKind.CLOUD, firebaseUid = uid, budgetId = budgetId, role = role)
+        dao.update(profile.entity())
+        dao.select(BudgetProfileSelection(accountKey(uid), id))
+        profile
     }
 
     override suspend fun select(id: String, uid: String?): BudgetProfile = database.withTransaction {

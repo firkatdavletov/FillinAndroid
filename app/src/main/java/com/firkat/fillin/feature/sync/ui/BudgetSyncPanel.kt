@@ -69,12 +69,14 @@ fun BudgetSyncPanel(viewModel: BudgetSyncViewModel) {
 fun BudgetSyncScreen(
     viewModel: BudgetSyncViewModel = koinViewModel(),
     accountContent: @Composable () -> Unit = { com.firkat.fillin.feature.auth.ui.AuthAccountSection() },
+    connectionContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionSection() },
 ) {
     val state by viewModel.context.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     FeatureScaffold(R.string.sync_title) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             accountContent()
+            connectionContent()
             Text(
                 when {
                     state.syncing -> "Синхронизация…"

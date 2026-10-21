@@ -30,6 +30,7 @@ interface BudgetProfileRegistry {
     suspend fun available(uid: String?): List<BudgetProfile>
     suspend fun createLocal(): BudgetProfile
     suspend fun registerCloud(uid: String, budgetId: String, role: String): BudgetProfile
+    suspend fun attachLegacy(id: String, uid: String, budgetId: String, role: String): BudgetProfile
     suspend fun selected(uid: String?): BudgetProfile
     suspend fun select(id: String, uid: String?): BudgetProfile
 }

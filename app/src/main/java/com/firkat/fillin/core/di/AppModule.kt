@@ -23,7 +23,7 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 val appModule =
     module {
-        includes(com.firkat.fillin.feature.auth.di.authModule, com.firkat.fillin.feature.budgetprofile.di.budgetModule)
+        includes(com.firkat.fillin.feature.auth.di.authModule, com.firkat.fillin.feature.budgetprofile.di.budgetModule, com.firkat.fillin.feature.budgetconnection.di.budgetConnectionModule)
         single {
             Json {
                 ignoreUnknownKeys = true

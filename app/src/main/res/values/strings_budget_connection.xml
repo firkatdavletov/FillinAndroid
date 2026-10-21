@@ -1,0 +1,8 @@
+<resources>
+    <string name="cloud_budgets_title">Подключиться к бюджету</string>
+    <string name="cloud_budgets_empty">Для этого аккаунта пока нет доступных бюджетов. Проверьте, что выбран нужный Google-аккаунт.</string>
+    <string name="cloud_budgets_sign_in">Войдите через Google, чтобы получить доступные бюджеты.</string>
+    <string name="cloud_budgets_refresh">Обновить список бюджетов</string>
+    <string name="cloud_budget_owner">Владелец</string>
+    <string name="cloud_budget_member">Участник</string>
+</resources>

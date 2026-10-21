@@ -71,12 +71,15 @@ class OperationsSynchronizer(
         mutex.withLock {
             if (!canSynchronize()) return@withLock SyncResult.Completed
             if (cloud != null && !cloud.enabled()) return@withLock SyncResult.Completed
-            if (apiToken.isBlank()) {
+            if (apiToken.isBlank() && cloud?.firebase != true) {
                 storage.finish("missing_api_token")
                 return@withLock SyncResult.Blocked
             }
             _running.value = true
             try {
+                if (cloud?.firebase == true && (storage.state().protocolVersion != 4 || storage.pending().isNotEmpty() || budget?.pending().orEmpty().any { it.protocolVersion != 4 })) {
+                    throw SyncBlockedException("unsupported_legacy_queue")
+                }
                 storage.setRunning(true)
                 cloud?.ensureBound()
                 pull()
@@ -150,6 +153,9 @@ class OperationsSynchronizer(
             } catch (exception: SyncBlockedException) {
                 storage.finish(exception.code)
                 SyncResult.Blocked
+            } catch (exception: com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure) {
+                storage.finish(exception.code)
+                if (exception.code in setOf("network", "server_unavailable")) SyncResult.Retry else SyncResult.Blocked
             } catch (exception: HttpException) {
                 val code =
                     when (exception.code()) {
@@ -249,6 +255,8 @@ class OperationsSynchronizer(
             }
         }
     }
+
+    suspend fun awaitIdle() = mutex.withLock { Unit }
 
     private suspend fun pull() {
         do {
