@@ -76,6 +76,10 @@ class AuthViewModel(
 
     private fun currentUid() = (repository.session.value as? AuthSession.Authenticated)?.user?.uid
 
+    fun errorShown(shown: AuthError) {
+        error.compareAndSet(shown, null)
+    }
+
     fun signIn() {
         if (busy.value || repository.session.value == AuthSession.Loading ||
             repository.session.value is AuthSession.Authenticated

@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -18,16 +20,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
+import com.firkat.fillin.ui.component.SaldomiSnackbarHost
 import com.firkat.fillin.ui.theme.FillinTheme
 
 @Composable
 fun AuthContent(
     modifier: Modifier = Modifier,
-    snackBarHostState: SnackbarHostState = SnackbarHostState(),
+    snackBarHostState: SnackbarHostState = remember { SnackbarHostState() },
     isLoading: Boolean = false,
     onGoogleClick: () -> Unit = {},
     onEmailClick: () -> Unit = {},
-    onGuestClick: () -> Unit = {}
+    onGuestClick: () -> Unit = {},
+    googleEnabled: Boolean = true,
 ) {
     Box(
         modifier = modifier
@@ -58,16 +62,13 @@ fun AuthContent(
                 .navigationBarsPadding()
                 .align(Alignment.BottomCenter),
             isLoading = isLoading,
+            googleEnabled = googleEnabled,
             onGoogleClick = onGoogleClick,
             onEmailClick = onEmailClick,
             onGuestClick = onGuestClick
         )
-        SnackbarHost(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-                .navigationBarsPadding(),
+        SaldomiSnackbarHost(
+            modifier = Modifier.systemBarsPadding(),
             hostState = snackBarHostState
         )
     }

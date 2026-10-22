@@ -6,10 +6,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
@@ -27,20 +31,21 @@ fun AuthButtons(
     onGoogleClick: () -> Unit,
     onEmailClick: () -> Unit,
     onGuestClick: () -> Unit,
+    googleEnabled: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
-    var clickedButton: ClickedButton = rememberSaveable(Unit) { ClickedButton.GOOGLE }
+    var clickedButton by rememberSaveable { mutableStateOf(ClickedButton.GOOGLE) }
 
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         PrimaryButton(
-            text = "Продолжить с Google",
-            onClick = onGoogleClick,
+            text = stringResource(R.string.auth_continue_google),
+            onClick = { clickedButton = ClickedButton.GOOGLE; onGoogleClick() },
             modifier = Modifier.fillMaxWidth(),
             isLoading = isLoading && (clickedButton == ClickedButton.GOOGLE),
-            enabled = !isLoading,
+            enabled = !isLoading && googleEnabled,
             backgroundColor = colors.surface,
             textColor = colors.onSurface,
             leadingIcon = painterResource(R.drawable.ic_google),
@@ -52,8 +57,8 @@ fun AuthButtons(
         )
 
         PrimaryButton(
-            text = "Продолжить с email",
-            onClick = onEmailClick,
+            text = stringResource(R.string.auth_continue_email),
+            onClick = { clickedButton = ClickedButton.EMAIL; onEmailClick() },
             modifier = Modifier.fillMaxWidth(),
             isLoading = isLoading && (clickedButton == ClickedButton.EMAIL),
             enabled = !isLoading,
@@ -61,8 +66,8 @@ fun AuthButtons(
         )
 
         PrimaryButton(
-            text = "Продолжить без авторизации",
-            onClick = onGuestClick,
+            text = stringResource(R.string.auth_continue_guest),
+            onClick = { clickedButton = ClickedButton.GUEST; onGuestClick() },
             modifier = Modifier.fillMaxWidth(),
             isLoading = isLoading && (clickedButton == ClickedButton.GUEST),
             enabled = !isLoading,

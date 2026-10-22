@@ -18,11 +18,16 @@ import okhttp3.MediaType.Companion.toMediaType
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 import org.koin.dsl.onClose
+import org.koin.core.module.dsl.viewModel
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 val appModule =
     module {
+        single<com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer> {
+            com.firkat.fillin.feature.launch.data.RoomLocalBudgetRestorer(get(), get(), get())
+        }
+        viewModel { com.firkat.fillin.ui.navigation.AppNavigationViewModel(get(), get()) }
         includes(com.firkat.fillin.feature.auth.di.authModule, com.firkat.fillin.feature.budgetprofile.di.budgetModule, com.firkat.fillin.feature.budgetconnection.di.budgetConnectionModule)
         single {
             Json {

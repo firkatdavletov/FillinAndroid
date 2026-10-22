@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="auth_continue_google">Продолжить с Google</string>
+    <string name="auth_continue_email">Продолжить с email</string>
+    <string name="auth_continue_guest">Продолжить без авторизации</string>
+    <string name="auth_email_unavailable">Вход по email пока недоступен</string>
+    <string name="auth_open">Авторизация</string>
     <string name="auth_account_title">Аккаунт</string>
     <string name="auth_local_mode">Вы не вошли в аккаунт</string>
     <string name="auth_local_hint">Локальный бюджет доступен без входа.</string>

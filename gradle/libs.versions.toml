@@ -9,6 +9,7 @@ activityCompose = "1.8.0"
 kotlin = "2.4.20"
 composeBom = "2025.12.00"
 koin = "4.2.2"
+materialIconsExtended = "1.7.8"
 retrofit = "3.0.0"
 kotlinxSerialization = "1.11.0"
 kotlinxCoroutines = "1.10.2"
@@ -19,8 +20,12 @@ googleServices = "4.5.0"
 firebaseBom = "35.0.2"
 credentials = "1.6.0"
 googleId = "1.2.1"
+navigation3 = "1.2.0"
 
 [libraries]
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
+androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
+androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }

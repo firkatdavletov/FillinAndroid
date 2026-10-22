@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -68,14 +69,18 @@ fun BudgetSyncPanel(viewModel: BudgetSyncViewModel) {
 @Composable
 fun BudgetSyncScreen(
     viewModel: BudgetSyncViewModel = koinViewModel(),
-    accountContent: @Composable () -> Unit = { com.firkat.fillin.feature.auth.ui.AuthAccountSection() },
+    isAuthenticated: Boolean,
+    authBusy: Boolean,
+    onAccountClick: () -> Unit,
     connectionContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionSection() },
 ) {
     val state by viewModel.context.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     FeatureScaffold(R.string.sync_title) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            accountContent()
+            OutlinedButton(onClick = onAccountClick, enabled = !authBusy) {
+                Text(stringResource(if (isAuthenticated) R.string.auth_sign_out else R.string.auth_open))
+            }
             connectionContent()
             Text(
                 when {

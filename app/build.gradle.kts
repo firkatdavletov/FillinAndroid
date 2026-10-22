@@ -114,6 +114,8 @@ dependencies {
     androidTestImplementation(libs.androidx.work.testing)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.compose.ui)
@@ -133,6 +135,8 @@ dependencies {
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.kotlinx.serialization.json)
+
+    implementation(libs.androidx.compose.material.icons.extended)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

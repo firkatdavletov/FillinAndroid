@@ -68,6 +68,10 @@ class BudgetSetupUiTest {
             }
         }
         if (restoration == null) compose.setContent(content) else restoration.setContent(content)
+        // The gate resolves Room readiness asynchronously before showing the welcome actions.
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("Продолжить без авторизации").fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     private fun show(dark: Boolean = false, compact: Boolean = false, restoration: StateRestorationTester? = null) {
