@@ -39,6 +39,7 @@ class BudgetConnectionViewModel(
     private val auth: AuthRepository,
     private val repository: BudgetConnectionRepository,
     private val creation: BudgetCreationRepository,
+    private val autoStartCreation: Boolean = false,
 ) : ViewModel() {
     private val _state = MutableStateFlow(BudgetConnectionState())
     val state = _state.asStateFlow()
@@ -62,8 +63,10 @@ class BudgetConnectionViewModel(
 
     fun chooseCreate() {
         if (uid() == null || state.value.busy || !state.value.loaded || state.value.budgets.isNotEmpty()) return
-        _state.update { it.copy(draft = BudgetCreationDraft("", "0", LocalDate.now(ZoneId.of("Asia/Almaty")).toString()), error = null) }
+        _state.update { it.copy(draft = newDraft(), error = null) }
     }
+
+    private fun newDraft() = BudgetCreationDraft("", "0", LocalDate.now(ZoneId.of("Asia/Almaty")).toString())
 
     fun editDraft(draft: BudgetCreationDraft) {
         if (!state.value.busy && state.value.pending == null) _state.update { it.copy(draft = draft, error = null) }
@@ -114,7 +117,10 @@ class BudgetConnectionViewModel(
             val pending = creation.pending(uid)
             if (current(uid)) _state.update { it.copy(pending = pending, draft = pending?.draft ?: it.draft) }
             val budgets = repository.budgets(uid)
-            if (current(uid)) _state.update { it.copy(budgets = budgets, loaded = true) }
+            if (current(uid)) _state.update {
+                it.copy(budgets = budgets, loaded = true,
+                    draft = it.draft ?: if (autoStartCreation && budgets.isEmpty()) newDraft() else null)
+            }
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { if (current(uid)) _state.update { it.copy(error = setupError(e)) } }
         finally { if (current(uid)) _state.update { it.copy(loading = false) } }
@@ -128,9 +134,9 @@ class BudgetConnectionViewModel(
 }
 
 @Composable
-fun BudgetConnectionSection(viewModel: BudgetConnectionViewModel = koinViewModel()) {
+fun BudgetConnectionSection(viewModel: BudgetConnectionViewModel = koinViewModel(), showCreateCancel: Boolean = true) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.cloud_budgets_title), style = MaterialTheme.typography.titleMedium)
         when (state.session) {
             is AuthSession.Authenticated -> {
@@ -143,12 +149,12 @@ fun BudgetConnectionSection(viewModel: BudgetConnectionViewModel = koinViewModel
                     OutlinedTextField(draft.openingBalance, { viewModel.editDraft(draft.copy(openingBalance = it)) }, label = { Text(stringResource(R.string.cloud_budget_opening_balance)) }, enabled = editable, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(draft.accountingStartedOn, { viewModel.editDraft(draft.copy(accountingStartedOn = it)) }, label = { Text(stringResource(R.string.cloud_budget_start_date)) }, enabled = editable, singleLine = true, modifier = Modifier.fillMaxWidth())
                     Text(stringResource(if (state.pending == null) R.string.cloud_budget_create_explanation else R.string.cloud_budget_create_pending))
-                    Button(onClick = viewModel::create, enabled = !state.busy) { Text(stringResource(if (state.pending == null) R.string.cloud_budget_create else R.string.cloud_budget_create_resume)) }
-                    if (state.pending == null) TextButton(onClick = viewModel::cancelCreate, enabled = !state.busy) { Text(stringResource(R.string.cloud_budget_create_cancel)) }
+                    Button(onClick = viewModel::create, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(if (state.pending == null) R.string.cloud_budget_create else R.string.cloud_budget_create_resume)) }
+                    if (state.pending == null && showCreateCancel) TextButton(onClick = viewModel::cancelCreate, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budget_create_cancel)) }
                 } else {
                     if (state.loaded && state.budgets.isEmpty()) {
                         Text(stringResource(R.string.cloud_budgets_empty))
-                        Button(onClick = viewModel::chooseCreate, enabled = !state.busy) { Text(stringResource(R.string.cloud_budget_create)) }
+                        Button(onClick = viewModel::chooseCreate, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budget_create)) }
                     }
                     state.budgets.forEach { budget ->
                         OutlinedButton(onClick = { viewModel.connect(budget) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
@@ -156,8 +162,9 @@ fun BudgetConnectionSection(viewModel: BudgetConnectionViewModel = koinViewModel
                         }
                     }
                 }
-                TextButton(onClick = viewModel::refresh, enabled = !state.busy) { Text(stringResource(R.string.cloud_budgets_refresh)) }
+                TextButton(onClick = viewModel::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budgets_refresh)) }
             }
+            AuthSession.Loading -> CircularProgressIndicator()
             else -> Text(stringResource(R.string.cloud_budgets_sign_in))
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

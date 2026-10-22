@@ -172,6 +172,7 @@ class BudgetConnectionDeviceTest {
             })
         }
         val manager: ActiveBudgetManager = application.koin.get()
+        val koin get() = application.koin
         val connection = RoomBudgetConnectionRepository(requests, registry, factory, manager, OperationSyncScheduler {}, application.koin.get())
 
         val creation: BudgetCreationRepository get() = FirebaseBudgetCreationRepository(requests, RoomBudgetCreationStore(registryDb), connection)

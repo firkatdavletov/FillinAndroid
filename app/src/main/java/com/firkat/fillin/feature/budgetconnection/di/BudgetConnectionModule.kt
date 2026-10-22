@@ -22,5 +22,7 @@ val budgetConnectionModule = module {
     single<BudgetConnectionRepository> { RoomBudgetConnectionRepository(get(), get(), get(), get(), get(), get()) }
     single<BudgetCreationStore> { RoomBudgetCreationStore(get()) }
     single<BudgetCreationRepository> { FirebaseBudgetCreationRepository(get(), get(), get()) }
-    viewModel { BudgetConnectionViewModel(get(), get(), get()) }
+    viewModel { parameters ->
+        BudgetConnectionViewModel(get(), get(), get(), autoStartCreation = parameters.getOrNull<Boolean>() ?: false)
+    }
 }
