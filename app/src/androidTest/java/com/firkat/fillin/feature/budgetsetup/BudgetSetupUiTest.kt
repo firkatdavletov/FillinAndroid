@@ -41,11 +41,11 @@ class BudgetSetupUiTest {
     @Test fun missingBudgetShowsErrorAndReturnsToInitialChoices() {
         val model = BudgetSetupViewModel(session)
         compose.setContent { FillinTheme { BudgetSetupScreen(model) } }
-        compose.onNodeWithText("Подключиться к существующему").performClick()
+        compose.onNodeWithText("Войти в облако").performClick()
         compose.waitUntil(5000) { model.error != null }
         compose.onNodeWithText("Бюджет по этому токену не найден. Создайте бюджет или повторите подключение.").assertIsDisplayed()
         compose.onNodeWithText("Создать бюджет").assertIsEnabled()
-        compose.onNodeWithText("Подключиться к существующему").assertIsEnabled()
+        compose.onNodeWithText("Войти в облако").assertIsEnabled()
         assertFalse(model.ready.value == true)
         assertEquals(0, api.creates)
     }

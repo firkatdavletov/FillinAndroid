@@ -136,13 +136,16 @@ class BudgetConnectionDeviceTest {
         }
     }
 
-    internal class Environment : AutoCloseable {
+    internal class Environment(
+        val server: Server = Server(),
+        val registryName: String = "t05-registry-${UUID.randomUUID()}.db",
+        val backend: String = "https://t05-${UUID.randomUUID()}.invalid/",
+        private val deleteOnClose: Boolean = true,
+    ) : AutoCloseable {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val auth = TestAuth()
-        val server = Server()
-        private val registryName = "t05-registry-${UUID.randomUUID()}.db"
         private val registryDb = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, registryName).build()
-        val registry = RoomBudgetProfileRegistry(registryDb, "https://t05-${UUID.randomUUID()}.invalid/")
+        val registry = RoomBudgetProfileRegistry(registryDb, backend)
         private val factory = BudgetDatabaseFactory(context)
         private val requests = FirebaseBudgetRequests(server, object : FirebaseIdTokenProvider {
             override fun isCurrentUser(uid: String) = (auth.session.value as? AuthSession.Authenticated)?.user?.uid == uid
@@ -171,6 +174,8 @@ class BudgetConnectionDeviceTest {
         val manager: ActiveBudgetManager = application.koin.get()
         val connection = RoomBudgetConnectionRepository(requests, registry, factory, manager, OperationSyncScheduler {}, application.koin.get())
 
+        val creation: BudgetCreationRepository get() = FirebaseBudgetCreationRepository(requests, RoomBudgetCreationStore(registryDb), connection)
+
         suspend fun seedLegacy(): BudgetProfile {
             auth.login("owner"); manager.restore()
             val profile = manager.active.value!!.profile
@@ -195,7 +200,7 @@ class BudgetConnectionDeviceTest {
         override fun close() {
             val names = runBlocking { listOf(null, "owner", "other").flatMap { registry.available(it) }.map { it.databaseName }.distinct() }
             manager.close(); application.close(); registryDb.close()
-            names.forEach { context.deleteDatabase(it) }; context.deleteDatabase(registryName)
+            if (deleteOnClose) { names.forEach { context.deleteDatabase(it) }; context.deleteDatabase(registryName) }
         }
     }
 
@@ -208,21 +213,40 @@ class BudgetConnectionDeviceTest {
     }
 
     internal class Server : FirebaseBudgetApi {
+        var budgetExists = true
+        var budgetName = "Тестовый бюджет"
+        var openingBalance = "100.00"
+        var loseCreationResponse = false
+        val creations = linkedMapOf<String, Pair<CreateFirebaseBudgetDto, AvailableBudgetDto>>()
+        override suspend fun create(authorization: String, request: CreateFirebaseBudgetDto): Response<AvailableBudgetDto> {
+            check(authorization == "Bearer synthetic-owner")
+            val saved = creations[request.requestId]
+            if (saved != null && saved.first != request) return Response.error(409, "{}".toResponseBody())
+            val budget = saved?.second ?: run {
+                check(!budgetExists)
+                replaceBudget()
+                scope = scope.copy(accountingStartedAt = LocalDate.parse(request.accountingStartedOn).atStartOfDay(java.time.ZoneId.of("Asia/Almaty")).toInstant().toString())
+                budgetExists = true; budgetName = request.name; openingBalance = request.openingBalance
+                AvailableBudgetDto(scope.householdId, budgetName, scope.memberId, "OWNER").also { creations[request.requestId] = request to it }
+            }
+            if (loseCreationResponse) { loseCreationResponse = false; throw IOException("Synthetic lost creation response after commit") }
+            return Response.success(budget)
+        }
         var scope = newScope()
         var categories: List<LocalCategory> = seeds(scope)
         var failSecondPage = false
         var loseResponse = false
         val receipts = linkedMapOf<String, BudgetCommandReceipt>()
         val entries = mutableListOf<SyncOperationDto>()
-        fun summary() = AvailableBudget(scope.householdId, "Тестовый бюджет", scope.memberId, scope.role)
+        fun summary() = AvailableBudget(scope.householdId, budgetName, scope.memberId, scope.role)
         fun replaceBudget() { scope = newScope(); categories = seeds(scope); entries.clear(); receipts.clear() }
-        override suspend fun budgets(authorization: String) = Response.success(if (authorization == "Bearer synthetic-owner") listOf(AvailableBudgetDto(scope.householdId, "Тестовый бюджет", scope.memberId, scope.role)) else emptyList())
+        override suspend fun budgets(authorization: String) = Response.success(if (budgetExists && authorization == "Bearer synthetic-owner") listOf(AvailableBudgetDto(scope.householdId, budgetName, scope.memberId, scope.role)) else emptyList())
         override suspend fun budget(authorization: String, budgetId: String): Response<CloudBudget> =
             if (authorization == "Bearer synthetic-owner" && budgetId == scope.householdId) Response.success(CloudBudget(scope)) else Response.error(403, "{}".toResponseBody())
         override suspend fun changes(authorization: String, budgetId: String, cursor: String?): Response<SyncPageDto> {
             check(authorization == "Bearer synthetic-owner" && budgetId == scope.householdId)
             val records = categories.mapIndexed { i, c -> SyncChangeDto(i + 1L, "CATEGORY", false, category = SyncCategoryDto(c.id, c.name, c.kind, c.iconCode, c.iconEmoji, false, c.dictionaryKey)) } +
-                SyncChangeDto(categories.size + 1L, "BUDGET_SETTINGS", false, budgetSettings = SyncBudgetSettings(scope.householdId, "100.00", "0.00")) +
+                SyncChangeDto(categories.size + 1L, "BUDGET_SETTINGS", false, budgetSettings = SyncBudgetSettings(scope.householdId, openingBalance, "0.00")) +
                 entries.mapIndexed { i, e -> SyncChangeDto(categories.size + 2L + i, "LEDGER", false, operation = e) }
             val after = cursor?.toLong() ?: 0L
             if (failSecondPage && after > 0) return Response.error(503, "{}".toResponseBody())

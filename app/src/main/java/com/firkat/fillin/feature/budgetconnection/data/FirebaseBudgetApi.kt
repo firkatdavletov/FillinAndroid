@@ -9,7 +9,13 @@ import retrofit2.http.*
 @Serializable
 data class AvailableBudgetDto(val id: String, val name: String, val memberId: String, val role: String)
 
+@Serializable
+data class CreateFirebaseBudgetDto(val requestId: String, val name: String, val openingBalance: String, val accountingStartedOn: String, val currency: String = "KZT")
+
 interface FirebaseBudgetApi {
+    @POST("api/v4/budgets")
+    suspend fun create(@Header("Authorization") authorization: String, @Body request: CreateFirebaseBudgetDto): Response<AvailableBudgetDto>
+
     @GET("api/v4/budgets")
     suspend fun budgets(@Header("Authorization") authorization: String): Response<List<AvailableBudgetDto>>
 

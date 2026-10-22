@@ -1,6 +1,10 @@
 package com.firkat.fillin.feature.budgetprofile.data
 
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.firkat.fillin.feature.budgetconnection.data.BudgetCreationDao
+import com.firkat.fillin.feature.budgetconnection.data.PendingBudgetCreationEntity
 
 @Entity(tableName = "budget_profiles", indices = [Index("databaseName", unique = true), Index(value = ["firebaseUid", "budgetId"], unique = true)])
 data class BudgetProfileEntity(
@@ -39,7 +43,14 @@ interface BudgetProfileDao {
     suspend fun select(selection: BudgetProfileSelection)
 }
 
-@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class], version = 1, exportSchema = true)
+@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class], version = 2, exportSchema = true)
 abstract class BudgetProfileDatabase : RoomDatabase() {
     abstract fun profiles(): BudgetProfileDao
+    abstract fun creation(): BudgetCreationDao
+}
+
+val PROFILE_MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS pending_budget_creation (firebaseUid TEXT NOT NULL PRIMARY KEY, requestId TEXT NOT NULL, name TEXT NOT NULL, openingBalance TEXT NOT NULL, accountingStartedOn TEXT NOT NULL)")
+    }
 }

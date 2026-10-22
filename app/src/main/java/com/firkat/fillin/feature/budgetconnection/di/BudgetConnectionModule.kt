@@ -2,7 +2,7 @@ package com.firkat.fillin.feature.budgetconnection.di
 
 import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.feature.budgetconnection.data.*
-import com.firkat.fillin.feature.budgetconnection.domain.BudgetConnectionRepository
+import com.firkat.fillin.feature.budgetconnection.domain.*
 import com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionViewModel
 import okhttp3.OkHttpClient
 import org.koin.core.module.dsl.viewModel
@@ -20,5 +20,7 @@ val budgetConnectionModule = module {
         FirebaseBudgetRequests(api, get())
     }
     single<BudgetConnectionRepository> { RoomBudgetConnectionRepository(get(), get(), get(), get(), get(), get()) }
-    viewModel { BudgetConnectionViewModel(get(), get()) }
+    single<BudgetCreationStore> { RoomBudgetCreationStore(get()) }
+    single<BudgetCreationRepository> { FirebaseBudgetCreationRepository(get(), get(), get()) }
+    viewModel { BudgetConnectionViewModel(get(), get(), get()) }
 }

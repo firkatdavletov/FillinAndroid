@@ -33,6 +33,22 @@ class FirebaseBudgetRequestsTest {
         assertEquals("/api/v4/budgets/budget/sync/commands", calls.singleOrNull()?.first ?: calls[0].first)
     }
 
+    @Test fun `creation refresh keeps the original request ID and payload`() = runBlocking {
+        val tokens = Tokens()
+        val bodies = mutableListOf<String>()
+        val requests = client(tokens) { request ->
+            assertEquals("/api/v4/budgets", request.url.encodedPath)
+            bodies += okio.Buffer().also { request.body!!.writeTo(it) }.readUtf8()
+            response(request, if (bodies.size == 1) 401 else 200, if (bodies.size == 1) "{}" else
+                """{"id":"budget","name":"Новый","memberId":"member","role":"OWNER"}""")
+        }
+        assertTrue(requests.create("owner", CreateFirebaseBudgetDto("immutable-request", "Новый", "12.34", "2026-10-20")).isSuccessful)
+        assertEquals(2, bodies.size)
+        assertEquals(bodies[0], bodies[1])
+        assertTrue(bodies[0].contains("immutable-request"))
+        assertEquals(listOf(false, true), tokens.refreshes)
+    }
+
     @Test fun `repeated 401 stops after the refreshed token`() = runBlocking {
         val tokens = Tokens()
         var calls = 0

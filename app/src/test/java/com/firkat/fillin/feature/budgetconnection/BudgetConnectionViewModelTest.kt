@@ -58,7 +58,11 @@ class BudgetConnectionViewModelTest {
         assertNull(model.state.value.connecting)
     }
 
-    private fun model(auth: AuthRepository, repository: BudgetConnectionRepository) = BudgetConnectionViewModel(auth, repository).also { models.put("connection", it) }
+    private fun model(auth: AuthRepository, repository: BudgetConnectionRepository) = BudgetConnectionViewModel(auth, repository, object : BudgetCreationRepository {
+        override suspend fun pending(uid: String): PendingBudgetCreation? = null
+        override suspend fun create(uid: String, draft: BudgetCreationDraft) = error("Unused")
+        override suspend fun resume(uid: String) = error("Unused")
+    }).also { models.put("connection", it) }
     private fun budget(uid: String) = AvailableBudget("budget-$uid", "Бюджет", "member-$uid", "OWNER")
     private class Auth : AuthRepository {
         override val session = MutableStateFlow<AuthSession>(AuthSession.Authenticated(AuthUser("owner", null, null)))

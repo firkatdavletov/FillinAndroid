@@ -83,6 +83,9 @@ class BudgetSetupViewModel(
 
 fun setupError(error: Exception): String =
     when ((error as? BudgetConnectionFailure)?.code) {
+        "creation_pending" -> "Создание предыдущего бюджета ещё не завершено. Продолжите его создание."
+        "creation_conflict" -> "Сервер отклонил повтор создания. Запрос сохранён; обратитесь к разработчику."
+        "invalid_creation" -> "Проверьте название, начальный баланс и дату бюджета."
         "budget_not_found" -> "Бюджет по этому токену не найден. Создайте бюджет или повторите подключение."
         "budget_already_exists" -> "Токен уже связан с другим бюджетом. Локальный бюджет сохранён; облачная синхронизация выключена."
         "unauthorized", "access_denied" -> "Нет доступа к облачному бюджету. Проверьте Google-аккаунт или войдите снова."
@@ -139,7 +142,7 @@ fun BudgetSetupScreen(viewModel: BudgetSetupViewModel, onConnect: () -> Unit = v
             TextButton(onClick = viewModel::back, enabled = !viewModel.busy) { Text("Назад") }
         } else {
             Button(onClick = viewModel::chooseCreate, enabled = !viewModel.busy) { Text("Создать бюджет") }
-            OutlinedButton(onClick = onConnect, enabled = !viewModel.busy) { Text("Подключиться к существующему") }
+            OutlinedButton(onClick = onConnect, enabled = !viewModel.busy) { Text("Войти в облако") }
         }
         if (viewModel.busy) {
             CircularProgressIndicator()

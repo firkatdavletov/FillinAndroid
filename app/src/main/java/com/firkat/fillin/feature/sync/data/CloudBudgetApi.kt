@@ -36,7 +36,7 @@ interface CloudBudgetApi {
         @Header("Authorization") authorization: String,
     ): Response<CloudBudget>
 
-    @POST("api/v4/budgets")
+    @POST("api/v4/legacy/budgets")
     suspend fun create(
         @Header("Authorization") authorization: String,
         @Body request: CreateCloudBudget,
