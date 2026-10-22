@@ -28,6 +28,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
+import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupGate
 import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
@@ -41,8 +43,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             FillinTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent {
-                        com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupGate { FillinApp() }
+                    ActiveBudgetContent {
+                        BudgetSetupGate { FillinApp() }
                     }
                 }
             }

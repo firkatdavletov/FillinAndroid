@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 class OfflineCategoriesRepository(
     private val store: BudgetStore,
 ) : CategoriesRepository {
+
     override fun observeCategories() = store.observeCategories()
 
     override fun requestSync() = store.requestSync()
@@ -74,7 +75,7 @@ class OfflineCategoriesRepository(
                 "not_found" -> CategoriesException.NotFound
                 else -> CategoriesException.InvalidRequest
             }
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             throw CategoriesException.InvalidRequest
         }
 }

@@ -1,8 +1,13 @@
 package com.firkat.fillin.feature.plannedincomes.data.repository
 
-import com.firkat.fillin.feature.plannedincomes.domain.model.*
-import com.firkat.fillin.feature.plannedincomes.domain.repository.*
-import com.firkat.fillin.feature.plannedoperations.domain.model.*
+import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
+import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
+import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomes
+import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesException
+import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesRepository
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
 import com.firkat.fillin.feature.sync.data.BudgetLocalFailure
 import com.firkat.fillin.feature.sync.data.BudgetStore
 import java.math.BigDecimal
@@ -90,7 +95,7 @@ class OfflinePlannedIncomesRepository(
                 "not_found" -> PlannedIncomesException.NotFound
                 else -> PlannedIncomesException.InvalidRequest
             }
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             throw PlannedIncomesException.InvalidRequest
         }
 }

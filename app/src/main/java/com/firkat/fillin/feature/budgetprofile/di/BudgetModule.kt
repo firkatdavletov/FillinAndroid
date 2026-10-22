@@ -1,7 +1,12 @@
 package com.firkat.fillin.feature.budgetprofile.di
 
-import androidx.room.Room
 import com.firkat.fillin.BuildConfig
+import com.firkat.fillin.feature.budgetconnection.data.FirebaseCloudBudgetApi
+import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
+import com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetProfile
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileKind
+import com.firkat.fillin.feature.categories.data.repository.OfflineCategoriesRepository
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository
 import com.firkat.fillin.feature.categories.domain.usecase.CreateCategory
 import com.firkat.fillin.feature.categories.domain.usecase.DeleteCategory
@@ -9,9 +14,19 @@ import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
 import com.firkat.fillin.feature.categories.domain.usecase.UpdateCategory
 import com.firkat.fillin.feature.categories.ui.CategoriesViewModel
 import com.firkat.fillin.feature.dashboard.data.repository.OfflineDashboardRepository
-import com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository
 import com.firkat.fillin.feature.dashboard.domain.DashboardDataSource
+import com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository
 import com.firkat.fillin.feature.dashboard.ui.DashboardViewModel
+import com.firkat.fillin.feature.dashboard.widgets.availabletospend.domain.ObserveAvailableToSpend
+import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.AvailableToSpendViewModel
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.domain.ObserveBalanceForecast
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastViewModel
+import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
+import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
+import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.domain.ObserveMonthlyBudget
+import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.ui.MonthlyBudgetViewModel
+import com.firkat.fillin.feature.dashboard.widgets.totalbalance.domain.ObserveTotalBalance
+import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceViewModel
 import com.firkat.fillin.feature.operationhistory.data.local.RoomOperationSyncStorage
 import com.firkat.fillin.feature.operationhistory.data.repository.OfflineOperationHistoryRepository
 import com.firkat.fillin.feature.operationhistory.data.repository.OperationHistoryRepositoryImpl
@@ -19,12 +34,14 @@ import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncRequest
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncStorage
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationsSynchronizer
+import com.firkat.fillin.feature.operationhistory.data.sync.SyncResult
 import com.firkat.fillin.feature.operationhistory.data.sync.WorkManagerOperationSyncScheduler
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
 import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryViewModel
+import com.firkat.fillin.feature.plannedexpenses.data.repository.OfflinePlannedExpensesRepository
 import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesRepository
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.ClosePlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.CreatePlannedExpenseRule
@@ -32,25 +49,18 @@ import com.firkat.fillin.feature.plannedexpenses.domain.usecase.DeletePlannedExp
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.GetPlannedExpenses
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.UpdatePlannedExpenseRule
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesViewModel
+import com.firkat.fillin.feature.plannedincomes.data.repository.OfflinePlannedIncomesRepository
 import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesRepository
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.CreatePlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.DeletePlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.GetPlannedIncomes
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.UpdatePlannedIncome
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesViewModel
+import com.firkat.fillin.feature.plannedoperations.data.repository.OfflinePlannedOperationsRepository
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsRepository
 import com.firkat.fillin.feature.plannedoperations.domain.usecase.GetPlannedOperations
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsViewModel
-import com.firkat.fillin.feature.dashboard.widgets.totalbalance.domain.ObserveTotalBalance
-import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceViewModel
-import com.firkat.fillin.feature.dashboard.widgets.availabletospend.domain.ObserveAvailableToSpend
-import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.AvailableToSpendViewModel
-import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
-import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
-import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.domain.ObserveBalanceForecast
-import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastViewModel
-import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.domain.ObserveMonthlyBudget
-import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.ui.MonthlyBudgetViewModel
+import com.firkat.fillin.feature.sync.data.CloudBudgetApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -59,14 +69,6 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import org.koin.dsl.onClose
-
-import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
-import com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory
-import com.firkat.fillin.feature.budgetprofile.domain.BudgetProfile
-import com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileKind
-import com.firkat.fillin.feature.budgetconnection.data.FirebaseCloudBudgetApi
-import com.firkat.fillin.feature.sync.data.CloudBudgetApi
-import com.firkat.fillin.feature.operationhistory.data.sync.SyncResult
 
 val BUDGET_SCOPE = named("budget")
 
@@ -175,8 +177,7 @@ val budgetModule = module {
             )
         }
         scoped<PlannedExpensesRepository> {
-            com.firkat.fillin.feature.plannedexpenses.data.repository
-                .OfflinePlannedExpensesRepository(get())
+            OfflinePlannedExpensesRepository(get())
         }
         factory { GetPlannedExpenses(repository = get()) }
         factory { CreatePlannedExpenseRule(repository = get()) }
@@ -195,8 +196,7 @@ val budgetModule = module {
             )
         }
         scoped<PlannedIncomesRepository> {
-            com.firkat.fillin.feature.plannedincomes.data.repository
-                .OfflinePlannedIncomesRepository(get())
+            OfflinePlannedIncomesRepository(get())
         }
         factory { GetPlannedIncomes(repository = get()) }
         factory { CreatePlannedIncome(repository = get()) }
@@ -213,14 +213,12 @@ val budgetModule = module {
             )
         }
         scoped<PlannedOperationsRepository> {
-            com.firkat.fillin.feature.plannedoperations.data.repository
-                .OfflinePlannedOperationsRepository(get())
+            OfflinePlannedOperationsRepository(get())
         }
         factory { GetPlannedOperations(repository = get()) }
         viewModel { PlannedOperationsViewModel(getPlannedOperations = get()) }
         scoped<CategoriesRepository> {
-            com.firkat.fillin.feature.categories.data.repository
-                .OfflineCategoriesRepository(get())
+            OfflineCategoriesRepository(get())
         }
         factory { GetCategories(repository = get()) }
         factory { CreateCategory(repository = get()) }
