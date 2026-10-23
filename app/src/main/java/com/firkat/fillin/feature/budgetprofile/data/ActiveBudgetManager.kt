@@ -100,8 +100,9 @@ class ActiveBudgetManager(
         }
     }
 
-    suspend fun select(profileId: String) = mutex.withLock {
+    suspend fun select(profileId: String, expectedUid: String? = null) = mutex.withLock {
         val uid = currentUid()
+        if (expectedUid != null && uid != expectedUid) throw BudgetConnectionFailure("account_changed")
         val profile = registry.select(profileId, uid)
         check(uid == currentUid()) { "Account changed during profile selection" }
         activate(profile)

@@ -5,6 +5,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -31,6 +33,8 @@ data class BudgetConnectionState(
     val draft: BudgetCreationDraft? = null,
     val pending: PendingBudgetCreation? = null,
     val creating: Boolean = false,
+    val activeBudgetId: String? = null,
+    val showingSaved: Boolean = false,
 ) {
     val busy get() = loading || connecting != null || creating
 }
@@ -44,12 +48,19 @@ class BudgetConnectionViewModel(
     private val _state = MutableStateFlow(BudgetConnectionState())
     val state = _state.asStateFlow()
     private var action: Job? = null
+    private var selectedBudgetId: String? = null
 
     init {
         viewModelScope.launch {
+            repository.activeBudgetId.collect { id ->
+                selectedBudgetId = id
+                _state.update { it.copy(activeBudgetId = id) }
+            }
+        }
+        viewModelScope.launch {
             auth.session.distinctUntilChanged { old, new -> old == new }.collectLatest { session ->
                 action?.cancel()
-                _state.value = BudgetConnectionState(session)
+                _state.value = BudgetConnectionState(session, activeBudgetId = selectedBudgetId)
                 (session as? AuthSession.Authenticated)?.let { load(it.user.uid) }
             }
         }
@@ -62,7 +73,7 @@ class BudgetConnectionViewModel(
     }
 
     fun chooseCreate() {
-        if (uid() == null || state.value.busy || !state.value.loaded || state.value.budgets.isNotEmpty()) return
+        if (uid() == null || state.value.busy || !state.value.loaded || state.value.pending != null) return
         _state.update { it.copy(draft = newDraft(), error = null) }
     }
 
@@ -114,11 +125,15 @@ class BudgetConnectionViewModel(
     private suspend fun load(uid: String) {
         _state.update { it.copy(loading = true, error = null) }
         try {
+            val cached = repository.cachedBudgets(uid)
+            if (current(uid) && cached.isNotEmpty()) _state.update {
+                it.copy(budgets = cached, loaded = true, showingSaved = true)
+            }
             val pending = creation.pending(uid)
             if (current(uid)) _state.update { it.copy(pending = pending, draft = pending?.draft ?: it.draft) }
             val budgets = repository.budgets(uid)
             if (current(uid)) _state.update {
-                it.copy(budgets = budgets, loaded = true,
+                it.copy(budgets = budgets, loaded = true, showingSaved = false,
                     draft = it.draft ?: if (autoStartCreation && budgets.isEmpty()) newDraft() else null)
             }
         } catch (e: CancellationException) { throw e }
@@ -154,14 +169,18 @@ fun BudgetConnectionSection(viewModel: BudgetConnectionViewModel = koinViewModel
                 } else {
                     if (state.loaded && state.budgets.isEmpty()) {
                         Text(stringResource(R.string.cloud_budgets_empty))
-                        Button(onClick = viewModel::chooseCreate, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budget_create)) }
                     }
                     state.budgets.forEach { budget ->
-                        OutlinedButton(onClick = { viewModel.connect(budget) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(onClick = { viewModel.connect(budget) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().semantics { selected = state.activeBudgetId == budget.id }) {
                             Text(budget.name + " · " + stringResource(if (budget.role == "OWNER") R.string.cloud_budget_owner else R.string.cloud_budget_member))
                         }
+                        if (state.activeBudgetId == budget.id) Text(stringResource(R.string.cloud_budget_selected), style = MaterialTheme.typography.labelMedium)
+                    }
+                    if (state.loaded) Button(onClick = viewModel::chooseCreate, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(if (state.budgets.isEmpty()) R.string.cloud_budget_create else R.string.cloud_budget_create_another))
                     }
                 }
+                if (state.showingSaved) Text(stringResource(R.string.cloud_budgets_saved))
                 TextButton(onClick = viewModel::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budgets_refresh)) }
             }
             AuthSession.Loading -> CircularProgressIndicator()

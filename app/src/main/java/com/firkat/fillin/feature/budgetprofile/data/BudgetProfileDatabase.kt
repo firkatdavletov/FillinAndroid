@@ -1,6 +1,8 @@
 package com.firkat.fillin.feature.budgetprofile.data
 
 import androidx.room.*
+import com.firkat.fillin.feature.budgetconnection.data.BudgetCatalogDao
+import com.firkat.fillin.feature.budgetconnection.data.CachedCloudBudget
 import com.firkat.fillin.feature.budgetupload.data.LocalBudgetUploadDao
 import com.firkat.fillin.feature.budgetupload.data.LocalBudgetUploadEntity
 import androidx.room.migration.Migration
@@ -45,11 +47,12 @@ interface BudgetProfileDao {
     suspend fun select(selection: BudgetProfileSelection)
 }
 
-@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class], version = 3, exportSchema = true)
+@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class], version = 4, exportSchema = true)
 abstract class BudgetProfileDatabase : RoomDatabase() {
     abstract fun profiles(): BudgetProfileDao
     abstract fun creation(): BudgetCreationDao
     abstract fun uploads(): LocalBudgetUploadDao
+    abstract fun catalog(): BudgetCatalogDao
 }
 
 val PROFILE_MIGRATION_1_2 = object : Migration(1, 2) {
@@ -61,5 +64,11 @@ val PROFILE_MIGRATION_1_2 = object : Migration(1, 2) {
 val PROFILE_MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS local_budget_upload (profileId TEXT NOT NULL PRIMARY KEY, firebaseUid TEXT NOT NULL, name TEXT NOT NULL, bootstrapPayload TEXT NOT NULL, FOREIGN KEY(profileId) REFERENCES budget_profiles(id) ON UPDATE NO ACTION ON DELETE NO ACTION)")
+    }
+}
+
+val PROFILE_MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS cloud_budget_catalog (firebaseUid TEXT NOT NULL, budgetId TEXT NOT NULL, name TEXT NOT NULL, memberId TEXT NOT NULL, role TEXT NOT NULL, PRIMARY KEY(firebaseUid, budgetId))")
     }
 }

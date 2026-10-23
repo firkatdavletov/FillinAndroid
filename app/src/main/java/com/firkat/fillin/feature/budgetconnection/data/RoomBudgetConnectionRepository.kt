@@ -9,6 +9,8 @@ import com.firkat.fillin.feature.operationhistory.data.remote.SyncScopeDto
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
 import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -23,19 +25,39 @@ class RoomBudgetConnectionRepository(
     private val active: ActiveBudgetManager,
     private val scheduler: OperationSyncScheduler,
     private val json: Json,
+    private val catalog: BudgetCatalogStore,
 ) : BudgetConnectionRepository {
     private val mutex = Mutex()
+
+    override val activeBudgetId = active.active.map { runtime ->
+        runtime?.takeIf { active.isCurrent(it.profile) }?.profile?.budgetId
+    }.distinctUntilChanged()
+
+    override suspend fun cachedBudgets(uid: String): List<AvailableBudget> {
+        requests.ensureCurrent(uid)
+        return catalog.budgets(uid).also { requests.ensureCurrent(uid) }
+    }
 
     override suspend fun budgets(uid: String): List<AvailableBudget> = mapped {
         requests.budgets(uid).budgetBody().map {
             UUID.fromString(it.id); UUID.fromString(it.memberId)
             require(it.name.isNotBlank() && it.role in setOf("OWNER", "MEMBER"))
             AvailableBudget(it.id, it.name, it.memberId, it.role)
-        }.also { rows -> require(rows.map { it.id }.distinct().size == rows.size) }
+        }.also { rows ->
+            require(rows.map { it.id }.distinct().size == rows.size)
+            requests.ensureCurrent(uid)
+            catalog.replace(uid, rows)
+        }
     }
 
     override suspend fun connect(uid: String, budget: AvailableBudget) = mutex.withLock {
         mapped {
+            requests.ensureCurrent(uid)
+            // A downloaded budget is immediately selectable without a network exchange.
+            // The catalog is UID scoped; unknown/partial profiles still require a full download.
+            val known = catalog.budgets(uid).firstOrNull { it.id == budget.id }
+            val existing = profiles.available(uid).firstOrNull { it.firebaseUid == uid && it.budgetId == budget.id }
+            if (known == budget && existing != null && selectDownloaded(uid, existing, budget)) return@mapped
             val remote = requests.budget(uid, budget.id).budgetBody().scope
             validate(remote, budget)
             val current = active.active.value
@@ -45,6 +67,7 @@ class RoomBudgetConnectionRepository(
                     val state = lease.scope.get<OperationDatabase>().operations().state()
                     if (state?.householdId == budget.id && state.memberId == remote.memberId) {
                         active.attachLegacy(uid, budget.id, remote.memberId, remote.role)
+                        catalog.remember(uid, budget.copy(role = remote.role))
                         scheduler.schedule()
                         return@mapped
                     }
@@ -95,9 +118,28 @@ class RoomBudgetConnectionRepository(
                 }
             } finally { database.close() }
             requests.ensureCurrent(uid)
-            active.select(profile.id)
+            catalog.remember(uid, budget.copy(role = remote.role))
+            active.select(profile.id, expectedUid = uid)
             scheduler.schedule()
         }
+    }
+
+    private suspend fun selectDownloaded(uid: String, profile: BudgetProfile, budget: AvailableBudget): Boolean {
+        val database = databases.open(profile)
+        try {
+            val original = database.operations().state() ?: return false
+            if (!original.localReady && !original.initialSyncComplete) return false
+            if (original.householdId != budget.id || original.memberId != budget.memberId) throw BudgetConnectionFailure("scope_changed")
+            if (original.protocolVersion != 4) throw BudgetConnectionFailure("unsupported_legacy_queue")
+            database.withTransaction {
+                val latest = requireNotNull(database.operations().state())
+                database.operations().putState(latest.copy(cloudEnabled = true, role = budget.role, errorCode = null))
+            }
+        } finally { database.close() }
+        requests.ensureCurrent(uid)
+        active.select(profile.id, expectedUid = uid)
+        scheduler.schedule()
+        return true
     }
 
     private fun validate(scope: SyncScopeDto, budget: AvailableBudget) {

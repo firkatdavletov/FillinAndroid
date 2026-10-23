@@ -175,7 +175,7 @@ class BudgetConnectionDeviceTest {
         }
         val manager: ActiveBudgetManager = application.koin.get()
         val koin get() = application.koin
-        val connection = RoomBudgetConnectionRepository(requests, registry, factory, manager, OperationSyncScheduler {}, application.koin.get())
+        val connection = RoomBudgetConnectionRepository(requests, registry, factory, manager, OperationSyncScheduler {}, application.koin.get(), RoomBudgetCatalogStore(registryDb))
 
         val uploads: com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore get() = application.koin.get()
         val uploadConnection: com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadRepository get() = com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadRepository(auth, registry, uploads, factory, manager, OperationSyncScheduler {}, application.koin.get())

@@ -109,6 +109,46 @@ class BudgetConnectionViewModelTest {
         assertNotNull(model.state.value.draft)
     }
 
+    @Test fun `additional creation remains available when the account already has budgets`() = runTest {
+        val model = model(Auth(), repository(listOf(budget("owner"))))
+        runCurrent()
+        model.chooseCreate()
+        assertNotNull(model.state.value.draft)
+        model.cancelCreate()
+        assertEquals(listOf(budget("owner")), model.state.value.budgets)
+        assertNull(model.state.value.draft)
+    }
+
+    @Test fun `offline list keeps names roles and active selection but hides them on account change`() = runTest {
+        val auth = Auth()
+        val selected = MutableStateFlow<String?>("budget-owner")
+        var chosen: AvailableBudget? = null
+        val model = model(auth, object : BudgetConnectionRepository {
+            override val activeBudgetId = selected
+            override suspend fun cachedBudgets(uid: String) = if (uid == "owner") listOf(budget(uid)) else emptyList()
+            override suspend fun budgets(uid: String): List<AvailableBudget> = throw BudgetConnectionFailure("network")
+            override suspend fun connect(uid: String, budget: AvailableBudget) { chosen = budget }
+        })
+        runCurrent()
+        assertTrue(model.state.value.showingSaved)
+        assertEquals("budget-owner", model.state.value.activeBudgetId)
+        assertEquals(listOf(budget("owner")), model.state.value.budgets)
+        model.connect(budget("owner")); runCurrent()
+        assertEquals(budget("owner"), chosen)
+        auth.session.value = AuthSession.Authenticated(AuthUser("other", null, null)); runCurrent()
+        assertTrue(model.state.value.budgets.isEmpty())
+        assertFalse(model.state.value.showingSaved)
+    }
+
+    @Test fun `additional pending creation cannot be replaced by the create action`() = runTest {
+        val pending = PendingBudgetCreation("saved", BudgetCreationDraft("Дополнительный", "12.00", "2026-10-20"))
+        val model = model(Auth(), repository(listOf(budget("owner"))), pending = pending)
+        runCurrent()
+        model.chooseCreate()
+        assertEquals(pending.draft, model.state.value.draft)
+        assertEquals(pending, model.state.value.pending)
+    }
+
     private fun repository(budgets: List<AvailableBudget> = emptyList()) = object : BudgetConnectionRepository {
         override suspend fun budgets(uid: String) = budgets
         override suspend fun connect(uid: String, budget: AvailableBudget) = error("Must not connect automatically")

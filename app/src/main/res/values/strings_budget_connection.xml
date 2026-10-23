@@ -14,4 +14,7 @@
     <string name="cloud_budget_create_cancel">Назад к списку</string>
     <string name="cloud_budget_create_explanation">Новый бюджет будет доступен в этом Google-аккаунте на других устройствах.</string>
     <string name="cloud_budget_create_pending">Создание ещё не завершено. Повторите запрос, чтобы открыть тот же бюджет.</string>
+    <string name="cloud_budget_create_another">Создать ещё бюджет</string>
+    <string name="cloud_budget_selected">Выбранный бюджет</string>
+    <string name="cloud_budgets_saved">Сохранённый список. Ранее загруженные бюджеты доступны без интернета.</string>
 </resources>
