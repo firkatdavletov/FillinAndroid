@@ -171,14 +171,28 @@ class ActiveBudgetManager(
 
     private fun currentUid(): String? = (auth.session.value as? AuthSession.Authenticated)?.user?.uid
 
-    private fun activate(profile: BudgetProfile) {
+    private suspend fun activate(profile: BudgetProfile) {
         val previous = _active.value
         if (previous?.profile == profile) return
         // Returning while an old request finishes must reuse that profile's mutex and DB handle.
         val runtime = runtimes[profile]?.takeIf { it.retainOwner() } ?: BudgetRuntime(
             profile, koin.createScope("budget-${UUID.randomUUID()}", BUDGET_SCOPE, profile),
             onClosed = { runtimes.remove(profile, it) },
-        ).also { runtimes[profile] = it }
+        ).also { created ->
+            try {
+                // A new runtime has no running exchange. A killed process cannot clear this flag.
+                val database = created.scope.get<OperationDatabase>()
+                database.withTransaction {
+                    database.operations().state()?.takeIf { it.isSyncing }?.let { state ->
+                        database.operations().putState(state.copy(isSyncing = false, errorCode = "sync_interrupted"))
+                    }
+                }
+                runtimes[profile] = created
+            } catch (failure: Exception) {
+                created.release()
+                throw failure
+            }
+        }
         _active.value = runtime
         previous?.let {
             cancelWork(it.profile.syncIdentity)

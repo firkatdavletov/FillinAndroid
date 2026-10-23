@@ -5,6 +5,8 @@ import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
 import kotlinx.serialization.SerializationException
 import retrofit2.Response
 import java.io.IOException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 /** Acquires a current token for each call and retries an unauthorized request only once. */
 class FirebaseAuthenticatedRequests(private val tokens: FirebaseIdTokenProvider) {
@@ -16,12 +18,13 @@ class FirebaseAuthenticatedRequests(private val tokens: FirebaseIdTokenProvider)
         val endpoint = api ?: throw BudgetConnectionFailure("server_not_configured")
         try {
             ensureCurrent(uid)
-            var response = action(endpoint, "Bearer ${tokens.idToken(uid, false)}")
+            var response = action(endpoint, authorization(uid, false))
             if (response.code() == 401) {
                 response.errorBody()?.close()
                 ensureCurrent(uid)
-                response = action(endpoint, "Bearer ${tokens.idToken(uid, true)}")
+                response = action(endpoint, authorization(uid, true))
             }
+            currentCoroutineContext().ensureActive()
             if (!tokens.isCurrentUser(uid)) {
                 response.errorBody()?.close()
                 throw BudgetConnectionFailure("account_changed")
@@ -38,5 +41,12 @@ class FirebaseAuthenticatedRequests(private val tokens: FirebaseIdTokenProvider)
                 else -> "unauthorized"
             })
         }
+    }
+
+    private suspend fun authorization(uid: String, refresh: Boolean): String {
+        val token = tokens.idToken(uid, refresh)
+        currentCoroutineContext().ensureActive()
+        ensureCurrent(uid)
+        return "Bearer $token"
     }
 }

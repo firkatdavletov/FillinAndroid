@@ -7,6 +7,8 @@ import com.firkat.fillin.feature.auth.domain.ServerAuthRepository
 import com.firkat.fillin.feature.auth.domain.ServerUser
 import kotlinx.serialization.SerializationException
 import java.io.IOException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 class FirebaseServerAuthRepository(
     private val api: FirebaseAuthApi?,
@@ -15,12 +17,13 @@ class FirebaseServerAuthRepository(
     override suspend fun authenticate(uid: String): ServerUser {
         val endpoint = api ?: throw ServerAuthFailure(ServerAuthError.NotConfigured)
         try {
-            var response = endpoint.authenticate("Bearer ${tokens.idToken(uid, forceRefresh = false)}")
+            var response = endpoint.authenticate(authorization(uid, false))
             if (response.code() == 401) {
                 response.errorBody()?.close()
                 ensureCurrentUser(uid)
-                response = endpoint.authenticate("Bearer ${tokens.idToken(uid, forceRefresh = true)}")
+                response = endpoint.authenticate(authorization(uid, true))
             }
+            currentCoroutineContext().ensureActive()
             ensureCurrentUser(uid)
             if (!response.isSuccessful) {
                 response.errorBody()?.close()
@@ -37,6 +40,13 @@ class FirebaseServerAuthRepository(
         } catch (_: SerializationException) {
             throw ServerAuthFailure(ServerAuthError.Unavailable)
         }
+    }
+
+    private suspend fun authorization(uid: String, refresh: Boolean): String {
+        val token = tokens.idToken(uid, forceRefresh = refresh)
+        currentCoroutineContext().ensureActive()
+        ensureCurrentUser(uid)
+        return "Bearer $token"
     }
 
     private fun ensureCurrentUser(uid: String) {

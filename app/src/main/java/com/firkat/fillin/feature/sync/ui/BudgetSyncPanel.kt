@@ -118,6 +118,7 @@ fun BudgetSyncScreen(
 
 private fun syncErrorText(code: String): String =
     when (code) {
+        "sync_interrupted" -> "Предыдущая синхронизация прервана. Изменения сохранены; повторите синхронизацию."
         "budget_identity_conflict" -> "Бюджет с такими идентификаторами уже существует. Данные сохранены; обратитесь к разработчику."
         "budget_already_exists" -> "Токен уже связан с другим бюджетом. Локальный бюджет сохранён."
         "unauthorized", "access_denied", "scope_changed", "missing_api_token", "budget_not_found" -> setupError(BudgetConnectionFailure(code))
