@@ -121,11 +121,7 @@ val budgetModule = module {
             com.firkat.fillin.feature.budgetsetup.domain
                 .ConnectExistingBudget(get())
         }
-        viewModel { parameters ->
-            // Indexed access bypasses Koin's Activity-only SavedStateHandle creation.
-            com.firkat.fillin.feature.budgetsetup.ui
-                .BudgetSetupViewModel(get(), get(), get(), parameters[0])
-        }
+        viewModel { com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel(get(), get()) }
         scoped<OperationSyncStorage> { RoomOperationSyncStorage(get(), get()) }
         scoped {
             com.firkat.fillin.feature.sync.data.BudgetStore(

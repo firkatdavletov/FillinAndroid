@@ -27,7 +27,10 @@ val appModule =
         single<com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer> {
             com.firkat.fillin.feature.launch.data.RoomLocalBudgetRestorer(get(), get(), get())
         }
-        viewModel { com.firkat.fillin.ui.navigation.AppNavigationViewModel(get(), get()) }
+        single<com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness> {
+            com.firkat.fillin.feature.budgetsetup.data.RoomActiveBudgetReadiness(get())
+        }
+        viewModel { com.firkat.fillin.ui.navigation.AppNavigationViewModel(get(), get(), get()) }
         includes(com.firkat.fillin.feature.auth.di.authModule, com.firkat.fillin.feature.budgetprofile.di.budgetModule, com.firkat.fillin.feature.budgetconnection.di.budgetConnectionModule)
         single {
             Json {

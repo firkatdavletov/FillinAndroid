@@ -5,56 +5,82 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
+import com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness
+import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class AppNavigationViewModel(
     private val auth: AuthRepository,
     private val localBudget: LocalBudgetRestorer,
+    private val budgetReadiness: ActiveBudgetReadiness,
 ) : ViewModel() {
     // Activity ownership keeps navigation on rotation; a new process starts at Launch.
     private val entries = mutableStateListOf<AppRoute>(AppRoute.Launch)
     val backStack: List<AppRoute> get() = entries
     private val failure = MutableStateFlow(false)
     val launchFailed = failure.asStateFlow()
+    private val resolving = MutableStateFlow(true)
+    val resolvingBudget = resolving.asStateFlow()
     private val retries = MutableStateFlow(0)
     private var observer: Job? = null
     private var lastUid: String? = null
+    private var budgetReady = false
 
-    /** Called after Launch has entered composition, even for an immediately restored user. */
+    /** Called after Launch enters composition, even for an immediately restored user. */
     fun onLaunchShown() {
         if (observer != null) return
         observer = viewModelScope.launch {
             combine(auth.session, retries) { session, _ -> session }.collectLatest { session ->
-                when (session) {
-                    AuthSession.Loading -> Unit
-                    is AuthSession.Authenticated -> {
-                        lastUid = session.user.uid
-                        failure.value = false
-                        openMain()
+                resolving.value = true
+                budgetReady = false
+                if (session == AuthSession.Loading) return@collectLatest
+                val authenticated = session is AuthSession.Authenticated
+                if (!authenticated && lastUid != null) replaceWith(AppRoute.Auth)
+                lastUid = (session as? AuthSession.Authenticated)?.user?.uid
+                failure.value = false
+                try {
+                    if (!authenticated && entries.last() == AppRoute.Launch) {
+                        localBudget.restoreCreatedBudget()
                     }
-                    AuthSession.Anonymous, AuthSession.Unavailable -> {
-                        if (lastUid != null) {
-                            lastUid = null
-                            replaceWith(AppRoute.Auth)
-                        } else if (entries.last() == AppRoute.Launch) {
-                            failure.value = false
-                            try {
-                                replaceWith(if (localBudget.restoreCreatedBudget()) AppRoute.Main else AppRoute.Auth)
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (_: Exception) {
-                                failure.value = true
+                    var first = true
+                    budgetReadiness.observe().distinctUntilChanged().collect { ready ->
+                        currentCoroutineContext().ensureActive()
+                        if (auth.session.value != session) return@collect
+                        budgetReady = ready
+                        resolving.value = false
+                        when {
+                            first && authenticated -> {
+                                if (ready) openMain() else openSetup(BudgetSetupMode.Cloud)
                             }
+                            entries.last() == AppRoute.Launch -> {
+                                if (ready) openMain() else replaceWith(AppRoute.Auth)
+                            }
+                            ready && entries.last() is AppRoute.BudgetSetup -> openMain()
+                            !ready && entries.last() == AppRoute.Main -> openSetup(
+                                if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
+                            )
                         }
+                        first = false
                     }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    currentCoroutineContext().ensureActive()
+                    if (auth.session.value != session) return@collectLatest
+                    failure.value = true
+                    resolving.value = false
+                    if (entries.last() != AppRoute.Launch) entries.add(AppRoute.Launch)
                 }
             }
         }
@@ -69,11 +95,23 @@ class AppNavigationViewModel(
     }
 
     fun continueAsGuest() {
-        if (entries.last() == AppRoute.Auth) openMain()
+        if (entries.last() != AppRoute.Auth || resolving.value) return
+        if (budgetReady) openMain() else openSetup(BudgetSetupMode.Local)
+    }
+
+    fun continueWithAccount() {
+        if (entries.last() != AppRoute.Auth || resolving.value || auth.session.value !is AuthSession.Authenticated) return
+        if (budgetReady) openMain() else openSetup(BudgetSetupMode.Cloud)
     }
 
     fun back() {
-        if (entries.size > 1) entries.removeAt(entries.lastIndex)
+        if (entries.size > 1 && entries.last() != AppRoute.Launch) entries.removeAt(entries.lastIndex)
+    }
+
+    private fun openSetup(mode: BudgetSetupMode) {
+        entries.clear()
+        entries.add(AppRoute.Auth)
+        entries.add(AppRoute.BudgetSetup(mode))
     }
 
     private fun openMain() {

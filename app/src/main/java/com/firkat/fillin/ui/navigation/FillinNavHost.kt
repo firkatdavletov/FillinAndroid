@@ -1,14 +1,17 @@
 package com.firkat.fillin.ui.navigation
 
+import android.app.Activity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
@@ -17,6 +20,10 @@ import com.firkat.fillin.feature.auth.ui.AuthScreen
 import com.firkat.fillin.feature.auth.ui.AuthViewModel
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.auth.ui.messageResource
+import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
+import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
+import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
+import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupRoute
 import com.firkat.fillin.feature.launch.presentation.LaunchScreen
 import com.firkat.fillin.feature.main.ui.MainScreen
 import com.firkat.fillin.ui.component.SnackbarType
@@ -29,11 +36,21 @@ fun FillinNavHost(
     navigation: AppNavigationViewModel = koinViewModel(),
     auth: AuthViewModel = koinViewModel(),
     googleSignIn: GoogleSignInLauncher = koinInject(),
+    budgets: ActiveBudgetManager = koinInject(),
 ) {
     val state by auth.state.collectAsStateWithLifecycle()
     val launchFailed by navigation.launchFailed.collectAsStateWithLifecycle()
+    val resolvingBudget by navigation.resolvingBudget.collectAsStateWithLifecycle()
+    val runtime by budgets.active.collectAsStateWithLifecycle()
+    val mainModels: MainBudgetViewModelStore = viewModel(key = "main-budget-models")
+    mainModels.bind(runtime.takeIf { AppRoute.Main in navigation.backStack })
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
+    DisposableEffect(mainModels, context) {
+        onDispose {
+            if ((context as? Activity)?.isChangingConfigurations != true) mainModels.bind(null)
+        }
+    }
     LaunchedEffect(state.error) {
         state.error?.let { error ->
             snackbar.showSaldomiSnackbar(
@@ -61,10 +78,19 @@ fun FillinNavHost(
                         else navigation.openAuthentication()
                     },
                     snackbarHostState = snackbar,
+                    budgetViewModelStoreOwner = mainModels,
                 )
             }
             entry<AppRoute.Auth> {
-                AuthScreen(state, auth, googleSignIn, snackbar, navigation::continueAsGuest)
+                AuthScreen(
+                    state.copy(busy = state.busy || resolvingBudget), auth, googleSignIn, snackbar,
+                    navigation::continueAsGuest, navigation::continueWithAccount,
+                )
+            }
+            entry<AppRoute.BudgetSetup> { route ->
+                ActiveBudgetContent {
+                    BudgetSetupRoute(route.mode, navigation::back)
+                }
             }
         },
     )

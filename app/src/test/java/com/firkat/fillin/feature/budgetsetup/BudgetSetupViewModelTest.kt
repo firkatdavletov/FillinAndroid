@@ -1,12 +1,9 @@
 package com.firkat.fillin.feature.budgetsetup
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
-import com.firkat.fillin.feature.auth.domain.AuthSession
-import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupRepository
-import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupStep
 import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,50 +16,86 @@ import java.time.LocalDate
 @OptIn(ExperimentalCoroutinesApi::class)
 class BudgetSetupViewModelTest {
     private val models = ViewModelStore()
+    private val repository = FakeSetup()
     @Before fun setup() = Dispatchers.setMain(StandardTestDispatcher())
     @After fun cleanup() { models.clear(); Dispatchers.resetMain() }
 
-    @Test fun `successful sign in opens cloud and back does not sign out or immediately reopen it`() = runTest {
+    @Test fun `creation normalizes decimal comma and waits for committed readiness`() = runTest {
         val model = model()
-        model.authSessionChanged(AuthSession.Anonymous)
-        assertEquals(BudgetSetupStep.Welcome, model.step)
-        model.authSessionChanged(user())
-        assertEquals(BudgetSetupStep.CloudSetup, model.step)
-        model.back()
-        model.authSessionChanged(user())
-        assertEquals(BudgetSetupStep.Welcome, model.step)
-        model.chooseCloud()
-        assertEquals(BudgetSetupStep.CloudSetup, model.step)
+        model.create(" 123,45 ", "2026-10-21")
+        assertTrue(model.busy)
+        runCurrent()
+        assertEquals(BigDecimal("123.45"), repository.balance)
+        assertEquals(LocalDate.of(2026, 10, 21), repository.date)
+        assertEquals(false, model.ready.value)
+        repository.commit.complete(Unit)
+        runCurrent()
+        assertEquals(true, model.ready.value)
+        assertFalse(model.busy)
+        assertNull(model.error)
     }
 
-    @Test fun `saved welcome and local steps survive session restoration`() = runTest {
-        val saved = SavedStateHandle()
-        val first = model(saved)
-        first.authSessionChanged(user())
-        first.back()
-        val restoredWelcome = model(saved)
-        restoredWelcome.authSessionChanged(user())
-        assertEquals(BudgetSetupStep.Welcome, restoredWelcome.step)
-        restoredWelcome.chooseCreate()
-        val restoredLocal = model(saved)
-        restoredLocal.authSessionChanged(user())
-        assertEquals(BudgetSetupStep.LocalSetup, restoredLocal.step)
-    }
-
-    @Test fun `restored google session opens cloud while sign out returns to welcome`() = runTest {
+    @Test fun `repeated taps while saving and after success do not recreate budget`() = runTest {
         val model = model()
-        model.authSessionChanged(AuthSession.Loading)
-        model.authSessionChanged(user())
-        assertEquals(BudgetSetupStep.CloudSetup, model.step)
-        model.authSessionChanged(AuthSession.Anonymous)
-        assertEquals(BudgetSetupStep.Welcome, model.step)
+        model.create("0", "2026-10-22")
+        model.create("100", "2026-10-22")
+        runCurrent()
+        assertEquals(1, repository.calls)
+        repository.commit.complete(Unit)
+        runCurrent()
+        model.create("200", "2026-10-22")
+        runCurrent()
+        assertEquals(1, repository.calls)
     }
 
-    private fun user() = AuthSession.Authenticated(AuthUser("owner", null, null))
-    private fun model(saved: SavedStateHandle = SavedStateHandle()) = BudgetSetupViewModel(object : BudgetSetupRepository {
+    @Test fun `invalid amount and date remain on form with validation error`() = runTest {
+        val model = model()
+        for ((amount, date) in listOf("abc" to "2026-10-21", "1.234" to "2026-10-21", "1" to "wrong", "1" to "2026-10-23")) {
+            model.create(amount, date)
+            runCurrent()
+            assertFalse(model.busy)
+            assertEquals("Проверьте баланс и дату начала учёта.", model.error)
+            assertEquals(0, repository.calls)
+        }
+        model.create("0", "2026-10-22")
+        assertNull(model.error)
+        repository.commit.complete(Unit)
+        runCurrent()
+        assertEquals(true, model.ready.value)
+    }
+
+    @Test fun `storage error permits retry without publishing readiness`() = runTest {
+        repository.fail = true
+        val model = model()
+        model.create("0", "2026-10-22")
+        runCurrent()
+        assertFalse(model.busy)
+        assertNotNull(model.error)
+        assertEquals(false, model.ready.value)
+        repository.fail = false
+        repository.commit.complete(Unit)
+        model.create("0", "2026-10-22")
+        runCurrent()
+        assertEquals(true, model.ready.value)
+    }
+
+    private fun model() = BudgetSetupViewModel(repository).also { models.put("setup", it) }
+    private class FakeSetup : BudgetSetupRepository {
         override val ready = MutableStateFlow(false)
         override val today = LocalDate.of(2026, 10, 22)
-        override suspend fun createLocal(openingBalance: BigDecimal, startedOn: LocalDate) = error("Unused")
+        val commit = CompletableDeferred<Unit>()
+        var calls = 0
+        var balance: BigDecimal? = null
+        var date: LocalDate? = null
+        var fail = false
+        override suspend fun createLocal(openingBalance: BigDecimal, startedOn: LocalDate) {
+            calls++
+            if (fail) error("Storage unavailable")
+            balance = openingBalance
+            date = startedOn
+            commit.await()
+            ready.value = true
+        }
         override suspend fun connectExisting() = error("Unused")
-    }, savedState = saved).also { models.put("setup-${models.keys().size}", it) }
+    }
 }

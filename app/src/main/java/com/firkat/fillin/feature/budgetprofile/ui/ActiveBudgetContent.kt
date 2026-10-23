@@ -9,17 +9,41 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
+import com.firkat.fillin.feature.budgetprofile.data.BudgetRuntime
+import com.firkat.fillin.feature.budgetprofile.data.BudgetRuntimeLease
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.scope.UnboundKoinScope
 import org.koin.core.annotation.KoinDelicateAPI
 import org.koin.core.annotation.KoinExperimentalAPI
+
+/** Keeps Main's budget models alive while an Auth entry covers it, and across rotation. */
+class MainBudgetViewModelStore : ViewModel(), ViewModelStoreOwner {
+    override val viewModelStore = ViewModelStore()
+    private var lease by mutableStateOf<BudgetRuntimeLease?>(null)
+
+    fun isBoundTo(runtime: BudgetRuntime): Boolean = lease?.runtime === runtime
+
+    fun bind(runtime: BudgetRuntime?) {
+        if (lease?.runtime === runtime) return
+        viewModelStore.clear()
+        lease?.close()
+        lease = runtime?.retain()
+    }
+
+    override fun onCleared() {
+        viewModelStore.clear()
+        lease?.close()
+        lease = null
+    }
+}
 
 /** A separate ViewModelStore prevents an old screen from retaining another budget's repositories. */
 @OptIn(KoinExperimentalAPI::class, KoinDelicateAPI::class)
@@ -27,6 +51,7 @@ import org.koin.core.annotation.KoinExperimentalAPI
 fun ActiveBudgetContent(
     manager: ActiveBudgetManager = koinInject(),
     auth: AuthRepository = koinInject(),
+    viewModelStoreOwner: MainBudgetViewModelStore? = null,
     content: @Composable () -> Unit,
 ) {
     val runtime by manager.active.collectAsStateWithLifecycle()
@@ -35,7 +60,7 @@ fun ActiveBudgetContent(
     val coroutineScope = rememberCoroutineScope()
     val uid = (session as? AuthSession.Authenticated)?.user?.uid
     val visible = runtime?.takeIf { it.profile.accessibleTo(uid) }
-    if (visible == null) {
+    if (visible == null || (viewModelStoreOwner != null && !viewModelStoreOwner.isBoundTo(visible))) {
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             if (failed) {
                 Text(stringResource(R.string.budget_profile_open_failed))
@@ -47,10 +72,10 @@ fun ActiveBudgetContent(
     key(visible.scope.id) {
         val lease = remember(visible) { visible.retain() }
         if (lease != null) {
-            val owner = remember { object : ViewModelStoreOwner { override val viewModelStore = ViewModelStore() } }
-            DisposableEffect(lease) {
+            val owner = viewModelStoreOwner ?: remember { object : ViewModelStoreOwner { override val viewModelStore = ViewModelStore() } }
+            DisposableEffect(lease, owner) {
                 onDispose {
-                    owner.viewModelStore.clear()
+                    if (viewModelStoreOwner == null) owner.viewModelStore.clear()
                     lease.close()
                 }
             }

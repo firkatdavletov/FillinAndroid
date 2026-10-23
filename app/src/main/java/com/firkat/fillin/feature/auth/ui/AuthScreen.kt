@@ -18,6 +18,7 @@ fun AuthScreen(
     googleSignIn: GoogleSignInLauncher,
     snackbarHostState: SnackbarHostState,
     onContinueAsGuest: () -> Unit,
+    onContinueWithAccount: () -> Unit,
 ) {
     GoogleSignInEffect(viewModel, googleSignIn)
     val scope = rememberCoroutineScope()
@@ -27,7 +28,7 @@ fun AuthScreen(
         snackBarHostState = snackbarHostState,
         isLoading = state.busy || state.session == AuthSession.Loading,
         googleEnabled = state.session != AuthSession.Unavailable,
-        onGoogleClick = viewModel::signIn,
+        onGoogleClick = if (state.session is AuthSession.Authenticated) onContinueWithAccount else viewModel::signIn,
         onEmailClick = {
             scope.launch {
                 snackbarHostState.showSaldomiSnackbar(emailUnavailable)

@@ -7,7 +7,6 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
-import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupGate
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceViewModel
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotSame
@@ -30,13 +29,11 @@ class BudgetProfileScopeUiTest {
             val models = ConcurrentHashMap<String, TotalBalanceViewModel>()
             compose.setContent {
                 ActiveBudgetContent(env.manager, env.auth) {
-                    BudgetSetupGate {
-                        val model: TotalBalanceViewModel = koinViewModel()
-                        val state by model.uiState.collectAsStateWithLifecycle()
-                        val profile = env.manager.active.value!!.profile.id
-                        models[profile] = model
-                        Text(state.amount?.amount?.toPlainString() ?: "loading")
-                    }
+                    val model: TotalBalanceViewModel = koinViewModel()
+                    val state by model.uiState.collectAsStateWithLifecycle()
+                    val profile = env.manager.active.value!!.profile.id
+                    models[profile] = model
+                    Text(state.amount?.amount?.toPlainString() ?: "loading")
                 }
             }
             compose.waitUntil(5000) { compose.onAllNodes(androidx.compose.ui.test.hasText("88.75")).fetchSemanticsNodes().isNotEmpty() }

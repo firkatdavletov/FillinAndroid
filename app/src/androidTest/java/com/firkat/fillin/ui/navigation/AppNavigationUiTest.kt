@@ -2,17 +2,23 @@ package com.firkat.fillin.ui.navigation
 
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.lifecycle.ViewModelStore
+import androidx.test.espresso.Espresso.closeSoftKeyboard
 import com.firkat.fillin.feature.auth.domain.*
 import com.firkat.fillin.feature.auth.ui.AuthViewModel
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.budgetconnection.BudgetConnectionDeviceTest
 import com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionViewModel
 import com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory
+import com.firkat.fillin.feature.budgetsetup.data.RoomActiveBudgetReadiness
+import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.launch.data.RoomLocalBudgetRestorer
 import com.firkat.fillin.feature.sync.data.CloudBudgetSession
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -45,6 +51,7 @@ class AppNavigationUiTest {
     private fun show(
         createdBudget: Boolean = false,
         restoration: StateRestorationTester? = null,
+        fontScale: Float = 1f,
     ) {
         runBlocking {
             env.manager.restore()
@@ -59,19 +66,22 @@ class AppNavigationUiTest {
             viewModel { parameters -> BudgetConnectionViewModel(auth, env.connection, env.creation, parameters.getOrNull<Boolean>() ?: false) }
         }))
         authModel = AuthViewModel(auth).also { models.put("auth", it) }
-        navigation = AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager))
+        navigation = AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager))
             .also { models.put("navigation", it) }
         val content: @Composable () -> Unit = {
             FillinTheme {
                 UnboundKoinScope(env.koin.scopeRegistry.rootScope) {
-                    FillinNavHost(navigation, authModel, launcher)
+                    val density = LocalDensity.current
+                    CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+                        FillinNavHost(navigation, authModel, launcher)
+                    }
                 }
             }
         }
         if (restoration == null) compose.setContent(content) else restoration.setContent(content)
         if (auth.session.value != AuthSession.Loading) {
             compose.waitUntil(5000) {
-                compose.onAllNodes(if (createdBudget) hasText("Облако") else hasTestTag("auth_screen"))
+                compose.onAllNodes(if (createdBudget) hasTestTag("main_screen") else if (auth.session.value is AuthSession.Authenticated) hasTestTag("budget_setup_screen") else hasTestTag("auth_screen"))
                     .fetchSemanticsNodes().isNotEmpty()
             }
         }
@@ -142,7 +152,9 @@ class AppNavigationUiTest {
         compose.onNodeWithText("Продолжить с Google").assertIsNotEnabled()
         compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithTag("auth_screen").assertDoesNotExist()
-        compose.onNodeWithText("Начало работы").assertIsDisplayed()
+        compose.onNodeWithText("Создание бюджета").assertIsDisplayed()
+        compose.onNodeWithText("Продолжить без авторизации").assertDoesNotExist()
+        compose.onNodeWithTag("main_screen").assertDoesNotExist()
         assertEquals(0, pickerCalls)
     }
 
@@ -190,4 +202,145 @@ class AppNavigationUiTest {
         compose.onNodeWithText("Облако").assertIsSelected()
         assertEquals(0, pickerCalls)
     }
+    @Test fun guestCreatesBudgetAfterOneClickAndBackCannotReopenSetup() {
+        show()
+        compose.onNodeWithText("Продолжить без авторизации").performClick()
+        compose.onNodeWithText("Создание бюджета").assertIsDisplayed()
+        compose.onNodeWithText("Продолжить без авторизации").assertDoesNotExist()
+        compose.onNodeWithText("Облако").assertDoesNotExist()
+        assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Local), navigation.backStack.last())
+        compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("123,45")
+        closeSoftKeyboard()
+        compose.onNodeWithText("Создать бюджет").performScrollTo().performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("main_screen").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
+        compose.onNodeWithTag("budget_setup_screen").assertDoesNotExist()
+        assertEquals(listOf(AppRoute.Main), navigation.backStack)
+        compose.runOnIdle { navigation.back() }
+        compose.onNodeWithTag("main_screen").assertIsDisplayed()
+        assertEquals(0, pickerCalls)
+        assertTrue(env.server.creations.isEmpty())
+    }
+
+    @Test fun localSetupBackReturnsToAuthAndRotationRetainsInput() {
+        val restoration = StateRestorationTester(compose)
+        show(restoration = restoration)
+        compose.onNodeWithText("Продолжить без авторизации").performClick()
+        compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("456,78")
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("456,78").assertIsDisplayed()
+        closeSoftKeyboard()
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.onNodeWithTag("main_screen").assertDoesNotExist()
+    }
+
+    @Test fun GoogleLoginWithoutReadyBudgetOpensCloudSetupAndCreatesBudget() {
+        env.server.budgetExists = false
+        show()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Название бюджета").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("main_screen").assertDoesNotExist()
+        compose.onNodeWithTag("auth_screen").assertDoesNotExist()
+        assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Cloud), navigation.backStack.last())
+        compose.onNodeWithText("Название бюджета").performTextReplacement("Семейный")
+        closeSoftKeyboard()
+        compose.onNodeWithText("Создать облачный бюджет").performScrollTo().performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("main_screen").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(listOf(AppRoute.Main), navigation.backStack)
+        assertEquals(1, env.server.creations.size)
+        assertEquals(1, pickerCalls)
+    }
+
+    @Test fun restoredGoogleAccountSelectsExistingCloudBudgetBeforeMain() {
+        env.auth.login("owner")
+        show()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Тестовый бюджет · Владелец").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("main_screen").assertDoesNotExist()
+        compose.onNodeWithText("Тестовый бюджет · Владелец").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("main_screen").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(listOf(AppRoute.Main), navigation.backStack)
+        assertEquals(0, pickerCalls)
+    }
+
+    @Test fun cloudSetupBackReturnsToAuthAndResumesWithoutAnotherPicker() {
+        env.server.budgetExists = false
+        env.auth.login("owner")
+        show()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Название бюджета").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Назад").performScrollTo().performClick()
+        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.onNodeWithTag("budget_setup_screen").assertIsDisplayed()
+        assertEquals(0, pickerCalls)
+    }
+
+    @Test fun guestButtonFromCloudReturnsToExistingBudget() {
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Cloud").performClick()
+        compose.onNodeWithText("Авторизация").performClick()
+        compose.onNodeWithText("Продолжить без авторизации").performClick()
+        compose.onNodeWithTag("tab_Cloud").assertIsSelected()
+        compose.onNodeWithTag("budget_setup_screen").assertDoesNotExist()
+        assertEquals(listOf(AppRoute.Main), navigation.backStack)
+    }
+
+    @Test fun allTabsNavigateAndSystemBackReturnsThroughDashboard() {
+        show(createdBudget = true)
+        for (tab in listOf("History", "Planned", "Categories", "Cloud")) {
+            compose.onNodeWithTag("tab_$tab").performClick().assertIsSelected()
+            compose.onNodeWithTag("tab_$tab").performClick().assertIsSelected()
+            compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+            compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
+        }
+        compose.onNodeWithTag("auth_screen").assertDoesNotExist()
+    }
+
+    @Test fun historyFilterSurvivesSwitchingTabsAndAuthentication() {
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithTag("history-type-INCOME").performClick().assertIsSelected()
+        compose.onNodeWithTag("tab_Planned").performClick()
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithTag("history-type-INCOME").assertIsSelected()
+        compose.onNodeWithTag("tab_Cloud").performClick()
+        compose.onNodeWithText("Авторизация").performClick()
+        compose.onNodeWithText("Продолжить без авторизации").performClick()
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithTag("history-type-INCOME").assertIsSelected()
+    }
+
+    @Test fun dashboardScrollSurvivesTabSwitchAndSavedStateRestoration() {
+        val restoration = StateRestorationTester(compose)
+        show(createdBudget = true, restoration = restoration, fontScale = 2f)
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("dashboard-grid").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("dashboard-grid").performScrollToNode(hasTestTag("dashboard-widget-monthly-budget"))
+        val top = compose.onNodeWithTag("dashboard-widget-monthly-budget").getUnclippedBoundsInRoot().top
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithTag("tab_Dashboard").performClick()
+        assertEquals(top, compose.onNodeWithTag("dashboard-widget-monthly-budget").getUnclippedBoundsInRoot().top)
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("dashboard-widget-monthly-budget").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(top, compose.onNodeWithTag("dashboard-widget-monthly-budget").getUnclippedBoundsInRoot().top)
+    }
+
+    @Test fun switchingBudgetClearsMainModelsWithoutLeakingThePreviousFilter() {
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithTag("history-type-INCOME").performClick().assertIsSelected()
+        runBlocking {
+            env.manager.select(env.registry.createLocal().id)
+            val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
+            session.createLocal("900.00".toBigDecimal(), session.today)
+        }
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithTag("main_screen").fetchSemanticsNodes().isNotEmpty() &&
+                !navigation.resolvingBudget.value
+        }
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithTag("history-type-INCOME").assertIsNotSelected()
+        compose.onNodeWithTag("history-type-EXPENSE").assertIsNotSelected()
+    }
+
 }
