@@ -44,6 +44,17 @@ class RoomBudgetProfileRegistry(
         }
     }
 
+    override suspend fun replaceCloudMembership(originalId: String, replacement: BudgetProfile) = database.withTransaction {
+        val original = requireNotNull(dao.find(originalId))
+        require(original.kind == "CLOUD" && original.role == "MEMBER" && original.activeCloudKey != null)
+        require(replacement.kind == BudgetProfileKind.CLOUD && replacement.role == "MEMBER" && !replacement.archived)
+        require(replacement.firebaseUid == original.firebaseUid && replacement.budgetId == original.budgetId && replacement.id != original.id)
+        dao.update(original.copy(activeCloudKey = null))
+        dao.insert(replacement.entity())
+        check(dao.cloud(requireNotNull(replacement.firebaseUid), requireNotNull(replacement.budgetId))?.id == replacement.id)
+        dao.select(BudgetProfileSelection(accountKey(replacement.firebaseUid), replacement.id))
+    }
+
     override suspend fun selected(uid: String?): BudgetProfile = database.withTransaction {
         val fallback = initialize()
         dao.selection(accountKey(uid))?.let { dao.find(it)?.profile() }
@@ -68,6 +79,6 @@ class RoomBudgetProfileRegistry(
     }
 
     private fun accountKey(uid: String?) = uid?.let { "uid:$it" } ?: "local"
-    private fun BudgetProfile.entity() = BudgetProfileEntity(id, databaseName, kind.name, firebaseUid, budgetId, role)
-    private fun BudgetProfileEntity.profile() = BudgetProfile(id, databaseName, BudgetProfileKind.valueOf(kind), firebaseUid, budgetId, role)
+    private fun BudgetProfile.entity() = BudgetProfileEntity(id, databaseName, kind.name, firebaseUid, budgetId, role, if (archived) null else budgetId)
+    private fun BudgetProfileEntity.profile() = BudgetProfile(id, databaseName, BudgetProfileKind.valueOf(kind), firebaseUid, budgetId, role, kind == "CLOUD" && activeCloudKey == null)
 }

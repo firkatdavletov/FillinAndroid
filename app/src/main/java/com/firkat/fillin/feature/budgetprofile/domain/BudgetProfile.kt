@@ -10,6 +10,7 @@ data class BudgetProfile(
     val firebaseUid: String? = null,
     val budgetId: String? = null,
     val role: String? = null,
+    val archived: Boolean = false,
 ) {
     init {
         require(id.isNotBlank())
@@ -17,7 +18,7 @@ data class BudgetProfile(
         require(if (kind == BudgetProfileKind.CLOUD) !firebaseUid.isNullOrBlank() && !budgetId.isNullOrBlank() else firebaseUid == null && budgetId == null)
     }
 
-    fun accessibleTo(uid: String?): Boolean = kind != BudgetProfileKind.CLOUD || firebaseUid == uid
+    fun accessibleTo(uid: String?): Boolean = !archived && (kind != BudgetProfileKind.CLOUD || firebaseUid == uid)
 
     val syncIdentity: BudgetSyncIdentity get() = BudgetSyncIdentity(id, firebaseUid)
 }
@@ -31,6 +32,7 @@ interface BudgetProfileRegistry {
     suspend fun createLocal(): BudgetProfile
     suspend fun registerCloud(uid: String, budgetId: String, role: String): BudgetProfile
     suspend fun attachLegacy(id: String, uid: String, budgetId: String, role: String): BudgetProfile
+    suspend fun replaceCloudMembership(originalId: String, replacement: BudgetProfile)
     suspend fun selected(uid: String?): BudgetProfile
     suspend fun select(id: String, uid: String?): BudgetProfile
 }

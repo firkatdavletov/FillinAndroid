@@ -1,0 +1,10 @@
+<resources>
+    <string name="family_join_title">Вступить в семейный бюджет</string>
+    <string name="family_join_code">Код приглашения</string>
+    <string name="family_join">Присоединиться по коду</string>
+    <string name="family_joined">Подключён бюджет «%1$s»</string>
+    <string name="family_members_title">Участники выбранного бюджета</string>
+    <string name="family_members_refresh">Обновить список участников</string>
+    <string name="family_you">Вы</string>
+    <string name="family_revoke">Отозвать доступ: %1$s</string>
+</resources>

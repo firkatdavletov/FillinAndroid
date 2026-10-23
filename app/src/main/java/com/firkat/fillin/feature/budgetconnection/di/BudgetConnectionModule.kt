@@ -23,6 +23,12 @@ val budgetConnectionModule = module {
             get<FirebaseBudgetBackend>().retrofit?.create(com.firkat.fillin.feature.budgetinvitation.data.FirebaseBudgetInvitationApi::class.java), get(), get(), get())
     }
     viewModel { com.firkat.fillin.feature.budgetinvitation.ui.BudgetInvitationViewModel(get()) }
+    single<com.firkat.fillin.feature.budgetsharing.domain.FamilyBudgetRepository> {
+        com.firkat.fillin.feature.budgetsharing.data.FirebaseFamilyBudgetRepository(
+            get<FirebaseBudgetBackend>().retrofit?.create(com.firkat.fillin.feature.budgetsharing.data.FirebaseFamilyBudgetApi::class.java), get(), get(), get(), get(), get(), get())
+    }
+    viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(get(), get()) }
+    viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(get()) }
     single<BudgetCatalogStore> { RoomBudgetCatalogStore(get()) }
     single<BudgetConnectionRepository> { RoomBudgetConnectionRepository(get(), get(), get(), get(), get(), get(), get()) }
     single<BudgetCreationStore> { RoomBudgetCreationStore(get()) }

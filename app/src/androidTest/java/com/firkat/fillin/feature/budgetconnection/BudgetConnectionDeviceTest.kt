@@ -142,16 +142,18 @@ class BudgetConnectionDeviceTest {
         val backend: String = "https://t05-${UUID.randomUUID()}.invalid/",
         private val deleteOnClose: Boolean = true,
         apiOverride: FirebaseBudgetApi? = null,
+        private val familyApi: com.firkat.fillin.feature.budgetsharing.data.FirebaseFamilyBudgetApi? = null,
     ) : AutoCloseable {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val auth = TestAuth()
         private val registryDb = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, registryName).build()
         val registry = RoomBudgetProfileRegistry(registryDb, backend)
         private val factory = BudgetDatabaseFactory(context)
-        private val requests = FirebaseBudgetRequests(apiOverride ?: server, object : FirebaseIdTokenProvider {
+        private val tokens = object : FirebaseIdTokenProvider {
             override fun isCurrentUser(uid: String) = (auth.session.value as? AuthSession.Authenticated)?.user?.uid == uid
             override suspend fun idToken(uid: String, forceRefresh: Boolean) = "synthetic-$uid"
-        })
+        }
+        private val requests = FirebaseBudgetRequests(apiOverride ?: server, tokens)
         private val remote = Retrofit.Builder().baseUrl("https://unused.invalid/")
             .client(OkHttpClient.Builder().addInterceptor { error("No real network in T05 tests") }.build()).build()
         private val application = koinApplication {
@@ -176,6 +178,11 @@ class BudgetConnectionDeviceTest {
         val manager: ActiveBudgetManager = application.koin.get()
         val koin get() = application.koin
         val connection = RoomBudgetConnectionRepository(requests, registry, factory, manager, OperationSyncScheduler {}, application.koin.get(), RoomBudgetCatalogStore(registryDb))
+
+        val sharing: com.firkat.fillin.feature.budgetsharing.domain.FamilyBudgetRepository get() =
+            com.firkat.fillin.feature.budgetsharing.data.FirebaseFamilyBudgetRepository(familyApi, tokens, auth,
+                com.firkat.fillin.feature.budgetinvitation.data.FirebaseBudgetInvitationRepository(null, tokens, auth, manager),
+                RoomBudgetCatalogStore(registryDb), connection, application.koin.get())
 
         val uploads: com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore get() = application.koin.get()
         val uploadConnection: com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadRepository get() = com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadRepository(auth, registry, uploads, factory, manager, OperationSyncScheduler {}, application.koin.get())

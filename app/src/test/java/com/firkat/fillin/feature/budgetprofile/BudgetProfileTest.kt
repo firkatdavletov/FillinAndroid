@@ -20,6 +20,12 @@ class BudgetProfileTest {
         assertFalse(profile.accessibleTo("other-uid"))
     }
 
+    @Test fun archivedMembershipCannotBeSelectedEvenByItsOriginalUid() {
+        val profile = BudgetProfile("old", "budget-old.db", BudgetProfileKind.CLOUD, "owner", "budget", "MEMBER", archived = true)
+        assertFalse(profile.accessibleTo("owner"))
+        assertFalse(profile.accessibleTo(null))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun cloudProfileCannotLoseItsOwner() {
         BudgetProfile("profile", "budget-profile.db", BudgetProfileKind.CLOUD)

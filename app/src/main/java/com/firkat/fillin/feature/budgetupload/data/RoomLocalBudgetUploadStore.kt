@@ -26,7 +26,7 @@ class RoomLocalBudgetUploadStore(private val database: BudgetProfileDatabase) : 
             require(original.kind != BudgetProfileKind.CLOUD.name && original.databaseName == profile.databaseName)
             require(database.profiles().cloud(uid, budgetId) == null)
             database.uploads().insert(LocalBudgetUploadEntity(profile.id, uid, name, bootstrapPayload))
-            database.profiles().update(original.copy(kind = BudgetProfileKind.CLOUD.name, firebaseUid = uid, budgetId = budgetId, role = "OWNER"))
+            database.profiles().update(original.copy(kind = BudgetProfileKind.CLOUD.name, firebaseUid = uid, budgetId = budgetId, role = "OWNER", activeCloudKey = budgetId))
             database.profiles().select(BudgetProfileSelection("uid:$uid", profile.id))
         }
     }

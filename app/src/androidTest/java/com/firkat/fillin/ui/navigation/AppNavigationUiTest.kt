@@ -48,6 +48,17 @@ class AppNavigationUiTest {
     private lateinit var navigation: AppNavigationViewModel
     private lateinit var authModel: AuthViewModel
 
+    @Test fun existingCloudSetupOffersFamilyCodeWithoutCreatingAnotherBudget() {
+        env.auth.login("owner")
+        show()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Вступить в семейный бюджет").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Вступить в семейный бюджет").performScrollTo().performClick()
+        compose.onNodeWithText("Код приглашения").assertExists()
+        assertTrue(env.server.creations.isEmpty())
+        compose.onNodeWithText("К списку бюджетов").performScrollTo().performClick()
+        compose.onNodeWithText("Код приглашения").assertDoesNotExist()
+    }
+
     private fun show(
         createdBudget: Boolean = false,
         restoration: StateRestorationTester? = null,
@@ -62,6 +73,8 @@ class AppNavigationUiTest {
         }
         env.koin.loadModules(listOf(module {
             viewModel { AuthViewModel(auth) }
+            viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(auth, env.sharing) }
+            viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(env.sharing) }
             viewModel {
                 com.firkat.fillin.feature.budgetinvitation.ui.BudgetInvitationViewModel(object : com.firkat.fillin.feature.budgetinvitation.domain.BudgetInvitationRepository {
                     override val target = kotlinx.coroutines.flow.flowOf<com.firkat.fillin.feature.budgetinvitation.domain.InvitationTarget?>(null)

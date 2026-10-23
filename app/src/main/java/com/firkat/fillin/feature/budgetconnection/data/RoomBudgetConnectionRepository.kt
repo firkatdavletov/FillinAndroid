@@ -73,8 +73,21 @@ class RoomBudgetConnectionRepository(
                     }
                 } finally { lease.close() }
             }
-            val profile = profiles.registerCloud(uid, budget.id, remote.role)
+            var profile = profiles.registerCloud(uid, budget.id, remote.role)
+            val previous = databases.open(profile)
+            val replaced = try {
+                val state = previous.operations().state()
+                val changed = state?.let { (it.localReady || it.initialSyncComplete) && it.householdId == remote.householdId && it.memberId != remote.memberId } == true
+                if (changed && (state?.role != "MEMBER" || remote.role != "MEMBER")) throw BudgetConnectionFailure("scope_changed")
+                changed
+            } finally { previous.close() }
+            val originalProfile = profile.takeIf { replaced }
+            if (replaced) {
+                val id = UUID.randomUUID().toString()
+                profile = BudgetProfile(id, "budget-$id.db", BudgetProfileKind.CLOUD, uid, budget.id, remote.role)
+            }
             val database = databases.open(profile)
+            var loaded = false
             try {
                 val original = database.operations().state()
                 if (original?.let { it.localReady || it.initialSyncComplete } != true) {
@@ -116,11 +129,25 @@ class RoomBudgetConnectionRepository(
                         database.operations().putState(latest.copy(cloudEnabled = true, cloudBound = true, role = remote.role, errorCode = null))
                     }
                 }
-            } finally { database.close() }
-            requests.ensureCurrent(uid)
-            catalog.remember(uid, budget.copy(role = remote.role))
-            active.select(profile.id, expectedUid = uid)
-            scheduler.schedule()
+                loaded = true
+            } finally {
+                database.close()
+                if (originalProfile != null && !loaded) databases.discardUnregisteredCache(profile)
+            }
+            try {
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) {
+                    requests.ensureCurrent(uid)
+                    if (originalProfile != null) profiles.replaceCloudMembership(originalProfile.id, profile)
+                    catalog.remember(uid, budget.copy(role = remote.role))
+                    active.select(profile.id, expectedUid = uid)
+                    scheduler.schedule()
+                }
+            } finally {
+                if (originalProfile != null) withContext(NonCancellable) {
+                    if (profiles.find(profile.id) == null) databases.discardUnregisteredCache(profile)
+                }
+            }
         }
     }
 
@@ -129,7 +156,8 @@ class RoomBudgetConnectionRepository(
         try {
             val original = database.operations().state() ?: return false
             if (!original.localReady && !original.initialSyncComplete) return false
-            if (original.householdId != budget.id || original.memberId != budget.memberId) throw BudgetConnectionFailure("scope_changed")
+            if (original.householdId != budget.id) throw BudgetConnectionFailure("scope_changed")
+            if (original.memberId != budget.memberId) return false
             if (original.protocolVersion != 4) throw BudgetConnectionFailure("unsupported_legacy_queue")
             database.withTransaction {
                 val latest = requireNotNull(database.operations().state())

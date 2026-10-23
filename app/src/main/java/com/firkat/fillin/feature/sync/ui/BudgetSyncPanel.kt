@@ -73,6 +73,8 @@ fun BudgetSyncScreen(
     authBusy: Boolean,
     onAccountClick: () -> Unit,
     uploadContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadSection(onSignIn = onAccountClick) },
+    joinContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinSection() },
+    membersContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersSection() },
     invitationContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetinvitation.ui.BudgetInvitationSection() },
     connectionContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionSection() },
 ) {
@@ -84,8 +86,10 @@ fun BudgetSyncScreen(
                 Text(stringResource(if (isAuthenticated) R.string.auth_sign_out else R.string.auth_open))
             }
             uploadContent()
+            joinContent()
             connectionContent()
             invitationContent()
+            membersContent()
             Text(
                 when {
                     state.syncing -> "Синхронизация…"

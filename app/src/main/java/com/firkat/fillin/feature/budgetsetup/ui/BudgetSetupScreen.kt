@@ -103,6 +103,7 @@ fun CloudBudgetSetupScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var draft by rememberSaveable { mutableStateOf<List<String>?>(null) }
+    var joiningFamily by rememberSaveable { mutableStateOf(false) }
     // Budget-scoped ViewModels are recreated with the composition on Activity recreation.
     // Restore only an unsent draft; the persisted pending request always takes precedence.
     LaunchedEffect(viewModel) {
@@ -127,7 +128,13 @@ fun CloudBudgetSetupScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("Fillin", style = MaterialTheme.typography.headlineLarge)
-        BudgetConnectionSection(viewModel, showCreateCancel = false)
+        if (joiningFamily) {
+            com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinSection()
+            TextButton(onClick = { joiningFamily = false }, modifier = Modifier.fillMaxWidth()) { Text("К списку бюджетов") }
+        } else {
+            BudgetConnectionSection(viewModel, showCreateCancel = false)
+            TextButton(onClick = { joiningFamily = true }, enabled = !state.busy && state.pending == null, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.family_join_title)) }
+        }
         TextButton(onClick = onBack, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.navigation_back)) }
     }
 }
