@@ -12,6 +12,7 @@ import java.io.IOException
 
 /** Tokens are acquired per request and are never persisted in profile or work data. */
 class FirebaseBudgetRequests(private val api: FirebaseBudgetApi?, private val tokens: FirebaseIdTokenProvider) {
+    suspend fun importLocal(uid: String, request: ImportFirebaseBudgetDto) = execute(uid) { api, auth -> api.importLocal(auth, request) }
     suspend fun create(uid: String, request: CreateFirebaseBudgetDto) = execute(uid) { api, auth -> api.create(auth, request) }
     suspend fun budgets(uid: String) = execute(uid) { api, auth -> api.budgets(auth) }
     suspend fun budget(uid: String, id: String) = execute(uid) { api, auth -> api.budget(auth, id) }

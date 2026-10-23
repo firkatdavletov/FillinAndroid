@@ -12,7 +12,13 @@ data class AvailableBudgetDto(val id: String, val name: String, val memberId: St
 @Serializable
 data class CreateFirebaseBudgetDto(val requestId: String, val name: String, val openingBalance: String, val accountingStartedOn: String, val currency: String = "KZT")
 
+@Serializable
+data class ImportFirebaseBudgetDto(val name: String, val budget: CreateCloudBudget)
+
 interface FirebaseBudgetApi {
+    @POST("api/v4/budgets/import")
+    suspend fun importLocal(@Header("Authorization") authorization: String, @Body request: ImportFirebaseBudgetDto): Response<AvailableBudgetDto>
+
     @POST("api/v4/budgets")
     suspend fun create(@Header("Authorization") authorization: String, @Body request: CreateFirebaseBudgetDto): Response<AvailableBudgetDto>
 

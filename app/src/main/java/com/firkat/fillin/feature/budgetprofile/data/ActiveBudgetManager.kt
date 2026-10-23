@@ -146,6 +146,28 @@ class ActiveBudgetManager(
         }
     }
 
+    /** Reserve one local file for one UID; no network is allowed under this switch lock. */
+    suspend fun attachLocal(uid: String, profileId: String, bind: suspend (BudgetProfile, OperationDatabase) -> Unit) = mutex.withLock {
+        if (currentUid() != uid) throw BudgetConnectionFailure("account_changed")
+        val profile = registry.find(profileId) ?: throw BudgetConnectionFailure("scope_changed")
+        require(profile.kind != BudgetProfileKind.CLOUD)
+        activate(profile)
+        val previous = requireNotNull(_active.value)
+        withContext(NonCancellable) {
+            _active.value = null
+            try {
+                cancelWork(previous.profile.syncIdentity)
+                previous.scope.get<OperationSyncRequests>().cancelForeground()
+                previous.scope.get<OperationsSynchronizer>().awaitIdle()
+                if (currentUid() != uid) throw BudgetConnectionFailure("account_changed")
+                bind(previous.profile, previous.scope.get())
+            } finally {
+                previous.release()
+                activate(registry.selected(currentUid()))
+            }
+        }
+    }
+
     private fun currentUid(): String? = (auth.session.value as? AuthSession.Authenticated)?.user?.uid
 
     private fun activate(profile: BudgetProfile) {

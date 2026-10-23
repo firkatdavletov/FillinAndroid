@@ -127,7 +127,7 @@ class BudgetCreationDeviceTest {
                 for (i in 0 until setup.length()) old.execSQL(setup.getString(i))
                 old.version = 1
             }
-            Room.databaseBuilder(context, BudgetProfileDatabase::class.java, name).addMigrations(PROFILE_MIGRATION_1_2).build().use { db ->
+            Room.databaseBuilder(context, BudgetProfileDatabase::class.java, name).addMigrations(PROFILE_MIGRATION_1_2, PROFILE_MIGRATION_2_3).build().use { db ->
                 val registry = RoomBudgetProfileRegistry(db, backend)
                 assertEquals("local", registry.selected(null).id)
                 val store = com.firkat.fillin.feature.budgetconnection.data.RoomBudgetCreationStore(db)

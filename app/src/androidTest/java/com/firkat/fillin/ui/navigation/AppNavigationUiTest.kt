@@ -62,6 +62,7 @@ class AppNavigationUiTest {
         }
         env.koin.loadModules(listOf(module {
             viewModel { AuthViewModel(auth) }
+            viewModel { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadViewModel(auth, env.uploadConnection) }
             single<GoogleSignInLauncher> { launcher }
             viewModel { parameters -> BudgetConnectionViewModel(auth, env.connection, env.creation, parameters.getOrNull<Boolean>() ?: false) }
         }))

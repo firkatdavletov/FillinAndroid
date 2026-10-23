@@ -1,0 +1,7 @@
+<resources>
+    <string name="local_budget_upload_title">Локальный бюджет</string>
+    <string name="local_budget_upload_hint">Подключите этот бюджет к Google-аккаунту, чтобы открыть его на другом устройстве. Данные сохранятся отдельным бюджетом.</string>
+    <string name="local_budget_upload_connect">Подключить к аккаунту</string>
+    <string name="local_budget_upload_resume">Продолжить подключение</string>
+    <string name="local_budget_upload_pending">Бюджет закреплён за этим аккаунтом. Изменения сохраняются на устройстве до завершения отправки.</string>
+</resources>

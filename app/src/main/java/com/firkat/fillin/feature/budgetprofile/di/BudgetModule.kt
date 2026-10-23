@@ -99,7 +99,7 @@ val budgetModule = module {
         scoped { get<BudgetDatabaseFactory>().open(get<BudgetProfile>()) } onClose { it?.close() }
         scoped<CloudBudgetApi> {
             val profile = get<BudgetProfile>()
-            if (profile.kind == BudgetProfileKind.CLOUD) FirebaseCloudBudgetApi(profile, get())
+            if (profile.kind == BudgetProfileKind.CLOUD) FirebaseCloudBudgetApi(profile, get(), upload = { get<com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore>().find(profile.id) }, json = get())
             else getKoin().get<CloudBudgetApi>()
         }
         scoped {

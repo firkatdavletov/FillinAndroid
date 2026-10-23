@@ -22,7 +22,7 @@ class BudgetSyncPanelTest {
 
     @Test fun cloudScreenShowsControlsAndLastSuccessfulSync() {
         val control = FakeControl(BudgetSyncContext(ready = true, canWrite = true, cloudEnabled = true, lastSyncedAt = "2026-10-18T05:00:00Z", pending = 2))
-        compose.setContent { FillinTheme { BudgetSyncScreen(remember { BudgetSyncViewModel(control) }, isAuthenticated = false, authBusy = false, onAccountClick = {}, connectionContent = {}) } }
+        compose.setContent { FillinTheme { BudgetSyncScreen(remember { BudgetSyncViewModel(control) }, isAuthenticated = false, authBusy = false, onAccountClick = {}, uploadContent = {}, connectionContent = {}) } }
         compose.onNodeWithText("Синхронизация").assertIsDisplayed()
         compose.onNodeWithText("Включить облачную синхронизацию").assertIsNotEnabled()
         compose.onNodeWithText("Отключить облачную синхронизацию").assertIsEnabled()

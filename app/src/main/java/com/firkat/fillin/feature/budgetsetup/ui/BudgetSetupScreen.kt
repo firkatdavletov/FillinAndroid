@@ -25,6 +25,7 @@ import org.koin.core.parameter.parametersOf
 
 fun setupError(error: Exception): String =
     when ((error as? BudgetConnectionFailure)?.code) {
+        "not_local_budget" -> "Этот бюджет уже связан с облаком. Подключите его из списка бюджетов аккаунта."
         "creation_pending" -> "Создание предыдущего бюджета ещё не завершено. Продолжите его создание."
         "creation_conflict" -> "Сервер отклонил повтор создания. Запрос сохранён; обратитесь к разработчику."
         "invalid_creation" -> "Проверьте название, начальный баланс и дату бюджета."

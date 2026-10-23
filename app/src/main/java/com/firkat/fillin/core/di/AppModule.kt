@@ -55,7 +55,7 @@ val appModule =
         single<OperationSyncApi> { get<Retrofit>().create(OperationSyncApi::class.java) }
         single<com.firkat.fillin.feature.sync.data.BudgetSyncApi> { get<Retrofit>().create(com.firkat.fillin.feature.sync.data.BudgetSyncApi::class.java) }
         single { com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory(androidContext()) }
-        single { Room.databaseBuilder(androidContext(), com.firkat.fillin.feature.budgetprofile.data.BudgetProfileDatabase::class.java, "budget-profiles.db").addMigrations(com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_1_2).build() } onClose { it?.close() }
+        single { Room.databaseBuilder(androidContext(), com.firkat.fillin.feature.budgetprofile.data.BudgetProfileDatabase::class.java, "budget-profiles.db").addMigrations(com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_1_2, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_2_3).build() } onClose { it?.close() }
         single<com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileRegistry> {
             com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry(get(), BuildConfig.API_BASE_URL)
         }

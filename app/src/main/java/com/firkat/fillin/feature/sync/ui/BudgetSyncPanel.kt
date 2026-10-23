@@ -72,6 +72,7 @@ fun BudgetSyncScreen(
     isAuthenticated: Boolean,
     authBusy: Boolean,
     onAccountClick: () -> Unit,
+    uploadContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadSection(onSignIn = onAccountClick) },
     connectionContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionSection() },
 ) {
     val state by viewModel.context.collectAsStateWithLifecycle()
@@ -81,6 +82,7 @@ fun BudgetSyncScreen(
             OutlinedButton(onClick = onAccountClick, enabled = !authBusy) {
                 Text(stringResource(if (isAuthenticated) R.string.auth_sign_out else R.string.auth_open))
             }
+            uploadContent()
             connectionContent()
             Text(
                 when {
@@ -110,6 +112,7 @@ fun BudgetSyncScreen(
 
 private fun syncErrorText(code: String): String =
     when (code) {
+        "budget_identity_conflict" -> "Бюджет с такими идентификаторами уже существует. Данные сохранены; обратитесь к разработчику."
         "budget_already_exists" -> "Токен уже связан с другим бюджетом. Локальный бюджет сохранён."
         "unauthorized", "access_denied", "scope_changed", "missing_api_token", "budget_not_found" -> setupError(BudgetConnectionFailure(code))
         "pending_changes" -> "Не все изменения отправлены. Данные сохранены на устройстве."

@@ -1,6 +1,8 @@
 package com.firkat.fillin.feature.budgetprofile.data
 
 import androidx.room.*
+import com.firkat.fillin.feature.budgetupload.data.LocalBudgetUploadDao
+import com.firkat.fillin.feature.budgetupload.data.LocalBudgetUploadEntity
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.firkat.fillin.feature.budgetconnection.data.BudgetCreationDao
@@ -43,14 +45,21 @@ interface BudgetProfileDao {
     suspend fun select(selection: BudgetProfileSelection)
 }
 
-@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class], version = 2, exportSchema = true)
+@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class], version = 3, exportSchema = true)
 abstract class BudgetProfileDatabase : RoomDatabase() {
     abstract fun profiles(): BudgetProfileDao
     abstract fun creation(): BudgetCreationDao
+    abstract fun uploads(): LocalBudgetUploadDao
 }
 
 val PROFILE_MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS pending_budget_creation (firebaseUid TEXT NOT NULL PRIMARY KEY, requestId TEXT NOT NULL, name TEXT NOT NULL, openingBalance TEXT NOT NULL, accountingStartedOn TEXT NOT NULL)")
+    }
+}
+
+val PROFILE_MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS local_budget_upload (profileId TEXT NOT NULL PRIMARY KEY, firebaseUid TEXT NOT NULL, name TEXT NOT NULL, bootstrapPayload TEXT NOT NULL, FOREIGN KEY(profileId) REFERENCES budget_profiles(id) ON UPDATE NO ACTION ON DELETE NO ACTION)")
     }
 }

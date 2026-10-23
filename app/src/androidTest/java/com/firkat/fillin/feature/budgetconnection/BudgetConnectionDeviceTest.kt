@@ -141,13 +141,14 @@ class BudgetConnectionDeviceTest {
         val registryName: String = "t05-registry-${UUID.randomUUID()}.db",
         val backend: String = "https://t05-${UUID.randomUUID()}.invalid/",
         private val deleteOnClose: Boolean = true,
+        apiOverride: FirebaseBudgetApi? = null,
     ) : AutoCloseable {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val auth = TestAuth()
         private val registryDb = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, registryName).build()
         val registry = RoomBudgetProfileRegistry(registryDb, backend)
         private val factory = BudgetDatabaseFactory(context)
-        private val requests = FirebaseBudgetRequests(server, object : FirebaseIdTokenProvider {
+        private val requests = FirebaseBudgetRequests(apiOverride ?: server, object : FirebaseIdTokenProvider {
             override fun isCurrentUser(uid: String) = (auth.session.value as? AuthSession.Authenticated)?.user?.uid == uid
             override suspend fun idToken(uid: String, forceRefresh: Boolean) = "synthetic-$uid"
         })
@@ -161,6 +162,7 @@ class BudgetConnectionDeviceTest {
                 single<BudgetProfileRegistry> { registry }
                 single<AuthRepository> { auth }
                 single { requests }
+                single<com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore> { com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadStore(registryDb) }
                 single { ActiveBudgetManager(get(), get(), getKoin(), cancelWork = {}) }
                 single<OperationSyncScheduler> { OperationSyncScheduler {} }
                 single<OperationConnectivity> { object : OperationConnectivity { override val online = MutableStateFlow(false) } }
@@ -175,6 +177,8 @@ class BudgetConnectionDeviceTest {
         val koin get() = application.koin
         val connection = RoomBudgetConnectionRepository(requests, registry, factory, manager, OperationSyncScheduler {}, application.koin.get())
 
+        val uploads: com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore get() = application.koin.get()
+        val uploadConnection: com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadRepository get() = com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadRepository(auth, registry, uploads, factory, manager, OperationSyncScheduler {}, application.koin.get())
         val creation: BudgetCreationRepository get() = FirebaseBudgetCreationRepository(requests, RoomBudgetCreationStore(registryDb), connection)
 
         suspend fun seedLegacy(): BudgetProfile {
@@ -214,6 +218,7 @@ class BudgetConnectionDeviceTest {
     }
 
     internal class Server : FirebaseBudgetApi {
+        override suspend fun importLocal(authorization: String, request: ImportFirebaseBudgetDto): Response<AvailableBudgetDto> = error("Unused in T05/T06")
         var budgetExists = true
         var budgetName = "Тестовый бюджет"
         var openingBalance = "100.00"

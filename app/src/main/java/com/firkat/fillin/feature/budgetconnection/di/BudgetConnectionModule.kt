@@ -22,6 +22,9 @@ val budgetConnectionModule = module {
     single<BudgetConnectionRepository> { RoomBudgetConnectionRepository(get(), get(), get(), get(), get(), get()) }
     single<BudgetCreationStore> { RoomBudgetCreationStore(get()) }
     single<BudgetCreationRepository> { FirebaseBudgetCreationRepository(get(), get(), get()) }
+    single<com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore> { com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadStore(get()) }
+    single<com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadRepository> { com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadRepository(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadViewModel(get(), get()) }
     viewModel { parameters ->
         BudgetConnectionViewModel(get(), get(), get(), autoStartCreation = parameters.getOrNull<Boolean>() ?: false)
     }

@@ -49,6 +49,24 @@ class FirebaseBudgetRequestsTest {
         assertEquals(listOf(false, true), tokens.refreshes)
     }
 
+    @Test fun `local import refresh preserves source UUIDs and immutable bootstrap`() = runBlocking {
+        val tokens = Tokens()
+        val bodies = mutableListOf<String>()
+        val requests = client(tokens) { request ->
+            assertEquals("/api/v4/budgets/import", request.url.encodedPath)
+            bodies += okio.Buffer().also { request.body!!.writeTo(it) }.readUtf8()
+            response(request, if (bodies.size == 1) 401 else 200, if (bodies.size == 1) "{}" else
+                """{"id":"original-budget","name":"Офлайн","memberId":"original-member","role":"OWNER"}""")
+        }
+        val bootstrap = com.firkat.fillin.feature.sync.data.CreateCloudBudget("original-request", "original-budget", "original-member", "100.00", "2026-10-20", emptyList())
+        assertTrue(requests.importLocal("owner", ImportFirebaseBudgetDto("Офлайн", bootstrap)).isSuccessful)
+        assertEquals(2, bodies.size)
+        assertEquals(bodies[0], bodies[1])
+        assertTrue(bodies[0].contains("original-request"))
+        assertTrue(bodies[0].contains("original-budget"))
+        assertEquals(listOf(false, true), tokens.refreshes)
+    }
+
     @Test fun `repeated 401 stops after the refreshed token`() = runBlocking {
         val tokens = Tokens()
         var calls = 0
