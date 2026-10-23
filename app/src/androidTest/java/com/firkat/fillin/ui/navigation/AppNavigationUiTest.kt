@@ -62,6 +62,15 @@ class AppNavigationUiTest {
         }
         env.koin.loadModules(listOf(module {
             viewModel { AuthViewModel(auth) }
+            viewModel {
+                com.firkat.fillin.feature.budgetinvitation.ui.BudgetInvitationViewModel(object : com.firkat.fillin.feature.budgetinvitation.domain.BudgetInvitationRepository {
+                    override val target = kotlinx.coroutines.flow.flowOf<com.firkat.fillin.feature.budgetinvitation.domain.InvitationTarget?>(null)
+                    override fun isCurrent(target: com.firkat.fillin.feature.budgetinvitation.domain.InvitationTarget) = false
+                    override suspend fun current(target: com.firkat.fillin.feature.budgetinvitation.domain.InvitationTarget): com.firkat.fillin.feature.budgetinvitation.domain.BudgetInvitation? = error("Unused")
+                    override suspend fun create(target: com.firkat.fillin.feature.budgetinvitation.domain.InvitationTarget): com.firkat.fillin.feature.budgetinvitation.domain.CreatedInvitation = error("Unused")
+                    override suspend fun revoke(target: com.firkat.fillin.feature.budgetinvitation.domain.InvitationTarget, invitation: com.firkat.fillin.feature.budgetinvitation.domain.BudgetInvitation) = Unit
+                })
+            }
             viewModel { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadViewModel(auth, env.uploadConnection) }
             single<GoogleSignInLauncher> { launcher }
             viewModel { parameters -> BudgetConnectionViewModel(auth, env.connection, env.creation, parameters.getOrNull<Boolean>() ?: false) }

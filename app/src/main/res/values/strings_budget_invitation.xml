@@ -1,0 +1,13 @@
+<resources>
+    <string name="invitation_title">Семейный доступ</string>
+    <string name="invitation_owner_only">Только владелец бюджета может создавать и отзывать приглашения.</string>
+    <string name="invitation_explanation">Одноразовый код действует 24 часа и открывает доступ к выбранному бюджету. Новый код отменяет предыдущий неиспользованный.</string>
+    <string name="invitation_expires">Действует до %1$s</string>
+    <string name="invitation_create">Создать новый код</string>
+    <string name="invitation_copy">Скопировать код</string>
+    <string name="invitation_revoke">Отозвать приглашение</string>
+    <string name="invitation_refresh">Обновить статус приглашения</string>
+    <string name="invitation_code_hidden">Код показывается только после создания. Для копирования создайте новый код.</string>
+    <string name="invitation_expired">Срок действия приглашения истёк.</string>
+    <string name="invitation_copied">Код скопирован</string>
+</resources>

@@ -73,6 +73,7 @@ fun BudgetSyncScreen(
     authBusy: Boolean,
     onAccountClick: () -> Unit,
     uploadContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadSection(onSignIn = onAccountClick) },
+    invitationContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetinvitation.ui.BudgetInvitationSection() },
     connectionContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionSection() },
 ) {
     val state by viewModel.context.collectAsStateWithLifecycle()
@@ -84,6 +85,7 @@ fun BudgetSyncScreen(
             }
             uploadContent()
             connectionContent()
+            invitationContent()
             Text(
                 when {
                     state.syncing -> "Синхронизация…"

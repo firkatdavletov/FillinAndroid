@@ -12,13 +12,17 @@ import java.util.concurrent.TimeUnit
 
 val budgetConnectionModule = module {
     single {
-        val api = BuildConfig.FIREBASE_API_BASE_URL.takeIf(String::isNotBlank)?.let {
+        FirebaseBudgetBackend(BuildConfig.FIREBASE_API_BASE_URL.takeIf(String::isNotBlank)?.let {
             get<Retrofit>().newBuilder().baseUrl(it).client(OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
-                .connectTimeout(10, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).callTimeout(30, TimeUnit.SECONDS).build())
-                .build().create(FirebaseBudgetApi::class.java)
-        }
-        FirebaseBudgetRequests(api, get())
+                .connectTimeout(10, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).callTimeout(30, TimeUnit.SECONDS).build()).build()
+        })
     }
+    single { FirebaseBudgetRequests(get<FirebaseBudgetBackend>().retrofit?.create(FirebaseBudgetApi::class.java), get()) }
+    single<com.firkat.fillin.feature.budgetinvitation.domain.BudgetInvitationRepository> {
+        com.firkat.fillin.feature.budgetinvitation.data.FirebaseBudgetInvitationRepository(
+            get<FirebaseBudgetBackend>().retrofit?.create(com.firkat.fillin.feature.budgetinvitation.data.FirebaseBudgetInvitationApi::class.java), get(), get(), get())
+    }
+    viewModel { com.firkat.fillin.feature.budgetinvitation.ui.BudgetInvitationViewModel(get()) }
     single<BudgetCatalogStore> { RoomBudgetCatalogStore(get()) }
     single<BudgetConnectionRepository> { RoomBudgetConnectionRepository(get(), get(), get(), get(), get(), get(), get()) }
     single<BudgetCreationStore> { RoomBudgetCreationStore(get()) }
@@ -30,3 +34,5 @@ val budgetConnectionModule = module {
         BudgetConnectionViewModel(get(), get(), get(), autoStartCreation = parameters.getOrNull<Boolean>() ?: false)
     }
 }
+
+private data class FirebaseBudgetBackend(val retrofit: Retrofit?)

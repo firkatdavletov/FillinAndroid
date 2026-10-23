@@ -96,6 +96,9 @@ interface OperationDao {
     @Query("SELECT * FROM operation_sync_state WHERE id = 1")
     suspend fun state(): OperationSyncState?
 
+    @Query("SELECT * FROM operation_sync_state WHERE id = 1")
+    fun observeState(): Flow<OperationSyncState?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun putState(state: OperationSyncState)
 
