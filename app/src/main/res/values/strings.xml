@@ -67,7 +67,7 @@
     <string name="operation_history_refund_confirm">Оформить возврат</string>
     <string name="operation_history_refund_cancel">Отмена</string>
     <string name="operation_history_error_network">Не удалось подключиться к серверу</string>
-    <string name="operation_history_error_unauthorized">Проверьте MOBILE_API_TOKEN в local.properties</string>
+    <string name="operation_history_error_unauthorized">Войдите через Google и повторите синхронизацию</string>
     <string name="operation_history_error_forbidden">Доступ к истории операций отозван</string>
     <string name="operation_history_error_invalid_request">Расход нельзя изменить или вернуть. Обновите историю и проверьте сумму</string>
     <string name="operation_history_error_not_found">Расход больше не существует</string>
@@ -126,7 +126,7 @@
     <string name="planned_expenses_delete_cancel">Отмена</string>
     <string name="planned_expenses_retry">Повторить</string>
     <string name="planned_expenses_error_network">Не удалось подключиться к серверу</string>
-    <string name="planned_expenses_error_unauthorized">Проверьте MOBILE_API_TOKEN в local.properties</string>
+    <string name="planned_expenses_error_unauthorized">Войдите через Google и повторите синхронизацию</string>
     <string name="planned_expenses_error_forbidden">Доступ к плановым расходам отозван</string>
     <string name="planned_expenses_error_invalid_request">Проверьте сумму, категорию и расписание</string>
     <string name="planned_expenses_error_not_found">Правило больше недоступно</string>
@@ -167,7 +167,7 @@
     <string name="planned_incomes_delete_cancel">Отмена</string>
     <string name="planned_incomes_retry">Повторить</string>
     <string name="planned_incomes_error_network">Не удалось подключиться к серверу</string>
-    <string name="planned_incomes_error_unauthorized">Проверьте MOBILE_API_TOKEN в local.properties</string>
+    <string name="planned_incomes_error_unauthorized">Войдите через Google и повторите синхронизацию</string>
     <string name="planned_incomes_error_forbidden">Управлять плановыми доходами может только активный OWNER</string>
     <string name="planned_incomes_error_invalid_request">Проверьте категорию, точную сумму и дату</string>
     <string name="planned_incomes_error_not_found">Плановый доход больше не существует</string>
@@ -205,7 +205,7 @@
     <string name="categories_delete_cancel">Отмена</string>
     <string name="categories_retry">Повторить</string>
     <string name="categories_error_network">Не удалось подключиться к серверу</string>
-    <string name="categories_error_unauthorized">Проверьте MOBILE_API_TOKEN в local.properties</string>
+    <string name="categories_error_unauthorized">Войдите через Google и повторите синхронизацию</string>
     <string name="categories_error_forbidden">Управлять категориями может только активный OWNER</string>
     <string name="categories_error_invalid_request">Проверьте название и иконку</string>
     <string name="categories_error_not_found">Категория больше не существует</string>

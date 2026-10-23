@@ -245,6 +245,10 @@ class BudgetProfilesDeviceTest {
                     scoped { CloudBudgetSession(get(), get(), "synthetic-test-token", get(), get(), checkAccess = {
                         if (!get<ActiveBudgetManager>().isCurrent(get<BudgetProfile>())) throw CloudDisabledException()
                     }) }
+                    // Historical transport is a fixture for lifetime/routing tests, never production credentials.
+                    scoped { OperationsSynchronizer(get(), get(), "synthetic-test-token", get(), budget = get(),
+                        budgetApi = get(), cloud = get(), cloudApi = get(),
+                        canSynchronize = { get<ActiveBudgetManager>().isCurrent(get<BudgetProfile>()) }) }
                 }
             })
         }

@@ -72,7 +72,7 @@ class OperationsSynchronizer(
             if (!canSynchronize()) return@withLock SyncResult.Completed
             if (cloud != null && !cloud.enabled()) return@withLock SyncResult.Completed
             if (apiToken.isBlank() && cloud?.firebase != true) {
-                storage.finish("missing_api_token")
+                storage.finish("sign_in_required")
                 return@withLock SyncResult.Blocked
             }
             _running.value = true

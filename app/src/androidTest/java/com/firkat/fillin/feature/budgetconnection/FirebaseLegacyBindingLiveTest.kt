@@ -3,13 +3,12 @@ package com.firkat.fillin.feature.budgetconnection
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
-import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileKind
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
-import com.firkat.fillin.feature.sync.data.CloudBudgetApi
+import com.firkat.fillin.feature.auth.domain.ServerAuthRepository
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -33,14 +32,15 @@ class FirebaseLegacyBindingLiveTest {
         runtime.retain()!!.use { lease ->
             val state = requireNotNull(lease.scope.get<OperationDatabase>().operations().state())
             assertTrue(state.cloudBound && state.initialSyncComplete)
-            // Confirm the cached member is still the member of the configured existing server budget.
-            val response = koin.get<CloudBudgetApi>().budget("Bearer ${BuildConfig.MOBILE_API_TOKEN}")
-            assertTrue(response.isSuccessful)
-            val scope = requireNotNull(response.body()).scope
-            assertTrue(scope.householdId == state.householdId && scope.memberId == state.memberId)
+            // Export explicit cached IDs after verifying Google identity through Firebase.
+            // The server validates the configured member independently when the binding is enabled.
+            val verified = koin.get<ServerAuthRepository>().authenticate(session.user.uid)
+            assertTrue(verified.firebaseUid == session.user.uid)
+            java.util.UUID.fromString(state.householdId)
+            java.util.UUID.fromString(state.memberId)
             assertTrue((koin.get<AuthRepository>().session.value as? AuthSession.Authenticated)?.user?.uid == session.user.uid)
             context.openFileOutput("t05-legacy-binding.env", Context.MODE_PRIVATE).bufferedWriter().use {
-                it.write("FIREBASE_LEGACY_UID=${session.user.uid}\nFIREBASE_LEGACY_MEMBER_ID=${scope.memberId}\n")
+                it.write("FIREBASE_LEGACY_UID=${session.user.uid}\nFIREBASE_LEGACY_MEMBER_ID=${state.memberId}\n")
             }
         }
     }

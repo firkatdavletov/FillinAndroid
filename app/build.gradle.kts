@@ -16,19 +16,6 @@ if (firebaseConfigured) {
 }
 
 val localPropertiesFile = rootProject.layout.projectDirectory.file("local.properties")
-val mobileApiToken = if (localPropertiesFile.asFile.exists()) {
-    providers.fileContents(localPropertiesFile).asText.map { contents ->
-        Properties().apply { contents.reader().use(::load) }
-            .getProperty("MOBILE_API_TOKEN", "")
-    }.get()
-} else {
-    ""
-}
-
-val escapedMobileApiToken = mobileApiToken
-    .replace("\\", "\\\\")
-    .replace("\"", "\\\"")
-
 val apiBaseUrl = "https://cheerful-art-production-c4f9.up.railway.app/"
 
 // Firebase authentication uses the deployed backend unless a test server is specified.
@@ -69,7 +56,6 @@ android {
             "API_BASE_URL",
             "\"$apiBaseUrl\"",
         )
-        buildConfigField("String", "MOBILE_API_TOKEN", "\"$escapedMobileApiToken\"")
         buildConfigField("boolean", "FIREBASE_CONFIGURED", firebaseConfigured.toString())
         buildConfigField("String", "FIREBASE_API_BASE_URL", "\"$firebaseApiBaseUrl\"")
     }
