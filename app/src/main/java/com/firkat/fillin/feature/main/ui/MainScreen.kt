@@ -38,7 +38,7 @@ import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsRoute
-import com.firkat.fillin.feature.sync.ui.BudgetSyncScreen
+import com.firkat.fillin.feature.sync.ui.ProfileScreen
 import kotlinx.serialization.Serializable
 
 @Composable
@@ -104,8 +104,8 @@ private fun MainContent(
             entry(AppDestination.History) { OperationHistoryRoute() }
             entry(AppDestination.Planned) { PlannedOperationsRoute() }
             entry(AppDestination.Categories) { CategoriesRoute() }
-            entry(AppDestination.Cloud) {
-                BudgetSyncScreen(
+            entry(AppDestination.Profile) {
+                ProfileScreen(
                     isAuthenticated = isAuthenticated,
                     authBusy = authBusy,
                     onAccountClick = onAccountClick,
@@ -155,8 +155,8 @@ private enum class AppDestination(
         labelResource = R.string.navigation_categories,
         iconResource = R.drawable.ic_categories,
     ),
-    Cloud(
-        labelResource = R.string.navigation_cloud,
-        iconResource = R.drawable.ic_cloud,
+    Profile(
+        labelResource = R.string.navigation_profile,
+        iconResource = R.drawable.ic_account_box,
     ),
 }

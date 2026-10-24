@@ -264,4 +264,5 @@
     <string name="operation_sync_invalid_description">Ошибка отправки: проверьте описание.</string>
     <string name="navigation_cloud">Облако</string>
     <string name="sync_title">Синхронизация</string>
+    <string name="navigation_profile">Профиль</string>
 </resources>

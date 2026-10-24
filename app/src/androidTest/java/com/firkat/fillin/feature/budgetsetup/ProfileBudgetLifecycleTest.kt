@@ -31,7 +31,7 @@ import java.time.*
 import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
-class CloudBudgetLifecycleTest {
+class ProfileBudgetLifecycleTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val name = "cloud-lifecycle-${UUID.randomUUID()}.db"
     private var database = open()

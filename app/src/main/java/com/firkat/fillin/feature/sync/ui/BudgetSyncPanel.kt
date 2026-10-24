@@ -67,7 +67,7 @@ fun BudgetSyncPanel(viewModel: BudgetSyncViewModel) {
 }
 
 @Composable
-fun BudgetSyncScreen(
+fun ProfileScreen(
     viewModel: BudgetSyncViewModel = koinViewModel(),
     isAuthenticated: Boolean,
     authBusy: Boolean,
