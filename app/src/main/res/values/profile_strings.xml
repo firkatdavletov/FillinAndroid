@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_sign_in">Авторизоваться</string>
+    <string name="profile_budgets">Бюджеты</string>
+    <string name="profile_create_budget">Создать новый</string>
+    <string name="profile_new_budget">Новый бюджет</string>
+    <string name="profile_create_local">Создать личный бюджет на устройстве</string>
+    <string name="profile_local_budget_name">Личный бюджет %1$d</string>
+    <string name="profile_family_budget_name">Семейный бюджет</string>
+    <string name="profile_family_budget">Семейный · KZT</string>
+    <string name="profile_personal_budget">Личный · KZT</string>
+    <string name="profile_family_access">Семейный доступ</string>
+    <string name="profile_family_subtitle">Управление участниками бюджета</string>
+    <string name="profile_cloud_sync">Облачная синхронизация</string>
+    <string name="profile_cloud_subtitle">Данные на всех устройствах</string>
+    <string name="cloud_sync_on">Включена</string>
+    <string name="cloud_sync_off">Выключена</string>
+    <string name="cloud_sync_enabled_hint">Данные бюджета доступны\nна всех ваших устройствах.</string>
+    <string name="cloud_sync_disabled_hint">Включите синхронизацию, чтобы данные обновлялись на всех ваших устройствах.</string>
+    <string name="cloud_sync_now">Синхронизировать</string>
+    <string name="cloud_sync_last_label">Последняя синхронизация</string>
+    <string name="cloud_sync_never">Ещё не выполнялась</string>
+    <string name="cloud_sync_pending">Ожидают синхронизации: %1$d</string>
+    <string name="cloud_sync_running">Синхронизация…</string>
+    <string name="cloud_sync_failed">Ошибка синхронизации. Данные сохранены на устройстве.</string>
+    <string name="cloud_sync_issue">%1$s: %2$s\nОшибка отправки. Проверьте данные записи.</string>
+    <string name="family_sign_in_hint">Войдите в аккаунт, чтобы пригласить близких или вступить в семейный бюджет.</string>
+    <string name="family_invite_hint">Создайте код и поделитесь им с близкими.</string>
+    <string name="family_invite_title">Пригласить в семью</string>
+    <string name="family_join_short_title">Вступить в семью</string>
+    <string name="family_join_short">Вступить</string>
+    <string name="family_cloud_required">Приглашения доступны для облачного бюджета. Выберите его в профиле или подключите личный бюджет к облаку.</string>
+    <string name="family_join_hint">Введите код приглашения от члена семьи.</string>
+    <string name="family_code_example">XXXXX-XXXXX-XXXXX-XXXXX</string>
+    <string name="family_invitation_hidden">Приглашение</string>
+    <string name="family_invitation_active">Активен</string>
+    <string name="family_share">Поделиться</string>
+    <string name="family_share_invitation">Приглашение в семейный бюджет</string>
+    <string name="family_share_message">Присоединяйтесь к моему семейному бюджету в Fillin. Код приглашения: %1$s</string>
+    <string name="family_invitation_revoke">Отозвать</string>
+</resources>

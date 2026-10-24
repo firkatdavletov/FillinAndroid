@@ -22,14 +22,15 @@ class BudgetSyncPanelTest {
 
     @Test fun cloudScreenShowsControlsAndLastSuccessfulSync() {
         val control = FakeControl(BudgetSyncContext(ready = true, canWrite = true, cloudEnabled = true, lastSyncedAt = "2026-10-18T05:00:00Z", pending = 2))
-        compose.setContent { FillinTheme { ProfileScreen(remember { BudgetSyncViewModel(control) }, isAuthenticated = false, authBusy = false, onAccountClick = {}, uploadContent = {}, connectionContent = {}, invitationContent = {}, joinContent = {}, membersContent = {}) } }
-        compose.onNodeWithText("Синхронизация").assertIsDisplayed()
-        compose.onNodeWithText("Включить облачную синхронизацию").assertIsNotEnabled()
-        compose.onNodeWithText("Отключить облачную синхронизацию").assertIsEnabled()
+        compose.setContent { FillinTheme { CloudSyncRoute(onBack = {}, onSignIn = {}, viewModel = remember { BudgetSyncViewModel(control) }) } }
+        compose.onNodeWithText("Облачная синхронизация").assertIsDisplayed()
+        compose.onNodeWithTag("cloud_sync_toggle").assertIsOn().assertIsEnabled()
         compose.onNodeWithText("Синхронизировать").assertIsEnabled()
-        compose.onNodeWithText("Последняя успешная синхронизация: 18.10.2026 10:00").assertExists()
+        compose.onNodeWithText("Последняя синхронизация").assertExists()
+        compose.onNodeWithText("Ожидают синхронизации: 2").assertExists()
         compose.runOnIdle { control.context.value = control.context.value.copy(syncing = true) }
         compose.onNodeWithText("Синхронизировать").assertIsNotEnabled()
+        compose.onNodeWithTag("cloud_sync_toggle").assertIsNotEnabled()
     }
 
     private class FakeControl(

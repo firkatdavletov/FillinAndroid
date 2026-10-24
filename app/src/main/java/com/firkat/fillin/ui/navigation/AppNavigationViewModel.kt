@@ -67,7 +67,7 @@ class AppNavigationViewModel(
                                 if (ready) openMain() else replaceWith(AppRoute.Auth)
                             }
                             ready && entries.last() is AppRoute.BudgetSetup -> openMain()
-                            !ready && entries.last() == AppRoute.Main -> openSetup(
+                            !ready && entries.last() in listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.CloudSync) -> openSetup(
                                 if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
                             )
                         }
@@ -89,9 +89,17 @@ class AppNavigationViewModel(
     fun retryLaunch() { retries.update { it + 1 } }
 
     fun openAuthentication() {
-        if (entries.last() == AppRoute.Main && auth.session.value !is AuthSession.Authenticated) {
+        if (entries.last() in listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.CloudSync) && auth.session.value !is AuthSession.Authenticated) {
             entries.add(AppRoute.Auth)
         }
+    }
+
+    fun openFamilyAccess() = openProfileDestination(AppRoute.FamilyAccess)
+
+    fun openCloudSync() = openProfileDestination(AppRoute.CloudSync)
+
+    private fun openProfileDestination(route: AppRoute) {
+        if (entries.last() == AppRoute.Main && budgetReady && !resolving.value) entries.add(route)
     }
 
     fun continueAsGuest() {

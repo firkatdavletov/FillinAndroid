@@ -26,7 +26,7 @@ val appModule =
             com.firkat.fillin.feature.budgetsetup.data.RoomActiveBudgetReadiness(get())
         }
         viewModel { com.firkat.fillin.ui.navigation.AppNavigationViewModel(get(), get(), get()) }
-        includes(com.firkat.fillin.feature.auth.di.authModule, com.firkat.fillin.feature.budgetprofile.di.budgetModule, com.firkat.fillin.feature.budgetconnection.di.budgetConnectionModule)
+        includes(com.firkat.fillin.feature.auth.di.authModule, com.firkat.fillin.feature.budgetprofile.di.budgetModule, com.firkat.fillin.feature.budgetconnection.di.budgetConnectionModule, com.firkat.fillin.feature.profile.di.profileModule)
         single {
             Json {
                 ignoreUnknownKeys = true

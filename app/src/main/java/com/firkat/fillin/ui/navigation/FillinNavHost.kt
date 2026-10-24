@@ -26,6 +26,8 @@ import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupRoute
 import com.firkat.fillin.feature.launch.presentation.LaunchScreen
 import com.firkat.fillin.feature.main.ui.MainScreen
+import com.firkat.fillin.feature.budgetsharing.ui.FamilyAccessRoute
+import com.firkat.fillin.feature.sync.ui.CloudSyncRoute
 import com.firkat.fillin.ui.component.SnackbarType
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
 import org.koin.compose.koinInject
@@ -71,7 +73,6 @@ fun FillinNavHost(
             }
             entry<AppRoute.Main> {
                 MainScreen(
-                    isAuthenticated = state.session is AuthSession.Authenticated,
                     authBusy = state.busy,
                     onAccountClick = {
                         if (state.session is AuthSession.Authenticated) auth.signOut()
@@ -79,7 +80,18 @@ fun FillinNavHost(
                     },
                     snackbarHostState = snackbar,
                     budgetViewModelStoreOwner = mainModels,
+                    user = (state.session as? AuthSession.Authenticated)?.user,
+                    onFamilyAccessClick = navigation::openFamilyAccess,
+                    onCloudSyncClick = navigation::openCloudSync,
                 )
+            }
+            entry<AppRoute.FamilyAccess> {
+                FamilyAccessRoute(onBack = navigation::back, onSignIn = navigation::openAuthentication)
+            }
+            entry<AppRoute.CloudSync> {
+                ActiveBudgetContent {
+                    CloudSyncRoute(onBack = navigation::back, onSignIn = navigation::openAuthentication)
+                }
             }
             entry<AppRoute.Auth> {
                 AuthScreen(

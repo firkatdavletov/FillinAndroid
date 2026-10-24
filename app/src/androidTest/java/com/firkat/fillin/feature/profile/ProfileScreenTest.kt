@@ -1,0 +1,113 @@
+package com.firkat.fillin.feature.profile
+
+import android.graphics.Bitmap
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.espresso.Espresso.closeSoftKeyboard
+import com.firkat.fillin.feature.auth.domain.AuthSession
+import com.firkat.fillin.feature.auth.domain.AuthUser
+import com.firkat.fillin.feature.budgetinvitation.domain.BudgetInvitation
+import com.firkat.fillin.feature.budgetinvitation.domain.InvitationTarget
+import com.firkat.fillin.feature.budgetinvitation.ui.BudgetInvitationState
+import com.firkat.fillin.feature.budgetsharing.ui.FamilyAccessScreen
+import com.firkat.fillin.feature.budgetsharing.ui.FamilyJoinState
+import com.firkat.fillin.feature.profile.domain.ProfileBudget
+import com.firkat.fillin.feature.profile.ui.ProfileScreen
+import com.firkat.fillin.feature.profile.ui.ProfileUiState
+import com.firkat.fillin.feature.sync.domain.BudgetSyncContext
+import com.firkat.fillin.feature.sync.ui.CloudSyncScreen
+import com.firkat.fillin.ui.theme.FillinTheme
+import org.junit.Assert.assertEquals
+import org.junit.Rule
+import org.junit.Test
+import java.io.File
+
+class ProfileScreenTest {
+    @get:Rule val compose = createComposeRule()
+
+    @Test fun profileDisplaysAccountAndSelectionAndDispatchesActions() {
+        var selected: String? = null
+        var family = 0
+        var cloud = 0
+        compose.setContent {
+            FillinTheme {
+                ProfileScreen(profileState(), USER, false, {}, { selected = it }, {}, { family++ }, { cloud++ }, {})
+            }
+        }
+        compose.onNodeWithText("Анна Иванова").assertIsDisplayed()
+        compose.onNodeWithText("anna@example.com").assertIsDisplayed()
+        snapshot("profile-account")
+        compose.onNodeWithText("Основной бюджет").assertIsSelected()
+        compose.onNodeWithText("Накопления").assertIsNotSelected().performClick()
+        assertEquals("local", selected)
+        compose.onNodeWithText("Семейный доступ").performScrollTo().performClick()
+        compose.onNodeWithText("Облачная синхронизация").performScrollTo().performClick()
+        assertEquals(1, family)
+        assertEquals(1, cloud)
+    }
+
+    @Test fun guestCanSignInAndHasNoSignOutAction() {
+        var signIn = 0
+        compose.setContent { FillinTheme { ProfileScreen(profileState(), null, false, { signIn++ }, {}, {}, {}, {}, {}) } }
+        compose.onNodeWithContentDescription("Выйти из аккаунта").assertDoesNotExist()
+        compose.onNodeWithText("Авторизоваться").performClick()
+        assertEquals(1, signIn)
+        snapshot("profile-guest")
+    }
+
+    @Test fun cloudSwitchChangesStateAndDisabledSyncHasNoManualAction() {
+        val enabled = mutableStateOf(false)
+        var syncs = 0
+        compose.setContent {
+            FillinTheme {
+                CloudSyncScreen(BudgetSyncContext(ready = true, cloudEnabled = enabled.value, lastSyncedAt = "2026-10-24T04:41:00Z"), false, null, {}, { enabled.value = it }, { syncs++ })
+            }
+        }
+        compose.onNodeWithText("Синхронизировать").assertDoesNotExist()
+        snapshot("cloud-disabled")
+        compose.onNodeWithTag("cloud_sync_toggle").performClick().assertIsOn()
+        compose.onNodeWithText("Синхронизировать").performClick()
+        assertEquals(1, syncs)
+        snapshot("cloud-enabled")
+    }
+
+    @Test fun familyInvitationCanBeSharedRevokedAndJoined() {
+        val code = mutableStateOf("")
+        var shared = 0
+        var revoked = 0
+        var joined = 0
+        compose.setContent {
+            FillinTheme {
+                FamilyAccessScreen(
+                    BudgetInvitationState(target = InvitationTarget("profile", "user", "family", "OWNER"), current = BudgetInvitation("invitation", "family", "2026-10-31T18:59:00Z"), code = "ABCDE-FGHJK-MNPQR-STVW0"),
+                    FamilyJoinState(AuthSession.Authenticated(USER), code.value), {}, {}, {}, { shared++ }, { revoked++ }, {}, { code.value = it }, { joined++ },
+                )
+            }
+        }
+        snapshot("family-access")
+        compose.onNodeWithText("Поделиться").performClick()
+        compose.onNodeWithText("Отозвать").performClick()
+        compose.onNodeWithText("Вступить").assertIsNotEnabled()
+        compose.onNodeWithText("Код приглашения").performTextInput("ABCDE-FGHJK-MNPQR-STVW0")
+        closeSoftKeyboard()
+        compose.onNodeWithText("Вступить").performScrollTo().performClick()
+        assertEquals(1, shared)
+        assertEquals(1, revoked)
+        assertEquals(1, joined)
+    }
+
+    private fun snapshot(name: String) {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.getExternalFilesDir("profile-redesign"), "$name.png")
+        file.outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    private fun profileState() = ProfileUiState(loading = false, budgets = listOf(
+        ProfileBudget("family", "Основной бюджет", true, true), ProfileBudget("local", "Накопления", false, false),
+    ))
+
+    private companion object { val USER = AuthUser("user", "Анна Иванова", "anna@example.com") }
+}

@@ -85,6 +85,10 @@ class AppNavigationUiTest {
                 })
             }
             viewModel { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadViewModel(auth, env.uploadConnection) }
+            single<com.firkat.fillin.feature.profile.domain.ProfileBudgetsRepository> {
+                com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, get(), env.uploads)
+            }
+            viewModel { com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, env.creation) }
             single<GoogleSignInLauncher> { launcher }
             viewModel { parameters -> BudgetConnectionViewModel(auth, env.connection, env.creation, parameters.getOrNull<Boolean>() ?: false) }
         }))
@@ -119,13 +123,13 @@ class AppNavigationUiTest {
 
     @Test fun coldLaunchWithLocalBudgetOpensMainAndGuestAuthReturnsToCloud() {
         show(createdBudget = true)
-        compose.onNodeWithText("Облако").performClick()
-        compose.onNodeWithText("Авторизация").performClick()
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
-        compose.onNodeWithText("Облако").assertDoesNotExist()
+        compose.onNodeWithText("Профиль").assertDoesNotExist()
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithText("Авторизация").assertIsDisplayed()
-        compose.onNodeWithText("Облако").assertIsSelected()
+        compose.onNodeWithText("Авторизоваться").assertIsDisplayed()
+        compose.onNodeWithTag("tab_Profile").assertIsSelected()
     }
 
     @Test fun launchWaitsForFirebaseBeforeOpeningMainWithoutAnotherPicker() {
@@ -133,18 +137,18 @@ class AppNavigationUiTest {
         show(createdBudget = true)
         compose.onNodeWithTag("launch_screen").assertIsDisplayed()
         compose.runOnIdle { env.auth.login("owner") }
-        compose.waitUntil(5000) { compose.onAllNodesWithText("Облако").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Профиль").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(listOf(AppRoute.Main), navigation.backStack)
         assertEquals(0, pickerCalls)
     }
 
     @Test fun GoogleSignInReturnsToTheSelectedCloudTab() {
         show(createdBudget = true)
-        compose.onNodeWithText("Облако").performClick()
-        compose.onNodeWithText("Авторизация").performClick()
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
         compose.onNodeWithText("Продолжить с Google").performClick()
-        compose.onNodeWithText("Выйти из аккаунта").assertIsDisplayed()
-        compose.onNodeWithText("Облако").assertIsSelected()
+        compose.onNodeWithContentDescription("Выйти из аккаунта").assertIsDisplayed()
+        compose.onNodeWithTag("tab_Profile").assertIsSelected()
         assertEquals(1, pickerCalls)
         assertEquals(listOf(AppRoute.Main), navigation.backStack)
     }
@@ -152,8 +156,8 @@ class AppNavigationUiTest {
     @Test fun logoutClearsMainHistoryEvenWhenTheLocalBudgetStillExists() {
         env.auth.login("owner")
         show(createdBudget = true)
-        compose.onNodeWithText("Облако").performClick()
-        compose.onNodeWithText("Выйти из аккаунта").performClick()
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithContentDescription("Выйти из аккаунта").performClick()
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
         compose.runOnIdle { navigation.back() }
         assertEquals(listOf(AppRoute.Auth), navigation.backStack)
@@ -164,7 +168,7 @@ class AppNavigationUiTest {
     @Test fun emptyDeviceShowsAuthAndEmailExplainsItsAvailability() {
         show()
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
-        compose.onNodeWithText("Облако").assertDoesNotExist()
+        compose.onNodeWithText("Профиль").assertDoesNotExist()
         compose.onNodeWithText("Продолжить с email").performClick()
         compose.onNodeWithText("Вход по email пока недоступен").assertIsDisplayed()
     }
@@ -203,13 +207,13 @@ class AppNavigationUiTest {
             "synthetic-credential"
         }
         show(createdBudget = true)
-        compose.onNodeWithText("Облако").performClick()
-        compose.onNodeWithText("Авторизация").performClick()
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
         compose.onNodeWithText("Продолжить с Google").performClick()
         compose.onNodeWithText("Не удалось выполнить вход. Проверьте интернет и повторите попытку.").assertIsDisplayed()
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
         compose.onNodeWithText("Продолжить с Google").performClick()
-        compose.onNodeWithText("Выйти из аккаунта").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Выйти из аккаунта").assertIsDisplayed()
         assertEquals(2, pickerCalls)
         assertEquals(listOf(AppRoute.Main), navigation.backStack)
     }
@@ -217,12 +221,12 @@ class AppNavigationUiTest {
     @Test fun guestAuthStackAndSelectedTabSurviveSavedStateRestoration() {
         val restoration = StateRestorationTester(compose)
         show(createdBudget = true, restoration = restoration)
-        compose.onNodeWithText("Облако").performClick()
-        compose.onNodeWithText("Авторизация").performClick()
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
         compose.runOnIdle { navigation.back() }
-        compose.onNodeWithText("Облако").assertIsSelected()
+        compose.onNodeWithTag("tab_Profile").assertIsSelected()
         assertEquals(0, pickerCalls)
     }
     @Test fun guestCreatesBudgetAfterOneClickAndBackCannotReopenSetup() {
@@ -230,7 +234,7 @@ class AppNavigationUiTest {
         compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithText("Создание бюджета").assertIsDisplayed()
         compose.onNodeWithText("Продолжить без авторизации").assertDoesNotExist()
-        compose.onNodeWithText("Облако").assertDoesNotExist()
+        compose.onNodeWithText("Профиль").assertDoesNotExist()
         assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Local), navigation.backStack.last())
         compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("123,45")
         closeSoftKeyboard()
@@ -300,23 +304,52 @@ class AppNavigationUiTest {
 
     @Test fun guestButtonFromCloudReturnsToExistingBudget() {
         show(createdBudget = true)
-        compose.onNodeWithTag("tab_Cloud").performClick()
-        compose.onNodeWithText("Авторизация").performClick()
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
         compose.onNodeWithText("Продолжить без авторизации").performClick()
-        compose.onNodeWithTag("tab_Cloud").assertIsSelected()
+        compose.onNodeWithTag("tab_Profile").assertIsSelected()
         compose.onNodeWithTag("budget_setup_screen").assertDoesNotExist()
         assertEquals(listOf(AppRoute.Main), navigation.backStack)
     }
 
     @Test fun allTabsNavigateAndSystemBackReturnsThroughDashboard() {
         show(createdBudget = true)
-        for (tab in listOf("History", "Planned", "Categories", "Cloud")) {
+        for (tab in listOf("History", "Planned", "Categories", "Profile")) {
             compose.onNodeWithTag("tab_$tab").performClick().assertIsSelected()
             compose.onNodeWithTag("tab_$tab").performClick().assertIsSelected()
             compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
             compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
         }
         compose.onNodeWithTag("auth_screen").assertDoesNotExist()
+    }
+
+    @Test fun profileDetailsOpenOutsideMainAndBackRetainsProfileTab() {
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Семейный доступ").performScrollTo().performClick()
+        compose.onNodeWithTag("family_access_screen").assertIsDisplayed()
+        compose.onNodeWithTag("main_screen").assertDoesNotExist()
+        assertEquals(listOf(AppRoute.Main, AppRoute.FamilyAccess), navigation.backStack)
+        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.onNodeWithTag("tab_Profile").assertIsSelected()
+        compose.onNodeWithText("Облачная синхронизация").performScrollTo().performClick()
+        compose.onNodeWithTag("cloud_sync_screen").assertIsDisplayed()
+        compose.onNodeWithTag("main_screen").assertDoesNotExist()
+        assertEquals(listOf(AppRoute.Main, AppRoute.CloudSync), navigation.backStack)
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("tab_Profile").assertIsSelected()
+        compose.onNodeWithTag("profile_screen").assertIsDisplayed()
+    }
+
+    @Test fun familyGuestAuthenticationBackReturnsToFamilyScreen() {
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Семейный доступ").performScrollTo().performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
+        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("family_access_screen").assertIsDisplayed()
+        compose.onNodeWithTag("main_screen").assertDoesNotExist()
     }
 
     @Test fun historyFilterSurvivesSwitchingTabsAndAuthentication() {
@@ -326,8 +359,8 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("tab_Planned").performClick()
         compose.onNodeWithTag("tab_History").performClick()
         compose.onNodeWithTag("history-type-INCOME").assertIsSelected()
-        compose.onNodeWithTag("tab_Cloud").performClick()
-        compose.onNodeWithText("Авторизация").performClick()
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
         compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithTag("tab_History").performClick()
         compose.onNodeWithTag("history-type-INCOME").assertIsSelected()

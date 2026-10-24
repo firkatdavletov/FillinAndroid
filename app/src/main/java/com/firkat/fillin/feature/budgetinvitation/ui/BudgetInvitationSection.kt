@@ -77,13 +77,21 @@ class BudgetInvitationViewModel(
     }
 
     fun copyCode(copy: (String) -> Unit) {
+        withActiveCode(copy)
+    }
+
+    fun shareCode(share: (String) -> Unit) {
+        withActiveCode(share, markCopied = false)
+    }
+
+    private fun withActiveCode(action: (String) -> Unit, markCopied: Boolean = true) {
         val target = state.value.target ?: return
         val invitation = state.value.current ?: return
         val code = state.value.code ?: return
         if (state.value.busy || !repository.isCurrent(target) || target.role != "OWNER") return
         if (!Instant.parse(invitation.expiresAt).isAfter(clock.instant())) { expire(target); return }
-        copy(code)
-        _state.update { it.copy(copied = true) }
+        action(code)
+        if (markCopied) _state.update { it.copy(copied = true) }
     }
 
     private fun perform(block: suspend (InvitationTarget) -> Unit) {

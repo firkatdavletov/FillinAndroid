@@ -124,6 +124,46 @@ class AppNavigationViewModelTest {
         assertEquals(listOf(AppRoute.Main), model.backStack)
     }
 
+    @Test fun `profile destinations are separate entries above Main and do not duplicate`() = runTest {
+        val model = model(FakeAuth()) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openFamilyAccess()
+        model.openFamilyAccess()
+        model.openCloudSync()
+        assertEquals(listOf(AppRoute.Main, AppRoute.FamilyAccess), model.backStack)
+        model.back()
+        model.openCloudSync()
+        model.openCloudSync()
+        assertEquals(listOf(AppRoute.Main, AppRoute.CloudSync), model.backStack)
+        model.back()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
+
+    @Test fun `guest can authenticate from each profile detail and back returns to it`() = runTest {
+        val model = model(FakeAuth()) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openFamilyAccess()
+        model.openAuthentication()
+        assertEquals(listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.Auth), model.backStack)
+        model.back()
+        assertEquals(AppRoute.FamilyAccess, model.backStack.last())
+        model.back()
+        model.openCloudSync()
+        model.openAuthentication()
+        assertEquals(listOf(AppRoute.Main, AppRoute.CloudSync, AppRoute.Auth), model.backStack)
+    }
+
+    @Test fun `profile details cannot bypass budget setup`() = runTest {
+        val model = model(FakeAuth()) { false }
+        model.onLaunchShown()
+        runCurrent()
+        model.openFamilyAccess()
+        model.openCloudSync()
+        assertEquals(listOf(AppRoute.Auth), model.backStack)
+    }
+
     @Test fun `successful login returns to Main without duplicate entries`() = runTest {
         val auth = FakeAuth()
         val model = model(auth) { true }

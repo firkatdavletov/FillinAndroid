@@ -38,26 +38,31 @@ import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsRoute
-import com.firkat.fillin.feature.sync.ui.ProfileScreen
+import com.firkat.fillin.feature.auth.domain.AuthUser
+import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import kotlinx.serialization.Serializable
 
 @Composable
 fun MainScreen(
-    isAuthenticated: Boolean,
+    user: AuthUser?,
     authBusy: Boolean,
     onAccountClick: () -> Unit,
     snackbarHostState: SnackbarHostState,
     budgetViewModelStoreOwner: MainBudgetViewModelStore? = null,
+    onFamilyAccessClick: () -> Unit = {},
+    onCloudSyncClick: () -> Unit = {},
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
         MainContent(
             selectedDestination = selectedDestination,
             onSelectDestination = { selectedDestination = it },
-            isAuthenticated = isAuthenticated,
             authBusy = authBusy,
             onAccountClick = onAccountClick,
             snackbarHostState = snackbarHostState,
+            user = user,
+            onFamilyAccessClick = onFamilyAccessClick,
+            onCloudSyncClick = onCloudSyncClick,
         )
     }
 }
@@ -66,10 +71,12 @@ fun MainScreen(
 private fun MainContent(
     selectedDestination: AppDestination,
     onSelectDestination: (AppDestination) -> Unit,
-    isAuthenticated: Boolean,
     authBusy: Boolean,
     onAccountClick: () -> Unit,
     snackbarHostState: SnackbarHostState,
+    user: AuthUser?,
+    onFamilyAccessClick: () -> Unit,
+    onCloudSyncClick: () -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.testTag("main_screen"),
@@ -105,10 +112,12 @@ private fun MainContent(
             entry(AppDestination.Planned) { PlannedOperationsRoute() }
             entry(AppDestination.Categories) { CategoriesRoute() }
             entry(AppDestination.Profile) {
-                ProfileScreen(
-                    isAuthenticated = isAuthenticated,
+                ProfileRoute(
+                    user = user,
                     authBusy = authBusy,
                     onAccountClick = onAccountClick,
+                    onFamilyAccessClick = onFamilyAccessClick,
+                    onCloudSyncClick = onCloudSyncClick,
                 )
             }
         }

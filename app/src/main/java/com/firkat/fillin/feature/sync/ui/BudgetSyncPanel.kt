@@ -1,12 +1,12 @@
 package com.firkat.fillin.feature.sync.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import android.content.res.Configuration
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -14,14 +14,10 @@ import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.budgetsetup.ui.setupError
 import com.firkat.fillin.feature.sync.domain.*
-import com.firkat.fillin.ui.component.FeatureScaffold
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import org.koin.compose.viewmodel.koinViewModel
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import com.firkat.fillin.ui.theme.FillinTheme
 
 class BudgetSyncViewModel(
     private val sync: BudgetSyncControl,
@@ -30,6 +26,8 @@ class BudgetSyncViewModel(
     val context = sync.context.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BudgetSyncContext())
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
+    private val _busy = MutableStateFlow(false)
+    val busy = _busy.asStateFlow()
 
     fun enable() = action { session?.enable() }
 
@@ -37,7 +35,9 @@ class BudgetSyncViewModel(
 
     fun refresh() = sync.requestSync()
 
-    private fun action(block: suspend () -> Unit) =
+    private fun action(block: suspend () -> Unit) {
+        if (_busy.value) return
+        _busy.value = true
         viewModelScope.launch {
             try {
                 block()
@@ -46,77 +46,52 @@ class BudgetSyncViewModel(
                 throw e
             } catch (e: Exception) {
                 _error.value = setupError(e)
+            } finally {
+                _busy.value = false
             }
         }
+    }
 }
 
 @Composable
-fun BudgetSyncPanel(viewModel: BudgetSyncViewModel) {
+fun BudgetSyncPanel(viewModel: BudgetSyncViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.context.collectAsStateWithLifecycle()
-    if (state.cloudEnabled && (state.syncing || state.error != null || state.pending > 0)) {
+    BudgetSyncStatus(state.cloudEnabled, state.syncing, state.error != null, state.pending, modifier)
+}
+
+@Composable
+private fun BudgetSyncStatus(cloudEnabled: Boolean, syncing: Boolean, hasError: Boolean, pending: Int, modifier: Modifier = Modifier) {
+    if (cloudEnabled && (syncing || hasError || pending > 0)) {
         Text(
-            when {
-                state.syncing -> "Синхронизация…"
-                state.error != null -> "Ошибка синхронизации. Данные сохранены на устройстве."
-                else -> "Ожидают синхронизации: ${state.pending}"
-            },
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            stringResource(when {
+                syncing -> R.string.cloud_sync_running
+                hasError -> R.string.cloud_sync_failed
+                else -> R.string.cloud_sync_pending
+            }, pending),
+            modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             style = MaterialTheme.typography.bodySmall,
         )
     }
 }
 
+@Preview(name = "Sync status hidden")
 @Composable
-fun ProfileScreen(
-    viewModel: BudgetSyncViewModel = koinViewModel(),
-    isAuthenticated: Boolean,
-    authBusy: Boolean,
-    onAccountClick: () -> Unit,
-    uploadContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadSection(onSignIn = onAccountClick) },
-    joinContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinSection() },
-    membersContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersSection() },
-    invitationContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetinvitation.ui.BudgetInvitationSection() },
-    connectionContent: @Composable () -> Unit = { com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionSection() },
-) {
-    val state by viewModel.context.collectAsStateWithLifecycle()
-    val error by viewModel.error.collectAsStateWithLifecycle()
-    FeatureScaffold(R.string.sync_title) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            OutlinedButton(onClick = onAccountClick, enabled = !authBusy) {
-                Text(stringResource(if (isAuthenticated) R.string.auth_sign_out else R.string.auth_open))
-            }
-            uploadContent()
-            joinContent()
-            connectionContent()
-            invitationContent()
-            membersContent()
-            Text(
-                when {
-                    state.syncing -> "Синхронизация…"
-                    state.cloudEnabled -> "Облачная синхронизация включена"
-                    else -> "Облачная синхронизация выключена"
-                },
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text("Ожидают синхронизации: ${state.pending}")
-            Text(
-                "Последняя успешная синхронизация: " + (
-                    state.lastSyncedAt?.let {
-                        DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm").withZone(ZoneId.of("Asia/Almaty")).format(Instant.parse(it))
-                    } ?: "Ещё не выполнялась"
-                ),
-            )
-            Button(onClick = { viewModel.enable() }, enabled = state.ready && !state.cloudEnabled && !state.syncing) { Text("Включить облачную синхронизацию") }
-            OutlinedButton(onClick = { viewModel.disable() }, enabled = state.cloudEnabled) { Text("Отключить облачную синхронизацию") }
-            OutlinedButton(onClick = viewModel::refresh, enabled = state.cloudEnabled && !state.syncing) { Text("Синхронизировать") }
-            state.error?.let { code -> Text(syncErrorText(code), color = MaterialTheme.colorScheme.error) }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            state.issues.forEach { Text("${it.title}: ${it.local}\nОшибка отправки. Проверьте данные записи.", color = MaterialTheme.colorScheme.error) }
-        }
-    }
-}
+private fun BudgetSyncStatusHiddenPreview() { FillinTheme { BudgetSyncStatus(false, false, false, 0) } }
 
-private fun syncErrorText(code: String): String =
+@Preview(name = "Sync running")
+@Preview(name = "Sync running dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun BudgetSyncStatusRunningPreview() { FillinTheme { BudgetSyncStatus(true, true, false, 0) } }
+
+@Preview(name = "Sync error", widthDp = 320, fontScale = 2f)
+@Composable
+private fun BudgetSyncStatusErrorPreview() { FillinTheme { BudgetSyncStatus(true, false, true, 0) } }
+
+@Preview(name = "Pending sync", widthDp = 840)
+@Composable
+private fun BudgetSyncStatusPendingPreview() { FillinTheme { BudgetSyncStatus(true, false, false, 3) } }
+
+internal fun syncErrorText(code: String): String =
     when (code) {
         "sync_interrupted" -> "Предыдущая синхронизация прервана. Изменения сохранены; повторите синхронизацию."
         "budget_identity_conflict" -> "Бюджет с такими идентификаторами уже существует. Данные сохранены; обратитесь к разработчику."
