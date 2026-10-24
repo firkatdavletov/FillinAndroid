@@ -21,6 +21,7 @@ firebaseBom = "35.0.2"
 credentials = "1.6.0"
 googleId = "1.2.1"
 navigation3 = "1.2.0"
+material3 = "1.4.0"
 
 [libraries]
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
@@ -74,6 +75,7 @@ firebase-auth = { module = "com.google.firebase:firebase-auth" }
 androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
 androidx-credentials-play-services-auth = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 google-identity = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleId" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 
 [plugins]
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

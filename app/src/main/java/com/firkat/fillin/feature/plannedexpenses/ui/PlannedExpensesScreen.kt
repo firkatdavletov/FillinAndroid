@@ -2,6 +2,8 @@ package com.firkat.fillin.feature.plannedexpenses.ui
 
 import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -667,98 +669,66 @@ internal fun PlannedExpenseItem(
         MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Column(
+        modifier = Modifier.clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = onManageRule
         ),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.Top,
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                ) {
-                    Text(
-                        text = expense.categoryName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = if (expense.overdue) {
-                            stringResource(
-                                R.string.planned_expenses_overdue_due_date,
-                                formatLongDate(expense.dueOn),
-                            )
-                        } else {
-                            stringResource(
-                                R.string.planned_expenses_due_date,
-                                formatLongDate(expense.dueOn),
-                            )
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = dueColor,
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = formatMoney(expense.remainingAmount, expense.currency),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = stringResource(R.string.planned_expenses_left),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            LinearProgressIndicator(
-                progress = { paidFraction(expense) },
-                modifier = Modifier.fillMaxWidth(),
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                AmountCaption(
-                    label = stringResource(R.string.planned_expenses_planned),
-                    amount = formatMoney(expense.plannedAmount, expense.currency),
-                    modifier = Modifier.weight(1f),
+                Text(
+                    text = expense.categoryName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                 )
-                AmountCaption(
-                    label = stringResource(R.string.planned_expenses_paid),
-                    amount = formatMoney(expense.paidAmount, expense.currency),
-                    modifier = Modifier.weight(1f),
-                    alignEnd = true,
+                Text(
+                    text = if (expense.overdue) {
+                        stringResource(
+                            R.string.planned_expenses_overdue_due_date,
+                            formatLongDate(expense.dueOn),
+                        )
+                    } else {
+                        stringResource(
+                            R.string.planned_expenses_due_date,
+                            formatLongDate(expense.dueOn),
+                        )
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = dueColor,
                 )
             }
-
-            if (expense.canBeClosed) {
-                OutlinedButton(
-                    onClick = onClose,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.planned_expenses_close_action))
-                }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = formatMoney(expense.remainingAmount, expense.currency),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.planned_expenses_left),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            TextButton(
-                onClick = onManageRule,
-                modifier = Modifier.align(Alignment.End),
+        }
+
+        if (expense.canBeClosed) {
+            OutlinedButton(
+                onClick = onClose,
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(stringResource(R.string.planned_expenses_manage_rule))
+                Text(stringResource(R.string.planned_expenses_close_action))
             }
         }
     }

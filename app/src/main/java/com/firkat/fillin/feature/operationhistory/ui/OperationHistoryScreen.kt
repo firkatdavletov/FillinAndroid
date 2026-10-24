@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +51,7 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTo
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
+import com.firkat.fillin.feature.plannedoperations.ui.components.OperationItem
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.format.formatMoney
@@ -104,13 +107,8 @@ fun OperationHistoryScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        OperationSyncStatusBanner(state.offline)
         OperationHistoryFilters(state = state, onEvent = onEvent)
-        Button(
-            onClick = { onEvent(OperationHistoryEvent.CreateRequested) },
-            enabled = state.offline.initialSyncComplete && state.offline.syncError != "scope_changed",
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        ) { Text(stringResource(R.string.operation_create_title)) }
+
         Box(Modifier.weight(1f)) {
             key(state.filters) {
                 RefreshableContent(
@@ -159,7 +157,6 @@ fun OperationHistoryScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun OperationList(
     state: OperationHistoryUiState,
@@ -244,12 +241,7 @@ private fun OperationList(
             ) { purchase ->
                 OperationItem(
                     purchase = purchase,
-                    online = state.offline.isOnline,
                     onEdit = { onEdit(purchase.id) },
-                )
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant,
                 )
             }
         }
@@ -407,110 +399,6 @@ private fun RefundConfirmation(onEvent: (OperationHistoryEvent) -> Unit) {
 }
 
 @Composable
-private fun OperationItem(
-    purchase: Operation,
-    online: Boolean,
-    onEdit: () -> Unit,
-) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = purchase.categoryName,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = formatOperationAmount(purchase.amount, purchase.currency, purchase.type),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color =
-                    if (purchase.type == OperationType.Income) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-            )
-        }
-        Text(
-            text =
-                purchase.description
-                    ?.takeIf(String::isNotBlank)
-                    ?: stringResource(R.string.operation_history_no_description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        when (purchase.syncStatus) {
-            OperationSyncStatus.Pending -> {
-                Text(
-                    stringResource(R.string.operation_sync_pending),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            OperationSyncStatus.Rejected -> {
-                Text(
-                    stringResource(
-                        when (purchase.syncError) {
-                            "category_unavailable" -> R.string.operation_sync_invalid_category
-                            "invalid_amount" -> R.string.operation_sync_invalid_amount
-                            "invalid_date" -> R.string.operation_sync_invalid_date
-                            "invalid_description" -> R.string.operation_sync_invalid_description
-                            else -> R.string.operation_sync_rejected
-                        },
-                    ),
-                    color = MaterialTheme.colorScheme.error,
-                )
-                TextButton(onClick = onEdit) { Text(stringResource(R.string.operation_sync_correct)) }
-            }
-
-            OperationSyncStatus.Synced -> {
-                Unit
-            }
-        }
-        when (purchase.status) {
-            OperationStatus.Posted -> {
-                if (purchase.type == OperationType.Expense &&
-                    purchase.originalCurrency == "KZT" && purchase.syncStatus != OperationSyncStatus.Rejected
-                ) {
-                    TextButton(
-                        onClick = onEdit,
-                        enabled = purchase.originalCurrency == "KZT",
-                        modifier = Modifier.align(Alignment.End),
-                    ) {
-                        Text(stringResource(R.string.operation_history_edit_action))
-                    }
-                }
-            }
-
-            OperationStatus.Voided -> {
-                Text(
-                    text = stringResource(R.string.operation_history_voided_status),
-                    modifier = Modifier.align(Alignment.End),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            OperationStatus.Unknown -> {
-                Unit
-            }
-        }
-    }
-}
-
-@Composable
 private fun LoadingContent(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxSize(),
@@ -583,7 +471,7 @@ private val OperationHistoryError.messageResource: Int
             OperationHistoryError.Unknown -> R.string.operation_history_error_generic
         }
 
-private fun formatOperationAmount(
+fun formatOperationAmount(
     amount: BigDecimal,
     currency: String,
     type: OperationType,
@@ -603,10 +491,16 @@ private fun formatDateHeader(date: LocalDate): String =
         DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru")),
     )
 
-private fun formatDayTotals(totals: List<OperationDayTotal>): String =
-    totals.joinToString("\n") {
-        formatOperationAmount(it.amount, it.currency, it.type)
+private fun formatDayTotals(totals: List<OperationDayTotal>): String {
+    val amount = totals.sumOf {
+        when (it.type) {
+            OperationType.Expense -> (-it.amount)
+            OperationType.Income -> it.amount
+        }
     }
+    val amountType = if (amount <= BigDecimal(0)) OperationType.Expense else OperationType.Income
+    return formatOperationAmount(amount.abs(), totals.first().currency, amountType)
+}
 
 @Preview(showBackground = true)
 @Composable

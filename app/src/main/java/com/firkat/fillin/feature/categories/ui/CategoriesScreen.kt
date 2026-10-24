@@ -150,6 +150,7 @@ fun CategoriesScreen(
                     )
                 },
                 text = { Text(stringResource(R.string.categories_create_action)) },
+                containerColor = MaterialTheme.colorScheme.primary
             )
         }
     }

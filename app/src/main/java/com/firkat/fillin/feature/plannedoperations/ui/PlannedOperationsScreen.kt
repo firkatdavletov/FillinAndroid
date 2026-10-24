@@ -84,7 +84,6 @@ fun PlannedOperationsRoute(
         navigateBackEnabled = expenseState.editor?.isSaving != true && incomeState.editor?.isSaving != true,
     ) {
         Column {
-            BudgetSyncPanel(syncViewModel)
             when {
                 expenseState.editor != null -> {
                     PlannedExpensesScreen(expenseState, expenseEditor::onEvent)
@@ -132,7 +131,7 @@ fun PlannedOperationsScreen(
 ) {
     Column(Modifier.fillMaxSize()) {
         PlannedOperationsFilters(state, onEvent)
-        HorizontalDivider()
+
         Box(Modifier.weight(1f)) {
             val items = state.operations?.items.orEmpty()
             RefreshableContent(
@@ -243,6 +242,7 @@ fun PlannedOperationsScreen(
                     ExtendedFloatingActionButton(
                         onClick = { showCreateMenu = true },
                         modifier = Modifier.testTag("planned-create"),
+                        containerColor = MaterialTheme.colorScheme.primary
                     ) { Text(stringResource(R.string.planned_operations_add)) }
                 }
                 DropdownMenu(expanded = showCreateMenu, onDismissRequest = { showCreateMenu = false }) {

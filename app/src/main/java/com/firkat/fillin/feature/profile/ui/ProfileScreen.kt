@@ -91,8 +91,8 @@ fun ProfileScreen(
 ) {
     Scaffold(
         modifier = modifier.testTag("profile_screen"),
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
+        containerColor = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.navigation_profile), Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleLarge) },
@@ -101,7 +101,7 @@ fun ProfileScreen(
                         Icon(Icons.AutoMirrored.Outlined.Logout, stringResource(R.string.auth_sign_out), Modifier.size(20.dp))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
     ) { padding ->

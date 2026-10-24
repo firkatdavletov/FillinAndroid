@@ -77,17 +77,34 @@ fun FamilyAccessScreen(
     modifier: Modifier = Modifier,
     membersContent: @Composable () -> Unit = {},
 ) {
-    SettingsScaffold(stringResource(R.string.profile_family_access), onBack, modifier.testTag("family_access_screen")) { padding ->
+    SettingsScaffold(
+        title = stringResource(R.string.profile_family_access),
+        onBack = onBack,
+        modifier = modifier.testTag("family_access_screen")
+    ) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()
-                .verticalScroll(rememberScrollState()).padding(24.dp),
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .consumeWindowInsets(padding)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             if (join.session !is AuthSession.Authenticated) {
-                Text(stringResource(R.string.family_sign_in_hint), style = MaterialTheme.typography.bodyMedium)
-                PrimaryButton(stringResource(R.string.profile_sign_in), onSignIn, Modifier.fillMaxWidth())
+                Text(
+                    text = stringResource(R.string.family_sign_in_hint),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                PrimaryButton(
+                    text = stringResource(R.string.profile_sign_in),
+                    onClick = onSignIn, Modifier.fillMaxWidth()
+                )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                     Text(stringResource(R.string.family_invite_title), style = MaterialTheme.typography.titleMedium)
                     Text(stringResource(R.string.family_invite_hint), style = MaterialTheme.typography.bodySmall)
                     val target = invitation.target

@@ -2,6 +2,8 @@ package com.firkat.fillin.feature.plannedincomes.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -420,55 +422,50 @@ internal fun PlannedIncomeItem(income: PlannedIncome, onEdit: () -> Unit) {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Column(
+        modifier = Modifier
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onEdit
+            ),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.Top,
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = income.categoryName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = stringResource(
-                            if (income.overdue) {
-                                R.string.planned_incomes_overdue_due_date
-                            } else {
-                                R.string.planned_incomes_due_date
-                            },
-                            formatLongDate(income.dueOn),
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = dueColor,
-                    )
-                }
                 Text(
-                    text = formatMoney(income.plannedAmount, income.currency),
+                    text = income.categoryName,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(
+                        if (income.overdue) {
+                            R.string.planned_incomes_overdue_due_date
+                        } else {
+                            R.string.planned_incomes_due_date
+                        },
+                        formatLongDate(income.dueOn),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = dueColor,
                 )
             }
-            TextButton(
-                onClick = onEdit,
-                modifier = Modifier.align(Alignment.End),
-            ) {
-                Text(stringResource(R.string.planned_incomes_edit_action))
-            }
+            Text(
+                text = "+" + formatMoney(income.plannedAmount, income.currency),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }

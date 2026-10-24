@@ -90,8 +90,8 @@ private fun OperationTotalBlock(
                 onClick = onSelect,
             ),
         shape = shape,
-        color = colors.secondaryContainer,
-        contentColor = colors.onSecondaryContainer,
+        color = colors.primary,
+        contentColor = colors.onPrimary,
         border = if (selected) BorderStroke(1.dp, colors.primary) else null,
     ) {
         Row(

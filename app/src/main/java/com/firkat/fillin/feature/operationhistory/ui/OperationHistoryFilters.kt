@@ -61,10 +61,8 @@ internal fun OperationHistoryFilters(
             testTagPrefix = "history",
         )
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun OperationPeriodFilterDialog(
     filters: OperationHistoryFilter,
