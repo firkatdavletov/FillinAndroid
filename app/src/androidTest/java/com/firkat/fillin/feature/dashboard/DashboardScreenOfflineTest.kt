@@ -20,6 +20,7 @@ import com.firkat.fillin.feature.dashboard.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.*
+import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.DailyLimitSummary
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.*
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -66,11 +67,14 @@ class DashboardScreenOfflineTest {
         val balance = bounds("total-balance")
         val available = bounds("available-to-spend")
         val daily = bounds("daily-limit")
-        val forecast = bounds("balance-forecast")
         assertEquals(balance.top, available.top, 1f)
         assertTrue(balance.right < available.left)
-        assertEquals(daily.top, forecast.top, 1f)
+        val gap = available.left - balance.right
+        assertEquals(balance.width * 2 + gap, daily.width, 1f)
+        assertEquals(balance.height * 2 + gap, daily.height, 1f)
         assertTrue(balance.bottom < daily.top)
+        scrollTo("balance-forecast")
+        assertTrue(bounds("daily-limit").bottom < bounds("balance-forecast").top)
         assertEquals(balance.width * 0.5f, balance.height, 1f)
         assertEquals(4, DefaultDashboardWidgets.size)
         compose.onNodeWithText("Бюджет месяца").assertDoesNotExist()
@@ -126,6 +130,11 @@ class DashboardScreenOfflineTest {
         compose.onNodeWithText(formatMoney(SAMPLE.availableMoney.amount, "KZT")).assertIsDisplayed()
         screenshot("initial-$screenshotName")
         assertNoTextOverflow()
+        scrollTo("daily-limit")
+        compose.onNodeWithText("Потрачено сегодня").assertIsDisplayed()
+        compose.onNodeWithText("Осталось сегодня").assertIsDisplayed()
+        assertNoTextOverflow()
+        screenshot("daily-$screenshotName")
         scrollTo("balance-forecast")
         assertNoTextOverflow()
         compose.onNodeWithText("Прогноз остатка").assertIsDisplayed()
@@ -168,7 +177,7 @@ class DashboardScreenOfflineTest {
         when (widget.kind) {
             DashboardWidgetKind.TotalBalance -> TotalBalanceWidget(TotalBalanceUiState(dashboard.availableMoney))
             DashboardWidgetKind.AvailableToSpend -> AvailableToSpendWidget(AvailableToSpendUiState(dashboard.freeMoney.amount))
-            DashboardWidgetKind.DailyLimit -> DailyLimitWidget(DailyLimitUiState(dashboard.freeMoney.safeDailyLimit))
+            DashboardWidgetKind.DailyLimit -> DailyLimitWidget(DailyLimitUiState.from(DailyLimitSummary.from(dashboard)))
             DashboardWidgetKind.BalanceForecast -> {
                 val insufficient = dashboard.forecast.estimateSource == "UNAVAILABLE"
                 BalanceForecastWidget(BalanceForecastUiState(dashboard.forecast.base.endingBalance.takeUnless { insufficient }, insufficient))
@@ -195,6 +204,7 @@ class DashboardScreenOfflineTest {
             availableMoney = money("12345678.90"),
             freeMoney = empty.freeMoney.copy(amount = money("-12345.67"), safeDailyLimit = money("123456.78")),
             forecast = empty.forecast.copy(base = empty.forecast.base.copy(endingBalance = money("-98765.43"))),
+            todayVariableNetExpenses = money("30864.19"),
         ) }
     }
 }

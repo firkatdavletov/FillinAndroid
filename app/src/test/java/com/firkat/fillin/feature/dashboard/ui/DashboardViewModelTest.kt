@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModelStore
 import com.firkat.fillin.feature.dashboard.domain.DashboardDataSource
 import com.firkat.fillin.feature.dashboard.domain.calculation.CalculateDashboard
 import com.firkat.fillin.feature.dashboard.domain.calculation.DashboardCalculationInput
+import com.firkat.fillin.feature.dashboard.domain.calculation.DashboardCategory
+import com.firkat.fillin.feature.dashboard.domain.calculation.DashboardOperation
+import com.firkat.fillin.feature.dashboard.domain.calculation.DashboardOperationKind
 import com.firkat.fillin.feature.dashboard.domain.model.*
 import com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository
 import com.firkat.fillin.feature.dashboard.widgets.availabletospend.domain.ObserveAvailableToSpend
@@ -13,12 +16,14 @@ import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.domain.Observ
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastViewModel
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
+import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitUiState
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.domain.ObserveTotalBalance
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceViewModel
 import com.firkat.fillin.feature.sync.domain.BudgetSyncContext
 import com.firkat.fillin.feature.sync.domain.BudgetSyncControl
 import java.math.BigDecimal
 import java.time.Instant
+import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -104,7 +109,7 @@ class DashboardViewModelTest {
         assertEquals(DashboardStatus.Forbidden, source.state.value.status)
         assertNull(balance.uiState.value.amount)
         assertNull(available.uiState.value.amount)
-        assertNull(daily.uiState.value.amount)
+        assertEquals(DailyLimitUiState(), daily.uiState.value)
         assertNull(forecast.uiState.value.amount)
         assertEquals(1, repository.subscriptions)
         sync.context.value = BudgetSyncContext(ready = true)
@@ -126,6 +131,49 @@ class DashboardViewModelTest {
             assertEquals(DashboardStatus.Ready, source.state.value.status)
         }
         assertEquals(1, repository.subscriptions)
+    }
+
+    @Test fun `daily widget receives spending edits and refunds through the shared snapshot`() = runTest {
+        val category = "00000000-0000-0000-0000-000000000001"
+        val input = DashboardCalculationInput(
+            Instant.parse("2026-09-06T03:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"),
+            "250000.00".toBigDecimal(), BigDecimal.ZERO, BigDecimal.ZERO, emptyList(),
+            listOf(DashboardCategory(category, "Продукты", true)), emptyList(), emptyList(), emptySet(),
+            knownExpenseIds = setOf("expense"),
+        )
+        val repository = FakeRepository().also { it.data.value = CalculateDashboard.calculate(input) }
+        val sync = FakeSync().also { it.context.value = BudgetSyncContext(ready = true) }
+        val source = DashboardDataSource(repository, sync, backgroundScope)
+        val daily = keep("daily", DailyLimitViewModel(ObserveDailyLimit(source)))
+        watch(daily.uiState)
+        runCurrent()
+        assertEquals(money("10000"), daily.uiState.value.amount)
+        assertEquals(money("0"), daily.uiState.value.spentToday)
+        val expense = DashboardOperation(
+            "expense", category, DashboardOperationKind.Expense, "2500.00".toBigDecimal(),
+            LocalDate.parse("2026-09-06"), Instant.parse("2026-09-06T00:00:00Z"),
+        )
+        for (amount in listOf("2500", "5000", "12500")) {
+            repository.data.value = CalculateDashboard.calculate(input.copy(operations = listOf(expense.copy(amount = amount.toBigDecimal()))))
+            runCurrent()
+            assertEquals(money("10000"), daily.uiState.value.amount)
+            assertEquals(money(amount), daily.uiState.value.spentToday)
+        }
+        assertTrue(daily.uiState.value.isOverspent)
+        val edited = expense.copy(amount = "5000.00".toBigDecimal())
+        val refund = edited.copy(id = "refund", kind = DashboardOperationKind.Refund, amount = "2000.00".toBigDecimal(), refundOf = edited.id)
+        repository.data.value = CalculateDashboard.calculate(input.copy(operations = listOf(edited, refund)))
+        runCurrent()
+        assertEquals(money("10000"), daily.uiState.value.amount)
+        assertEquals(money("3000"), daily.uiState.value.spentToday)
+        assertEquals(money("7000"), daily.uiState.value.remainingToday)
+        assertEquals(BigDecimal("70.0"), daily.uiState.value.remainingPercent)
+        assertEquals(0.3f, daily.uiState.value.progress, 0f)
+        assertFalse(daily.uiState.value.isOverspent)
+        assertEquals(1, repository.subscriptions)
+        sync.context.value = BudgetSyncContext(ready = true, error = "scope_changed")
+        runCurrent()
+        assertEquals(DailyLimitUiState(), daily.uiState.value)
     }
 
     @Test fun `uninitialized and failed local data never turn into zero balances and retry recovers`() = runTest {

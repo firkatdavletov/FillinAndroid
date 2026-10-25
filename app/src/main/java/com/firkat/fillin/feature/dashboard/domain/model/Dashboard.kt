@@ -13,6 +13,7 @@ data class Dashboard(
     val forecast: Forecast,
     val expenseCategories: List<ExpenseCategory>,
     val upcomingPayments: List<UpcomingPayment>,
+    val todayVariableNetExpenses: Money,
 )
 
 data class Money(

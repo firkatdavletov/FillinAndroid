@@ -73,7 +73,7 @@ object CalculateDashboard {
         val historyStart = maxOf(today.minusDays(30), input.accountingStartedAt.atZone(zone).toLocalDate())
         val historyDays = ChronoUnit.DAYS.between(historyStart, today).toInt().coerceAtLeast(0)
         val originalIds = input.knownExpenseIds
-        fun variable(operations: List<DashboardOperation>): BigDecimal = operations.sumOf {
+        fun variableNet(operations: List<DashboardOperation>): BigDecimal = operations.sumOf {
             when {
                 it.kind == DashboardOperationKind.Expense && it.id !in input.excludedVariableExpenseIds -> it.amount
 
@@ -82,10 +82,14 @@ object CalculateDashboard {
 
                 else -> BigDecimal.ZERO
             }
-        }.max(BigDecimal.ZERO)
+        }
+        val todayVariableNet = variableNet(input.operations.filter {
+            it.occurredOn == today && it.occurredAt <= input.asOf
+        })
         val complete = historyDays >= 14
         val daily = if (complete) {
-            variable(input.operations.filter { it.occurredOn >= historyStart && it.occurredOn < today })
+            variableNet(input.operations.filter { it.occurredOn >= historyStart && it.occurredOn < today })
+                .max(BigDecimal.ZERO)
                 .divide(BigDecimal(historyDays), 2, RoundingMode.HALF_UP)
         } else {
             BigDecimal.ZERO.setScale(2)
@@ -104,7 +108,7 @@ object CalculateDashboard {
         }
         val base = scenario(daily, 0)
         val spent = net.max(BigDecimal.ZERO)
-        val variableSpent = variable(month)
+        val variableSpent = variableNet(month).max(BigDecimal.ZERO)
         val categoryAmounts = month.filter {
             it.kind != DashboardOperationKind.Income &&
                 categories[it.categoryId]?.isExpense == true
@@ -135,7 +139,8 @@ object CalculateDashboard {
                 money(input.goalReserve),
                 money(reserved),
                 days,
-                money(free.max(BigDecimal.ZERO).divide(BigDecimal(days), 0, RoundingMode.FLOOR))
+                // Restore today's net variable spending before distributing the remaining funds.
+                money((free + todayVariableNet).max(BigDecimal.ZERO).divide(BigDecimal(days), 0, RoundingMode.FLOOR))
             ),
             MonthActuals(money(income), money(expenses), money(refunds), money(net)),
             CashFlow(money(income - net)),
@@ -149,6 +154,7 @@ object CalculateDashboard {
             input.payments.sortedWith(compareBy({ it.dueOn }, { it.id })).take(5).map {
                 UpcomingPayment(it.categoryName, it.dueOn, money(it.remaining))
             },
+            money(todayVariableNet),
         )
     }
 

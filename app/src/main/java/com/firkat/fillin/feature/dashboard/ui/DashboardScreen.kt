@@ -175,7 +175,14 @@ private fun DashboardGridPreview() {
                     AvailableToSpendUiState(Money("-12345.67".toBigDecimal(), "KZT")),
                 )
                 DashboardWidgetKind.DailyLimit -> DailyLimitWidget(
-                    DailyLimitUiState(Money("123456.78".toBigDecimal(), "KZT")),
+                    DailyLimitUiState(
+                        amount = Money("123456.00".toBigDecimal(), "KZT"),
+                        spentToday = Money("30864.00".toBigDecimal(), "KZT"),
+                        remainingToday = Money("92592.00".toBigDecimal(), "KZT"),
+                        spentPercent = "25.0".toBigDecimal(),
+                        remainingPercent = "75.0".toBigDecimal(),
+                        progress = 0.25f,
+                    ),
                 )
                 DashboardWidgetKind.BalanceForecast -> BalanceForecastWidget(
                     if (widget.size == DashboardWidgetSize.OneByOne) {

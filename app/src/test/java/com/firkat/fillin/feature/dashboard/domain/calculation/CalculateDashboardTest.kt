@@ -56,6 +56,7 @@ class CalculateDashboardTest {
                 ExpenseCategory("Транспорт", money("10000"), BigDecimal("16.7"))
             ),
             listOf(UpcomingPayment("Жильё", LocalDate.parse("2026-09-06"), money("80000"))),
+            money("0"),
         )
         assertEquals(expected, CalculateDashboard.calculate(input))
     }
@@ -125,6 +126,106 @@ class CalculateDashboardTest {
         assertEquals(decimal("-0.01"), result.freeMoney.amount.amount)
         assertEquals(decimal("0"), result.freeMoney.safeDailyLimit.amount)
         assertEquals(FreeMoneyState.Deficit, result.freeMoney.state)
+    }
+
+    @Test fun `today variable spending does not reduce the daily limit even when free money becomes negative`() {
+        val initial = input().copy(openingBalance = decimal("250000"))
+        val before = CalculateDashboard.calculate(initial)
+        for (amount in listOf("2500.99", "12500", "300000")) {
+            val after = CalculateDashboard.calculate(initial.copy(operations = listOf(
+                operation("today", FOOD, DashboardOperationKind.Expense, amount, "2026-09-06"),
+            )))
+            assertEquals(money("10000"), after.freeMoney.safeDailyLimit)
+            assertEquals(before.freeMoney.safeDailyLimit, after.freeMoney.safeDailyLimit)
+            assertEquals(money(amount), after.todayVariableNetExpenses)
+            assertEquals(decimal("250000") - decimal(amount), after.freeMoney.amount.amount)
+        }
+    }
+
+    @Test fun `today totals exclude future instants and expenses on other accounting dates`() {
+        val result = CalculateDashboard.calculate(input().copy(
+            openingBalance = decimal("250000"),
+            operations = listOf(
+                operation("yesterday", FOOD, DashboardOperationKind.Expense, "5000", "2026-09-05"),
+                operation("today", FOOD, DashboardOperationKind.Expense, "1000", "2026-09-06"),
+                operation("later", FOOD, DashboardOperationKind.Expense, "7000", "2026-09-06")
+                    .copy(occurredAt = Instant.parse("2026-09-06T10:00:00Z")),
+                operation("tomorrow", FOOD, DashboardOperationKind.Expense, "9000", "2026-09-07"),
+            ),
+        ))
+        assertEquals(money("1000"), result.todayVariableNetExpenses)
+        assertEquals(money("9800"), result.freeMoney.safeDailyLimit)
+    }
+
+    @Test fun `refunds exceeding today expenses retain a signed amount and a stable limit`() {
+        val initial = input().copy(
+            openingBalance = decimal("100000"),
+            operations = listOf(operation("original", FOOD, DashboardOperationKind.Expense, "10000", "2026-09-05")),
+            knownExpenseIds = setOf("original"),
+        )
+        val before = CalculateDashboard.calculate(initial)
+        val after = CalculateDashboard.calculate(initial.copy(operations = initial.operations + listOf(
+            operation("today", FOOD, DashboardOperationKind.Expense, "2000", "2026-09-06"),
+            operation("refund", FOOD, DashboardOperationKind.Refund, "5000", "2026-09-06").copy(refundOf = "original"),
+        )))
+        assertEquals(money("-3000"), after.todayVariableNetExpenses)
+        assertEquals(money("3600"), after.freeMoney.safeDailyLimit)
+        assertEquals(before.freeMoney.safeDailyLimit, after.freeMoney.safeDailyLimit)
+        assertEquals(money("7000"), after.budgetExecution.variable.spent)
+    }
+
+    @Test fun `payments regular expenses and their refunds are excluded from today variable spending`() {
+        val result = CalculateDashboard.calculate(input().copy(
+            openingBalance = decimal("300000"),
+            excludedVariableExpenseIds = setOf("payment", "regular"),
+            knownExpenseIds = setOf("payment", "regular", "variable"),
+            payments = listOf(DashboardPayment("obligation", "Жильё", LocalDate.parse("2026-09-06"), decimal("80000"))),
+            operations = listOf(
+                operation("payment", HOUSING, DashboardOperationKind.Expense, "20000", "2026-09-06"),
+                operation("regular", FOOD, DashboardOperationKind.Expense, "3000", "2026-09-06"),
+                operation("payment-refund", HOUSING, DashboardOperationKind.Refund, "1000", "2026-09-06").copy(refundOf = "payment"),
+                operation("variable", FOOD, DashboardOperationKind.Expense, "1500", "2026-09-06"),
+                operation("variable-refund", FOOD, DashboardOperationKind.Refund, "500", "2026-09-06").copy(refundOf = "variable"),
+            ),
+        ))
+        assertEquals(money("1000"), result.todayVariableNetExpenses)
+        assertEquals(money("7920"), result.freeMoney.safeDailyLimit)
+    }
+
+    @Test fun `daily limit floors fractional tenge on the last day of leap February`() {
+        val result = CalculateDashboard.calculate(input().copy(
+            asOf = Instant.parse("2024-02-28T20:00:00Z"),
+            openingBalance = decimal("10.99"),
+            operations = listOf(operation("today", FOOD, DashboardOperationKind.Expense, "3.25", "2024-02-29")),
+        ))
+        assertEquals(1, result.freeMoney.daysRemaining)
+        assertEquals(money("10"), result.freeMoney.safeDailyLimit)
+        assertEquals(money("3.25"), result.todayVariableNetExpenses)
+    }
+
+    @Test fun `midnight in Almaty moves todays spending into the next days limit basis`() {
+        val initial = input().copy(
+            asOf = Instant.parse("2026-09-06T18:59:59Z"),
+            openingBalance = decimal("250000"),
+            operations = listOf(operation("today", FOOD, DashboardOperationKind.Expense, "1000", "2026-09-06")),
+        )
+        val before = CalculateDashboard.calculate(initial)
+        val after = CalculateDashboard.calculate(initial.copy(asOf = initial.asOf.plusSeconds(1)))
+        assertEquals(money("10000"), before.freeMoney.safeDailyLimit)
+        assertEquals(LocalDate.parse("2026-09-07"), after.date)
+        assertEquals(24, after.freeMoney.daysRemaining)
+        assertEquals(money("0"), after.todayVariableNetExpenses)
+        assertEquals(money("10375"), after.freeMoney.safeDailyLimit)
+    }
+
+    @Test fun `actual income and reserve changes continue to update the daily limit`() {
+        val initial = input().copy(openingBalance = decimal("250000"))
+        val income = CalculateDashboard.calculate(initial.copy(operations = listOf(
+            operation("income", INCOME, DashboardOperationKind.Income, "2500", "2026-09-06"),
+        )))
+        val reserved = CalculateDashboard.calculate(initial.copy(protectedReserve = decimal("25000")))
+        assertEquals(money("10100"), income.freeMoney.safeDailyLimit)
+        assertEquals(money("9000"), reserved.freeMoney.safeDailyLimit)
     }
 
     companion object {

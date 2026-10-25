@@ -11,6 +11,12 @@
     <string name="dashboard_total_balance">Общий баланс</string>
     <string name="dashboard_available_to_spend">Доступно для трат</string>
     <string name="dashboard_daily_limit">Дневной лимит</string>
+    <string name="dashboard_spent_today">Потрачено сегодня</string>
+    <string name="dashboard_remaining_today">Осталось сегодня</string>
+    <string name="dashboard_daily_overspending">Перерасход</string>
+    <string name="dashboard_daily_progress">Расход дневного лимита</string>
+    <string name="dashboard_percent">%1$s%%</string>
+    <string name="dashboard_value_unavailable">—</string>
     <string name="dashboard_balance_forecast">Прогноз остатка</string>
     <string name="dashboard_insufficient_history">Недостаточно истории</string>
     <string name="dashboard_title">Главная</string>

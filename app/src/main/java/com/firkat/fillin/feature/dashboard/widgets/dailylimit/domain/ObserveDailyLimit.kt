@@ -5,5 +5,5 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 class ObserveDailyLimit(private val source: DashboardDataSource) {
-    operator fun invoke() = source.state.map { it.dashboard?.freeMoney?.safeDailyLimit }.distinctUntilChanged()
+    operator fun invoke() = source.state.map { it.dashboard?.let(DailyLimitSummary::from) }.distinctUntilChanged()
 }

@@ -9,6 +9,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.core.database.BUDGET_MIGRATION_2_3
 import com.firkat.fillin.core.database.LocalSyncRecord
 import com.firkat.fillin.feature.dashboard.data.repository.OfflineDashboardRepository
+import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.DailyLimitSummary
 import com.firkat.fillin.feature.operationhistory.data.OfflineTestEnvironment
 import com.firkat.fillin.feature.operationhistory.data.SyntheticSyncApi
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
@@ -24,11 +25,16 @@ import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import org.junit.After
@@ -66,6 +72,55 @@ class DashboardOfflineTest {
         OfflineTestEnvironment.CLOCK
     )
     private suspend fun dashboard() = withTimeout(5000) { repository().observeDashboard().first() }
+
+    @Test fun dailyLimitStaysStableThroughOfflineCreateEditAndRefund() = runBlocking {
+        val api = SyntheticSyncApi()
+        api.log += SyncChangeDto(
+            3, "BUDGET_SETTINGS", false,
+            budgetSettings = SyncBudgetSettings(api.scope.householdId, "140000.00", "0.00"),
+        )
+        val environment = OfflineTestEnvironment(database, api)
+        assertEquals(SyncResult.Completed, environment.synchronizer.synchronize())
+        environment.connectivity.online.value = false
+        val store = BudgetStore(database, OperationSyncScheduler {}, json, OfflineTestEnvironment.CLOCK)
+        withTimeout(10000) {
+            val changes = Channel<DailyLimitSummary>(Channel.UNLIMITED)
+            val observer = launch(Dispatchers.Default) {
+                repository().observeDashboard().map(DailyLimitSummary::from).distinctUntilChanged().collect { changes.send(it) }
+            }
+            suspend fun expect(spent: String, remaining: String, percent: String) {
+                val summary = changes.receive()
+                assertEquals("10000.00", summary.limit.amount.toPlainString())
+                assertEquals(spent, summary.spentToday.amount.toPlainString())
+                assertEquals(remaining, summary.remainingToday.amount.toPlainString())
+                assertEquals(percent, summary.remainingPercent!!.toPlainString())
+            }
+            try {
+                expect("0.00", "10000.00", "100.0")
+                environment.repository.create(NewOperation(
+                    OperationType.Expense, api.expenseCategory.id, "2500.00".toBigDecimal(),
+                    LocalDate.parse("2026-10-18"), null,
+                ))
+                expect("2500.00", "7500.00", "75.0")
+                val expense = database.operations().pending(api.scope.key).single().operationId
+                store.enqueue("UPDATE_OPERATION", expense, 0) { it.copy(amount = "5000.00") }
+                expect("5000.00", "5000.00", "50.0")
+                store.enqueue("REFUND_OPERATION", expense, 1) {
+                    it.copy(amount = "2000.00", refundId = UUID.randomUUID().toString())
+                }
+                expect("3000.00", "7000.00", "70.0")
+            } finally {
+                observer.cancelAndJoin()
+                changes.close()
+            }
+        }
+        database.close()
+        database = open()
+        val restored = DailyLimitSummary.from(dashboard())
+        assertEquals("10000.00", restored.limit.amount.toPlainString())
+        assertEquals("3000.00", restored.spentToday.amount.toPlainString())
+        assertEquals("7000.00", restored.remainingToday.amount.toPlainString())
+    }
 
     @Test fun pendingOperationsAndMatchedIncomeRecalculateOfflineAndSurviveRestart() = runBlocking {
         val api = SyntheticSyncApi()
