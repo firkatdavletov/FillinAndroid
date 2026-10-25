@@ -18,7 +18,7 @@ data class CategoryDto(
 @Serializable
 data class CategoryIconDto(
     val code: String,
-    val emoji: String,
+    val emoji: String = "📦",
 )
 
 @Serializable

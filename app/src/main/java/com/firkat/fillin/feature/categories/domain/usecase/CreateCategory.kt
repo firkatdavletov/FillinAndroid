@@ -14,14 +14,13 @@ class CreateCategory(
         iconCode: String,
     ): Category {
         val normalizedName = name.trim()
-        val normalizedIcon = iconCode.trim().uppercase()
-        if (normalizedName.isEmpty() || normalizedIcon.isEmpty()) {
+        if (normalizedName.isEmpty() || iconCode.isBlank()) {
             throw CategoriesException.InvalidRequest
         }
         return repository.createCategory(
             name = normalizedName,
             kind = kind,
-            iconCode = normalizedIcon,
+            iconCode = iconCode,
         )
     }
 }

@@ -1,7 +1,6 @@
 package com.firkat.fillin.feature.categories.ui
 
 import com.firkat.fillin.feature.categories.domain.model.Category
-import com.firkat.fillin.feature.categories.domain.model.CategoryIconType
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 
 data class CategoriesUiState(
@@ -28,7 +27,7 @@ data class CategoryEditorUiState(
     val hasChanges: Boolean
         get() = original == null ||
             name.trim() != original.name ||
-            iconCode.trim().uppercase() != original.icon.code
+            iconCode != original.icon.code
 
     val canSave: Boolean
         get() = !isSaving &&
@@ -63,7 +62,7 @@ sealed interface CategoriesEvent {
     data class KindChanged(val kind: CategoryKind) : CategoriesEvent
     data object IconPickerRequested : CategoriesEvent
     data object IconPickerDismissed : CategoriesEvent
-    data class IconSelected(val icon: CategoryIconType) : CategoriesEvent
+    data class IconSelected(val iconCode: String) : CategoriesEvent
     data object SaveRequested : CategoriesEvent
     data object DeleteRequested : CategoriesEvent
     data object DeleteDismissed : CategoriesEvent

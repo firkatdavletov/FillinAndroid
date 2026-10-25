@@ -71,3 +71,5 @@ Email-вход и выдача токенов не входят в эту вер
 не выполняется.
 
 В T06 Firebase-создание использует `POST /api/v4/budgets`; прежний статический bootstrap перенесён на `/api/v4/legacy/budgets`. Новый Android-сценарий описан в [T06](firebase-budget-creation.md). Перенос локальных данных через Firebase относится к T07.
+
+Каталог PNG и правила хранения строковых кодов: [иконки категорий](category-icons.md).

@@ -13,13 +13,12 @@ class UpdateCategory(
         iconCode: String,
     ): Category {
         val normalizedName = name.trim()
-        val normalizedIcon = iconCode.trim().uppercase()
-        if (normalizedName.isEmpty() || normalizedIcon.isEmpty()) {
+        if (normalizedName.isEmpty() || iconCode.isBlank()) {
             throw CategoriesException.InvalidRequest
         }
 
         val changedName = normalizedName.takeIf { it != category.name }
-        val changedIcon = normalizedIcon.takeIf { it != category.icon.code }
+        val changedIcon = iconCode.takeIf { it != category.icon.code }
         if (changedName == null && changedIcon == null) return category
 
         return repository.updateCategory(

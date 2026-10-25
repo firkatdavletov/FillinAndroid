@@ -2,7 +2,6 @@ package com.firkat.fillin.feature.sync.data
 
 import androidx.room.withTransaction
 import com.firkat.fillin.core.database.*
-import com.firkat.fillin.feature.categories.domain.model.CategoryIconType
 import com.firkat.fillin.feature.operationhistory.data.local.*
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
 import com.firkat.fillin.feature.plannedoperations.domain.model.*
@@ -283,7 +282,7 @@ class BudgetStore(
                 }
                 if (old?.dictionaryKey == "OTHER" && name != old.name) throw BudgetLocalFailure("invalid")
             }
-            c.icon?.let { if (CategoryIconType.fromCode(it) == null) throw BudgetLocalFailure("invalid") }
+            c.icon?.let { if (it.isBlank()) throw BudgetLocalFailure("invalid") }
             if (c.type == "CREATE_CATEGORY" &&
                 (c.kind !in setOf("EXPENSE", "INCOME") || p.categories.size >= 100)
             ) {
@@ -578,7 +577,7 @@ class BudgetStore(
                 intent.startsOn,
             ).joinToString(" · ")
         val server =
-            category?.let { "${it.name} ${it.iconEmoji}" + if (it.archived) " (в архиве)" else "" }
+            category?.let { it.name + if (it.archived) " (в архиве)" else "" }
                 ?: record?.let {
                     listOfNotNull(
                         c.categories

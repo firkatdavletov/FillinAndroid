@@ -49,9 +49,10 @@ import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
+import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.component.FeatureScaffold
-import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.component.RefreshErrorContent
+import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.text.NumberFormat
@@ -192,7 +193,8 @@ internal fun PlannedIncomeEditor(
                             onEvent(PlannedIncomesEvent.CategorySelected(category.id))
                         },
                         enabled = !editor.isSaving,
-                        label = { Text("${category.icon.emoji} ${category.name}") },
+                        label = { Text(category.name) },
+                        leadingIcon = { CategoryIconImage(category.icon.code) },
                     )
                 }
             }

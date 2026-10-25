@@ -30,13 +30,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,6 +46,7 @@ import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
+import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.theme.FillinTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,7 +106,7 @@ internal fun OperationCategoryRow(
         modifier = modifier.fillMaxWidth().testTag("operation-create-categories"),
     ) {
         items(categories, key = { it.id }) { category ->
-            OperationCategoryCard(category.name, category.icon.emoji, enabled, { onCategoryClick(category.id) },
+            OperationCategoryCard(category.name, category.icon.code, enabled, { onCategoryClick(category.id) },
                 Modifier.testTag("operation-create-category-" + category.id), selected = category.id == selectedCategoryId)
         }
     }
@@ -114,7 +115,7 @@ internal fun OperationCategoryRow(
 @Composable
 private fun OperationCategoryCard(
     name: String,
-    emoji: String,
+    iconCode: String,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -132,8 +133,7 @@ private fun OperationCategoryCard(
         modifier = modifier.semantics { this.selected = selected }.widthIn(min = 80.dp, max = 128.dp).heightIn(min = 88.dp),
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Category emoji is an icon: keep its physical size when the text font scales.
-            Text(emoji, fontSize = with(LocalDensity.current) { 26.dp.toSp() })
+            CategoryIconImage(iconCode, Modifier.size(26.dp).alpha(if (enabled) 1f else 0.38f))
             Text(name, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -173,21 +173,21 @@ private fun OperationTypeDisabledIncomePreview() {
 @Preview(name = "Category dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun OperationCategoryPreview() {
-    FillinTheme { OperationCategoryCard("Продукты", "🍔", true, {}) }
+    FillinTheme { OperationCategoryCard("Продукты", "FOOD", true, {}) }
 }
 
 @Preview(name = "Disabled category")
 @Preview(name = "Disabled category dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun OperationCategoryDisabledPreview() {
-    FillinTheme { OperationCategoryCard("Продукты", "🍔", false, {}) }
+    FillinTheme { OperationCategoryCard("Продукты", "FOOD", false, {}) }
 }
 
 @Preview(name = "Long category", fontScale = 2f)
 @Preview(name = "Long category dark", fontScale = 2f, uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun OperationCategoryLongPreview() {
-    FillinTheme { OperationCategoryCard("Обслуживание автомобиля", "🚕", true, {}) }
+    FillinTheme { OperationCategoryCard("Обслуживание автомобиля", "TRANSPORT", true, {}) }
 }
 
 @Preview(name = "Category row", widthDp = 320)
@@ -224,14 +224,14 @@ internal fun previewOperationCategories() = listOf(
 @Preview(name = "Selected category dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun SelectedOperationCategoryPreview() {
-    FillinTheme { OperationCategoryCard("Продукты", "🍔", true, {}, selected = true) }
+    FillinTheme { OperationCategoryCard("Продукты", "FOOD", true, {}, selected = true) }
 }
 
 @Preview(name = "Disabled selected category")
 @Preview(name = "Disabled selected category dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun DisabledSelectedOperationCategoryPreview() {
-    FillinTheme { OperationCategoryCard("Продукты", "🍔", false, {}, selected = true) }
+    FillinTheme { OperationCategoryCard("Продукты", "FOOD", false, {}, selected = true) }
 }
 
 @Preview(name = "Selected category row")

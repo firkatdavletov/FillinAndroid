@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="category_icon_groceries">Продукты</string>
+    <string name="category_icon_cafe_restaurants">Кафе и рестораны</string>
+    <string name="category_icon_car">Автомобиль</string>
+    <string name="category_icon_bicycle">Велосипед</string>
+    <string name="category_icon_home">Дом</string>
+    <string name="category_icon_mortgage">Ипотека</string>
+    <string name="category_icon_household_goods">Товары для дома</string>
+    <string name="category_icon_clothing">Одежда</string>
+    <string name="category_icon_health">Здоровье</string>
+    <string name="category_icon_personal_care">Уход за собой</string>
+    <string name="category_icon_children">Дети</string>
+    <string name="category_icon_pets">Питомцы</string>
+    <string name="category_icon_books_education">Книги и образование</string>
+    <string name="category_icon_entertainment">Развлечения</string>
+    <string name="category_icon_sport">Спорт</string>
+    <string name="category_icon_communication">Связь</string>
+    <string name="category_icon_subscriptions">Подписки</string>
+    <string name="category_icon_gift">Подарки</string>
+    <string name="category_icon_loan">Кредит</string>
+    <string name="category_icon_service_fees">Комиссии</string>
+    <string name="category_icon_salary">Зарплата</string>
+    <string name="category_icon_bonus">Премия</string>
+    <string name="category_icon_social_benefits">Социальные выплаты</string>
+    <string name="category_icon_default">Другая иконка</string>
+</resources>

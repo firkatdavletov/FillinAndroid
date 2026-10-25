@@ -83,7 +83,7 @@ data class SyncCategoryDto(
     val name: String,
     val kind: String,
     val iconCode: String,
-    val iconEmoji: String,
+    val iconEmoji: String = "📦",
     val archived: Boolean,
     val dictionaryKey: String? = null,
 )

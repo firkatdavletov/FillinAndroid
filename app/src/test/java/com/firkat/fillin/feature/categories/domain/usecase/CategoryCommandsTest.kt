@@ -14,29 +14,29 @@ import org.junit.Test
 
 class CategoryCommandsTest {
     @Test
-    fun `create normalizes name and icon code`() = runBlocking {
+    fun `create trims name and preserves opaque icon code`() = runBlocking {
         val repository = RecordingCategoriesRepository()
 
         CreateCategory(repository)(
             name = "  Кафе  ",
             kind = CategoryKind.Expense,
-            iconCode = " food ",
+            iconCode = " custom.icon-v2 ",
         )
 
         assertEquals("Кафе", repository.createdName)
         assertEquals(CategoryKind.Expense, repository.createdKind)
-        assertEquals("FOOD", repository.createdIcon)
+        assertEquals(" custom.icon-v2 ", repository.createdIcon)
     }
 
     @Test
     fun `update sends only changed mutable fields`() = runBlocking {
         val repository = RecordingCategoriesRepository()
-        val category = category(name = "Кафе", iconCode = "FOOD")
+        val category = category(name = "Кафе", iconCode = "custom.icon-v2")
 
         UpdateCategory(repository)(
             category = category,
             name = "Рестораны",
-            iconCode = "food",
+            iconCode = "custom.icon-v2",
         )
 
         assertEquals("Рестораны", repository.updatedName)
@@ -55,7 +55,7 @@ class CategoryCommandsTest {
         )
 
         assertEquals("Прочее", repository.updatedName)
-        assertEquals("FOOD", repository.updatedIcon)
+        assertEquals("food", repository.updatedIcon)
     }
 
     @Test
@@ -68,7 +68,23 @@ class CategoryCommandsTest {
             iconCode = "other",
         )
 
-        assertEquals("OTHER", repository.createdIcon)
+        assertEquals("other", repository.createdIcon)
+    }
+
+    @Test
+    fun `changing only icon code case is a real change`() = runBlocking {
+        val repository = RecordingCategoriesRepository()
+        UpdateCategory(repository)(category("Кафе", "custom.icon-v2"), "Кафе", "CUSTOM.ICON-V2")
+        assertEquals("CUSTOM.ICON-V2", repository.updatedIcon)
+    }
+
+    @Test
+    fun `blank icon code cannot be created`() {
+        val repository = RecordingCategoriesRepository()
+        assertThrows(CategoriesException.InvalidRequest::class.java) {
+            runBlocking { CreateCategory(repository)("Кафе", CategoryKind.Expense, "  ") }
+        }
+        assertNull(repository.createdIcon)
     }
 
     @Test

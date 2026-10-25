@@ -77,7 +77,7 @@ class CategoriesViewModel(
             is CategoriesEvent.IconSelected -> {
                 updateEditor {
                     copy(
-                        iconCode = event.icon.name,
+                        iconCode = event.iconCode,
                         error = null,
                         isIconPickerVisible = false,
                     )

@@ -103,7 +103,7 @@ internal class BudgetProjection(
         }
 
     private fun overlayCategory(c: BudgetSyncCommand) {
-        val old = categories[c.entityId] ?: if (c.type == "UPDATE_CATEGORY" && c.name != null && c.kind != null && c.icon != null) LocalCategory(scope, c.entityId, c.name, c.kind, c.icon, CategoryIconType.fromCode(c.icon)?.emoji ?: "📦", false, 0) else null
+        val old = categories[c.entityId] ?: if (c.type == "UPDATE_CATEGORY" && c.name != null && c.kind != null && c.icon != null) LocalCategory(scope, c.entityId, c.name, c.kind, c.icon, "📦", false, 0) else null
         when (c.type) {
             "CREATE_CATEGORY" -> {
                 if (old == null) {
@@ -114,7 +114,7 @@ internal class BudgetProjection(
                             requireNotNull(c.name),
                             requireNotNull(c.kind),
                             requireNotNull(c.icon),
-                            CategoryIconType.fromCode(c.icon)?.emoji ?: "📦",
+                            "📦",
                             false,
                             0,
                         )
@@ -129,7 +129,7 @@ internal class BudgetProjection(
                             archived = if (content.sync.protocolVersion >= 4) false else old.archived,
                             iconCode = c.icon ?: old.iconCode,
                             iconEmoji =
-                                c.icon?.let { CategoryIconType.fromCode(it)?.emoji } ?: old.iconEmoji,
+                                if (c.icon != null) "📦" else old.iconEmoji,
                         )
                 }
             }

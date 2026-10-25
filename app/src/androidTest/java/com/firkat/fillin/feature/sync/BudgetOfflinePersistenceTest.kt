@@ -384,6 +384,33 @@ class BudgetOfflinePersistenceTest {
         assertEquals(java.time.LocalDate.parse("2026-10-18"), overdue.items.single().dueOn)
     }
 
+    @Test fun opaqueIconSurvivesLocalSaveRestartRenameAndSync() = runBlocking {
+        val api = SyntheticSyncApi()
+        val remote = Mutations(api)
+        var store = store()
+        assertEquals(SyncResult.Completed, sync(api, store, remote).synchronize())
+        val code = " custom.icon-v2 "
+        val created = OfflineCategoriesRepository(store).createCategory("Техника", CategoryKind.Expense, code)
+        assertEquals(code, created.icon.code)
+        database.close()
+        database = open()
+        store = store()
+        var repository = OfflineCategoriesRepository(store)
+        val restored = repository.getCategories().single { it.id == created.id }
+        assertEquals(code, restored.icon.code)
+        repository.updateCategory(restored, "Электроника", null)
+        assertEquals(SyncResult.Completed, sync(api, store, remote).synchronize())
+        assertEquals(code, api.log.last { it.category?.id == created.id }.category!!.iconCode)
+        assertEquals(code, repository.getCategories().single { it.id == created.id }.icon.code)
+        val current = repository.getCategories().single { it.id == created.id }
+        repository.updateCategory(current, null, "next.icon-V3")
+        assertEquals(SyncResult.Completed, sync(api, store, remote).synchronize())
+        database.close()
+        database = open()
+        repository = OfflineCategoriesRepository(store())
+        assertEquals("next.icon-V3", repository.getCategories().single { it.id == created.id }.icon.code)
+    }
+
     private class Mutations(
         private val api: SyntheticSyncApi,
     ) : BudgetSyncApi {
@@ -463,6 +490,7 @@ class BudgetOfflinePersistenceTest {
                                 old.category!!.copy(
                                     name =
                                         command.name ?: old.category.name,
+                                    iconCode = command.icon ?: old.category.iconCode,
                                 ),
                         )
                     token = revision

@@ -68,9 +68,7 @@ class CloudBudgetSession(
                         c.name,
                         c.kind,
                         c.icon,
-                        com.firkat.fillin.feature.categories.domain.model.CategoryIconType
-                            .fromCode(c.icon)!!
-                            .emoji,
+                        "📦",
                         false,
                         0,
                         c.dictionaryKey,

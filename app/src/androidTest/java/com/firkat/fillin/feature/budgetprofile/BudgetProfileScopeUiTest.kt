@@ -31,7 +31,8 @@ class BudgetProfileScopeUiTest {
                 ActiveBudgetContent(env.manager, env.auth) {
                     val model: TotalBalanceViewModel = koinViewModel()
                     val state by model.uiState.collectAsStateWithLifecycle()
-                    val profile = env.manager.active.value!!.profile.id
+                    val active by env.manager.active.collectAsStateWithLifecycle()
+                    val profile = active!!.profile.id
                     models[profile] = model
                     Text(state.amount?.amount?.toPlainString() ?: "loading")
                 }

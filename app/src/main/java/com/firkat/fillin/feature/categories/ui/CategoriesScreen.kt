@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.categories.ui
 
+import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
@@ -10,16 +11,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -43,7 +45,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -52,16 +57,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
-import com.firkat.fillin.feature.categories.domain.model.CategoryIconType
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.sync.ui.BudgetSyncPanel
 import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
+import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.RefreshableContent
+import com.firkat.fillin.ui.icon.CategoryIconOption
+import com.firkat.fillin.ui.icon.CategoryIcons
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.koin.compose.viewmodel.koinViewModel
-import androidx.compose.foundation.lazy.grid.items as gridItems
 
 @Composable
 fun CategoriesRoute(
@@ -242,10 +248,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.categorySection(
 private fun CategoryItem(
     category: Category,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
                 .padding(vertical = 10.dp),
@@ -258,10 +265,7 @@ private fun CategoryItem(
             color = MaterialTheme.colorScheme.surfaceContainerHighest,
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = category.icon.emoji,
-                    style = MaterialTheme.typography.titleLarge,
-                )
+                CategoryIconImage(category.icon.code)
             }
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -427,10 +431,11 @@ private fun CategoryIconSelector(
     iconCode: String,
     enabled: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val selectedIcon = remember(iconCode) { CategoryIconType.fromCode(iconCode) }
+    val selectedIcon = CategoryIcons.find(iconCode)
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = stringResource(R.string.categories_icon_label),
             style = MaterialTheme.typography.labelLarge,
@@ -440,17 +445,14 @@ private fun CategoryIconSelector(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
+                    .heightIn(min = 64.dp),
             enabled = enabled,
             contentPadding = PaddingValues(horizontal = 16.dp),
         ) {
-            if (selectedIcon != null) {
+            if (iconCode.isNotBlank()) {
+                CategoryIconImage(iconCode, Modifier.alpha(if (enabled) 1f else 0.38f))
                 Text(
-                    text = selectedIcon.emoji,
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                Text(
-                    text = selectedIcon.name,
+                    text = stringResource(selectedIcon?.labelResource ?: R.string.category_icon_default),
                     modifier =
                         Modifier
                             .weight(1f)
@@ -478,10 +480,11 @@ private fun CategoryIconSelector(
 @Composable
 private fun CategoryIconPickerBottomSheet(
     selectedIconCode: String,
-    onIconSelected: (CategoryIconType) -> Unit,
+    onIconSelected: (String) -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
         Column(
             modifier =
                 Modifier
@@ -495,7 +498,7 @@ private fun CategoryIconPickerBottomSheet(
                 fontWeight = FontWeight.SemiBold,
             )
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = GridCells.Adaptive(104.dp),
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -506,55 +509,120 @@ private fun CategoryIconPickerBottomSheet(
                 contentPadding = PaddingValues(bottom = 16.dp),
             ) {
                 gridItems(
-                    items = CategoryIconType.entries,
-                    key = CategoryIconType::name,
+                    items = CategoryIcons.options,
+                    key = { it.code },
                 ) { icon ->
-                    val isSelected = icon.name == selectedIconCode.trim().uppercase()
-                    Surface(
-                        onClick = { onIconSelected(icon) },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1.15f),
-                        shape = MaterialTheme.shapes.large,
-                        color =
-                            if (isSelected) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainerHighest
-                            },
-                        contentColor =
-                            if (isSelected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
-                        border =
-                            if (isSelected) {
-                                BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                            } else {
-                                null
-                            },
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            Text(
-                                text = icon.emoji,
-                                style = MaterialTheme.typography.headlineMedium,
-                            )
-                            Text(
-                                text = icon.name,
-                                modifier = Modifier.padding(top = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                            )
-                        }
-                    }
+                    CategoryIconPickerItem(
+                        icon = icon,
+                        isSelected = icon == CategoryIcons.find(selectedIconCode),
+                        onClick = { onIconSelected(icon.code) },
+                    )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun CategoryIconPickerItem(
+    icon: CategoryIconOption,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth().heightIn(min = 104.dp).semantics { selected = isSelected },
+        shape = MaterialTheme.shapes.large,
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            CategoryIconImage(icon.code, Modifier.size(32.dp))
+            Text(
+                text = stringResource(icon.labelResource),
+                modifier = Modifier.padding(top = 8.dp),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+}
+
+@Preview(name = "Icon option", widthDp = 120)
+@Preview(name = "Icon option dark", widthDp = 120, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CategoryIconOptionPreview() {
+    FillinTheme { CategoryIconPickerItem(CategoryIcons.options.first(), false, {}) }
+}
+
+@Preview(name = "Selected icon", widthDp = 120)
+@Preview(name = "Selected icon dark", widthDp = 120, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CategoryIconSelectedPreview() {
+    FillinTheme { CategoryIconPickerItem(CategoryIcons.options.first(), true, {}) }
+}
+
+@Preview(name = "Long icon label", widthDp = 120, fontScale = 2f)
+@Preview(name = "Long icon label dark", widthDp = 120, fontScale = 2f, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CategoryIconLongLabelPreview() {
+    FillinTheme { CategoryIconPickerItem(requireNotNull(CategoryIcons.find("CAFE_RESTAURANTS")), false, {}) }
+}
+
+@Preview(name = "No icon")
+@Preview(name = "No icon dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CategoryIconSelectorEmptyPreview() {
+    FillinTheme { CategoryIconSelector("", true, {}) }
+}
+
+@Preview(name = "Known icon")
+@Preview(name = "Known icon dark", uiMode = UI_MODE_NIGHT_YES)
+@Preview(name = "Known icon large font", widthDp = 320, fontScale = 2f)
+@Composable
+private fun CategoryIconSelectorKnownPreview() {
+    FillinTheme { CategoryIconSelector("CAFE_RESTAURANTS", true, {}) }
+}
+
+@Preview(name = "Disabled icon")
+@Preview(name = "Disabled icon dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CategoryIconSelectorDisabledPreview() {
+    FillinTheme { CategoryIconSelector("FOOD", false, {}) }
+}
+
+@Preview(name = "Unknown icon")
+@Preview(name = "Unknown icon dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CategoryIconSelectorUnknownPreview() {
+    FillinTheme { CategoryIconSelector("custom.icon-v2", true, {}) }
+}
+
+@Preview(name = "Category item")
+@Preview(name = "Category item dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CategoryItemPreview() {
+    FillinTheme { CategoryItem(Category("preview", "Продукты", CategoryKind.Expense, CategoryIcon("GROCERIES")), {}) }
+}
+
+@Preview(name = "Unknown category item")
+@Preview(name = "Unknown category item dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CategoryItemUnknownPreview() {
+    FillinTheme { CategoryItem(Category("preview", "Прочие расходы", CategoryKind.Expense, CategoryIcon("custom.icon-v2")), {}) }
+}
+
+@Preview(name = "Long category item", widthDp = 320, fontScale = 2f)
+@Preview(name = "Long category item dark", widthDp = 320, fontScale = 2f, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CategoryItemLongPreview() {
+    FillinTheme { CategoryItem(Category("preview", "Обслуживание семейного автомобиля", CategoryKind.Expense, CategoryIcon("CAR")), {}) }
 }
 
 @Composable
