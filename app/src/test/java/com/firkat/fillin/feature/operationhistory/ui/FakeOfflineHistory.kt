@@ -15,6 +15,7 @@ import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHisto
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.combine
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -44,6 +45,8 @@ internal class FakeOfflineHistory :
     var creationError: Exception? = null
     var edits = 0
     var refunds = 0
+
+    override fun observeOperation(id: String) = operations.map { rows -> rows.firstOrNull { it.id == id } }
 
     override fun observeHistory(
         filter: OperationHistoryFilter,

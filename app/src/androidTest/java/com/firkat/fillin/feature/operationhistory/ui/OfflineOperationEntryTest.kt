@@ -2,6 +2,8 @@ package com.firkat.fillin.feature.operationhistory.ui
 
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -22,8 +24,6 @@ import com.firkat.fillin.feature.operationhistory.data.OfflineTestEnvironment
 import com.firkat.fillin.feature.operationhistory.data.SyntheticSyncApi
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
-import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
-import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.theme.FillinTheme
 import kotlinx.coroutines.runBlocking
@@ -45,27 +45,30 @@ class OfflineOperationEntryTest {
         val model =
             OperationHistoryViewModel(
                 env.repository,
-                UpdatePurchaseAmount(env.repository),
-                RefundPurchase(env.repository),
                 OfflineTestEnvironment.CLOCK,
             )
         val store = ViewModelStore().apply { put("history", model) }
+        var creator by mutableStateOf<OperationCreateViewModel?>(null)
         try {
             compose.setContent {
                 val state by model.uiState.collectAsStateWithLifecycle()
-                FillinTheme { FeatureScaffold(R.string.operation_history_title) { OperationHistoryScreen(state, model::onEvent) } }
+                val createState = creator?.uiState?.collectAsStateWithLifecycle()?.value
+                FillinTheme {
+                    if (createState?.createEditor != null) OperationCreateScreen(createState.createEditor, createState.offline, creator!!::onEvent)
+                    else FeatureScaffold(R.string.operation_history_title) { OperationHistoryScreen(state, model::onEvent) }
+                }
             }
             compose.waitUntil { model.uiState.value.offline.initialSyncComplete }
-            compose.runOnIdle { model.onEvent(OperationHistoryEvent.CreateRequested) }
+            compose.runOnIdle { creator = OperationCreateViewModel(env.repository, OfflineTestEnvironment.CLOCK).also { store.put("creator", it) } }
             compose.onNodeWithTag("operation-create-input").performTextInput("10.01")
             compose.onNodeWithTag("operation-create-category-" + api.expenseCategory.id).performClick()
-            compose.waitUntil { model.uiState.value.createEditor == null && model.uiState.value.operations.size == 1 }
+            compose.waitUntil { creator!!.uiState.value.createEditor == null && model.uiState.value.operations.size == 1 }
             compose.onNodeWithText("Ожидает отправки").assertIsDisplayed()
-            compose.runOnIdle { model.onEvent(OperationHistoryEvent.CreateRequested) }
+            compose.runOnIdle { creator = OperationCreateViewModel(env.repository, OfflineTestEnvironment.CLOCK).also { store.put("creator", it) } }
             compose.onNodeWithTag("operation-create-type-INCOME").performScrollTo().performClick().assertIsSelected()
             compose.onNodeWithTag("operation-create-input").performTextInput("100.02")
             compose.onNodeWithTag("operation-create-category-" + api.incomeCategory.id).performClick()
-            compose.waitUntil { model.uiState.value.createEditor == null && model.uiState.value.operations.size == 2 }
+            compose.waitUntil { creator!!.uiState.value.createEditor == null && model.uiState.value.operations.size == 2 }
             assertEquals(0, api.postCount)
             compose.onAllNodesWithText("Ожидает отправки").assertCountEquals(2)
             env.connectivity.online.value = true

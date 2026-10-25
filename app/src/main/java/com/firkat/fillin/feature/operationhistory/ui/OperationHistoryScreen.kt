@@ -1,11 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,19 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -43,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -51,19 +37,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEffect
 import com.firkat.fillin.R
-import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetAction
-import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetResult
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
-import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.plannedoperations.ui.components.OperationItem
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshableContent
+import com.firkat.fillin.ui.component.showSaldomiSnackbar
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.koin.compose.viewmodel.koinViewModel
+import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -73,39 +58,30 @@ import java.util.UUID
 @Composable
 fun OperationHistoryRoute(
     viewModel: OperationHistoryViewModel = koinViewModel(),
-    onOperationClick: (String, TestBottomSheetAction, String) -> Unit,
+    snackbarHostState: androidx.compose.material3.SnackbarHostState,
+    onOperationClick: (String, String) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val resultKey = rememberSaveable { "operation-history-${UUID.randomUUID()}" }
     val resultBus = LocalResultEventBus.current
-    ResultEffect<TestBottomSheetResult>(resultKey = resultKey) { result ->
-        viewModel.onEvent(OperationHistoryEvent.OperationActionRequested(result.operationId))
+    val resources = androidx.compose.ui.platform.LocalResources.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    ResultEffect<EditOperationResult>(resultKey = resultKey) { result ->
         resultBus.removeResult(resultKey)
+        scope.launch { snackbarHostState.showSaldomiSnackbar(
+            resources.getString(when (result.outcome) {
+                EditOperationOutcome.Updated -> R.string.edit_operation_saved
+                EditOperationOutcome.Corrected -> R.string.edit_operation_corrected
+                EditOperationOutcome.Refunded -> R.string.edit_operation_refund_saved
+            }), type = com.firkat.fillin.ui.component.SnackbarType.Success,
+        ) }
     }
     DisposableEffect(resultBus, resultKey) {
         onDispose { resultBus.removeResult(resultKey) }
     }
-    FeatureScaffold(
-        titleResource = R.string.operation_history_title,
-        onNavigateBack =
-            if (state.createEditor != null) {
-                { viewModel.onEvent(OperationHistoryEvent.CreateClosed) }
-            } else if (state.editor != null) {
-                { viewModel.onEvent(OperationHistoryEvent.EditorClosed) }
-            } else {
-                null
-            },
-        navigateBackEnabled = state.editor?.isSaving != true && state.createEditor?.isSaving != true,
-    ) {
-        OperationHistoryScreen(
-            state = state,
-            onEvent = viewModel::onEvent,
-            onOperationClick = { id ->
-                state.operations.firstOrNull { it.id == id }?.let { operation ->
-                    onOperationClick(id, operation.bottomSheetAction(), resultKey)
-                }
-            },
-        )
+    FeatureScaffold(titleResource = R.string.operation_history_title) {
+        OperationHistoryScreen(state = state, onEvent = viewModel::onEvent,
+            onOperationClick = { id -> onOperationClick(id, resultKey) })
     }
 }
 
@@ -115,23 +91,6 @@ fun OperationHistoryScreen(
     onEvent: (OperationHistoryEvent) -> Unit,
     onOperationClick: (String) -> Unit = {},
 ) {
-    state.createEditor?.let { editor ->
-        BackHandler { onEvent(OperationHistoryEvent.CreateClosed) }
-        OperationCreateEditor(editor, state.offline, onEvent)
-        return
-    }
-    val editor = state.editor
-    if (editor != null) {
-        BackHandler(enabled = !editor.isSaving) {
-            onEvent(OperationHistoryEvent.EditorClosed)
-        }
-        PurchaseEditor(editor = editor, onEvent = onEvent)
-        if (editor.isRefundConfirmationVisible) {
-            RefundConfirmation(onEvent = onEvent)
-        }
-        return
-    }
-
     Column(Modifier.fillMaxSize()) {
         OperationHistoryFilters(state = state, onEvent = onEvent)
 
@@ -163,7 +122,7 @@ fun OperationHistoryScreen(
                             OperationList(
                                 state = state,
                                 onOperationClick = onOperationClick,
-                                onCorrectClick = { onEvent(OperationHistoryEvent.CorrectRejectedRequested(it)) },
+                                onCorrectClick = onOperationClick,
                                 onLoadNextPage = { onEvent(OperationHistoryEvent.LoadNextPage) },
                                 onRetry = { onEvent(OperationHistoryEvent.Retry) },
                             )
@@ -300,129 +259,6 @@ private fun OperationList(
 }
 
 @Composable
-private fun PurchaseEditor(
-    editor: PurchaseEditorUiState,
-    onEvent: (OperationHistoryEvent) -> Unit,
-) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.operation_history_editor_title),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = editor.original.categoryName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = formatDateHeader(editor.original.occurredOn),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            editor.original.description?.takeIf(String::isNotBlank)?.let { description ->
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        OutlinedTextField(
-            value = editor.amount,
-            onValueChange = { onEvent(OperationHistoryEvent.AmountChanged(it)) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !editor.isSaving,
-            label = { Text(stringResource(R.string.operation_history_amount_label)) },
-            suffix = { Text(editor.original.originalCurrency) },
-            supportingText = {
-                Text(stringResource(R.string.operation_history_amount_hint))
-            },
-            isError = editor.amount.isNotBlank() && editor.parsedAmount == null,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
-        )
-
-        Text(
-            text =
-                stringResource(
-                    R.string.operation_history_currency_immutable_hint,
-                    editor.original.originalCurrency,
-                ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        editor.error?.let { error ->
-            Text(
-                text = stringResource(error.messageResource),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-
-        Button(
-            onClick = { onEvent(OperationHistoryEvent.SaveRequested) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = editor.canSave,
-        ) {
-            if (editor.isSaving) {
-                CircularProgressIndicator(
-                    modifier = Modifier.padding(2.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-            } else {
-                Text(stringResource(R.string.operation_history_save_action))
-            }
-        }
-
-        OutlinedButton(
-            onClick = { onEvent(OperationHistoryEvent.RefundRequested) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = editor.canRefund,
-            colors =
-                ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error,
-                ),
-        ) {
-            Text(stringResource(R.string.operation_history_refund_action))
-        }
-    }
-}
-
-@Composable
-private fun RefundConfirmation(onEvent: (OperationHistoryEvent) -> Unit) {
-    AlertDialog(
-        onDismissRequest = { onEvent(OperationHistoryEvent.RefundDismissed) },
-        title = { Text(stringResource(R.string.operation_history_refund_title)) },
-        text = { Text(stringResource(R.string.operation_history_refund_message)) },
-        confirmButton = {
-            TextButton(onClick = { onEvent(OperationHistoryEvent.RefundConfirmed) }) {
-                Text(
-                    text = stringResource(R.string.operation_history_refund_confirm),
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = { onEvent(OperationHistoryEvent.RefundDismissed) }) {
-                Text(stringResource(R.string.operation_history_refund_cancel))
-            }
-        },
-    )
-}
-
-@Composable
 private fun LoadingContent(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxSize(),
@@ -473,7 +309,7 @@ private fun ErrorContent(
     }
 }
 
-private val OperationHistoryError.messageResource: Int
+internal val OperationHistoryError.messageResource: Int
     @StringRes get() =
         when (this) {
             OperationHistoryError.MissingApiToken,
@@ -510,7 +346,7 @@ fun formatOperationAmount(
         }
     ) + formatMoney(amount, currency)
 
-private fun formatDateHeader(date: LocalDate): String =
+internal fun formatDateHeader(date: LocalDate): String =
     date.format(
         DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru")),
     )

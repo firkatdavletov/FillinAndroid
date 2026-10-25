@@ -1,7 +1,6 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
-import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
 import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
@@ -15,7 +14,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -116,11 +114,11 @@ class OperationHistoryFiltersTest {
             val repository = FakeOfflineHistory()
             val model = model(repository)
             runCurrent()
-            model.onEvent(OperationHistoryEvent.EditRequested("first"))
-            model.onEvent(OperationHistoryEvent.AmountChanged("11.01"))
-            model.onEvent(OperationHistoryEvent.SaveRequested)
+            val editor = EditOperationViewModel("first", repository, UpdatePurchaseAmount(repository), RefundPurchase(repository))
             runCurrent()
-            assertNull(model.uiState.value.editor)
+            editor.onEvent(EditOperationEvent.InputChanged("11.01"))
+            editor.onEvent(EditOperationEvent.SaveClicked)
+            runCurrent()
             assertEquals(
                 "11.01",
                 model.uiState.value.operations
@@ -129,9 +127,10 @@ class OperationHistoryFiltersTest {
                     .toPlainString(),
             )
             assertEquals(repository.totals.value, model.uiState.value.periodTotals)
-            model.onEvent(OperationHistoryEvent.EditRequested("first"))
-            model.onEvent(OperationHistoryEvent.RefundRequested)
-            model.onEvent(OperationHistoryEvent.RefundConfirmed)
+            val refund = EditOperationViewModel("first", repository, UpdatePurchaseAmount(repository), RefundPurchase(repository))
+            runCurrent()
+            refund.onEvent(EditOperationEvent.RefundClicked)
+            refund.onEvent(EditOperationEvent.RefundConfirmed)
             runCurrent()
             assertEquals(1, repository.edits)
             assertEquals(1, repository.refunds)
@@ -141,28 +140,6 @@ class OperationHistoryFiltersTest {
                     .expenses
                     .signum(),
             )
-        }
-
-    @Test fun `income and rejected entries cannot open purchase editor but offline expense can`() =
-        runTest {
-            val repository = FakeOfflineHistory()
-            repository.operations.value =
-                listOf(
-                    FakeOfflineHistory.purchase("income", OperationType.Income),
-                    FakeOfflineHistory.purchase("pending").copy(syncStatus = OperationSyncStatus.Pending),
-                    FakeOfflineHistory.purchase("rejected").copy(syncStatus = OperationSyncStatus.Rejected),
-                )
-            val model = model(repository)
-            runCurrent()
-            for (id in listOf("income", "rejected")) {
-                model.onEvent(OperationHistoryEvent.EditRequested(id))
-                assertNull(model.uiState.value.editor)
-            }
-            repository.operations.value = listOf(FakeOfflineHistory.purchase("first"))
-            repository.context.value = repository.context.value.copy(isOnline = false)
-            runCurrent()
-            model.onEvent(OperationHistoryEvent.EditRequested("first"))
-            assertNotNull(model.uiState.value.editor)
         }
 
     @Test fun `reversed periods are ignored and a single day is valid`() =
@@ -192,8 +169,6 @@ class OperationHistoryFiltersTest {
     private fun model(repository: FakeOfflineHistory) =
         OperationHistoryViewModel(
             repository,
-            UpdatePurchaseAmount(repository),
-            RefundPurchase(repository),
             Clock.fixed(Instant.parse("2026-10-18T05:00:00Z"), ZoneId.of("Asia/Almaty")),
         )
 }

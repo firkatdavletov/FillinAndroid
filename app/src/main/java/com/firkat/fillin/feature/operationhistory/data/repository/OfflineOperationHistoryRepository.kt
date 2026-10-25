@@ -7,6 +7,7 @@ import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.data.local.LocalOperation
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
 import com.firkat.fillin.feature.operationhistory.data.local.OperationOutbox
+import com.firkat.fillin.feature.operationhistory.data.local.localOperation
 import com.firkat.fillin.feature.operationhistory.data.local.localHistory
 import com.firkat.fillin.feature.operationhistory.data.local.requireMoney
 import com.firkat.fillin.feature.operationhistory.data.remote.CreateOperationDto
@@ -87,6 +88,9 @@ class OfflineOperationHistoryRepository(
                 rejectedCount = content?.operations.orEmpty().count { it.syncStatus == "REJECTED" },
             )
         }.flowOn(Dispatchers.Default)
+
+    override fun observeOperation(id: String): Flow<Operation?> =
+        localContent.map { localOperation(it, id) }.flowOn(Dispatchers.Default)
 
     override fun observeHistory(
         filter: OperationHistoryFilter,
@@ -194,7 +198,7 @@ class OfflineOperationHistoryRepository(
         amount: BigDecimal,
     ): Operation {
         if (dao.state()?.protocolVersion == 4 && budgetStore != null) {
-            budgetStore.enqueue("UPDATE_OPERATION", id, version) { it.copy(amount = amount.toPlainString()) }
+            localCommand { budgetStore.enqueue("UPDATE_OPERATION", id, version) { it.copy(amount = amount.toPlainString()) } }
             return observeHistory(OperationHistoryFilter.currentMonth(LocalDate.now(clock)), Int.MAX_VALUE).first().items.firstOrNull { it.id == id }
                 ?: budgetStore.historySnapshot()!!.let { localHistory(it, OperationHistoryFilter(dateFrom = LocalDate.of(1, 1, 1), dateTo = LocalDate.now(clock)), Int.MAX_VALUE).items.first { it.id == id } }
         }
@@ -235,7 +239,7 @@ class OfflineOperationHistoryRepository(
             val content = requireNotNull(budgetStore.historySnapshot())
             val operation = content.operations.firstOrNull { it.id == id } ?: throw OperationHistoryException.NotFound
             val remaining = operation.originalAmount.toBigDecimal() - content.operations.filter { it.refundOf == id && it.status == "POSTED" && it.syncStatus != "REJECTED" }.sumOf { it.originalAmount.toBigDecimal() }
-            budgetStore.enqueue("REFUND_OPERATION", id, version) { it.copy(amount = remaining.toPlainString(), refundId = UUID.randomUUID().toString()) }
+            localCommand { budgetStore.enqueue("REFUND_OPERATION", id, version) { it.copy(amount = remaining.toPlainString(), refundId = UUID.randomUUID().toString()) } }
             return
         }
         requireOnlineOperation(id)
@@ -256,5 +260,17 @@ class OfflineOperationHistoryRepository(
 
     private suspend fun refreshAfterMutation() {
         if (sync.synchronize() != SyncResult.Completed) scheduler.schedule()
+    }
+}
+
+private inline fun <T> localCommand(action: () -> T): T = try {
+    action()
+} catch (failure: com.firkat.fillin.feature.sync.data.BudgetLocalFailure) {
+    throw when (failure.code) {
+        "not_found" -> OperationHistoryException.NotFound
+        "conflict" -> OperationHistoryException.Conflict
+        "forbidden" -> OperationHistoryException.Forbidden
+        "invalid", "not_initialized" -> OperationHistoryException.InvalidRequest
+        else -> OperationHistoryException.Unknown
     }
 }

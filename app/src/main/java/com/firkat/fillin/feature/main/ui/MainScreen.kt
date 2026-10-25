@@ -12,7 +12,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,7 +34,6 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.auth.domain.AuthUser
-import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetAction
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.categories.ui.CategoriesRoute
@@ -55,7 +53,7 @@ fun MainScreen(
     onFamilyAccessClick: () -> Unit = {},
     onCloudSyncClick: () -> Unit = {},
     onCreateOperationClick: () -> Unit = {},
-    onOperationClick: (String, TestBottomSheetAction, String) -> Unit = { _, _, _ -> },
+    onOperationClick: (String, String) -> Unit = { _, _ -> },
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
@@ -91,11 +89,11 @@ private fun MainContent(
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
     onCreateOperationClick: () -> Unit,
-    onOperationClick: (String, TestBottomSheetAction, String) -> Unit,
+    onOperationClick: (String, String) -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.testTag("main_screen"),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { com.firkat.fillin.ui.component.SaldomiSnackbarHost(snackbarHostState) },
         floatingActionButtonPosition = FabPosition.Center,
         bottomBar = {
             NavigationBar {
@@ -124,7 +122,7 @@ private fun MainContent(
     ) { innerPadding ->
         val provider = entryProvider<NavKey> {
             entry(AppDestination.Dashboard) { DashboardRoute() }
-            entry(AppDestination.History) { OperationHistoryRoute(onOperationClick = onOperationClick) }
+            entry(AppDestination.History) { OperationHistoryRoute(snackbarHostState = snackbarHostState, onOperationClick = onOperationClick) }
             entry(AppDestination.Planned) {
                 Box(Modifier.fillMaxSize().padding(bottom = MainFabClearance)) {
                     PlannedOperationsRoute()

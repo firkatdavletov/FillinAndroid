@@ -84,7 +84,7 @@ class AppNavigationUiTest {
                     .createLocal("321.00".toBigDecimal(), java.time.LocalDate.now().minusDays(1))
             }
         }
-        env.koin.loadModules(listOf(com.firkat.fillin.feature.bottomsheets.di.bottomSheetsModule, module {
+        env.koin.loadModules(listOf(module {
             viewModel { AuthViewModel(auth) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(auth, env.sharing) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(env.sharing) }
@@ -442,34 +442,34 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("tab_History").performClick()
         compose.onNodeWithTag("history-type-EXPENSE").performClick()
         val dismissals: List<() -> Unit> = listOf(
-            { compose.onNodeWithTag("test_bottom_sheet_close").performClick() },
+            { compose.onNodeWithTag("edit_operation_close").performClick() },
             { androidx.test.espresso.Espresso.pressBack() },
             { compose.onNode(isDialog()).performTouchInput { click(Offset(centerX, 1f)) } },
-            { compose.onNodeWithTag("test_bottom_sheet").performTouchInput { swipeDown() } },
+            { compose.onNodeWithTag("edit_operation_bottom_sheet").performTouchInput { swipeDown() } },
         )
         dismissals.forEach { dismiss ->
             openSheet(operation)
             dismiss()
-            compose.waitUntil(5000) { compose.onAllNodesWithTag("test_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
             compose.onNodeWithTag("tab_History").assertIsSelected()
             compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
         }
     }
 
-    @Test fun sheetActionReopensTheExistingEditorOnEveryInvocation() {
+    @Test fun sheetSavesLocallyAndShowsSuccessOnHistoryOnEveryInvocation() {
         show(createdBudget = true)
         val operation = seedSheetOperation()
         compose.onNodeWithTag("tab_History").performClick()
-        repeat(2) {
+        repeat(2) { attempt ->
             openSheet(operation)
-            compose.onNodeWithTag("test_bottom_sheet_action").performClick()
-            compose.waitUntil(5000) { compose.onAllNodesWithTag("test_bottom_sheet").fetchSemanticsNodes().isEmpty() }
-            compose.onNodeWithText("Изменение расхода").assertIsDisplayed()
-            compose.onNodeWithText("Сохранить сумму").assertIsDisplayed()
+            compose.onNodeWithTag("edit_operation_input").performTextReplacement("${50 + attempt}.00")
+            compose.onNodeWithTag("edit_operation_save").performClick()
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithText("Изменения сохранены").assertIsDisplayed()
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
-            compose.onNodeWithContentDescription("Назад").performClick()
             compose.onNodeWithTag("operation-${operation.id}").assertExists()
+            compose.onNodeWithContentDescription("Закрыть").performClick()
         }
     }
 
@@ -484,10 +484,10 @@ class AppNavigationUiTest {
         openSheet(operation)
         val route = navigation.backStack.last()
         restoration.emulateSavedInstanceStateRestore()
-        compose.onNodeWithTag("test_bottom_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
         assertEquals(route, navigation.backStack.last())
-        compose.onNodeWithTag("test_bottom_sheet_close").performClick()
-        compose.waitUntil(5000) { compose.onAllNodesWithTag("test_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("edit_operation_close").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("tab_History").assertIsSelected()
         assertEquals(top, compose.onNodeWithTag("operation-${operation.id}").getUnclippedBoundsInRoot().top)
     }
@@ -502,8 +502,8 @@ class AppNavigationUiTest {
             val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
             session.createLocal("900.00".toBigDecimal(), session.today)
         }
-        compose.waitUntil(5000) { compose.onAllNodesWithTag("test_bottom_sheet").fetchSemanticsNodes().isEmpty() }
-        assertFalse(navigation.backStack.any { it is AppRoute.TestBottomSheet })
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+        assertFalse(navigation.backStack.any { it is AppRoute.EditOperationBottomSheet })
         compose.onNodeWithText("Изменение расхода").assertDoesNotExist()
     }
 
@@ -519,13 +519,13 @@ class AppNavigationUiTest {
             activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         compose.setContent(hostContent)
-        compose.onNodeWithTag("test_bottom_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
         compose.onNodeWithTag("tab_History").assertIsSelected()
         assertEquals(route, navigation.backStack.last())
-        compose.onNodeWithTag("test_bottom_sheet_action").performClick()
-        compose.waitUntil(5000) { compose.onAllNodesWithTag("test_bottom_sheet").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithText("Изменение расхода").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.onNodeWithTag("edit_operation_input").performTextReplacement("55.00")
+        compose.onNodeWithTag("edit_operation_save").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithText("Изменения сохранены").assertIsDisplayed()
         compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
     }
 
@@ -543,8 +543,8 @@ class AppNavigationUiTest {
     private fun openSheet(operation: Operation) {
         compose.waitUntil(5000) { compose.onAllNodesWithTag("operation-${operation.id}").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("operation-${operation.id}").performClick()
-        compose.onNodeWithTag("test_bottom_sheet").assertIsDisplayed()
-        compose.onNodeWithTag("test_bottom_sheet_operation_id").assertTextEquals("ID операции: ${operation.id}")
+        compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_input").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(2, navigation.backStack.size)
     }
 

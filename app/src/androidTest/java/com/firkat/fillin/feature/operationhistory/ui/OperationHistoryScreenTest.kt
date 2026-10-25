@@ -274,8 +274,8 @@ class OperationHistoryScreenTest {
         }
         composeRule.onNodeWithText("Исправить и отправить снова").performClick()
         composeRule.runOnIdle {
-            assertEquals(listOf("rejected"), opened)
-            assertEquals(listOf(OperationHistoryEvent.CorrectRejectedRequested("rejected")), events)
+            assertEquals(listOf("rejected", "rejected"), opened)
+            assertTrue(events.isEmpty())
         }
     }
 

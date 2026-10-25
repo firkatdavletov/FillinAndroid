@@ -19,7 +19,6 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 val appModule =
     module {
-        includes(com.firkat.fillin.feature.bottomsheets.di.bottomSheetsModule)
         single<com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer> {
             com.firkat.fillin.feature.launch.data.RoomLocalBudgetRestorer(get(), get(), get())
         }

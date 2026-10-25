@@ -24,8 +24,7 @@ import com.firkat.fillin.feature.auth.ui.AuthScreen
 import com.firkat.fillin.feature.auth.ui.AuthViewModel
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.auth.ui.messageResource
-import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetResult
-import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetRoute
+import com.firkat.fillin.feature.operationhistory.ui.EditOperationBottomSheet
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
@@ -58,10 +57,11 @@ fun FillinNavHost(
     operationCreateModels.bind(runtime.takeIf { AppRoute.OperationCreate in navigation.backStack })
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val sheet = navigation.backStack.lastOrNull() as? AppRoute.TestBottomSheet
+    val resources = androidx.compose.ui.platform.LocalResources.current
+    val sheet = navigation.backStack.lastOrNull() as? AppRoute.EditOperationBottomSheet
     LaunchedEffect(runtime?.scope?.id, sheet) {
         if (sheet != null && sheet.budgetScopeId != runtime?.scope?.id) {
-            navigation.dismissTestBottomSheet(sheet)
+            navigation.dismissEditOperationBottomSheet(sheet)
         }
     }
     DisposableEffect(mainModels, operationCreateModels, context) {
@@ -75,17 +75,18 @@ fun FillinNavHost(
     LaunchedEffect(state.error) {
         state.error?.let { error ->
             snackbar.showSaldomiSnackbar(
-                message = context.getString(error.messageResource()),
+                message = resources.getString(error.messageResource()),
                 type = SnackbarType.Info
             )
             auth.errorShown(error)
         }
     }
+    val sheetDismissController = remember { BottomSheetDismissController() }
     NavDisplay(
         modifier = Modifier.fillMaxSize(),
         backStack = navigation.backStack,
-        onBack = { navigation.back() },
-        sceneStrategies = listOf(remember { BottomSheetSceneStrategy<AppRoute>() }),
+        onBack = { if (sheet == null || sheetDismissController.canDismiss()) navigation.back() },
+        sceneStrategies = listOf(remember { BottomSheetSceneStrategy<AppRoute>(sheetDismissController) }),
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
             rememberViewModelStoreNavEntryDecorator(),
@@ -108,25 +109,28 @@ fun FillinNavHost(
                     onFamilyAccessClick = navigation::openFamilyAccess,
                     onCloudSyncClick = navigation::openCloudSync,
                     onCreateOperationClick = navigation::openOperationCreate,
-                    onOperationClick = { operationId, action, resultKey ->
+                    onOperationClick = { operationId, resultKey ->
                         runtime?.scope?.id?.let { scopeId ->
-                            navigation.openTestBottomSheet(operationId, action, resultKey, scopeId)
+                            navigation.openEditOperationBottomSheet(operationId, resultKey, scopeId)
                         }
                     },
                 )
             }
-            entry<AppRoute.TestBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
+            entry<AppRoute.EditOperationBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
                 val resultBus = LocalResultEventBus.current
-                TestBottomSheetRoute(
-                    operationId = route.operationId,
-                    action = route.action,
-                    onClose = { navigation.dismissTestBottomSheet(route) },
-                    onOperationAction = {
-                        if (route.budgetScopeId == runtime?.scope?.id && navigation.dismissTestBottomSheet(route)) {
-                            resultBus.sendResult(route.resultKey, TestBottomSheetResult(route.operationId))
-                        }
-                    },
-                )
+                val sheetModels: MainBudgetViewModelStore = viewModel(key = "edit-operation-${route.requestId}")
+                sheetModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                ActiveBudgetContent(viewModelStoreOwner = sheetModels) {
+                    EditOperationBottomSheet(
+                        operationId = route.operationId,
+                        onClose = { navigation.dismissEditOperationBottomSheet(route) },
+                        onResult = { result ->
+                            if (route.budgetScopeId == runtime?.scope?.id && navigation.dismissEditOperationBottomSheet(route)) {
+                                resultBus.sendResult(route.resultKey, result)
+                            }
+                        },
+                    )
+                }
             }
             entry<AppRoute.OperationCreate> {
                 ActiveBudgetContent(viewModelStoreOwner = operationCreateModels) {

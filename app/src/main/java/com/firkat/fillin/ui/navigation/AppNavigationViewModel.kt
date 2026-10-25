@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
-import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetAction
 import com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer
@@ -68,7 +67,7 @@ class AppNavigationViewModel(
                                 if (ready) openMain() else replaceWith(AppRoute.Auth)
                             }
                             ready && entries.last() is AppRoute.BudgetSetup -> openMain()
-                            !ready && (entries.last() is AppRoute.TestBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
+                            !ready && (entries.last() is AppRoute.EditOperationBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
                                 if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
                             )
                         }
@@ -101,15 +100,14 @@ class AppNavigationViewModel(
 
     fun openOperationCreate() = openMainDestination(AppRoute.OperationCreate)
 
-    fun openTestBottomSheet(
+    fun openEditOperationBottomSheet(
         operationId: String,
-        action: TestBottomSheetAction,
         resultKey: String,
         budgetScopeId: String,
-    ) = openMainDestination(AppRoute.TestBottomSheet(operationId, action, resultKey, budgetScopeId))
+    ) = openMainDestination(AppRoute.EditOperationBottomSheet(operationId, resultKey, budgetScopeId))
 
     /** Ignores callbacks from a sheet that is already exiting or belongs to an old budget. */
-    fun dismissTestBottomSheet(route: AppRoute.TestBottomSheet): Boolean {
+    fun dismissEditOperationBottomSheet(route: AppRoute.EditOperationBottomSheet): Boolean {
         if (entries.lastOrNull() != route) return false
         back()
         return true

@@ -1,6 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.domain.repository
 
 import com.firkat.fillin.feature.categories.domain.model.Category
+import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPage
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
@@ -30,6 +31,8 @@ data class NewOperation(
 )
 
 interface OperationHistoryStore {
+    fun observeOperation(id: String): Flow<Operation?>
+
     val context: Flow<OfflineHistoryContext>
 
     fun observeHistory(

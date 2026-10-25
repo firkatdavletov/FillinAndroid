@@ -47,7 +47,7 @@ private fun SaldomiBottomSheetPreview() {
     FillinTheme {
         SaldomiBottomSheet(onDismissRequest = {}) {
             Text(
-                text = stringResource(R.string.test_bottom_sheet_title),
+                text = stringResource(R.string.edit_operation_title),
                 modifier = Modifier.fillMaxWidth().padding(24.dp),
             )
         }

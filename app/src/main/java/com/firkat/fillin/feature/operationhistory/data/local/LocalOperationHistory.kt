@@ -46,35 +46,7 @@ internal fun localHistory(
                     .thenByDescending { it.id },
             )
     return OperationPage(
-        rows.take(limit).map {
-            Operation(
-                id = it.id,
-                categoryName = categories[it.categoryId]?.name ?: "Категория недоступна",
-                description = it.description,
-                amount = it.amountKzt.toBigDecimal(),
-                currency = "KZT",
-                originalAmount = it.originalAmount.toBigDecimal(),
-                originalCurrency = it.originalCurrency,
-                occurredOn = LocalDate.parse(it.occurredOn),
-                status = if (it.status == "POSTED") OperationStatus.Posted else OperationStatus.Voided,
-                version = it.version,
-                type = if (it.type == "INCOME") OperationType.Income else OperationType.Expense,
-                categoryId = it.categoryId,
-                syncStatus =
-                    when (it.syncStatus) {
-                        "PENDING" -> OperationSyncStatus.Pending
-                        "REJECTED" -> OperationSyncStatus.Rejected
-                        else -> OperationSyncStatus.Synced
-                    },
-                syncError = it.syncError,
-                refundedAmount =
-                    content
-                        ?.operations
-                        .orEmpty()
-                        .filter { refund -> refund.refundOf == it.id && refund.status == "POSTED" && refund.syncStatus != "REJECTED" }
-                        .sumOf { refund -> refund.originalAmount.toBigDecimal() },
-            )
-        },
+        rows.take(limit).map { operationToDomain(it, content, categories) },
         if (rows.size >
             limit
         ) {
@@ -85,4 +57,45 @@ internal fun localHistory(
         OperationPeriodTotals(expenses, incomes),
         content?.sync?.let { it.localReady || it.initialSyncComplete } == true,
     )
+}
+
+/** Resolves an operation independently of the history's date/type filters and page size. */
+internal fun localOperation(content: LocalHistoryContent?, id: String): Operation? =
+    content?.operations?.firstOrNull { it.id == id && it.type != "EXPENSE_REFUND" }?.let {
+        operationToDomain(it, content, content.categories.associateBy { category -> category.id })
+    }
+
+private fun operationToDomain(
+    record: LocalOperation,
+    content: LocalHistoryContent?,
+    categories: Map<String, LocalCategory>,
+): Operation = record.let {
+    Operation(
+        id = it.id,
+        categoryName = categories[it.categoryId]?.name ?: "Категория недоступна",
+        description = it.description,
+        amount = it.amountKzt.toBigDecimal(),
+        currency = "KZT",
+        originalAmount = it.originalAmount.toBigDecimal(),
+        originalCurrency = it.originalCurrency,
+        occurredOn = LocalDate.parse(it.occurredOn),
+        status = if (it.status == "POSTED") OperationStatus.Posted else OperationStatus.Voided,
+        version = it.version,
+        type = if (it.type == "INCOME") OperationType.Income else OperationType.Expense,
+        categoryId = it.categoryId,
+        syncStatus =
+            when (it.syncStatus) {
+                "PENDING" -> OperationSyncStatus.Pending
+                "REJECTED" -> OperationSyncStatus.Rejected
+                else -> OperationSyncStatus.Synced
+            },
+        syncError = it.syncError,
+        refundedAmount =
+            content
+                ?.operations
+                .orEmpty()
+                .filter { refund -> refund.refundOf == it.id && refund.status == "POSTED" && refund.syncStatus != "REJECTED" }
+                .sumOf { refund -> refund.originalAmount.toBigDecimal() },
+    )
+
 }

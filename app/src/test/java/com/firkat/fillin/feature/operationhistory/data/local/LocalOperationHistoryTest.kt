@@ -47,6 +47,22 @@ class LocalOperationHistoryTest {
         assertEquals(BigDecimal("-7.03"), localHistory(content(listOf(refund)), FILTER, 20).totals.expenses)
     }
 
+    @Test fun `lookup by id is independent of period and pagination and includes all posted refunds`() {
+        val old = row("old", "EXPENSE", "10.00").copy(occurredOn = "2026-09-01", syncStatus = "PENDING")
+        val refund = row("refund", "EXPENSE_REFUND", "2.00").copy(refundOf = "old")
+        val rejectedRefund = row("rejected-refund", "EXPENSE_REFUND", "3.00").copy(refundOf = "old", syncStatus = "REJECTED")
+        val data = content(listOf(old, row("new", "EXPENSE", "40.00"), refund, rejectedRefund))
+        assertEquals(listOf("new"), localHistory(data, FILTER, 1).items.map { it.id })
+        val operation = localOperation(data, "old")!!
+        assertEquals("Категория", operation.categoryName)
+        assertEquals(LocalDate.parse("2026-09-01"), operation.occurredOn)
+        assertEquals(BigDecimal("2.00"), operation.refundedAmount)
+        assertEquals(com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus.Pending, operation.syncStatus)
+        assertNull(localOperation(data, "refund"))
+        assertNull(localOperation(data, "missing"))
+        assertNull(localOperation(null, "old"))
+    }
+
     companion object {
         private val FILTER = OperationHistoryFilter(dateFrom = LocalDate.parse("2026-10-01"), dateTo = LocalDate.parse("2026-10-31"))
 

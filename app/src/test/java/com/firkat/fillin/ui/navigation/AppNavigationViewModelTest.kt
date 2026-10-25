@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModelStore
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.domain.AuthUser
-import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetAction
 import com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer
@@ -357,16 +356,16 @@ class AppNavigationViewModelTest {
         val model = model(FakeAuth()) { true }
         model.onLaunchShown()
         runCurrent()
-        model.openTestBottomSheet("operation", TestBottomSheetAction.Edit, "history", "budget")
-        val first = model.backStack.last() as AppRoute.TestBottomSheet
-        model.openTestBottomSheet("other", TestBottomSheetAction.None, "history", "budget")
+        model.openEditOperationBottomSheet("operation", "history", "budget")
+        val first = model.backStack.last() as AppRoute.EditOperationBottomSheet
+        model.openEditOperationBottomSheet("other", "history", "budget")
         assertEquals(listOf(AppRoute.Main, first), model.backStack)
-        assertTrue(model.dismissTestBottomSheet(first))
+        assertTrue(model.dismissEditOperationBottomSheet(first))
         assertEquals(listOf(AppRoute.Main), model.backStack)
-        model.openTestBottomSheet("operation", TestBottomSheetAction.Edit, "history", "budget")
-        val second = model.backStack.last() as AppRoute.TestBottomSheet
+        model.openEditOperationBottomSheet("operation", "history", "budget")
+        val second = model.backStack.last() as AppRoute.EditOperationBottomSheet
         assertNotEquals(first.requestId, second.requestId)
-        assertFalse(model.dismissTestBottomSheet(first))
+        assertFalse(model.dismissEditOperationBottomSheet(first))
         assertEquals(listOf(AppRoute.Main, second), model.backStack)
         model.back()
         assertEquals(listOf(AppRoute.Main), model.backStack)
@@ -377,13 +376,13 @@ class AppNavigationViewModelTest {
         val model = model(FakeAuth(), ready) { false }
         model.onLaunchShown()
         runCurrent()
-        model.openTestBottomSheet("operation", TestBottomSheetAction.Edit, "history", "budget")
+        model.openEditOperationBottomSheet("operation", "history", "budget")
         assertEquals(listOf(AppRoute.Auth), model.backStack)
         model.continueAsGuest()
         ready.value = true
         runCurrent()
-        model.openTestBottomSheet("operation", TestBottomSheetAction.Edit, "history", "budget")
-        assertTrue(model.backStack.last() is AppRoute.TestBottomSheet)
+        model.openEditOperationBottomSheet("operation", "history", "budget")
+        assertTrue(model.backStack.last() is AppRoute.EditOperationBottomSheet)
         ready.value = false
         runCurrent()
         assertEquals(listOf(AppRoute.Auth, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
@@ -394,12 +393,12 @@ class AppNavigationViewModelTest {
         val model = model(auth) { true }
         model.onLaunchShown()
         runCurrent()
-        model.openTestBottomSheet("operation", TestBottomSheetAction.Edit, "history", "budget")
-        val sheet = model.backStack.last() as AppRoute.TestBottomSheet
+        model.openEditOperationBottomSheet("operation", "history", "budget")
+        val sheet = model.backStack.last() as AppRoute.EditOperationBottomSheet
         auth.signOut()
         runCurrent()
         assertEquals(listOf(AppRoute.Auth), model.backStack)
-        assertFalse(model.dismissTestBottomSheet(sheet))
+        assertFalse(model.dismissEditOperationBottomSheet(sheet))
     }
 
     private fun model(

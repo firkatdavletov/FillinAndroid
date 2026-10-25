@@ -3,11 +3,8 @@ package com.firkat.fillin.feature.operationhistory.ui
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
-import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
-import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
-import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -22,50 +19,8 @@ data class OperationHistoryUiState(
     val isRefreshing: Boolean = false,
     val canLoadMore: Boolean = true,
     val error: OperationHistoryError? = null,
-    val editor: PurchaseEditorUiState? = null,
     val offline: OfflineHistoryContext = OfflineHistoryContext(),
-    val createEditor: OperationCreateEditorUiState? = null,
 )
-
-data class PurchaseEditorUiState(
-    val original: Operation,
-    val amount: String = original.originalAmount.toPlainString(),
-    val isSaving: Boolean = false,
-    val error: OperationHistoryError? = null,
-    val isRefundConfirmationVisible: Boolean = false,
-    val isOnline: Boolean = true,
-) {
-    val parsedAmount: BigDecimal?
-        get() {
-            val normalized = amount.trim().replace(',', '.')
-            if (!DECIMAL_AMOUNT.matches(normalized)) return null
-            return normalized.toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO }
-        }
-
-    val canSave: Boolean
-        get() =
-            !isSaving && original.originalCurrency == "KZT" && original.refundedAmount.signum() == 0 &&
-                original.type == OperationType.Expense &&
-                original.status == OperationStatus.Posted &&
-                parsedAmount?.let { it.compareTo(original.originalAmount) != 0 } == true
-
-    val canRefund: Boolean
-        get() = !isSaving && original.originalCurrency == "KZT" && original.refundedAmount < original.originalAmount && original.status == OperationStatus.Posted && original.type == OperationType.Expense
-}
-
-data class OperationCreateEditorUiState(
-    val type: OperationType = OperationType.Expense,
-    val input: String = "",
-    val occurredOn: LocalDate,
-    val replacesRejectedId: String? = null,
-    val isSaving: Boolean = false,
-    val error: OperationHistoryError? = null,
-    val inputError: OperationInputError? = null,
-    val feedback: OperationCreateFeedback? = null,
-    val feedbackSequence: Long = 0,
-)
-
-enum class OperationCreateFeedback { InvalidInput, InvalidCategory, Unavailable, SaveFailed }
 
 enum class OperationHistoryError {
     MissingApiToken,
@@ -80,32 +35,6 @@ enum class OperationHistoryError {
 }
 
 sealed interface OperationHistoryEvent {
-    data class OperationActionRequested(val id: String) : OperationHistoryEvent
-
-    data object CreateRequested : OperationHistoryEvent
-
-    data class CorrectRejectedRequested(
-        val id: String,
-    ) : OperationHistoryEvent
-
-    data object CreateClosed : OperationHistoryEvent
-
-    data class CreateTypeChanged(
-        val type: OperationType,
-    ) : OperationHistoryEvent
-
-    data class CreateInputChanged(
-        val value: String,
-    ) : OperationHistoryEvent
-
-    data class CreateCategoryClicked(
-        val id: String,
-    ) : OperationHistoryEvent
-
-    data class CreateFeedbackShown(
-        val sequence: Long,
-    ) : OperationHistoryEvent
-
     data class TypeSelected(
         val type: OperationType?,
     ) : OperationHistoryEvent
@@ -127,23 +56,4 @@ sealed interface OperationHistoryEvent {
 
     data object Retry : OperationHistoryEvent
 
-    data class EditRequested(
-        val purchaseId: String,
-    ) : OperationHistoryEvent
-
-    data object EditorClosed : OperationHistoryEvent
-
-    data class AmountChanged(
-        val amount: String,
-    ) : OperationHistoryEvent
-
-    data object SaveRequested : OperationHistoryEvent
-
-    data object RefundRequested : OperationHistoryEvent
-
-    data object RefundDismissed : OperationHistoryEvent
-
-    data object RefundConfirmed : OperationHistoryEvent
 }
-
-private val DECIMAL_AMOUNT = Regex("[0-9]+([.,][0-9]{1,2})?")

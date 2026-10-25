@@ -276,9 +276,13 @@
     <string name="navigation_cloud">Облако</string>
     <string name="sync_title">Синхронизация</string>
     <string name="navigation_profile">Профиль</string>
-    <string name="test_bottom_sheet_title">Тестовый bottom sheet</string>
-    <string name="test_bottom_sheet_operation_id">ID операции: %1$s</string>
-    <string name="test_bottom_sheet_close">Закрыть</string>
-    <string name="test_bottom_sheet_edit">Редактировать</string>
-    <string name="test_bottom_sheet_correct">Исправить</string>
+    <string name="edit_operation_title">Редактирование операции</string>
+    <string name="edit_operation_close">Закрыть</string>
+    <string name="edit_operation_read_only">Для этой операции редактирование и возврат недоступны</string>
+    <string name="edit_operation_amount_only">Сумма в KZT. Категория, тип и дата операции сохраняются.</string>
+    <string name="edit_operation_refunded">Сумму операции с возвратом изменить нельзя</string>
+    <string name="edit_operation_save_failed">Не удалось сохранить изменения. Повторите попытку.</string>
+    <string name="edit_operation_saved">Изменения сохранены</string>
+    <string name="edit_operation_corrected">Операция исправлена</string>
+    <string name="edit_operation_refund_saved">Возврат сохранён</string>
 </resources>

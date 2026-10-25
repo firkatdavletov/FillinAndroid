@@ -24,8 +24,6 @@ import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.domain.model.*
 import com.firkat.fillin.feature.operationhistory.domain.repository.*
-import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
-import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.time.Clock
 import java.time.Instant
@@ -45,7 +43,7 @@ class OperationCreateScreenTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val models = ViewModelStore()
     private val history = RecordingHistory()
-    private lateinit var model: OperationHistoryViewModel
+    private lateinit var model: OperationCreateViewModel
 
     @Test fun openingFocusesInputAndPositionsCategoriesAboveVisibleKeyboard() {
         show()
@@ -146,7 +144,7 @@ class OperationCreateScreenTest {
             it.enableEdgeToEdge()
             it.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
-        model = OperationHistoryViewModel(history, UpdatePurchaseAmount(history), RefundPurchase(history), CLOCK, startInCreateMode = true)
+        model = OperationCreateViewModel(history, CLOCK)
         models.put("creator", model)
         compose.setContent {
             val state by model.uiState.collectAsStateWithLifecycle()
@@ -167,6 +165,7 @@ class OperationCreateScreenTest {
     @After fun cleanup() { compose.runOnIdle { models.clear() } }
 
     private class RecordingHistory : OperationHistoryStore, OperationHistoryRepository {
+        override fun observeOperation(id: String) = flowOf<Operation?>(null)
         override val context = MutableStateFlow(OfflineHistoryContext(
             initialSyncComplete = true,
             accountingStartedOn = LocalDate.of(2026, 1, 1),

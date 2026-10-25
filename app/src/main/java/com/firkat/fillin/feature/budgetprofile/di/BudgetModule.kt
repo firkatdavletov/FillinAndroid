@@ -160,13 +160,10 @@ val budgetModule = module {
         scoped<OperationHistoryRepository> { get<OfflineOperationHistoryRepository>() }
         factory { UpdatePurchaseAmount(repository = get()) }
         factory { RefundPurchase(repository = get()) }
+        viewModel { OperationHistoryViewModel(history = get()) }
+        viewModel { com.firkat.fillin.feature.operationhistory.ui.OperationCreateViewModel(history = get()) }
         viewModel { parameters ->
-            OperationHistoryViewModel(
-                history = get(),
-                updatePurchaseAmount = get(),
-                refundPurchase = get(),
-                startInCreateMode = parameters.getOrNull<Boolean>() ?: false,
-            )
+            com.firkat.fillin.feature.operationhistory.ui.EditOperationViewModel(parameters.get(), get(), get(), get())
         }
         scoped<PlannedExpensesRepository> {
             OfflinePlannedExpensesRepository(get())
