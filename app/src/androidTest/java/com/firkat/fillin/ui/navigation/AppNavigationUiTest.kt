@@ -32,6 +32,13 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryF
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.NewOperation
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
+import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
+import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesRepository
+import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesRepository
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
+import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsRepository
 import java.time.LocalDate
 import org.junit.After
 import org.junit.Assert.*
@@ -464,7 +471,8 @@ class AppNavigationUiTest {
         repeat(2) { attempt ->
             openSheet(operation)
             compose.onNodeWithTag("edit_operation_input").performTextReplacement("${50 + attempt}.00")
-            compose.onNodeWithTag("edit_operation_save").performClick()
+            closeSoftKeyboard()
+            compose.onNodeWithTag("edit_operation_save").performScrollTo().performClick()
             compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
             compose.onNodeWithText("Изменения сохранены").assertIsDisplayed()
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
@@ -527,6 +535,113 @@ class AppNavigationUiTest {
         compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithText("Изменения сохранены").assertIsDisplayed()
         compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
+    }
+
+    @Test fun plannedEditorsSaveAboveTheListAndKeepTheSelectedFilter() {
+        show(createdBudget = true)
+        val operations = seedPlannedOperations()
+        compose.onNodeWithTag("tab_Planned").performClick()
+        for (operation in operations) {
+            compose.onNodeWithTag("planned-type-${operation.type.apiValue}").performClick()
+            compose.onNodeWithText(plannedCategoryName(operation)).performClick()
+            compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
+            assertEquals(operation.type, (navigation.backStack.last() as AppRoute.PlannedOperationBottomSheet).type)
+            compose.onNodeWithTag("planned-editor-amount").performTextReplacement("450.00")
+            closeSoftKeyboard()
+            compose.onNodeWithTag("planned-editor-save").performScrollTo().performClick()
+            waitForPlannedSheetToClose()
+            compose.onNodeWithTag("planned-type-${operation.type.apiValue}").assertIsSelected()
+            compose.onNodeWithText(plannedCategoryName(operation)).assertIsDisplayed()
+            assertEquals(listOf(AppRoute.Main), navigation.backStack)
+            val saved = runBlocking {
+                env.manager.active.value!!.scope.get<PlannedOperationsRepository>()
+                    .getPlannedOperations(PlannedOperationsFilter.currentMonth(operation.dueOn))
+                    .items.first { it.key == operation.key }
+            }
+            val amount = when (saved) {
+                is PlannedOperation.Expense -> saved.expense.plannedAmount
+                is PlannedOperation.Income -> saved.income.plannedAmount
+            }
+            assertEquals(0, "450.00".toBigDecimal().compareTo(amount))
+            compose.onNodeWithTag("planned-type-reset").performClick()
+        }
+    }
+
+    @Test fun plannedSheetKeepsUnsavedInputAcrossActivityRecreationAndCloseReturnsToTheList() {
+        show(createdBudget = true)
+        val operation = seedPlannedOperations().first { it.type == PlannedOperationType.Income }
+        compose.onNodeWithTag("tab_Planned").performClick()
+        compose.onNodeWithTag("planned-type-INCOME").performClick()
+        compose.onNodeWithText(plannedCategoryName(operation)).performClick()
+        compose.onNodeWithTag("planned-editor-amount").performTextReplacement("999.00")
+        closeSoftKeyboard()
+        val route = navigation.backStack.last()
+        compose.activityRule.scenario.recreate()
+        compose.activityRule.scenario.onActivity { activity ->
+            activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        compose.setContent(hostContent)
+        compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("planned-editor-amount").assertTextContains("999.00")
+        assertEquals(route, navigation.backStack.last())
+        compose.onNodeWithTag("planned-editor-close").performScrollTo().performClick()
+        waitForPlannedSheetToClose()
+        compose.onNodeWithTag("planned-type-INCOME").assertIsSelected()
+        compose.onNodeWithText(plannedCategoryName(operation)).performClick()
+        compose.onNodeWithTag("planned-editor-amount").assertTextContains("200.00")
+        androidx.test.espresso.Espresso.pressBack()
+        waitForPlannedSheetToClose()
+        compose.onNodeWithTag("planned-type-INCOME").assertIsSelected()
+    }
+
+    @Test fun plannedCreationUsesSheetsAndBudgetSwitchDismissesTheEditor() {
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Planned").performClick()
+        for (type in listOf("expense", "income")) {
+            compose.onNodeWithTag("planned-create").performClick()
+            compose.onNodeWithTag("planned-create-$type").performClick()
+            compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
+            assertTrue(navigation.backStack.last() is AppRoute.PlannedOperationBottomSheet)
+            compose.onNodeWithTag("planned-editor-close").performScrollTo().performClick()
+            waitForPlannedSheetToClose()
+        }
+        val operation = seedPlannedOperations().first { it.type == PlannedOperationType.Expense }
+        compose.onNodeWithText(plannedCategoryName(operation)).performClick()
+        compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
+        runBlocking {
+            env.manager.select(env.registry.createLocal().id)
+            val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
+            session.createLocal("900.00".toBigDecimal(), session.today)
+        }
+        waitForPlannedSheetToClose()
+        assertFalse(navigation.backStack.any { it is AppRoute.PlannedOperationBottomSheet })
+    }
+
+    private fun waitForPlannedSheetToClose() {
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithTag("planned-operation-bottom-sheet").fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    private fun plannedCategoryName(operation: PlannedOperation): String = when (operation) {
+        is PlannedOperation.Expense -> operation.expense.categoryName
+        is PlannedOperation.Income -> operation.income.categoryName
+    }
+
+    private fun seedPlannedOperations(): List<PlannedOperation> = runBlocking {
+        val scope = env.manager.active.value!!.scope
+        val store = scope.get<OperationHistoryStore>()
+        val context = store.context.first { it.initialSyncComplete && it.categories.isNotEmpty() }
+        val today = LocalDate.now(java.time.ZoneId.of("Asia/Almaty"))
+        scope.get<PlannedExpensesRepository>().createRule(
+            context.categories.first { it.kind == CategoryKind.Expense }.id,
+            "100.00".toBigDecimal(), PlannedExpenseFrequency.Monthly, today.dayOfMonth, today,
+        )
+        scope.get<PlannedIncomesRepository>().createPlannedIncome(
+            context.categories.first { it.kind == CategoryKind.Income }.id,
+            "200.00".toBigDecimal(), today,
+        )
+        scope.get<PlannedOperationsRepository>().getPlannedOperations(PlannedOperationsFilter.currentMonth(today)).items
     }
 
     private fun seedSheetOperation(description: String = "Тестовая операция"): Operation = runBlocking {

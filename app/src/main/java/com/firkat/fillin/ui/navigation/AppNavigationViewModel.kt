@@ -8,6 +8,7 @@ import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -67,7 +68,7 @@ class AppNavigationViewModel(
                                 if (ready) openMain() else replaceWith(AppRoute.Auth)
                             }
                             ready && entries.last() is AppRoute.BudgetSetup -> openMain()
-                            !ready && (entries.last() is AppRoute.EditOperationBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
+                            !ready && (entries.last() is AppRoute.EditOperationBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
                                 if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
                             )
                         }
@@ -111,6 +112,13 @@ class AppNavigationViewModel(
         if (entries.lastOrNull() != route) return false
         back()
         return true
+    }
+
+    fun openPlannedOperationBottomSheet(type: PlannedOperationType, budgetScopeId: String) =
+        openMainDestination(AppRoute.PlannedOperationBottomSheet(type, budgetScopeId))
+
+    fun dismissPlannedOperationBottomSheet(route: AppRoute.PlannedOperationBottomSheet) {
+        if (entries.lastOrNull() == route) back()
     }
 
     private fun openMainDestination(route: AppRoute) {

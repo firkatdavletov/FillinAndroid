@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +46,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
 import com.firkat.fillin.ui.component.FeatureScaffold
@@ -88,7 +90,13 @@ fun PlannedIncomesScreen(
         BackHandler(enabled = !editor.isSaving) {
             onEvent(PlannedIncomesEvent.EditorClosed)
         }
-        PlannedIncomeEditor(state = state, editor = editor, onEvent = onEvent)
+        PlannedIncomeEditor(
+            categories = state.incomeCategories,
+            isCategoriesLoading = state.isCategoriesLoading,
+            editor = editor,
+            onEvent = onEvent,
+            modifier = Modifier.fillMaxSize(),
+        )
         if (editor.isDeleteConfirmationVisible) {
             DeleteIncomeConfirmation(onEvent = onEvent)
         }
@@ -125,14 +133,17 @@ fun PlannedIncomesScreen(
 }
 
 @Composable
-private fun PlannedIncomeEditor(
-    state: PlannedIncomesUiState,
+internal fun PlannedIncomeEditor(
+    categories: List<Category>,
+    isCategoriesLoading: Boolean,
     editor: PlannedIncomeEditorUiState,
     onEvent: (PlannedIncomesEvent) -> Unit,
+    modifier: Modifier = Modifier,
+    onClose: (() -> Unit)? = null,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = modifier
+            .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -154,8 +165,8 @@ private fun PlannedIncomeEditor(
             style = MaterialTheme.typography.labelLarge,
         )
         when {
-            state.isCategoriesLoading -> CircularProgressIndicator()
-            state.incomeCategories.isEmpty() && editor.isCreating -> Text(
+            isCategoriesLoading -> CircularProgressIndicator()
+            categories.isEmpty() && editor.isCreating -> Text(
                 text = stringResource(R.string.planned_incomes_no_income_categories),
                 color = MaterialTheme.colorScheme.error,
             )
@@ -163,7 +174,7 @@ private fun PlannedIncomeEditor(
                 val original = editor.original
                 if (
                     original != null &&
-                    state.incomeCategories.none { it.id == original.categoryId }
+                    categories.none { it.id == original.categoryId }
                 ) {
                     FilterChip(
                         selected = editor.categoryId == original.categoryId,
@@ -174,7 +185,7 @@ private fun PlannedIncomeEditor(
                         label = { Text(original.categoryName) },
                     )
                 }
-                state.incomeCategories.forEach { category ->
+                categories.forEach { category ->
                     FilterChip(
                         selected = editor.categoryId == category.id,
                         onClick = {
@@ -190,7 +201,7 @@ private fun PlannedIncomeEditor(
         OutlinedTextField(
             value = editor.amount,
             onValueChange = { onEvent(PlannedIncomesEvent.AmountChanged(it)) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("planned-editor-amount"),
             enabled = !editor.isSaving,
             label = { Text(stringResource(R.string.planned_incomes_amount_label)) },
             suffix = { Text("KZT") },
@@ -203,7 +214,7 @@ private fun PlannedIncomeEditor(
         OutlinedTextField(
             value = editor.dueOn,
             onValueChange = { onEvent(PlannedIncomesEvent.DueOnChanged(it)) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("planned-editor-due-on"),
             enabled = !editor.isSaving,
             label = { Text(stringResource(R.string.planned_incomes_due_on_label)) },
             supportingText = {
@@ -237,7 +248,7 @@ private fun PlannedIncomeEditor(
 
         Button(
             onClick = { onEvent(PlannedIncomesEvent.SaveRequested) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("planned-editor-save"),
             enabled = editor.canSave,
         ) {
             if (editor.isSaving) {
@@ -261,7 +272,7 @@ private fun PlannedIncomeEditor(
         if (!editor.isCreating) {
             OutlinedButton(
                 onClick = { onEvent(PlannedIncomesEvent.DeleteRequested) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("planned-editor-delete"),
                 enabled = editor.canDelete,
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error,
@@ -270,12 +281,25 @@ private fun PlannedIncomeEditor(
                 Text(stringResource(R.string.planned_incomes_delete_action))
             }
         }
+        onClose?.let { close ->
+            TextButton(
+                onClick = close,
+                enabled = !editor.isSaving,
+                modifier = Modifier.fillMaxWidth().testTag("planned-editor-close"),
+            ) {
+                Text(stringResource(R.string.edit_operation_close))
+            }
+        }
     }
 }
 
 @Composable
-private fun DeleteIncomeConfirmation(onEvent: (PlannedIncomesEvent) -> Unit) {
+internal fun DeleteIncomeConfirmation(
+    onEvent: (PlannedIncomesEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     AlertDialog(
+        modifier = modifier,
         onDismissRequest = { onEvent(PlannedIncomesEvent.DeleteDismissed) },
         title = { Text(stringResource(R.string.planned_incomes_delete_title)) },
         text = { Text(stringResource(R.string.planned_incomes_delete_message)) },

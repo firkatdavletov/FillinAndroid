@@ -2,10 +2,12 @@ package com.firkat.fillin.feature.plannedoperations.domain.model
 
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
+import kotlinx.serialization.Serializable
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.YearMonth
 
+@Serializable
 enum class PlannedOperationType(
     val apiValue: String,
 ) {

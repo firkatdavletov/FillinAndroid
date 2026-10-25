@@ -25,6 +25,7 @@ import com.firkat.fillin.feature.auth.ui.AuthViewModel
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.auth.ui.messageResource
 import com.firkat.fillin.feature.operationhistory.ui.EditOperationBottomSheet
+import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationBottomSheet
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
@@ -59,9 +60,15 @@ fun FillinNavHost(
     val context = LocalContext.current
     val resources = androidx.compose.ui.platform.LocalResources.current
     val sheet = navigation.backStack.lastOrNull() as? AppRoute.EditOperationBottomSheet
+    val plannedSheet = navigation.backStack.lastOrNull() as? AppRoute.PlannedOperationBottomSheet
     LaunchedEffect(runtime?.scope?.id, sheet) {
         if (sheet != null && sheet.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissEditOperationBottomSheet(sheet)
+        }
+    }
+    LaunchedEffect(runtime?.scope?.id, plannedSheet) {
+        if (plannedSheet != null && plannedSheet.budgetScopeId != runtime?.scope?.id) {
+            navigation.dismissPlannedOperationBottomSheet(plannedSheet)
         }
     }
     DisposableEffect(mainModels, operationCreateModels, context) {
@@ -85,7 +92,7 @@ fun FillinNavHost(
     NavDisplay(
         modifier = Modifier.fillMaxSize(),
         backStack = navigation.backStack,
-        onBack = { if (sheet == null || sheetDismissController.canDismiss()) navigation.back() },
+        onBack = { if ((sheet == null && plannedSheet == null) || sheetDismissController.canDismiss()) navigation.back() },
         sceneStrategies = listOf(remember { BottomSheetSceneStrategy<AppRoute>(sheetDismissController) }),
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
@@ -114,7 +121,23 @@ fun FillinNavHost(
                             navigation.openEditOperationBottomSheet(operationId, resultKey, scopeId)
                         }
                     },
+                    onPlannedOperationEditorClick = { type ->
+                        runtime?.scope?.id?.let { scopeId ->
+                            navigation.openPlannedOperationBottomSheet(type, scopeId)
+                        }
+                    },
                 )
+            }
+            entry<AppRoute.PlannedOperationBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
+                // The selected editor is initialized by the Plans tab and retained across rotation.
+                ActiveBudgetContent(viewModelStoreOwner = mainModels) {
+                    if (route.budgetScopeId == runtime?.scope?.id) {
+                        PlannedOperationBottomSheet(
+                            type = route.type,
+                            onClose = { navigation.dismissPlannedOperationBottomSheet(route) },
+                        )
+                    }
+                }
             }
             entry<AppRoute.EditOperationBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
                 val resultBus = LocalResultEventBus.current

@@ -7,6 +7,7 @@ import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -399,6 +400,41 @@ class AppNavigationViewModelTest {
         runCurrent()
         assertEquals(listOf(AppRoute.Auth), model.backStack)
         assertFalse(model.dismissEditOperationBottomSheet(sheet))
+    }
+
+    @Test fun `planned editor is a single overlay and stale dismissal cannot close a reopened editor`() = runTest {
+        val model = model(FakeAuth()) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openPlannedOperationBottomSheet(PlannedOperationType.Expense, "budget")
+        val first = model.backStack.last() as AppRoute.PlannedOperationBottomSheet
+        model.openPlannedOperationBottomSheet(PlannedOperationType.Income, "budget")
+        assertEquals(listOf(AppRoute.Main, first), model.backStack)
+        model.dismissPlannedOperationBottomSheet(first)
+        model.openPlannedOperationBottomSheet(PlannedOperationType.Income, "budget")
+        val second = model.backStack.last() as AppRoute.PlannedOperationBottomSheet
+        model.dismissPlannedOperationBottomSheet(first)
+        assertEquals(listOf(AppRoute.Main, second), model.backStack)
+        assertEquals(PlannedOperationType.Income, second.type)
+        model.back()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
+
+    @Test fun `planned editor requires a ready budget and closes when access is lost`() = runTest {
+        val ready = MutableStateFlow(false)
+        val model = model(FakeAuth(), ready) { false }
+        model.onLaunchShown()
+        runCurrent()
+        model.openPlannedOperationBottomSheet(PlannedOperationType.Income, "budget")
+        assertEquals(listOf(AppRoute.Auth), model.backStack)
+        model.continueAsGuest()
+        ready.value = true
+        runCurrent()
+        model.openPlannedOperationBottomSheet(PlannedOperationType.Expense, "budget")
+        assertTrue(model.backStack.last() is AppRoute.PlannedOperationBottomSheet)
+        ready.value = false
+        runCurrent()
+        assertEquals(listOf(AppRoute.Auth, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
     }
 
     private fun model(

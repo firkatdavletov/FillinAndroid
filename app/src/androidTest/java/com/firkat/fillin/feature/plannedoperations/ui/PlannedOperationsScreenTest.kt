@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -150,10 +151,10 @@ class PlannedOperationsScreenTest {
         composeRule.onNodeWithText("К получению").assertDoesNotExist()
         composeRule.onNodeWithText("Тестовая аренда").assertIsDisplayed()
         screenshot("planned-mixed.png")
-        composeRule.onNodeWithText("Управлять правилом").performScrollTo().performClick()
+        composeRule.onNodeWithText("Тестовая аренда").performScrollTo().performClick()
         composeRule.onNodeWithText("Отметить оплаченным").performScrollTo().performClick()
         composeRule.onNodeWithTag("planned-operations-list").performScrollToIndex(1)
-        composeRule.onNodeWithText("Изменить").performScrollTo().performClick()
+        composeRule.onNodeWithText("Тестовая зарплата").performScrollTo().performClick()
         composeRule.onNodeWithTag("planned-create").performClick()
         composeRule.onNodeWithTag("planned-create-expense").performClick()
         composeRule.onNodeWithTag("planned-create").performClick()
@@ -216,6 +217,29 @@ class PlannedOperationsScreenTest {
         composeRule.onNodeWithTag("planned-totals-loading-EXPENSE", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithTag("planned-totals-loading-INCOME", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithTag("planned-total-EXPENSE", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun listScrollSurvivesReloadAfterEditingAnOperation() {
+        val operations = PlannedOperations(
+            TODAY, TODAY, LocalDate.of(2026, 10, 31),
+            (0..20).map { index ->
+                PlannedOperation.Income(INCOME.copy(id = "income-$index", categoryName = "Доход $index"))
+            },
+        )
+        var state by mutableStateOf(PlannedOperationsUiState(today = TODAY, operations = operations))
+        composeRule.setContent {
+            FillinTheme(dynamicColor = false) {
+                PlannedOperationsScreen(state, {}, {}, {}, {}, {}, {})
+            }
+        }
+        composeRule.onNodeWithTag("planned-operations-list").performScrollToIndex(12)
+        val top = composeRule.onNodeWithText("Доход 12").getUnclippedBoundsInRoot().top
+        composeRule.runOnIdle { state = state.copy(operations = null, isLoading = true) }
+        composeRule.onNodeWithTag("planned-operations-list").assertDoesNotExist()
+        composeRule.runOnIdle { state = state.copy(operations = operations, isLoading = false) }
+        composeRule.onNodeWithText("Доход 12").assertIsDisplayed()
+        assertEquals(top, composeRule.onNodeWithText("Доход 12").getUnclippedBoundsInRoot().top)
     }
 
     private fun show(

@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +50,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseStatus
@@ -98,9 +100,11 @@ fun PlannedExpensesScreen(
             onEvent(PlannedExpensesEvent.EditorClosed)
         }
         PlannedExpenseRuleEditor(
-            state = state,
+            categories = state.expenseCategories,
+            isCategoriesLoading = state.isCategoriesLoading,
             editor = editor,
             onEvent = onEvent,
+            modifier = Modifier.fillMaxSize(),
         )
         if (editor.isDeleteConfirmationVisible) {
             DeleteRuleConfirmation(onEvent = onEvent)
@@ -161,14 +165,17 @@ fun PlannedExpensesScreen(
 }
 
 @Composable
-private fun PlannedExpenseRuleEditor(
-    state: PlannedExpensesUiState,
+internal fun PlannedExpenseRuleEditor(
+    categories: List<Category>,
+    isCategoriesLoading: Boolean,
     editor: PlannedExpenseRuleEditorUiState,
     onEvent: (PlannedExpensesEvent) -> Unit,
+    modifier: Modifier = Modifier,
+    onClose: (() -> Unit)? = null,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = modifier
+            .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -191,13 +198,13 @@ private fun PlannedExpenseRuleEditor(
                 style = MaterialTheme.typography.labelLarge,
             )
             when {
-                state.isCategoriesLoading -> CircularProgressIndicator()
-                state.expenseCategories.isEmpty() -> Text(
+                isCategoriesLoading -> CircularProgressIndicator()
+                categories.isEmpty() -> Text(
                     text = stringResource(R.string.planned_expenses_no_expense_categories),
                     color = MaterialTheme.colorScheme.error,
                 )
                 else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.expenseCategories.forEach { category ->
+                    categories.forEach { category ->
                         FilterChip(
                             selected = editor.categoryId == category.id,
                             onClick = {
@@ -225,7 +232,7 @@ private fun PlannedExpenseRuleEditor(
         OutlinedTextField(
             value = editor.amount,
             onValueChange = { onEvent(PlannedExpensesEvent.AmountChanged(it)) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("planned-editor-amount"),
             enabled = !editor.isSaving,
             label = { Text(stringResource(R.string.planned_expenses_amount_label)) },
             suffix = { Text("KZT") },
@@ -256,7 +263,7 @@ private fun PlannedExpenseRuleEditor(
             OutlinedTextField(
                 value = editor.scheduleValue,
                 onValueChange = { onEvent(PlannedExpensesEvent.ScheduleValueChanged(it)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("planned-editor-schedule"),
                 enabled = !editor.isSaving,
                 label = { Text(stringResource(editor.frequency.scheduleLabelResource)) },
                 supportingText = {
@@ -270,7 +277,7 @@ private fun PlannedExpenseRuleEditor(
             OutlinedTextField(
                 value = editor.startsOn,
                 onValueChange = { onEvent(PlannedExpensesEvent.StartsOnChanged(it)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("planned-editor-starts-on"),
                 enabled = !editor.isSaving,
                 label = { Text(stringResource(R.string.planned_expenses_starts_on_label)) },
                 supportingText = {
@@ -291,7 +298,7 @@ private fun PlannedExpenseRuleEditor(
 
         Button(
             onClick = { onEvent(PlannedExpensesEvent.SaveRequested) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("planned-editor-save"),
             enabled = editor.canSave,
         ) {
             if (editor.isSaving) {
@@ -315,7 +322,7 @@ private fun PlannedExpenseRuleEditor(
         if (!editor.isCreating) {
             OutlinedButton(
                 onClick = { onEvent(PlannedExpensesEvent.DeleteRequested) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("planned-editor-delete"),
                 enabled = editor.canDelete,
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error,
@@ -324,12 +331,25 @@ private fun PlannedExpenseRuleEditor(
                 Text(stringResource(R.string.planned_expenses_delete_action))
             }
         }
+        onClose?.let { close ->
+            TextButton(
+                onClick = close,
+                enabled = !editor.isSaving,
+                modifier = Modifier.fillMaxWidth().testTag("planned-editor-close"),
+            ) {
+                Text(stringResource(R.string.edit_operation_close))
+            }
+        }
     }
 }
 
 @Composable
-private fun DeleteRuleConfirmation(onEvent: (PlannedExpensesEvent) -> Unit) {
+internal fun DeleteRuleConfirmation(
+    onEvent: (PlannedExpensesEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     AlertDialog(
+        modifier = modifier,
         onDismissRequest = { onEvent(PlannedExpensesEvent.DeleteDismissed) },
         title = { Text(stringResource(R.string.planned_expenses_delete_title)) },
         text = { Text(stringResource(R.string.planned_expenses_delete_message)) },

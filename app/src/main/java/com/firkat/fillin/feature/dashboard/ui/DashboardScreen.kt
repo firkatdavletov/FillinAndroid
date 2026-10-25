@@ -141,7 +141,12 @@ fun DashboardGrid(
 @Composable
 private fun DashboardHeader(date: LocalDate?) {
     Column(Modifier.padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(R.string.dashboard_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = stringResource(R.string.app_name),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+        )
         date?.let {
             val locale = Locale.forLanguageTag("ru-KZ")
             Text(

@@ -2,6 +2,7 @@ package com.firkat.fillin.ui.navigation
 
 import androidx.navigation3.runtime.NavKey
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
@@ -17,6 +18,11 @@ sealed interface AppRoute : NavKey {
     @Serializable data class EditOperationBottomSheet(
         val operationId: String,
         val resultKey: String,
+        val budgetScopeId: String,
+        val requestId: String = UUID.randomUUID().toString(),
+    ) : AppRoute
+    @Serializable data class PlannedOperationBottomSheet(
+        val type: PlannedOperationType,
         val budgetScopeId: String,
         val requestId: String = UUID.randomUUID().toString(),
     ) : AppRoute

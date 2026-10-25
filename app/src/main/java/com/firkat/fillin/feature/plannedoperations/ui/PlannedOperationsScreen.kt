@@ -8,17 +8,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -33,16 +34,14 @@ import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.ui.CloseExpenseConfirmation
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpenseItem
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesEvent
-import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesScreen
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesViewModel
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomeItem
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesEvent
-import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesScreen
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesViewModel
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsException
-import com.firkat.fillin.feature.sync.ui.BudgetSyncPanel
 import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshErrorContent
@@ -52,16 +51,17 @@ import org.koin.core.parameter.parametersOf
 
 @Composable
 fun PlannedOperationsRoute(
+    onOpenEditor: (PlannedOperationType) -> Unit,
     viewModel: PlannedOperationsViewModel = koinViewModel(),
     syncViewModel: BudgetSyncViewModel = koinViewModel(),
     expenseEditor: PlannedExpensesViewModel =
         koinViewModel(
-            key = "planned-expense-editor",
+            key = PlannedExpenseEditorKey,
             parameters = { parametersOf(true) },
         ),
     incomeEditor: PlannedIncomesViewModel =
         koinViewModel(
-            key = "planned-income-editor",
+            key = PlannedIncomeEditorKey,
             parameters = { parametersOf(true) },
         ),
 ) {
@@ -72,41 +72,29 @@ fun PlannedOperationsRoute(
     LaunchedEffect(expenseState.changeVersion, incomeState.changeVersion) {
         if (expenseState.changeVersion > 0 || incomeState.changeVersion > 0) viewModel.reloadAfterMutation()
     }
-    val closeEditor: (() -> Unit)? =
-        when {
-            expenseState.editor != null -> ({ expenseEditor.onEvent(PlannedExpensesEvent.EditorClosed) })
-            incomeState.editor != null -> ({ incomeEditor.onEvent(PlannedIncomesEvent.EditorClosed) })
-            else -> null
-        }
-    FeatureScaffold(
-        titleResource = R.string.planned_operations_title,
-        onNavigateBack = closeEditor,
-        navigateBackEnabled = expenseState.editor?.isSaving != true && incomeState.editor?.isSaving != true,
-    ) {
-        Column {
-            when {
-                expenseState.editor != null -> {
-                    PlannedExpensesScreen(expenseState, expenseEditor::onEvent)
-                }
-
-                incomeState.editor != null -> {
-                    PlannedIncomesScreen(incomeState, incomeEditor::onEvent)
-                }
-
-                else -> {
-                    PlannedOperationsScreen(
-                        state = state,
-                        onEvent = viewModel::onEvent,
-                        onCreateExpense = { expenseEditor.onEvent(PlannedExpensesEvent.CreateRequested) },
-                        onCreateIncome = { incomeEditor.onEvent(PlannedIncomesEvent.CreateRequested) },
-                        onEditExpense = expenseEditor::edit,
-                        onEditIncome = incomeEditor::edit,
-                        onCloseExpense = expenseEditor::requestClose,
-                        canWrite = sync.canWrite,
-                    )
-                }
-            }
-        }
+    FeatureScaffold(titleResource = R.string.planned_operations_title) {
+        PlannedOperationsScreen(
+            state = state,
+            onEvent = viewModel::onEvent,
+            onCreateExpense = {
+                expenseEditor.onEvent(PlannedExpensesEvent.CreateRequested)
+                onOpenEditor(PlannedOperationType.Expense)
+            },
+            onCreateIncome = {
+                incomeEditor.onEvent(PlannedIncomesEvent.CreateRequested)
+                onOpenEditor(PlannedOperationType.Income)
+            },
+            onEditExpense = {
+                expenseEditor.edit(it)
+                onOpenEditor(PlannedOperationType.Expense)
+            },
+            onEditIncome = {
+                incomeEditor.edit(it)
+                onOpenEditor(PlannedOperationType.Income)
+            },
+            onCloseExpense = expenseEditor::requestClose,
+            canWrite = sync.canWrite,
+        )
         expenseState.items.firstOrNull { it.id == expenseState.closeConfirmationExpenseId }?.let { expense ->
             CloseExpenseConfirmation(
                 expense = expense,
@@ -129,6 +117,7 @@ fun PlannedOperationsScreen(
     onCloseExpense: (PlannedExpense) -> Unit,
     canWrite: Boolean = true,
 ) {
+    val listState = key(state.filters) { rememberLazyListState() }
     Column(Modifier.fillMaxSize()) {
         PlannedOperationsFilters(state, onEvent)
 
@@ -167,6 +156,7 @@ fun PlannedOperationsScreen(
                     else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().testTag("planned-operations-list"),
+                            state = listState,
                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {

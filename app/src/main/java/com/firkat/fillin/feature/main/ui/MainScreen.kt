@@ -39,6 +39,7 @@ import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsRoute
 import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import kotlinx.serialization.Serializable
@@ -54,6 +55,7 @@ fun MainScreen(
     onCloudSyncClick: () -> Unit = {},
     onCreateOperationClick: () -> Unit = {},
     onOperationClick: (String, String) -> Unit = { _, _ -> },
+    onPlannedOperationEditorClick: (PlannedOperationType) -> Unit = {},
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
@@ -74,6 +76,7 @@ fun MainScreen(
             onCloudSyncClick = onCloudSyncClick,
             onCreateOperationClick = onCreateOperationClick,
             onOperationClick = onOperationClick,
+            onPlannedOperationEditorClick = onPlannedOperationEditorClick,
         )
     }
 }
@@ -90,6 +93,7 @@ private fun MainContent(
     onCloudSyncClick: () -> Unit,
     onCreateOperationClick: () -> Unit,
     onOperationClick: (String, String) -> Unit,
+    onPlannedOperationEditorClick: (PlannedOperationType) -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.testTag("main_screen"),
@@ -125,7 +129,7 @@ private fun MainContent(
             entry(AppDestination.History) { OperationHistoryRoute(snackbarHostState = snackbarHostState, onOperationClick = onOperationClick) }
             entry(AppDestination.Planned) {
                 Box(Modifier.fillMaxSize().padding(bottom = MainFabClearance)) {
-                    PlannedOperationsRoute()
+                    PlannedOperationsRoute(onOpenEditor = onPlannedOperationEditorClick)
                 }
             }
             entry(AppDestination.AddOperation) {
