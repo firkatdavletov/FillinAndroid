@@ -89,6 +89,8 @@ class DashboardProjectionTest {
         assertEquals("280.00", dashboard.availableMoney.amount.toPlainString())
         assertEquals("180.00", dashboard.freeMoney.remainingObligations.amount.toPlainString())
         assertEquals("100.00", dashboard.freeMoney.amount.amount.toPlainString())
+        assertEquals("200.00", dashboard.balanceForecast.points.first().balance.amount.toPlainString())
+        assertEquals("100.00", dashboard.balanceForecast.points.last().balance.amount.toPlainString())
         val command = BudgetSyncCommand("request", "household", "member", "CLOSE_EXPENSE", "overdue", "2026-10-19")
         val closed =
             calculate(
@@ -109,6 +111,8 @@ class DashboardProjectionTest {
         assertEquals(dashboard.monthActuals, closed.monthActuals)
         assertEquals("100.00", closed.freeMoney.remainingObligations.amount.toPlainString())
         assertEquals("180.00", closed.freeMoney.amount.amount.toPlainString())
+        assertEquals("280.00", closed.balanceForecast.points.first().balance.amount.toPlainString())
+        assertEquals("180.00", closed.balanceForecast.points.last().balance.amount.toPlainString())
     }
 
     @Test fun `accepted regular expenses and their refunds do not inflate variable spending`() {
@@ -146,6 +150,7 @@ class DashboardProjectionTest {
             content.records + incomePlan("overdue-income", "2026-10-16") + incomePlan("future-income", "2026-10-22")
         val first = calculate(content.copy(records = plans, operations = content.operations + income("income-1")))
         assertEquals("50.00", first.forecast.base.expectedIncome.amount.toPlainString())
+        assertEquals("251.00", first.balanceForecast.maximum!!.balance.amount.toPlainString())
         val second = calculate(
             content.copy(
                 records = plans,
@@ -155,6 +160,31 @@ class DashboardProjectionTest {
         )
         assertEquals("0.00", second.forecast.base.expectedIncome.amount.toPlainString())
         assertEquals("282.00", second.availableMoney.amount.toPlainString())
+        assertEquals("202.00", second.balanceForecast.maximum!!.balance.amount.toPlainString())
+    }
+
+    @Test fun `cancelled plans and fulfilled incomes are excluded and next month occurrences are materialized`() {
+        val content = input()
+        val cancelled = content.records.map { record ->
+            if (record.kind == "RECURRING_OCCURRENCE" && record.id == "current") {
+                record.copy(payload = json.encodeToString(json.decodeFromString<SyncPlanRecord>(record.payload).copy(status = "CANCELLED")))
+            } else record
+        }
+        val nextMonthRule = record("RECURRING_RULE", SyncPlanRecord(
+            "next-month-rule", EXPENSE, amount = "50.00", frequency = "MONTHLY", scheduleValue = 5,
+            startsOn = "2026-11-01", active = true,
+        ))
+        val fulfilledIncome = operation("income", "500.00").copy(type = "INCOME", categoryId = INCOME)
+        val records = cancelled + nextMonthRule + listOf(
+            record("EXPECTED_INCOME", SyncPlanRecord("fulfilled", INCOME, amount = "500.00", dueOn = "2026-10-20", status = "SCHEDULED")),
+            record("INCOME_MATCH", SyncPlanRecord("fulfilled", ledgerId = "income")),
+            record("EXPECTED_INCOME", SyncPlanRecord("cancelled-income", INCOME, amount = "1000.00", dueOn = "2026-10-20", status = "CANCELLED")),
+        )
+        val result = calculate(content.copy(records = records, operations = content.operations + fulfilledIncome))
+        assertEquals("700.00", result.balanceForecast.points.first().balance.amount.toPlainString())
+        assertEquals("700.00", result.balanceForecast.maximum!!.balance.amount.toPlainString())
+        assertEquals(LocalDate.parse("2026-11-05"), result.balanceForecast.minimum!!.date)
+        assertEquals("650.00", result.balanceForecast.points.last().balance.amount.toPlainString())
     }
     companion object {
         private const val EXPENSE = "00000000-0000-0000-0000-000000000001"

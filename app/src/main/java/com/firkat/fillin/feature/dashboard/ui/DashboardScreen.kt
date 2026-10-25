@@ -29,8 +29,8 @@ import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.Available
 import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.AvailableToSpendUiState
 import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.AvailableToSpendWidget
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastRoute
-import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastUiState
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastWidget
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.forecastPreviewState
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitRoute
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitUiState
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitWidget
@@ -163,7 +163,7 @@ private fun DashboardGridPreview() {
         DashboardGrid(
             widgets = DefaultDashboardWidgets + listOf(
                 DashboardWidget("wide", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
-                DashboardWidget("large", DashboardWidgetKind.BalanceForecast, DashboardWidgetSize.TwoByTwo),
+                DashboardWidget("large", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByTwo),
             ),
             header = { DashboardHeader(LocalDate.of(2026, 10, 25)) },
         ) { widget ->
@@ -185,11 +185,7 @@ private fun DashboardGridPreview() {
                     ),
                 )
                 DashboardWidgetKind.BalanceForecast -> BalanceForecastWidget(
-                    if (widget.size == DashboardWidgetSize.OneByOne) {
-                        BalanceForecastUiState(insufficientHistory = true)
-                    } else {
-                        BalanceForecastUiState(Money("-98765.43".toBigDecimal(), "KZT"))
-                    },
+                    forecastPreviewState,
                 )
             }
         }

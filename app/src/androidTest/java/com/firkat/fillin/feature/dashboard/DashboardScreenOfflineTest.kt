@@ -53,7 +53,7 @@ class DashboardScreenOfflineTest {
     }
 
     private fun checkMissingHistory(fontScale: Float) {
-        val empty = calculate().copy(forecast = calculate().forecast.copy(estimateSource = "UNAVAILABLE"))
+        val empty = calculate().let { it.copy(balanceForecast = it.balanceForecast.copy(points = emptyList(), insufficientHistory = true)) }
         show(DashboardUiState(empty.date, DashboardStatus.Ready), empty, fontScale = fontScale)
         compose.onNodeWithText("Общий баланс").assertIsDisplayed()
         scrollTo("balance-forecast")
@@ -75,6 +75,9 @@ class DashboardScreenOfflineTest {
         assertTrue(balance.bottom < daily.top)
         scrollTo("balance-forecast")
         assertTrue(bounds("daily-limit").bottom < bounds("balance-forecast").top)
+        val forecast = bounds("balance-forecast")
+        assertEquals(daily.width, forecast.width, 1f)
+        assertEquals(balance.height * 3 + gap * 2, forecast.height, 1f)
         assertEquals(balance.width * 0.5f, balance.height, 1f)
         assertEquals(4, DefaultDashboardWidgets.size)
         compose.onNodeWithText("Бюджет месяца").assertDoesNotExist()
@@ -127,7 +130,10 @@ class DashboardScreenOfflineTest {
 
     private fun checkAppearance(dark: Boolean, fontScale: Float, screenshotName: String) {
         showReady(dark, fontScale)
-        compose.onNodeWithText(formatMoney(SAMPLE.availableMoney.amount, "KZT")).assertIsDisplayed()
+        compose.onNode(
+            hasText(formatMoney(SAMPLE.availableMoney.amount, "KZT")) and
+                hasAnyAncestor(hasTestTag("dashboard-widget-total-balance")),
+        ).assertIsDisplayed()
         screenshot("initial-$screenshotName")
         assertNoTextOverflow()
         scrollTo("daily-limit")
@@ -137,7 +143,7 @@ class DashboardScreenOfflineTest {
         screenshot("daily-$screenshotName")
         scrollTo("balance-forecast")
         assertNoTextOverflow()
-        compose.onNodeWithText("Прогноз остатка").assertIsDisplayed()
+        compose.onNodeWithText("Прогноз").assertIsDisplayed()
         screenshot(screenshotName)
     }
 
@@ -178,10 +184,7 @@ class DashboardScreenOfflineTest {
             DashboardWidgetKind.TotalBalance -> TotalBalanceWidget(TotalBalanceUiState(dashboard.availableMoney))
             DashboardWidgetKind.AvailableToSpend -> AvailableToSpendWidget(AvailableToSpendUiState(dashboard.freeMoney.amount))
             DashboardWidgetKind.DailyLimit -> DailyLimitWidget(DailyLimitUiState.from(DailyLimitSummary.from(dashboard)))
-            DashboardWidgetKind.BalanceForecast -> {
-                val insufficient = dashboard.forecast.estimateSource == "UNAVAILABLE"
-                BalanceForecastWidget(BalanceForecastUiState(dashboard.forecast.base.endingBalance.takeUnless { insufficient }, insufficient))
-            }
+            DashboardWidgetKind.BalanceForecast -> BalanceForecastWidget(BalanceForecastUiState.from(dashboard.balanceForecast))
         }
     }
 
@@ -203,7 +206,9 @@ class DashboardScreenOfflineTest {
         private val SAMPLE = calculate().let { empty -> empty.copy(
             availableMoney = money("12345678.90"),
             freeMoney = empty.freeMoney.copy(amount = money("-12345.67"), safeDailyLimit = money("123456.78")),
-            forecast = empty.forecast.copy(base = empty.forecast.base.copy(endingBalance = money("-98765.43"))),
+            balanceForecast = empty.balanceForecast.copy(points = (0L..30L).map { day ->
+                ForecastPoint(empty.date.plusDays(day), money(if (day < 15) "12345678.90" else "-98765.43"))
+            }),
             todayVariableNetExpenses = money("30864.19"),
         ) }
     }

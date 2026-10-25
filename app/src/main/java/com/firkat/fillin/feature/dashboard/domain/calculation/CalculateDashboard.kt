@@ -155,6 +155,7 @@ object CalculateDashboard {
                 UpcomingPayment(it.categoryName, it.dueOn, money(it.remaining))
             },
             money(todayVariableNet),
+            CalculateBalanceForecast.calculate(input, today, balance, daily, todayVariableNet, complete),
         )
     }
 

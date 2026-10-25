@@ -17,7 +17,12 @@
     <string name="dashboard_daily_progress">Расход дневного лимита</string>
     <string name="dashboard_percent">%1$s%%</string>
     <string name="dashboard_value_unavailable">—</string>
-    <string name="dashboard_balance_forecast">Прогноз остатка</string>
+    <string name="dashboard_balance_forecast">Прогноз</string>
+    <string name="dashboard_forecast_minimum">Минимум</string>
+    <string name="dashboard_forecast_maximum">Максимум</string>
+    <string name="dashboard_forecast_period">%1$s — %2$s</string>
+    <string name="dashboard_forecast_chart">Прогноз остатка на конец дня</string>
+    <string name="dashboard_forecast_chart_summary">Минимум %1$s, %2$s. Максимум %3$s, %4$s.</string>
     <string name="dashboard_insufficient_history">Недостаточно истории</string>
     <string name="dashboard_title">Главная</string>
     <string name="dashboard_retry">Повторить</string>

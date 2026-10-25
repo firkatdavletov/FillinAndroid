@@ -14,6 +14,7 @@ import com.firkat.fillin.feature.dashboard.widgets.availabletospend.domain.Obser
 import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.AvailableToSpendViewModel
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.domain.ObserveBalanceForecast
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastViewModel
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastUiState
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitUiState
@@ -64,7 +65,7 @@ class DashboardViewModelTest {
         val updated = EMPTY.copy(
             availableMoney = money("25"),
             freeMoney = EMPTY.freeMoney.copy(amount = money("-7"), safeDailyLimit = money("0")),
-            forecast = EMPTY.forecast.copy(base = EMPTY.forecast.base.copy(endingBalance = money("-50"))),
+            balanceForecast = EMPTY.balanceForecast.copy(points = EMPTY.balanceForecast.points.map { it.copy(balance = money("-50")) }),
         )
         repository.data.value = updated
         runCurrent()
@@ -73,7 +74,8 @@ class DashboardViewModelTest {
         assertEquals(money("25"), balance.uiState.value.amount)
         assertEquals(money("-7"), available.uiState.value.amount)
         assertEquals(money("0"), daily.uiState.value.amount)
-        assertEquals(money("-50"), forecast.uiState.value.amount)
+        assertEquals(updated.balanceForecast.points, forecast.uiState.value.points)
+        assertEquals(money("-50"), forecast.uiState.value.minimum?.balance)
         assertEquals(1, repository.subscriptions)
         host.onEvent(DashboardEvent.Refresh)
         sync.context.value = BudgetSyncContext(ready = true, error = "network", syncing = true)
@@ -110,7 +112,7 @@ class DashboardViewModelTest {
         assertNull(balance.uiState.value.amount)
         assertNull(available.uiState.value.amount)
         assertEquals(DailyLimitUiState(), daily.uiState.value)
-        assertNull(forecast.uiState.value.amount)
+        assertEquals(BalanceForecastUiState(), forecast.uiState.value)
         assertEquals(1, repository.subscriptions)
         sync.context.value = BudgetSyncContext(ready = true)
         runCurrent()
@@ -198,18 +200,22 @@ class DashboardViewModelTest {
         assertEquals(DashboardStatus.WaitingForBudget, source.state.value.status)
     }
 
-    @Test fun `forecast hides its amount until fourteen completed days are available`() = runTest {
-        val repository = FakeRepository().also { it.data.value = EMPTY.copy(forecast = EMPTY.forecast.copy(estimateSource = "UNAVAILABLE")) }
+    @Test fun `forecast hides its points and extrema until fourteen completed days are available`() = runTest {
+        val repository = FakeRepository().also {
+            it.data.value = EMPTY.copy(balanceForecast = EMPTY.balanceForecast.copy(points = emptyList(), insufficientHistory = true))
+        }
         val sync = FakeSync().also { it.context.value = BudgetSyncContext(ready = true) }
         val source = DashboardDataSource(repository, sync, backgroundScope)
         val model = keep("forecast", BalanceForecastViewModel(ObserveBalanceForecast(source)))
         watch(model.uiState)
         runCurrent()
-        assertNull(model.uiState.value.amount)
+        assertTrue(model.uiState.value.points.isEmpty())
+        assertNull(model.uiState.value.minimum)
+        assertNull(model.uiState.value.maximum)
         assertTrue(model.uiState.value.insufficientHistory)
         repository.data.value = EMPTY
         runCurrent()
-        assertEquals(EMPTY.forecast.base.endingBalance, model.uiState.value.amount)
+        assertEquals(EMPTY.balanceForecast.points, model.uiState.value.points)
         assertFalse(model.uiState.value.insufficientHistory)
     }
 

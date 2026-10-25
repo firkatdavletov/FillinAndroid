@@ -94,6 +94,10 @@ class DashboardOfflineTest {
                 assertEquals(spent, summary.spentToday.amount.toPlainString())
                 assertEquals(remaining, summary.remainingToday.amount.toPlainString())
                 assertEquals(percent, summary.remainingPercent!!.toPlainString())
+                val forecast = dashboard().balanceForecast
+                val expectedBalance = "140000.00".toBigDecimal() - spent.toBigDecimal()
+                assertEquals(31, forecast.points.size)
+                assertTrue(forecast.points.all { it.balance.amount == expectedBalance })
             }
             try {
                 expect("0.00", "10000.00", "100.0")
@@ -120,6 +124,7 @@ class DashboardOfflineTest {
         assertEquals("10000.00", restored.limit.amount.toPlainString())
         assertEquals("3000.00", restored.spentToday.amount.toPlainString())
         assertEquals("7000.00", restored.remainingToday.amount.toPlainString())
+        assertEquals("137000.00", dashboard().balanceForecast.points.last().balance.amount.toPlainString())
     }
 
     @Test fun pendingOperationsAndMatchedIncomeRecalculateOfflineAndSurviveRestart() = runBlocking {
