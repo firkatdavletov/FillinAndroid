@@ -276,4 +276,9 @@
     <string name="navigation_cloud">Облако</string>
     <string name="sync_title">Синхронизация</string>
     <string name="navigation_profile">Профиль</string>
+    <string name="test_bottom_sheet_title">Тестовый bottom sheet</string>
+    <string name="test_bottom_sheet_operation_id">ID операции: %1$s</string>
+    <string name="test_bottom_sheet_close">Закрыть</string>
+    <string name="test_bottom_sheet_edit">Редактировать</string>
+    <string name="test_bottom_sheet_correct">Исправить</string>
 </resources>

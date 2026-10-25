@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModelStore
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.domain.AuthUser
+import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetAction
 import com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer
@@ -350,6 +351,55 @@ class AppNavigationViewModelTest {
         model.retryLaunch()
         runCurrent()
         assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
+
+    @Test fun `bottom sheet is a single entry above Main and ignores stale dismiss callbacks`() = runTest {
+        val model = model(FakeAuth()) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openTestBottomSheet("operation", TestBottomSheetAction.Edit, "history", "budget")
+        val first = model.backStack.last() as AppRoute.TestBottomSheet
+        model.openTestBottomSheet("other", TestBottomSheetAction.None, "history", "budget")
+        assertEquals(listOf(AppRoute.Main, first), model.backStack)
+        assertTrue(model.dismissTestBottomSheet(first))
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        model.openTestBottomSheet("operation", TestBottomSheetAction.Edit, "history", "budget")
+        val second = model.backStack.last() as AppRoute.TestBottomSheet
+        assertNotEquals(first.requestId, second.requestId)
+        assertFalse(model.dismissTestBottomSheet(first))
+        assertEquals(listOf(AppRoute.Main, second), model.backStack)
+        model.back()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
+
+    @Test fun `bottom sheet cannot bypass setup and closes when budget becomes unavailable`() = runTest {
+        val ready = MutableStateFlow(false)
+        val model = model(FakeAuth(), ready) { false }
+        model.onLaunchShown()
+        runCurrent()
+        model.openTestBottomSheet("operation", TestBottomSheetAction.Edit, "history", "budget")
+        assertEquals(listOf(AppRoute.Auth), model.backStack)
+        model.continueAsGuest()
+        ready.value = true
+        runCurrent()
+        model.openTestBottomSheet("operation", TestBottomSheetAction.Edit, "history", "budget")
+        assertTrue(model.backStack.last() is AppRoute.TestBottomSheet)
+        ready.value = false
+        runCurrent()
+        assertEquals(listOf(AppRoute.Auth, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
+    }
+
+    @Test fun `logout removes the sheet and prevents a stale action reopening history`() = runTest {
+        val auth = FakeAuth(AuthSession.Authenticated(USER))
+        val model = model(auth) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openTestBottomSheet("operation", TestBottomSheetAction.Edit, "history", "budget")
+        val sheet = model.backStack.last() as AppRoute.TestBottomSheet
+        auth.signOut()
+        runCurrent()
+        assertEquals(listOf(AppRoute.Auth), model.backStack)
+        assertFalse(model.dismissTestBottomSheet(sheet))
     }
 
     private fun model(

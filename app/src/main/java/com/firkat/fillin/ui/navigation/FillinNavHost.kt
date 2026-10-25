@@ -3,6 +3,7 @@ package com.firkat.fillin.ui.navigation
 import android.app.Activity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -12,14 +13,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.runtime.result.LocalResultEventBus
+import androidx.navigation3.runtime.result.rememberResultEventBusNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.ui.AuthScreen
 import com.firkat.fillin.feature.auth.ui.AuthViewModel
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.auth.ui.messageResource
+import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetResult
+import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetRoute
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
@@ -35,6 +41,7 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun FillinNavHost(
     navigation: AppNavigationViewModel = koinViewModel(),
     auth: AuthViewModel = koinViewModel(),
@@ -51,6 +58,12 @@ fun FillinNavHost(
     operationCreateModels.bind(runtime.takeIf { AppRoute.OperationCreate in navigation.backStack })
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val sheet = navigation.backStack.lastOrNull() as? AppRoute.TestBottomSheet
+    LaunchedEffect(runtime?.scope?.id, sheet) {
+        if (sheet != null && sheet.budgetScopeId != runtime?.scope?.id) {
+            navigation.dismissTestBottomSheet(sheet)
+        }
+    }
     DisposableEffect(mainModels, operationCreateModels, context) {
         onDispose {
             if ((context as? Activity)?.isChangingConfigurations != true) {
@@ -72,7 +85,12 @@ fun FillinNavHost(
         modifier = Modifier.fillMaxSize(),
         backStack = navigation.backStack,
         onBack = { navigation.back() },
-        entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
+        sceneStrategies = listOf(remember { BottomSheetSceneStrategy<AppRoute>() }),
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberViewModelStoreNavEntryDecorator(),
+            rememberResultEventBusNavEntryDecorator(),
+        ),
         entryProvider = entryProvider {
             entry<AppRoute.Launch> {
                 LaunchScreen(launchFailed, navigation::onLaunchShown, navigation::retryLaunch)
@@ -90,6 +108,24 @@ fun FillinNavHost(
                     onFamilyAccessClick = navigation::openFamilyAccess,
                     onCloudSyncClick = navigation::openCloudSync,
                     onCreateOperationClick = navigation::openOperationCreate,
+                    onOperationClick = { operationId, action, resultKey ->
+                        runtime?.scope?.id?.let { scopeId ->
+                            navigation.openTestBottomSheet(operationId, action, resultKey, scopeId)
+                        }
+                    },
+                )
+            }
+            entry<AppRoute.TestBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
+                val resultBus = LocalResultEventBus.current
+                TestBottomSheetRoute(
+                    operationId = route.operationId,
+                    action = route.action,
+                    onClose = { navigation.dismissTestBottomSheet(route) },
+                    onOperationAction = {
+                        if (route.budgetScopeId == runtime?.scope?.id && navigation.dismissTestBottomSheet(route)) {
+                            resultBus.sendResult(route.resultKey, TestBottomSheetResult(route.operationId))
+                        }
+                    },
                 )
             }
             entry<AppRoute.OperationCreate> {

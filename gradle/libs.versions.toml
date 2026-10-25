@@ -22,8 +22,10 @@ credentials = "1.6.0"
 googleId = "1.2.1"
 navigation3 = "1.2.0"
 material3 = "1.4.0"
+lifecycleNavigation3 = "2.10.0"
 
 [libraries]
+androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleNavigation3" }
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
 androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }

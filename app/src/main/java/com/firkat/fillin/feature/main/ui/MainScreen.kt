@@ -35,6 +35,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.auth.domain.AuthUser
+import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetAction
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.categories.ui.CategoriesRoute
@@ -54,6 +55,7 @@ fun MainScreen(
     onFamilyAccessClick: () -> Unit = {},
     onCloudSyncClick: () -> Unit = {},
     onCreateOperationClick: () -> Unit = {},
+    onOperationClick: (String, TestBottomSheetAction, String) -> Unit = { _, _, _ -> },
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
@@ -73,6 +75,7 @@ fun MainScreen(
             onFamilyAccessClick = onFamilyAccessClick,
             onCloudSyncClick = onCloudSyncClick,
             onCreateOperationClick = onCreateOperationClick,
+            onOperationClick = onOperationClick,
         )
     }
 }
@@ -88,6 +91,7 @@ private fun MainContent(
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
     onCreateOperationClick: () -> Unit,
+    onOperationClick: (String, TestBottomSheetAction, String) -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.testTag("main_screen"),
@@ -120,7 +124,7 @@ private fun MainContent(
     ) { innerPadding ->
         val provider = entryProvider<NavKey> {
             entry(AppDestination.Dashboard) { DashboardRoute() }
-            entry(AppDestination.History) { OperationHistoryRoute() }
+            entry(AppDestination.History) { OperationHistoryRoute(onOperationClick = onOperationClick) }
             entry(AppDestination.Planned) {
                 Box(Modifier.fillMaxSize().padding(bottom = MainFabClearance)) {
                     PlannedOperationsRoute()

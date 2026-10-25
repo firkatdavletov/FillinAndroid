@@ -31,13 +31,16 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -45,7 +48,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.result.LocalResultEventBus
+import androidx.navigation3.runtime.result.ResultEffect
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetAction
+import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetResult
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
@@ -61,10 +68,23 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.util.UUID
 
 @Composable
-fun OperationHistoryRoute(viewModel: OperationHistoryViewModel = koinViewModel()) {
+fun OperationHistoryRoute(
+    viewModel: OperationHistoryViewModel = koinViewModel(),
+    onOperationClick: (String, TestBottomSheetAction, String) -> Unit,
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val resultKey = rememberSaveable { "operation-history-${UUID.randomUUID()}" }
+    val resultBus = LocalResultEventBus.current
+    ResultEffect<TestBottomSheetResult>(resultKey = resultKey) { result ->
+        viewModel.onEvent(OperationHistoryEvent.OperationActionRequested(result.operationId))
+        resultBus.removeResult(resultKey)
+    }
+    DisposableEffect(resultBus, resultKey) {
+        onDispose { resultBus.removeResult(resultKey) }
+    }
     FeatureScaffold(
         titleResource = R.string.operation_history_title,
         onNavigateBack =
@@ -80,6 +100,11 @@ fun OperationHistoryRoute(viewModel: OperationHistoryViewModel = koinViewModel()
         OperationHistoryScreen(
             state = state,
             onEvent = viewModel::onEvent,
+            onOperationClick = { id ->
+                state.operations.firstOrNull { it.id == id }?.let { operation ->
+                    onOperationClick(id, operation.bottomSheetAction(), resultKey)
+                }
+            },
         )
     }
 }
@@ -88,6 +113,7 @@ fun OperationHistoryRoute(viewModel: OperationHistoryViewModel = koinViewModel()
 fun OperationHistoryScreen(
     state: OperationHistoryUiState,
     onEvent: (OperationHistoryEvent) -> Unit,
+    onOperationClick: (String) -> Unit = {},
 ) {
     state.createEditor?.let { editor ->
         BackHandler { onEvent(OperationHistoryEvent.CreateClosed) }
@@ -136,13 +162,8 @@ fun OperationHistoryScreen(
                         else -> {
                             OperationList(
                                 state = state,
-                                onEdit = { id ->
-                                    if (state.operations.any { it.id == id && it.syncStatus == OperationSyncStatus.Rejected }) {
-                                        onEvent(OperationHistoryEvent.CorrectRejectedRequested(id))
-                                    } else {
-                                        onEvent(OperationHistoryEvent.EditRequested(id))
-                                    }
-                                },
+                                onOperationClick = onOperationClick,
+                                onCorrectClick = { onEvent(OperationHistoryEvent.CorrectRejectedRequested(it)) },
                                 onLoadNextPage = { onEvent(OperationHistoryEvent.LoadNextPage) },
                                 onRetry = { onEvent(OperationHistoryEvent.Retry) },
                             )
@@ -160,7 +181,8 @@ fun OperationHistoryScreen(
 @Composable
 private fun OperationList(
     state: OperationHistoryUiState,
-    onEdit: (String) -> Unit,
+    onOperationClick: (String) -> Unit,
+    onCorrectClick: (String) -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -199,7 +221,7 @@ private fun OperationList(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().testTag("operation_history_list"),
         state = listState,
         contentPadding =
             PaddingValues(
@@ -241,7 +263,9 @@ private fun OperationList(
             ) { purchase ->
                 OperationItem(
                     purchase = purchase,
-                    onEdit = { onEdit(purchase.id) },
+                    onClick = { onOperationClick(purchase.id) },
+                    onCorrectClick = { onCorrectClick(purchase.id) },
+                    modifier = Modifier.testTag("operation-${purchase.id}"),
                 )
             }
         }

@@ -80,6 +80,8 @@ enum class OperationHistoryError {
 }
 
 sealed interface OperationHistoryEvent {
+    data class OperationActionRequested(val id: String) : OperationHistoryEvent
+
     data object CreateRequested : OperationHistoryEvent
 
     data class CorrectRejectedRequested(

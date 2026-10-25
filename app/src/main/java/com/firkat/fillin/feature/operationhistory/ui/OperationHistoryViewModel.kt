@@ -92,6 +92,13 @@ class OperationHistoryViewModel(
 
     fun onEvent(event: OperationHistoryEvent) {
         when (event) {
+            is OperationHistoryEvent.OperationActionRequested -> {
+                // Resolve again: synchronization may have changed or removed the operation.
+                val operation = _uiState.value.operations.firstOrNull { it.id == event.id }
+                if (operation?.syncStatus == OperationSyncStatus.Rejected) openCreator(event.id)
+                else if (operation != null) openEditor(event.id)
+            }
+
             OperationHistoryEvent.CreateRequested -> {
                 openCreator()
             }

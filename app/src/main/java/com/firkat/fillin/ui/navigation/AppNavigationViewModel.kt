@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
+import com.firkat.fillin.feature.bottomsheets.presentation.TestBottomSheetAction
 import com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer
@@ -67,7 +68,7 @@ class AppNavigationViewModel(
                                 if (ready) openMain() else replaceWith(AppRoute.Auth)
                             }
                             ready && entries.last() is AppRoute.BudgetSetup -> openMain()
-                            !ready && entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.FamilyAccess, AppRoute.CloudSync) -> openSetup(
+                            !ready && (entries.last() is AppRoute.TestBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
                                 if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
                             )
                         }
@@ -99,6 +100,20 @@ class AppNavigationViewModel(
     fun openCloudSync() = openMainDestination(AppRoute.CloudSync)
 
     fun openOperationCreate() = openMainDestination(AppRoute.OperationCreate)
+
+    fun openTestBottomSheet(
+        operationId: String,
+        action: TestBottomSheetAction,
+        resultKey: String,
+        budgetScopeId: String,
+    ) = openMainDestination(AppRoute.TestBottomSheet(operationId, action, resultKey, budgetScopeId))
+
+    /** Ignores callbacks from a sheet that is already exiting or belongs to an old budget. */
+    fun dismissTestBottomSheet(route: AppRoute.TestBottomSheet): Boolean {
+        if (entries.lastOrNull() != route) return false
+        back()
+        return true
+    }
 
     private fun openMainDestination(route: AppRoute) {
         if (entries.last() == AppRoute.Main && budgetReady && !resolving.value) entries.add(route)

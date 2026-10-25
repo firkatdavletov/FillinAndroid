@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -24,6 +25,14 @@ import com.firkat.fillin.feature.sync.data.CloudBudgetSession
 import com.firkat.fillin.ui.theme.FillinTheme
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
+import com.firkat.fillin.feature.categories.domain.model.CategoryKind
+import com.firkat.fillin.feature.operationhistory.domain.model.Operation
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
+import com.firkat.fillin.feature.operationhistory.domain.repository.NewOperation
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
+import java.time.LocalDate
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
@@ -47,6 +56,7 @@ class AppNavigationUiTest {
     }
     private lateinit var navigation: AppNavigationViewModel
     private lateinit var authModel: AuthViewModel
+    private lateinit var hostContent: @Composable () -> Unit
 
     @Test fun existingCloudSetupOffersFamilyCodeWithoutCreatingAnotherBudget() {
         env.auth.login("owner")
@@ -64,6 +74,9 @@ class AppNavigationUiTest {
         restoration: StateRestorationTester? = null,
         fontScale: Float = 1f,
     ) {
+        compose.runOnUiThread {
+            compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
         runBlocking {
             env.manager.restore()
             if (createdBudget) {
@@ -71,7 +84,7 @@ class AppNavigationUiTest {
                     .createLocal("321.00".toBigDecimal(), java.time.LocalDate.now().minusDays(1))
             }
         }
-        env.koin.loadModules(listOf(module {
+        env.koin.loadModules(listOf(com.firkat.fillin.feature.bottomsheets.di.bottomSheetsModule, module {
             viewModel { AuthViewModel(auth) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(auth, env.sharing) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(env.sharing) }
@@ -95,7 +108,7 @@ class AppNavigationUiTest {
         authModel = AuthViewModel(auth).also { models.put("auth", it) }
         navigation = AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager))
             .also { models.put("navigation", it) }
-        val content: @Composable () -> Unit = {
+        hostContent = {
             FillinTheme {
                 UnboundKoinScope(env.koin.scopeRegistry.rootScope) {
                     val density = LocalDensity.current
@@ -105,7 +118,7 @@ class AppNavigationUiTest {
                 }
             }
         }
-        if (restoration == null) compose.setContent(content) else restoration.setContent(content)
+        if (restoration == null) compose.setContent(hostContent) else restoration.setContent(hostContent)
         if (auth.session.value != AuthSession.Loading) {
             compose.waitUntil(5000) {
                 compose.onAllNodes(if (createdBudget) hasTestTag("main_screen") else if (auth.session.value is AuthSession.Authenticated) hasTestTag("budget_setup_screen") else hasTestTag("auth_screen"))
@@ -421,6 +434,118 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("dashboard-widget-monthly-budget").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(top, compose.onNodeWithTag("dashboard-widget-monthly-budget").getUnclippedBoundsInRoot().top)
+    }
+
+    @Test fun historySheetSupportsEveryDismissMethodAndKeepsTheFilter() {
+        show(createdBudget = true)
+        val operation = seedSheetOperation()
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithTag("history-type-EXPENSE").performClick()
+        val dismissals: List<() -> Unit> = listOf(
+            { compose.onNodeWithTag("test_bottom_sheet_close").performClick() },
+            { androidx.test.espresso.Espresso.pressBack() },
+            { compose.onNode(isDialog()).performTouchInput { click(Offset(centerX, 1f)) } },
+            { compose.onNodeWithTag("test_bottom_sheet").performTouchInput { swipeDown() } },
+        )
+        dismissals.forEach { dismiss ->
+            openSheet(operation)
+            dismiss()
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("test_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+            assertEquals(listOf(AppRoute.Main), navigation.backStack)
+            compose.onNodeWithTag("tab_History").assertIsSelected()
+            compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
+        }
+    }
+
+    @Test fun sheetActionReopensTheExistingEditorOnEveryInvocation() {
+        show(createdBudget = true)
+        val operation = seedSheetOperation()
+        compose.onNodeWithTag("tab_History").performClick()
+        repeat(2) {
+            openSheet(operation)
+            compose.onNodeWithTag("test_bottom_sheet_action").performClick()
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("test_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithText("Изменение расхода").assertIsDisplayed()
+            compose.onNodeWithText("Сохранить сумму").assertIsDisplayed()
+            assertEquals(listOf(AppRoute.Main), navigation.backStack)
+            compose.onNodeWithContentDescription("Назад").performClick()
+            compose.onNodeWithTag("operation-${operation.id}").assertExists()
+        }
+    }
+
+    @Test fun sheetAndHistoryScrollSurviveSavedStateRestoration() {
+        val restoration = StateRestorationTester(compose)
+        show(createdBudget = true, restoration = restoration)
+        val operations = (0..23).map { seedSheetOperation("Тестовая операция $it") }
+        val operation = operations[12]
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithTag("operation_history_list").performScrollToNode(hasTestTag("operation-${operation.id}"))
+        val top = compose.onNodeWithTag("operation-${operation.id}").getUnclippedBoundsInRoot().top
+        openSheet(operation)
+        val route = navigation.backStack.last()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithTag("test_bottom_sheet").assertIsDisplayed()
+        assertEquals(route, navigation.backStack.last())
+        compose.onNodeWithTag("test_bottom_sheet_close").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("test_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("tab_History").assertIsSelected()
+        assertEquals(top, compose.onNodeWithTag("operation-${operation.id}").getUnclippedBoundsInRoot().top)
+    }
+
+    @Test fun switchingBudgetDismissesAnOpenSheetWithoutOpeningAnEditorInTheNewBudget() {
+        show(createdBudget = true)
+        val operation = seedSheetOperation()
+        compose.onNodeWithTag("tab_History").performClick()
+        openSheet(operation)
+        runBlocking {
+            env.manager.select(env.registry.createLocal().id)
+            val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
+            session.createLocal("900.00".toBigDecimal(), session.today)
+        }
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("test_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+        assertFalse(navigation.backStack.any { it is AppRoute.TestBottomSheet })
+        compose.onNodeWithText("Изменение расхода").assertDoesNotExist()
+    }
+
+    @Test fun sheetSurvivesActivityRecreationAndReturnsItsAction() {
+        show(createdBudget = true)
+        val operation = seedSheetOperation()
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithTag("history-type-EXPENSE").performClick()
+        openSheet(operation)
+        val route = navigation.backStack.last()
+        compose.activityRule.scenario.recreate()
+        compose.activityRule.scenario.onActivity { activity ->
+            activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        compose.setContent(hostContent)
+        compose.onNodeWithTag("test_bottom_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("tab_History").assertIsSelected()
+        assertEquals(route, navigation.backStack.last())
+        compose.onNodeWithTag("test_bottom_sheet_action").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("test_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithText("Изменение расхода").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
+    }
+
+    private fun seedSheetOperation(description: String = "Тестовая операция"): Operation = runBlocking {
+        val store = env.manager.active.value!!.scope.get<OperationHistoryStore>()
+        val context = store.context.first { it.initialSyncComplete && it.categories.isNotEmpty() }
+        val category = context.categories.first { it.kind == CategoryKind.Expense }
+        val today = LocalDate.now(java.time.ZoneId.of("Asia/Almaty"))
+        store.create(NewOperation(OperationType.Expense, category.id, "42.00".toBigDecimal(), today, description))
+        store.observeHistory(OperationHistoryFilter.currentMonth(today), 100).first { page ->
+            page.items.any { it.description == description }
+        }.items.first { it.description == description }
+    }
+
+    private fun openSheet(operation: Operation) {
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("operation-${operation.id}").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("operation-${operation.id}").performClick()
+        compose.onNodeWithTag("test_bottom_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("test_bottom_sheet_operation_id").assertTextEquals("ID операции: ${operation.id}")
+        assertEquals(2, navigation.backStack.size)
     }
 
     @Test fun switchingBudgetClearsMainModelsWithoutLeakingThePreviousFilter() {

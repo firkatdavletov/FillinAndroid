@@ -21,6 +21,7 @@ import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
 import com.firkat.fillin.ui.component.FeatureScaffold
@@ -246,6 +247,36 @@ class OperationHistoryScreenTest {
         composeRule.onAllNodes(hasText("+", substring = true)).assertCountEquals(2)
         composeRule.onNodeWithText("Изменить").assertDoesNotExist()
         screenshot("history-income.png")
+    }
+
+    @Test fun rejectedRowOpensSheetWhileCorrectionButtonKeepsItsOwnAction() {
+        val opened = mutableListOf<String>()
+        val events = mutableListOf<OperationHistoryEvent>()
+        val operation = Operation(
+            id = "rejected", categoryName = "Продукты", description = "Отклонённая операция",
+            amount = BigDecimal("42.00"), currency = "KZT", originalAmount = BigDecimal("42.00"),
+            originalCurrency = "KZT", occurredOn = FILTER.dateTo, status = OperationStatus.Posted,
+            version = 0, syncStatus = OperationSyncStatus.Rejected,
+        )
+        composeRule.setContent {
+            FillinTheme {
+                OperationHistoryScreen(
+                    state = OperationHistoryUiState(filters = FILTER, operations = listOf(operation), canLoadMore = false),
+                    onEvent = events::add,
+                    onOperationClick = opened::add,
+                )
+            }
+        }
+        composeRule.onNodeWithTag("operation-rejected").performClick()
+        composeRule.runOnIdle {
+            assertEquals(listOf("rejected"), opened)
+            assertTrue(events.isEmpty())
+        }
+        composeRule.onNodeWithText("Исправить и отправить снова").performClick()
+        composeRule.runOnIdle {
+            assertEquals(listOf("rejected"), opened)
+            assertEquals(listOf(OperationHistoryEvent.CorrectRejectedRequested("rejected")), events)
+        }
     }
 
     private fun show(state: OperationHistoryUiState, events: MutableList<OperationHistoryEvent>) {
