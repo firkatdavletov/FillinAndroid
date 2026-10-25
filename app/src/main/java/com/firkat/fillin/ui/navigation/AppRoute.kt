@@ -12,6 +12,7 @@ sealed interface AppRoute : NavKey {
     @Serializable data object Main : AppRoute
     @Serializable data object OperationCreate : AppRoute
     @Serializable data object Auth : AppRoute
+    @Serializable data object Categories : AppRoute
     @Serializable data object FamilyAccess : AppRoute
     @Serializable data object CloudSync : AppRoute
     @Serializable data class BudgetSetup(val mode: BudgetSetupMode) : AppRoute

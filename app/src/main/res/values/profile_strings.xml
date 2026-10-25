@@ -9,6 +9,7 @@
     <string name="profile_family_budget_name">Семейный бюджет</string>
     <string name="profile_family_budget">Семейный · KZT</string>
     <string name="profile_personal_budget">Личный · KZT</string>
+    <string name="profile_categories_subtitle">Категории доходов и расходов</string>
     <string name="profile_family_access">Семейный доступ</string>
     <string name="profile_family_subtitle">Управление участниками бюджета</string>
     <string name="profile_cloud_sync">Облачная синхронизация</string>

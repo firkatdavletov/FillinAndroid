@@ -30,6 +30,7 @@ import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupRoute
+import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.launch.presentation.LaunchScreen
 import com.firkat.fillin.feature.main.ui.MainScreen
 import com.firkat.fillin.feature.operationhistory.ui.OperationCreateRoute
@@ -113,6 +114,7 @@ fun FillinNavHost(
                     snackbarHostState = snackbar,
                     budgetViewModelStoreOwner = mainModels,
                     user = (state.session as? AuthSession.Authenticated)?.user,
+                    onCategoriesClick = navigation::openCategories,
                     onFamilyAccessClick = navigation::openFamilyAccess,
                     onCloudSyncClick = navigation::openCloudSync,
                     onCreateOperationClick = navigation::openOperationCreate,
@@ -158,6 +160,11 @@ fun FillinNavHost(
             entry<AppRoute.OperationCreate> {
                 ActiveBudgetContent(viewModelStoreOwner = operationCreateModels) {
                     OperationCreateRoute(onBack = navigation::back)
+                }
+            }
+            entry<AppRoute.Categories> {
+                ActiveBudgetContent {
+                    CategoriesRoute(onBack = navigation::back)
                 }
             }
             entry<AppRoute.FamilyAccess> {

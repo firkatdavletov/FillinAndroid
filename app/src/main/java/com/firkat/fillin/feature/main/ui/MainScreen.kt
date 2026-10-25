@@ -36,7 +36,6 @@ import com.firkat.fillin.R
 import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
-import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
@@ -51,6 +50,7 @@ fun MainScreen(
     onAccountClick: () -> Unit,
     snackbarHostState: SnackbarHostState,
     budgetViewModelStoreOwner: MainBudgetViewModelStore? = null,
+    onCategoriesClick: () -> Unit = {},
     onFamilyAccessClick: () -> Unit = {},
     onCloudSyncClick: () -> Unit = {},
     onCreateOperationClick: () -> Unit = {},
@@ -72,6 +72,7 @@ fun MainScreen(
             onAccountClick = onAccountClick,
             snackbarHostState = snackbarHostState,
             user = user,
+            onCategoriesClick = onCategoriesClick,
             onFamilyAccessClick = onFamilyAccessClick,
             onCloudSyncClick = onCloudSyncClick,
             onCreateOperationClick = onCreateOperationClick,
@@ -89,6 +90,7 @@ private fun MainContent(
     onAccountClick: () -> Unit,
     snackbarHostState: SnackbarHostState,
     user: AuthUser?,
+    onCategoriesClick: () -> Unit,
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
     onCreateOperationClick: () -> Unit,
@@ -132,23 +134,19 @@ private fun MainContent(
                     PlannedOperationsRoute(onOpenEditor = onPlannedOperationEditorClick)
                 }
             }
-            entry(AppDestination.AddOperation) {
-                Box(Modifier.fillMaxSize().padding(bottom = MainFabClearance)) {
-                    CategoriesRoute()
-                }
-            }
             entry(AppDestination.Profile) {
                 ProfileRoute(
                     user = user,
                     authBusy = authBusy,
                     onAccountClick = onAccountClick,
+                    onCategoriesClick = onCategoriesClick,
                     onFamilyAccessClick = onFamilyAccessClick,
                     onCloudSyncClick = onCloudSyncClick,
                 )
             }
         }
         // Keep each tab's decorators alive even while that tab is absent from NavDisplay.
-        val tabEntries = AppDestination.entries.associateWith { destination ->
+        val tabEntries = AppDestination.entries.filter { it != AppDestination.AddOperation }.associateWith { destination ->
             key(destination) {
                 val stack = rememberNavBackStack(destination)
                 rememberDecoratedNavEntries(

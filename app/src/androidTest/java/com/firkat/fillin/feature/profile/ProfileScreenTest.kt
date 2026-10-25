@@ -34,7 +34,7 @@ class ProfileScreenTest {
         var cloud = 0
         compose.setContent {
             FillinTheme {
-                ProfileScreen(profileState(), USER, false, {}, { selected = it }, {}, { family++ }, { cloud++ }, {})
+                ProfileScreen(profileState(), USER, false, {}, { selected = it }, {}, {}, { family++ }, { cloud++ }, {})
             }
         }
         compose.onNodeWithText("Анна Иванова").assertIsDisplayed()
@@ -51,7 +51,7 @@ class ProfileScreenTest {
 
     @Test fun guestCanSignInAndHasNoSignOutAction() {
         var signIn = 0
-        compose.setContent { FillinTheme { ProfileScreen(profileState(), null, false, { signIn++ }, {}, {}, {}, {}, {}) } }
+        compose.setContent { FillinTheme { ProfileScreen(profileState(), null, false, { signIn++ }, {}, {}, {}, {}, {}, {}) } }
         compose.onNodeWithContentDescription("Выйти из аккаунта").assertDoesNotExist()
         compose.onNodeWithText("Авторизоваться").performClick()
         assertEquals(1, signIn)

@@ -44,6 +44,7 @@ fun ProfileRoute(
     user: AuthUser?,
     authBusy: Boolean,
     onAccountClick: () -> Unit,
+    onCategoriesClick: () -> Unit,
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
     viewModel: ProfileViewModel = koinViewModel(),
@@ -56,6 +57,7 @@ fun ProfileRoute(
         onAccountClick = onAccountClick,
         onBudgetClick = viewModel::selectBudget,
         onCreateBudgetClick = viewModel::openCreation,
+        onCategoriesClick = onCategoriesClick,
         onFamilyAccessClick = onFamilyAccessClick,
         onCloudSyncClick = onCloudSyncClick,
         onRetry = viewModel::refresh,
@@ -84,6 +86,7 @@ fun ProfileScreen(
     onAccountClick: () -> Unit,
     onBudgetClick: (String) -> Unit,
     onCreateBudgetClick: () -> Unit,
+    onCategoriesClick: () -> Unit,
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
     onRetry: () -> Unit,
@@ -137,6 +140,13 @@ fun ProfileScreen(
                 TextButton(onClick = onRetry, enabled = !state.busy) { Text(stringResource(R.string.budget_profile_retry)) }
             }
             Spacer(Modifier.height(40.dp))
+            ProfileSettingRow(
+                title = stringResource(R.string.navigation_categories),
+                subtitle = stringResource(R.string.profile_categories_subtitle),
+                icon = FillinIcons.Categories,
+                onClick = onCategoriesClick,
+            )
+            Spacer(Modifier.height(8.dp))
             ProfileSettingRow(
                 title = stringResource(R.string.profile_family_access),
                 subtitle = stringResource(R.string.profile_family_subtitle),
@@ -295,6 +305,12 @@ private fun ProfileBudgetLongPreview() { FillinTheme { ProfileBudgetCard("Нак
 @Composable
 private fun ProfileFamilySettingPreview() { FillinTheme { ProfileSettingRow(stringResource(R.string.profile_family_access), stringResource(R.string.profile_family_subtitle), FillinIcons.FamilyAccess, {}) } }
 
+@Preview(name = "Categories setting")
+@Preview(name = "Categories setting dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Categories setting large font", widthDp = 320, fontScale = 2f)
+@Composable
+private fun ProfileCategoriesSettingPreview() { FillinTheme { ProfileSettingRow(stringResource(R.string.navigation_categories), stringResource(R.string.profile_categories_subtitle), FillinIcons.Categories, {}) } }
+
 @Preview(name = "Cloud setting", widthDp = 320, fontScale = 2f)
 @Preview(name = "Cloud setting dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
@@ -303,15 +319,15 @@ private fun ProfileCloudSettingPreview() { FillinTheme { ProfileSettingRow(strin
 @Preview(name = "Profile guest", widthDp = 393, heightDp = 760)
 @Preview(name = "Profile guest dark", widthDp = 393, heightDp = 760, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun ProfileGuestPreview() { FillinTheme { ProfileScreen(previewProfileState(), null, false, {}, {}, {}, {}, {}, {}) } }
+private fun ProfileGuestPreview() { FillinTheme { ProfileScreen(previewProfileState(), null, false, {}, {}, {}, {}, {}, {}, {}) } }
 
 @Preview(name = "Profile account", widthDp = 393, heightDp = 760)
 @Composable
-private fun ProfileAuthenticatedPreview() { FillinTheme { ProfileScreen(previewProfileState(), AuthUser("preview", "Анна Иванова", "anna@example.com"), false, {}, {}, {}, {}, {}, {}) } }
+private fun ProfileAuthenticatedPreview() { FillinTheme { ProfileScreen(previewProfileState(), AuthUser("preview", "Анна Иванова", "anna@example.com"), false, {}, {}, {}, {}, {}, {}, {}) } }
 
 @Preview(name = "Profile expanded", widthDp = 840)
 @Composable
-private fun ProfileExpandedPreview() { FillinTheme { ProfileScreen(previewProfileState(), null, false, {}, {}, {}, {}, {}, {}) } }
+private fun ProfileExpandedPreview() { FillinTheme { ProfileScreen(previewProfileState(), null, false, {}, {}, {}, {}, {}, {}, {}) } }
 
 @Preview(name = "Create cloud budget")
 @Preview(name = "Create cloud budget dark", uiMode = Configuration.UI_MODE_NIGHT_YES)

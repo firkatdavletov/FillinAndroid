@@ -7,6 +7,7 @@ import com.firkat.fillin.R
 
 /** Original profile vectors exported from the Figma design. */
 internal object FillinIcons {
+    val Categories: Painter @Composable get() = painterResource(R.drawable.ic_categories)
     val FamilyAccess: Painter @Composable get() = painterResource(R.drawable.ic_family_access)
     val CloudUpload: Painter @Composable get() = painterResource(R.drawable.ic_cloud_upload)
 }

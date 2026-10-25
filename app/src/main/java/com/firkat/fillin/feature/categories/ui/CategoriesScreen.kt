@@ -65,6 +65,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 
 @Composable
 fun CategoriesRoute(
+    onBack: () -> Unit,
     viewModel: CategoriesViewModel = koinViewModel(),
     syncViewModel: BudgetSyncViewModel = koinViewModel(),
 ) {
@@ -76,7 +77,7 @@ fun CategoriesRoute(
             if (state.editor != null) {
                 { viewModel.onEvent(CategoriesEvent.EditorClosed) }
             } else {
-                null
+                onBack
             },
         navigateBackEnabled = state.editor?.isSaving != true,
     ) {
