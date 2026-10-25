@@ -12,6 +12,8 @@ data class EditOperationUiState(
     val isLoading: Boolean = true,
     val mode: EditOperationMode = EditOperationMode.ReadOnly,
     val input: String = "",
+    val description: String = "",
+    val descriptionError: Boolean = false,
     val type: OperationType = OperationType.Expense,
     val categoryId: String? = null,
     val categories: List<Category> = emptyList(),
@@ -25,6 +27,7 @@ data class EditOperationUiState(
 
 sealed interface EditOperationEvent {
     data class InputChanged(val value: String) : EditOperationEvent
+    data class DescriptionChanged(val value: String) : EditOperationEvent
     data class TypeChanged(val type: OperationType) : EditOperationEvent
     data class CategorySelected(val id: String) : EditOperationEvent
     data object SaveClicked : EditOperationEvent

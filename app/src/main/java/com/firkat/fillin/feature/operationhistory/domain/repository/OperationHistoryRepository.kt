@@ -12,6 +12,10 @@ interface OperationHistoryRepository {
         filter: OperationHistoryFilter,
     ): OperationPage
 
+    /** Full operation editing is supported by the local v4 command store. */
+    suspend fun updateOperation(id: String, version: Long, update: OperationUpdate): Operation =
+        throw OperationHistoryException.InvalidRequest
+
     suspend fun updateOperationAmount(
         id: String,
         version: Long,
@@ -20,6 +24,12 @@ interface OperationHistoryRepository {
 
     suspend fun refundPurchase(id: String, version: Long)
 }
+
+data class OperationUpdate(
+    val amount: BigDecimal,
+    val categoryId: String,
+    val description: String?,
+)
 
 sealed class OperationHistoryException : Exception() {
     data object MissingApiToken : OperationHistoryException()

@@ -143,7 +143,11 @@ class BudgetStore(
                 }
                 if (type in setOf("UPDATE_OPERATION", "REFUND_OPERATION")) {
                     projection.operations[entityId]?.let { operation ->
-                        command = command.copy(categoryId = operation.categoryId, kind = operation.type, occurredOn = operation.occurredOn, description = operation.description)
+                        command = command.copy(
+                            categoryId = if (command.replaceDetails) command.categoryId else operation.categoryId,
+                            kind = operation.type, occurredOn = operation.occurredOn,
+                            description = if (command.replaceDetails) command.description else operation.description,
+                        )
                     }
                 }
             }
@@ -296,6 +300,9 @@ class BudgetStore(
             ) {
                 throw BudgetLocalFailure("invalid")
             }
+        }
+        if (c.replaceDetails && (c.type != "UPDATE_OPERATION" || c.categoryId == null || c.description.orEmpty().length > 160)) {
+            throw BudgetLocalFailure("invalid")
         }
         if (c.type in setOf("UPDATE_OPERATION", "REFUND_OPERATION")) {
             val operation = p.operations[c.entityId] ?: throw BudgetLocalFailure("not_found")

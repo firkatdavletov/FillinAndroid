@@ -36,6 +36,7 @@ import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHis
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
 import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdateOperationAmount
+import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdateOperation
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryViewModel
 import com.firkat.fillin.feature.plannedexpenses.data.repository.OfflinePlannedExpensesRepository
 import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesRepository
@@ -155,6 +156,7 @@ val budgetModule = module {
         scoped<OperationHistoryStore> { get<OfflineOperationHistoryRepository>() }
         scoped<OperationHistoryRepository> { get<OfflineOperationHistoryRepository>() }
         factory { UpdateOperationAmount(repository = get()) }
+        factory { UpdateOperation(repository = get()) }
         factory { RefundPurchase(repository = get()) }
         viewModel { OperationHistoryViewModel(history = get()) }
         viewModel { com.firkat.fillin.feature.operationhistory.ui.OperationCreateViewModel(history = get()) }

@@ -286,8 +286,8 @@
     <string name="edit_operation_title">Редактирование операции</string>
     <string name="edit_operation_close">Закрыть</string>
     <string name="edit_operation_read_only">Для этой операции редактирование и возврат недоступны</string>
-    <string name="edit_operation_amount_only">Сумма в KZT. Категория, тип и дата операции сохраняются.</string>
-    <string name="edit_operation_refunded">Сумму операции с возвратом изменить нельзя</string>
+    <string name="edit_operation_details_hint">Сумма в KZT. Тип и дата операции сохраняются.</string>
+    <string name="edit_operation_refunded">Операцию с возвратом редактировать нельзя</string>
     <string name="edit_operation_save_failed">Не удалось сохранить изменения. Повторите попытку.</string>
     <string name="edit_operation_saved">Изменения сохранены</string>
     <string name="edit_operation_corrected">Операция исправлена</string>

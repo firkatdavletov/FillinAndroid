@@ -74,6 +74,8 @@ internal fun EditOperationBottomSheet(
         categories = state.categories, selectedCategoryId = state.categoryId, isLoading = state.isLoading,
         isSaving = state.isSaving, canSave = state.canSave, canRefund = state.canRefund,
         inputError = state.inputError, error = state.error,
+        description = state.description, descriptionError = state.descriptionError,
+        onDescriptionChange = { viewModel.onEvent(EditOperationEvent.DescriptionChanged(it)) },
         onInputChange = { viewModel.onEvent(EditOperationEvent.InputChanged(it)) },
         onTypeClick = { viewModel.onEvent(EditOperationEvent.TypeChanged(it)) },
         onCategoryClick = { viewModel.onEvent(EditOperationEvent.CategorySelected(it)) },
@@ -109,6 +111,9 @@ internal fun EditOperationContent(
     onSaveClick: () -> Unit,
     onRefundClick: () -> Unit,
     onCloseClick: () -> Unit,
+    description: String = operation?.description.orEmpty(),
+    descriptionError: Boolean = false,
+    onDescriptionChange: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -121,7 +126,7 @@ internal fun EditOperationContent(
         operation?.let {
             Text(it.categoryName, style = MaterialTheme.typography.titleMedium)
             Text(formatDateHeader(it.occurredOn), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (mode != EditOperationMode.Correct) {
+            if (mode == EditOperationMode.ReadOnly || mode == EditOperationMode.Edit && it.refundedAmount.signum() != 0) {
                 it.description?.takeIf(String::isNotBlank)?.let { description -> Text(description) }
             }
             if (mode == EditOperationMode.ReadOnly) {
@@ -149,8 +154,23 @@ internal fun EditOperationContent(
                     if (categories.isEmpty()) Text(stringResource(R.string.operation_create_no_categories))
                     else OperationCategoryRow(categories, !isSaving, onCategoryClick, selectedCategoryId = selectedCategoryId)
                 } else {
+                    if (it.refundedAmount.signum() == 0) {
+                        Text(stringResource(R.string.operation_create_description))
+                        SaldomiTextField(
+                            value = description, onValueChange = onDescriptionChange,
+                            enabled = !isSaving, isError = descriptionError,
+                            modifier = Modifier.fillMaxWidth().testTag("edit_operation_description"),
+                        )
+                        if (descriptionError) {
+                            Text(stringResource(R.string.operation_create_description_too_long),
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.testTag("edit_operation_description_error"))
+                        }
+                        if (categories.isEmpty()) Text(stringResource(R.string.operation_create_no_categories))
+                        else OperationCategoryRow(categories, !isSaving, onCategoryClick, selectedCategoryId = selectedCategoryId)
+                    }
                     Text(
-                        stringResource(if (it.refundedAmount.signum() == 0) R.string.edit_operation_amount_only else R.string.edit_operation_refunded),
+                        stringResource(if (it.refundedAmount.signum() == 0) R.string.edit_operation_details_hint else R.string.edit_operation_refunded),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -205,18 +225,26 @@ private fun EditPreview(
     categories: List<Category> = previewOperationCategories(),
     input: String = "1300",
     canSave: Boolean = true,
+    description: String = operation?.description.orEmpty(),
+    descriptionError: Boolean = false,
 ) {
     val visibleCategories = categories.filter { it.kind == if (type == OperationType.Expense) com.firkat.fillin.feature.categories.domain.model.CategoryKind.Expense else com.firkat.fillin.feature.categories.domain.model.CategoryKind.Income }
     FillinTheme { Surface {
         EditOperationContent(operation, mode, input, type, visibleCategories, if (type == OperationType.Expense) "food" else "salary", loading, saving,
             canSave && !saving && inputError == null && operation?.refundedAmount?.signum() == 0,
             !saving && operation != null && operation.type == OperationType.Expense && operation.refundedAmount < operation.originalAmount,
-            inputError, error, {}, {}, {}, {}, {}, {})
+            inputError, error, {}, {}, {}, {}, {}, {}, description = description, descriptionError = descriptionError)
     } }
 }
 
 @Preview(name = "Edit") @Preview(name = "Edit dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable private fun EditOperationPreview() { EditPreview() }
+@Preview(name = "Empty description") @Preview(name = "Empty description dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun EditOperationEmptyDescriptionPreview() { EditPreview(description = "") }
+@Preview(name = "Description error") @Preview(name = "Description error dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun EditOperationDescriptionErrorPreview() { EditPreview(description = "Длинное описание ".repeat(12), descriptionError = true, canSave = false) }
+@Preview(name = "No edit categories") @Preview(name = "No edit categories dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun EditOperationNoEditCategoriesPreview() { EditPreview(categories = emptyList(), canSave = false) }
 @Preview(name = "Unchanged") @Preview(name = "Unchanged dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable private fun EditOperationUnchangedPreview() { EditPreview(input = "1200", canSave = false) }
 @Preview(name = "Saving") @Preview(name = "Saving dark", uiMode = UI_MODE_NIGHT_YES)

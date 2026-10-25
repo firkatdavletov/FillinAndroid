@@ -56,6 +56,8 @@ internal class BudgetProjection(
             if (operation != null && command.type == "UPDATE_OPERATION") {
                 operations[operation.id] =
                     operation.copy(
+                        categoryId = if (command.replaceDetails) requireNotNull(command.categoryId) else operation.categoryId,
+                        description = if (command.replaceDetails) command.description else operation.description,
                         originalAmount = requireNotNull(command.amount),
                         amountKzt = command.amount,
                         version = operation.version + 1,

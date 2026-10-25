@@ -230,6 +230,77 @@ class ProfileBudgetLifecycleTest {
         assertEquals(0, store().context.first().pending)
     }
 
+    @Test fun expenseDetailsSurviveOfflineRestartAndLostResponse() = runBlocking { detailsSurviveRestart(OperationType.Expense) }
+
+    @Test fun incomeDetailsSurviveOfflineRestartAndLostResponse() = runBlocking { detailsSurviveRestart(OperationType.Income) }
+
+    private suspend fun detailsSurviveRestart(type: OperationType) {
+        session().createLocal(BigDecimal.ZERO, LocalDate.parse("2026-10-01"))
+        val repository = history()
+        val category = repository.context.first().categories.first { it.kind.name == type.name }
+        val categoryId = UUID.randomUUID().toString()
+        store().enqueue("CREATE_CATEGORY", categoryId) { it.copy(name = "Новая категория", kind = type.apiValue, icon = "HOME") }
+        repository.create(NewOperation(type, category.id, BigDecimal("100.00"), LocalDate.parse("2026-10-17"), "старое"))
+        val original = repository.observeHistory(filter, 100).first().items.single()
+        repository.updateOperation(original.id, original.version, OperationUpdate(original.originalAmount, categoryId, "покупка 2 шт"))
+        val first = repository.observeOperation(original.id).first()!!
+        assertEquals("покупка 2 шт", first.description)
+        assertEquals(categoryId, first.categoryId)
+        assertEquals(original.originalAmount, first.originalAmount)
+        repository.updateOperation(original.id, first.version, OperationUpdate(BigDecimal("150.25"), categoryId, null))
+        val edited = repository.observeOperation(original.id).first()!!
+        assertNull(edited.description)
+        assertEquals(2L, edited.version)
+        assertEquals(original.occurredOn, edited.occurredOn)
+        assertEquals(0, api.calls)
+        val commands = database.budget().content()!!.commands
+        database.close()
+        database = open()
+        assertEquals(edited, history().observeOperation(original.id).first())
+        assertEquals(commands, database.budget().content()!!.commands)
+        session().enable()
+        api.loseCommand = "UPDATE_OPERATION"
+        assertEquals(SyncResult.Retry, synchronizer().synchronize())
+        val attempted = database.budget().content()!!.commands.first { it.wirePayload != null && it.status == "PENDING" }
+        database.close()
+        database = open()
+        assertEquals(attempted.wirePayload, database.budget().content()!!.commands.first { it.requestId == attempted.requestId }.wirePayload)
+        assertEquals(SyncResult.Completed, synchronizer().synchronize())
+        assertEquals(1, api.operations.size)
+        val synced = history().observeOperation(original.id).first()!!
+        assertEquals(edited.copy(syncStatus = OperationSyncStatus.Synced), synced)
+        assertEquals(categoryId, api.operations.getValue(original.id).categoryId)
+        assertNull(api.operations.getValue(original.id).description)
+        assertEquals(0, store().context.first().pending)
+    }
+
+    @Test fun invalidDetailsAndStaleVersionsDoNotChangeTheDurableQueue() = runBlocking {
+        session().createLocal(BigDecimal.ZERO, LocalDate.parse("2026-10-01"))
+        val repository = history()
+        val categories = repository.context.first().categories
+        val expense = categories.first { it.kind.name == "Expense" }
+        val income = categories.first { it.kind.name == "Income" }
+        val archived = UUID.randomUUID().toString()
+        store().enqueue("CREATE_CATEGORY", archived) { it.copy(name = "Архивная категория", kind = "EXPENSE", icon = "HOME") }
+        store().enqueue("DELETE_CATEGORY", archived)
+        repository.create(NewOperation(OperationType.Expense, expense.id, BigDecimal.TEN, LocalDate.parse("2026-10-17"), "старое"))
+        val original = repository.observeHistory(filter, 100).first().items.single()
+        val count = database.budget().content()!!.commands.size
+        val valid = OperationUpdate(BigDecimal("15.00"), expense.id, "новое")
+        for (invalid in listOf(valid.copy(categoryId = income.id), valid.copy(categoryId = archived),
+            valid.copy(categoryId = UUID.randomUUID().toString()), valid.copy(description = "я".repeat(161)))) {
+            try { repository.updateOperation(original.id, original.version, invalid); fail("Expected invalid request") }
+            catch (failure: OperationHistoryException) { assertEquals(OperationHistoryException.InvalidRequest, failure) }
+            assertEquals(count, database.budget().content()!!.commands.size)
+            assertEquals(original, repository.observeOperation(original.id).first())
+        }
+        repository.updateOperation(original.id, original.version, valid)
+        try { repository.updateOperation(original.id, original.version, valid.copy(description = "устаревшее")); fail("Expected conflict") }
+        catch (failure: OperationHistoryException) { assertEquals(OperationHistoryException.Conflict, failure) }
+        assertEquals(count + 1, database.budget().content()!!.commands.size)
+        assertEquals("новое", repository.observeOperation(original.id).first()!!.description)
+    }
+
     @Test fun missingRemoteBudgetAndInterruptedBootstrapNeverInitializeLocalBudget() =
         runBlocking {
             try {
@@ -516,6 +587,9 @@ internal class TestCloudApi : CloudBudgetApi {
         calls++
         receipts[command.requestId]?.let { return Response.success(it) }
         when (command.type) {
+            "CREATE_CATEGORY" -> {
+                append("CATEGORY", category = SyncCategoryDto(command.entityId, command.name!!, command.kind!!, command.icon!!, "📦", false))
+            }
             "CREATE_OPERATION" -> {
                 val date = command.occurredOn!!
                 val operation =
@@ -546,7 +620,9 @@ internal class TestCloudApi : CloudBudgetApi {
 
             "UPDATE_OPERATION" -> {
                 val old = operations.getValue(command.entityId)
-                val op = old.copy(originalAmount = command.amount!!, amountKzt = command.amount, version = old.version + 1)
+                val op = old.copy(originalAmount = command.amount!!, amountKzt = command.amount, version = old.version + 1,
+                    categoryId = if (command.replaceDetails) command.categoryId!! else old.categoryId,
+                    description = if (command.replaceDetails) command.description else old.description)
                 operations[op.id] = op
                 append("LEDGER", operation = op)
             }

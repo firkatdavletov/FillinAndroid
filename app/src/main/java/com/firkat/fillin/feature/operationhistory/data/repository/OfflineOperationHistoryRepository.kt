@@ -23,6 +23,7 @@ import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHisto
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationUpdate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -190,6 +191,17 @@ class OfflineOperationHistoryRepository(
         require(limit > 0 && offset >= 0 && offset <= Int.MAX_VALUE - limit)
         val page = observeHistory(filter, limit + offset.toInt()).first()
         return page.copy(items = page.items.drop(offset.toInt()))
+    }
+
+    override suspend fun updateOperation(id: String, version: Long, update: OperationUpdate): Operation {
+        if (dao.state()?.protocolVersion != 4 || budgetStore == null) throw OperationHistoryException.InvalidRequest
+        localCommand {
+            budgetStore.enqueue("UPDATE_OPERATION", id, version) {
+                it.copy(amount = update.amount.toPlainString(), categoryId = update.categoryId,
+                    description = update.description?.trim()?.takeIf(String::isNotEmpty), replaceDetails = true)
+            }
+        }
+        return observeOperation(id).first() ?: throw OperationHistoryException.NotFound
     }
 
     override suspend fun updateOperationAmount(

@@ -130,6 +130,44 @@ class BudgetProjectionTest {
         return BudgetOutbox(c.requestId, "scope", id, c.entityKind(), json.encodeToString(c), order)
     }
 
+    @Test fun `metadata replacement clears descriptions and survives earlier acknowledgements`() {
+        val first = BudgetSyncCommand("first", "h", "m", "UPDATE_OPERATION", "payment", today.toString(),
+            categoryId = "new-category", amount = "20.00", description = "новое", replaceDetails = true)
+        val second = first.copy(requestId = "second", amount = "25.00", description = null)
+        val commands = listOf(first, second).mapIndexed { i, c ->
+            BudgetOutbox(c.requestId, "scope", "payment", "LEDGER", json.encodeToString(c), i.toLong(),
+                status = if (i == 0) "ACKNOWLEDGED" else "PENDING", receiptRevision = if (i == 0) 2L else null)
+        }
+        val before = content(commands).let { it.copy(sync = it.sync.copy(protocolVersion = 4, lastRevision = 1)) }
+        val projected = BudgetProjection(before, json, today).operations.getValue("payment")
+        assertEquals("new-category", projected.categoryId)
+        assertNull(projected.description)
+        assertEquals("25.00", projected.originalAmount)
+        val after = before.copy(sync = before.sync.copy(lastRevision = 2), operations = before.operations.map {
+            if (it.id == "payment") it.copy(categoryId = "new-category", description = "новое", version = 1) else it
+        })
+        assertEquals(projected, BudgetProjection(after, json, today).operations.getValue("payment"))
+    }
+
+    @Test fun `legacy amount commands retain category and description and omit the new flag`() {
+        val c = BudgetSyncCommand("legacy", "h", "m", "UPDATE_OPERATION", "payment", today.toString(),
+            categoryId = "ignored", amount = "25.00", description = "ignored")
+        val encoded = json.encodeToString(c)
+        assertFalse(encoded.contains("replaceDetails"))
+        val command = BudgetOutbox(c.requestId, "scope", "payment", "LEDGER", encoded, 1)
+        val source = content(listOf(command)).let { data -> data.copy(operations = data.operations.map {
+            if (it.id == "payment") it.copy(description = "старое") else it
+        }) }
+        val operation = BudgetProjection(source, json, today).operations.getValue("payment")
+        assertEquals("expense", operation.categoryId)
+        assertEquals("старое", operation.description)
+        assertEquals("25.00", operation.originalAmount)
+        val wireJson = kotlinx.serialization.json.Json { explicitNulls = false }
+        val clear = wireJson.decodeFromString<BudgetSyncCommand>(wireJson.encodeToString(c.copy(description = null, replaceDetails = true)))
+        assertTrue(clear.replaceDetails)
+        assertNull(clear.description)
+    }
+
     @Test fun `calendar projection uses month end and merges materialized occurrences`() {
         val plans = BudgetProjection(content(), json, today).plans(filter)
         assertEquals(BigDecimal("280.00"), plans.totals.expenses)

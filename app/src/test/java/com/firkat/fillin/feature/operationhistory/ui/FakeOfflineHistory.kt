@@ -11,6 +11,7 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.NewOperation
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationUpdate
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
@@ -83,6 +84,15 @@ internal class FakeOfflineHistory :
         cursor: Long?,
         filter: OperationHistoryFilter,
     ): OperationPage = error("UI must observe local data")
+
+    override suspend fun updateOperation(id: String, version: Long, update: OperationUpdate): Operation {
+        val before = operations.value.first { it.id == id }
+        val amountUpdate = updateOperationAmount(id, version, update.amount)
+        val updated = amountUpdate.copy(categoryId = update.categoryId, description = update.description,
+            categoryName = if (before.categoryId == update.categoryId) before.categoryName else context.value.categories.first { it.id == update.categoryId }.name)
+        operations.value = operations.value.map { if (it.id == id) updated else it }
+        return updated
+    }
 
     override suspend fun updateOperationAmount(
         id: String,

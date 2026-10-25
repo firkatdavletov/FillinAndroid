@@ -46,6 +46,7 @@ data class BudgetSyncCommand(
     val occurredOn: String? = null,
     val description: String? = null,
     val refundId: String? = null,
+    val replaceDetails: Boolean = false,
 )
 
 @Serializable

@@ -8,13 +8,14 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.NewOperation
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationUpdate
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputResult
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
-import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdateOperationAmount
+import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdateOperation
 import com.firkat.fillin.feature.operationhistory.domain.usecase.parseOperationInput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -30,7 +31,7 @@ import java.time.ZoneId
 class EditOperationViewModel(
     private val operationId: String,
     private val history: OperationHistoryStore,
-    private val updateOperationAmount: UpdateOperationAmount,
+    private val updateOperation: UpdateOperation,
     private val refundPurchase: RefundPurchase,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
 ) : ViewModel() {
@@ -63,6 +64,7 @@ class EditOperationViewModel(
                                 input = if (operation.syncStatus == OperationSyncStatus.Rejected) {
                                     listOfNotNull(operation.description?.takeIf(String::isNotBlank), operation.originalAmount.toPlainString()).joinToString(" ")
                                 } else operation.originalAmount.toPlainString(),
+                                description = operation.description.orEmpty(),
                                 type = operation.type,
                                 categoryId = operation.categoryId,
                             )
@@ -91,10 +93,13 @@ class EditOperationViewModel(
                 val invalid = parse(next) as? OperationInputResult.Invalid
                 publish(next.copy(inputError = invalid?.reason?.takeIf { event.value.isNotBlank() }))
             }
+            is EditOperationEvent.DescriptionChanged -> if (current.mode == EditOperationMode.Edit && current.operation?.refundedAmount?.signum() == 0) {
+                publish(current.copy(description = event.value, error = null))
+            }
             is EditOperationEvent.TypeChanged -> if (current.mode == EditOperationMode.Correct && current.type != event.type) {
                 publish(current.copy(type = event.type, categoryId = null, error = null))
             }
-            is EditOperationEvent.CategorySelected -> if (current.mode == EditOperationMode.Correct && current.categories.any { it.id == event.id }) {
+            is EditOperationEvent.CategorySelected -> if ((current.mode == EditOperationMode.Correct || current.mode == EditOperationMode.Edit && current.operation?.refundedAmount?.signum() == 0) && current.categories.any { it.id == event.id }) {
                 publish(current.copy(categoryId = event.id, error = null))
             }
             EditOperationEvent.SaveClicked -> save()
@@ -130,7 +135,9 @@ class EditOperationViewModel(
                 history.create(NewOperation(current.type, requireNotNull(current.categoryId), parsed.amount, date, parsed.description), operationId)
             }
         } else {
-            mutate(EditOperationOutcome.Updated) { updateOperationAmount(operation, parsed.amount) }
+            mutate(EditOperationOutcome.Updated) {
+                updateOperation(operation, OperationUpdate(parsed.amount, requireNotNull(current.categoryId), current.description))
+            }
         }
     }
 
@@ -167,12 +174,16 @@ class EditOperationViewModel(
             else -> EditOperationMode.ReadOnly
         }
         val categories = context.categories.filter { it.kind == if (next.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income }
-        val candidate = next.copy(mode = mode, categories = categories)
+        val candidate = next.copy(mode = mode, categories = categories,
+            descriptionError = mode == EditOperationMode.Edit && next.description.trim().length > 160)
         val parsed = parse(candidate) as? OperationInputResult.Valid
         val available = !completed && !next.isSaving && context.initialSyncComplete && context.syncError != "scope_changed"
         state.value = candidate.copy(
             canSave = available && parsed != null && when (mode) {
-                EditOperationMode.Edit -> operation!!.refundedAmount.signum() == 0 && parsed.amount.compareTo(operation.originalAmount) != 0
+                EditOperationMode.Edit -> operation!!.refundedAmount.signum() == 0 && !candidate.descriptionError &&
+                    categories.any { it.id == next.categoryId } &&
+                    (parsed.amount.compareTo(operation.originalAmount) != 0 || next.categoryId != operation.categoryId ||
+                        next.description.trim().takeIf(String::isNotEmpty) != operation.description?.trim()?.takeIf(String::isNotEmpty))
                 EditOperationMode.Correct -> categories.any { it.id == next.categoryId }
                 EditOperationMode.ReadOnly -> false
             },
