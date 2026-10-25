@@ -2,10 +2,12 @@ package com.firkat.fillin.feature.main.ui
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -32,13 +34,13 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsRoute
-import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import kotlinx.serialization.Serializable
 
@@ -51,18 +53,26 @@ fun MainScreen(
     budgetViewModelStoreOwner: MainBudgetViewModelStore? = null,
     onFamilyAccessClick: () -> Unit = {},
     onCloudSyncClick: () -> Unit = {},
+    onCreateOperationClick: () -> Unit = {},
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
         MainContent(
             selectedDestination = selectedDestination,
-            onSelectDestination = { selectedDestination = it },
+            onSelectDestination = {
+                if (it == AppDestination.AddOperation) {
+                    onCreateOperationClick()
+                } else {
+                    selectedDestination = it
+                }
+            },
             authBusy = authBusy,
             onAccountClick = onAccountClick,
             snackbarHostState = snackbarHostState,
             user = user,
             onFamilyAccessClick = onFamilyAccessClick,
             onCloudSyncClick = onCloudSyncClick,
+            onCreateOperationClick = onCreateOperationClick,
         )
     }
 }
@@ -77,10 +87,12 @@ private fun MainContent(
     user: AuthUser?,
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
+    onCreateOperationClick: () -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.testTag("main_screen"),
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButtonPosition = FabPosition.Center,
         bottomBar = {
             NavigationBar {
                 AppDestination.entries.forEach { destination ->
@@ -109,8 +121,16 @@ private fun MainContent(
         val provider = entryProvider<NavKey> {
             entry(AppDestination.Dashboard) { DashboardRoute() }
             entry(AppDestination.History) { OperationHistoryRoute() }
-            entry(AppDestination.Planned) { PlannedOperationsRoute() }
-            entry(AppDestination.Categories) { CategoriesRoute() }
+            entry(AppDestination.Planned) {
+                Box(Modifier.fillMaxSize().padding(bottom = MainFabClearance)) {
+                    PlannedOperationsRoute()
+                }
+            }
+            entry(AppDestination.AddOperation) {
+                Box(Modifier.fillMaxSize().padding(bottom = MainFabClearance)) {
+                    CategoriesRoute()
+                }
+            }
             entry(AppDestination.Profile) {
                 ProfileRoute(
                     user = user,
@@ -143,6 +163,9 @@ private fun MainContent(
     }
 }
 
+// Leave room for the shared FAB below each tab's own creation action.
+private val MainFabClearance = 72.dp
+
 @Serializable
 private enum class AppDestination(
     @StringRes val labelResource: Int,
@@ -156,13 +179,13 @@ private enum class AppDestination(
         labelResource = R.string.navigation_history,
         iconResource = R.drawable.ic_receipt,
     ),
+    AddOperation(
+        labelResource = R.string.notice,
+        iconResource = R.drawable.ic_add_24,
+    ),
     Planned(
         labelResource = R.string.navigation_planned,
         iconResource = R.drawable.ic_calendar,
-    ),
-    Categories(
-        labelResource = R.string.navigation_categories,
-        iconResource = R.drawable.ic_categories,
     ),
     Profile(
         labelResource = R.string.navigation_profile,

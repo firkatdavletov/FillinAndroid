@@ -238,6 +238,17 @@
     <string name="planned_operations_error_response">Не удалось прочитать ответ сервера</string>
     <string name="planned_operations_error_unknown">Не удалось загрузить запланированные операции</string>
     <string name="operation_create_title">Добавить операцию</string>
+    <string name="operation_record_title">Запись операции</string>
+    <string name="operation_create_placeholder">Например, кофе 1200</string>
+    <string name="operation_create_quick_add">В один клик</string>
+    <string name="operation_create_invalid_input">Введите сумму, например: продукты 1200.</string>
+    <string name="operation_create_ambiguous_amount">Укажите только одну сумму в начале или конце строки.</string>
+    <string name="operation_create_description_too_long">Описание не должно превышать 160 символов.</string>
+    <string name="operation_create_invalid_category">Категория недоступна. Выберите другую категорию.</string>
+    <string name="operation_create_unavailable">Создание операции сейчас недоступно. Проверьте готовность бюджета и повторите попытку.</string>
+    <string name="operation_create_save_failed">Не удалось сохранить операцию. Повторите попытку.</string>
+    <string name="saldomi_text_field_error">Некорректное значение</string>
+    <string name="notice">Записать</string>
     <string name="operation_create_amount">Сумма, ₸</string>
     <string name="operation_create_category">Выберите категорию</string>
     <string name="operation_create_date">Дата: %1$s</string>

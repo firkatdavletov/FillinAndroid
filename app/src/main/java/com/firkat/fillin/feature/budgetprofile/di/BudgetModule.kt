@@ -160,11 +160,12 @@ val budgetModule = module {
         scoped<OperationHistoryRepository> { get<OfflineOperationHistoryRepository>() }
         factory { UpdatePurchaseAmount(repository = get()) }
         factory { RefundPurchase(repository = get()) }
-        viewModel {
+        viewModel { parameters ->
             OperationHistoryViewModel(
                 history = get(),
                 updatePurchaseAmount = get(),
                 refundPurchase = get(),
+                startInCreateMode = parameters.getOrNull<Boolean>() ?: false,
             )
         }
         scoped<PlannedExpensesRepository> {

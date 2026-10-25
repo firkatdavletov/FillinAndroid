@@ -90,7 +90,7 @@ fun OperationHistoryScreen(
     onEvent: (OperationHistoryEvent) -> Unit,
 ) {
     state.createEditor?.let { editor ->
-        BackHandler(enabled = !editor.isSaving) { onEvent(OperationHistoryEvent.CreateClosed) }
+        BackHandler { onEvent(OperationHistoryEvent.CreateClosed) }
         OperationCreateEditor(editor, state.offline, onEvent)
         return
     }

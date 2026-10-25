@@ -14,7 +14,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-class CategoriesRepositoryImplTest {
+class AddOperationRepositoryImplTest {
     @Test
     fun `maps categories and preserves api name order`() = runBlocking {
         val api = RecordingCategoriesApi(

@@ -140,6 +140,33 @@ class AppNavigationViewModelTest {
         assertEquals(listOf(AppRoute.Main), model.backStack)
     }
 
+    @Test fun `operation creation is a separate entry above Main and does not duplicate`() = runTest {
+        val model = model(FakeAuth()) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openOperationCreate()
+        model.openOperationCreate()
+        assertEquals(listOf(AppRoute.Main, AppRoute.OperationCreate), model.backStack)
+        model.back()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
+
+    @Test fun `operation creation cannot bypass setup and closes when budget becomes unavailable`() = runTest {
+        val ready = MutableStateFlow(false)
+        val model = model(FakeAuth(), ready) { false }
+        model.onLaunchShown()
+        runCurrent()
+        model.openOperationCreate()
+        assertEquals(listOf(AppRoute.Auth), model.backStack)
+        model.continueAsGuest()
+        ready.value = true
+        runCurrent()
+        model.openOperationCreate()
+        ready.value = false
+        runCurrent()
+        assertEquals(listOf(AppRoute.Auth, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
+    }
+
     @Test fun `guest can authenticate from each profile detail and back returns to it`() = runTest {
         val model = model(FakeAuth()) { true }
         model.onLaunchShown()

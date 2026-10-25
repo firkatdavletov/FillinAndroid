@@ -1,161 +1,403 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import android.content.res.Configuration.UI_MODE_NIGHT_YES
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.RemoveCircleOutline
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.categories.domain.model.Category
+import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
+import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
+import com.firkat.fillin.ui.component.SaldomiSnackbarHost
+import com.firkat.fillin.ui.component.SaldomiTextField
+import com.firkat.fillin.ui.component.SnackbarType
+import com.firkat.fillin.ui.component.showSaldomiSnackbar
+import com.firkat.fillin.ui.theme.FillinTheme
+import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun OperationCreateEditor(
     editor: OperationCreateEditorUiState,
     context: OfflineHistoryContext,
     onEvent: (OperationHistoryEvent) -> Unit,
+    modifier: Modifier = Modifier,
+    showTitle: Boolean = true,
 ) {
-    var categoriesExpanded by rememberSaveable { mutableStateOf(false) }
-    var datePickerVisible by rememberSaveable { mutableStateOf(false) }
     val kind = if (editor.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
     val categories = context.categories.filter { it.kind == kind }
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(stringResource(R.string.operation_create_title), style = MaterialTheme.typography.titleLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OperationType.entries.forEach { type ->
-                FilterChip(
-                    selected = editor.type == type,
-                    enabled = !editor.isSaving,
-                    onClick = { onEvent(OperationHistoryEvent.CreateTypeChanged(type)) },
-                    label = {
-                        Text(
-                            stringResource(
-                                if (type ==
-                                    OperationType.Expense
-                                ) {
-                                    R.string.planned_operations_expense
-                                } else {
-                                    R.string.planned_operations_income
-                                },
-                            ),
-                        )
-                    },
-                )
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val window = LocalWindowInfo.current
+    val preview = LocalInspectionMode.current
+    val snackbar = remember { SnackbarHostState() }
+    val feedbackMessage = editor.feedback?.let {
+        stringResource(when (it) {
+            OperationCreateFeedback.InvalidInput -> when (editor.inputError) {
+                OperationInputError.DescriptionTooLong -> R.string.operation_create_description_too_long
+                OperationInputError.AmbiguousAmount -> R.string.operation_create_ambiguous_amount
+                else -> R.string.operation_create_invalid_input
+            }
+            OperationCreateFeedback.InvalidCategory -> R.string.operation_create_invalid_category
+            OperationCreateFeedback.Unavailable -> R.string.operation_create_unavailable
+            OperationCreateFeedback.SaveFailed -> R.string.operation_create_save_failed
+        })
+    }
+    LaunchedEffect(editor.feedbackSequence) {
+        if (feedbackMessage != null) {
+            onEvent(OperationHistoryEvent.CreateFeedbackShown(editor.feedbackSequence))
+            snackbar.currentSnackbarData?.dismiss()
+            if (!editor.isSaving) focusRequester.requestFocus()
+            snackbar.showSaldomiSnackbar(feedbackMessage, type = SnackbarType.Error)
+        }
+    }
+    BoxWithConstraints(modifier.fillMaxSize().imePadding()) {
+        LaunchedEffect(Unit) {
+            if (!preview) {
+                snapshotFlow { window.isWindowFocused }.first { it }
+                focusRequester.requestFocus()
+                keyboard?.show()
             }
         }
-        OutlinedTextField(
-            value = editor.amount,
-            onValueChange = { onEvent(OperationHistoryEvent.CreateAmountChanged(it)) },
-            label = { Text(stringResource(R.string.operation_create_amount)) },
-            singleLine = true,
-            enabled = !editor.isSaving,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth().testTag("operation-create-amount"),
-        )
-        Box {
-            OutlinedButton(
-                onClick = { categoriesExpanded = true },
-                enabled = !editor.isSaving,
-                modifier = Modifier.fillMaxWidth().testTag("operation-create-category"),
-            ) {
-                Text(categories.firstOrNull { it.id == editor.categoryId }?.name ?: stringResource(R.string.operation_create_category))
+        val compact = maxHeight < 320.dp
+        Column(Modifier.fillMaxSize().padding(bottom = if (compact) 8.dp else 16.dp)) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                Column(Modifier.fillMaxSize()) {
+                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(top = if (compact) 8.dp else 16.dp)) {
+                        if (showTitle) {
+                            Text(stringResource(R.string.operation_record_title), style = MaterialTheme.typography.titleLarge)
+                            Spacer(Modifier.height(24.dp))
+                        }
+                        SaldomiTextField(
+                            value = editor.input,
+                            onValueChange = { onEvent(OperationHistoryEvent.CreateInputChanged(it)) },
+                            placeholder = stringResource(R.string.operation_create_placeholder),
+                            enabled = !editor.isSaving,
+                            isError = editor.inputError != null,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }),
+                            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).testTag("operation-create-input"),
+                        )
+                        Spacer(Modifier.height(if (compact) 12.dp else 20.dp))
+                        OperationTypeTabs(
+                            type = editor.type,
+                            enabled = !editor.isSaving,
+                            onTypeClick = { onEvent(OperationHistoryEvent.CreateTypeChanged(it)) },
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.operation_create_quick_add),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = if (compact) 8.dp else 16.dp),
+                    )
+                }
+                SaldomiSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
             }
-            DropdownMenu(expanded = categoriesExpanded, onDismissRequest = { categoriesExpanded = false }) {
-                categories.forEach { category ->
-                    DropdownMenuItem(text = { Text("${category.icon.emoji} ${category.name}") }, onClick = {
-                        onEvent(OperationHistoryEvent.CreateCategoryChanged(category.id))
-                        categoriesExpanded = false
-                    })
+            if (categories.isEmpty()) {
+                Text(
+                    stringResource(R.string.operation_create_no_categories),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("operation-create-no-categories"),
+                )
+            } else {
+                key(editor.type) {
+                    OperationCategoryRow(
+                        categories = categories,
+                        enabled = !editor.isSaving,
+                        onCategoryClick = { onEvent(OperationHistoryEvent.CreateCategoryClicked(it)) },
+                    )
                 }
             }
         }
-        if (categories.isEmpty()) Text(stringResource(R.string.operation_create_no_categories))
-        OutlinedButton(onClick = { datePickerVisible = true }, enabled = !editor.isSaving, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.operation_create_date, editor.occurredOn.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))))
-        }
-        OutlinedTextField(
-            value = editor.description,
-            onValueChange = { onEvent(OperationHistoryEvent.CreateDescriptionChanged(it)) },
-            enabled = !editor.isSaving,
-            label = { Text(stringResource(R.string.operation_create_description)) },
-            supportingText = { Text("${editor.description.length}/160") },
-            modifier = Modifier.fillMaxWidth().testTag("operation-create-description"),
-        )
-        editor.error?.let { Text(stringResource(R.string.operation_create_error), color = MaterialTheme.colorScheme.error) }
-        Button(
-            onClick = { onEvent(OperationHistoryEvent.CreateSaved) },
-            enabled = editor.canSave && categories.any { it.id == editor.categoryId },
-            modifier = Modifier.fillMaxWidth().testTag("operation-create-save"),
-        ) {
-            Text(stringResource(R.string.operation_create_save))
-        }
-        TextButton(
-            onClick = { onEvent(OperationHistoryEvent.CreateClosed) },
-            enabled = !editor.isSaving,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.planned_operations_cancel))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OperationTypeTabs(
+    type: OperationType,
+    enabled: Boolean,
+    onTypeClick: (OperationType) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    PrimaryTabRow(
+        selectedTabIndex = OperationType.entries.indexOf(type),
+        modifier = modifier.fillMaxWidth().clip(CircleShape).background(scheme.surfaceVariant),
+        containerColor = scheme.surfaceVariant,
+        indicator = {},
+        divider = {},
+    ) {
+        OperationType.entries.forEach { item ->
+            val selected = item == type
+            Tab(
+                selected = selected,
+                enabled = enabled,
+                onClick = { onTypeClick(item) },
+                selectedContentColor = scheme.onPrimary,
+                unselectedContentColor = scheme.onSurface,
+                modifier = Modifier.clip(CircleShape)
+                    .background(if (selected) scheme.primary else scheme.surfaceVariant)
+                    .testTag("operation-create-type-" + item.apiValue),
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (item == OperationType.Expense) {
+                            Icon(Icons.Outlined.RemoveCircleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                        } else {
+                            Icon(painterResource(R.drawable.ic_add_24), contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                        Text(stringResource(if (item == OperationType.Expense) R.string.planned_operations_expense else R.string.planned_operations_income))
+                    }
+                },
+            )
         }
     }
-    if (datePickerVisible) {
-        val today = LocalDate.now(ZoneId.of("Asia/Almaty"))
-        val picker =
-            rememberDatePickerState(
-                initialSelectedDateMillis = editor.occurredOn.toPickerMillis(),
-                selectableDates =
-                    object : SelectableDates {
-                        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                            val date = pickerMillisToDate(utcTimeMillis)
-                            return date <= today && (context.accountingStartedOn?.let { date >= it } ?: true)
-                        }
-                    },
-            )
-        DatePickerDialog(onDismissRequest = { datePickerVisible = false }, confirmButton = {
-            TextButton(enabled = picker.selectedDateMillis != null, onClick = {
-                picker.selectedDateMillis?.let { onEvent(OperationHistoryEvent.CreateDateChanged(pickerMillisToDate(it))) }
-                datePickerVisible = false
-            }) { Text(stringResource(R.string.operation_history_apply)) }
-        }, dismissButton = {
-            TextButton(onClick = { datePickerVisible = false }) { Text(stringResource(R.string.planned_operations_cancel)) }
-        }) { DatePicker(state = picker) }
+}
+
+@Composable
+private fun OperationCategoryRow(
+    categories: List<Category>,
+    enabled: Boolean,
+    onCategoryClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyRow(
+        state = rememberLazyListState(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp),
+        modifier = modifier.fillMaxWidth().testTag("operation-create-categories"),
+    ) {
+        items(categories, key = { it.id }) { category ->
+            OperationCategoryCard(category.name, category.icon.emoji, enabled, { onCategoryClick(category.id) },
+                Modifier.testTag("operation-create-category-" + category.id))
+        }
+    }
+}
+
+@Composable
+private fun OperationCategoryCard(
+    name: String,
+    emoji: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(18.dp),
+        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 12.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+        modifier = modifier.widthIn(min = 80.dp, max = 128.dp).heightIn(min = 88.dp),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Category emoji is an icon: keep its physical size when the text font scales.
+            Text(emoji, fontSize = with(LocalDensity.current) { 26.dp.toSp() })
+            Text(name, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Preview(name = "Expense")
+@Preview(name = "Expense dark", uiMode = UI_MODE_NIGHT_YES)
+@Preview(name = "Expense large font", widthDp = 320, fontScale = 2f)
+@Composable
+private fun OperationTypeExpensePreview() {
+    FillinTheme { OperationTypeTabs(OperationType.Expense, true, {}) }
+}
+
+@Preview(name = "Income")
+@Preview(name = "Income dark", uiMode = UI_MODE_NIGHT_YES)
+@Preview(name = "Income large font", widthDp = 320, fontScale = 2f)
+@Composable
+private fun OperationTypeIncomePreview() {
+    FillinTheme { OperationTypeTabs(OperationType.Income, true, {}) }
+}
+
+@Preview(name = "Disabled expense")
+@Preview(name = "Disabled expense dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationTypeDisabledExpensePreview() {
+    FillinTheme { OperationTypeTabs(OperationType.Expense, false, {}) }
+}
+
+@Preview(name = "Disabled income")
+@Preview(name = "Disabled income dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationTypeDisabledIncomePreview() {
+    FillinTheme { OperationTypeTabs(OperationType.Income, false, {}) }
+}
+
+@Preview(name = "Category")
+@Preview(name = "Category dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCategoryPreview() {
+    FillinTheme { OperationCategoryCard("Продукты", "🍔", true, {}) }
+}
+
+@Preview(name = "Disabled category")
+@Preview(name = "Disabled category dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCategoryDisabledPreview() {
+    FillinTheme { OperationCategoryCard("Продукты", "🍔", false, {}) }
+}
+
+@Preview(name = "Long category", fontScale = 2f)
+@Preview(name = "Long category dark", fontScale = 2f, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCategoryLongPreview() {
+    FillinTheme { OperationCategoryCard("Обслуживание автомобиля", "🚕", true, {}) }
+}
+
+@Preview(name = "Category row", widthDp = 320)
+@Preview(name = "Category row dark", widthDp = 320, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCategoryRowPreview() {
+    FillinTheme { OperationCategoryRow(previewOperationCategories(), true, {}) }
+}
+
+@Preview(name = "Single category")
+@Preview(name = "Single category dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCategoryRowSinglePreview() {
+    FillinTheme { OperationCategoryRow(previewOperationCategories().take(1), true, {}) }
+}
+
+@Preview(name = "Disabled row")
+@Preview(name = "Disabled row dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCategoryRowDisabledPreview() {
+    FillinTheme { OperationCategoryRow(previewOperationCategories(), false, {}) }
+}
+
+internal fun previewOperationCategories() = listOf(
+    Category("food", "Продукты", CategoryKind.Expense, CategoryIcon("FOOD", "🍔")),
+    Category("transport", "Транспорт", CategoryKind.Expense, CategoryIcon("TRANSPORT", "🚕")),
+    Category("home", "Дом", CategoryKind.Expense, CategoryIcon("HOME", "🏠")),
+    Category("health", "Здоровье", CategoryKind.Expense, CategoryIcon("HEALTH", "💊")),
+    Category("salary", "Зарплата", CategoryKind.Income, CategoryIcon("INCOME", "💰")),
+)
+
+@Preview(name = "Editor", widthDp = 393, heightDp = 700)
+@Preview(name = "Editor dark", widthDp = 393, heightDp = 700, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCreateEditorPreview() {
+    FillinTheme {
+        OperationCreateEditor(OperationCreateEditorUiState(occurredOn = LocalDate.of(2026, 10, 24)),
+            OfflineHistoryContext(categories = previewOperationCategories()), {})
+    }
+}
+
+@Preview(name = "Income editor", widthDp = 393, heightDp = 700)
+@Preview(name = "Income editor dark", widthDp = 393, heightDp = 700, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCreateIncomeEditorPreview() {
+    FillinTheme {
+        OperationCreateEditor(
+            OperationCreateEditorUiState(type = OperationType.Income, input = "Зарплата 120000", occurredOn = LocalDate.of(2026, 10, 24)),
+            OfflineHistoryContext(categories = previewOperationCategories()), {},
+        )
+    }
+}
+
+@Preview(name = "Input error", widthDp = 393, heightDp = 700)
+@Preview(name = "Input error dark", widthDp = 393, heightDp = 700, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCreateErrorEditorPreview() {
+    FillinTheme {
+        OperationCreateEditor(
+            OperationCreateEditorUiState(input = "Продукты", inputError = OperationInputError.InvalidAmount, occurredOn = LocalDate.of(2026, 10, 24)),
+            OfflineHistoryContext(categories = previewOperationCategories()), {},
+        )
+    }
+}
+
+@Preview(name = "Saving", widthDp = 393, heightDp = 700)
+@Preview(name = "Saving dark", widthDp = 393, heightDp = 700, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCreateSavingEditorPreview() {
+    FillinTheme {
+        OperationCreateEditor(
+            OperationCreateEditorUiState(input = "Продукты 1200", isSaving = true, occurredOn = LocalDate.of(2026, 10, 24)),
+            OfflineHistoryContext(categories = previewOperationCategories()), {},
+        )
+    }
+}
+
+@Preview(name = "No categories", widthDp = 320, heightDp = 600)
+@Preview(name = "No categories dark", widthDp = 320, heightDp = 600, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OperationCreateEmptyEditorPreview() {
+    FillinTheme {
+        OperationCreateEditor(OperationCreateEditorUiState(occurredOn = LocalDate.of(2026, 10, 24)), OfflineHistoryContext(), {})
     }
 }
 

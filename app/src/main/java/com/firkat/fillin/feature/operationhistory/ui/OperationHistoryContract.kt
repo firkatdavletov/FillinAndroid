@@ -6,6 +6,7 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTo
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
+import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.ZoneId
@@ -54,23 +55,17 @@ data class PurchaseEditorUiState(
 
 data class OperationCreateEditorUiState(
     val type: OperationType = OperationType.Expense,
-    val amount: String = "",
-    val categoryId: String? = null,
+    val input: String = "",
     val occurredOn: LocalDate,
-    val description: String = "",
     val replacesRejectedId: String? = null,
     val isSaving: Boolean = false,
     val error: OperationHistoryError? = null,
-) {
-    val parsedAmount: BigDecimal? get() =
-        amount
-            .trim()
-            .replace(',', '.')
-            .takeIf(DECIMAL_AMOUNT::matches)
-            ?.toBigDecimalOrNull()
-            ?.takeIf { it.signum() > 0 && it <= BigDecimal("99999999999999999.99") }
-    val canSave: Boolean get() = !isSaving && parsedAmount != null && categoryId != null && description.length <= 160
-}
+    val inputError: OperationInputError? = null,
+    val feedback: OperationCreateFeedback? = null,
+    val feedbackSequence: Long = 0,
+)
+
+enum class OperationCreateFeedback { InvalidInput, InvalidCategory, Unavailable, SaveFailed }
 
 enum class OperationHistoryError {
     MissingApiToken,
@@ -97,23 +92,17 @@ sealed interface OperationHistoryEvent {
         val type: OperationType,
     ) : OperationHistoryEvent
 
-    data class CreateAmountChanged(
+    data class CreateInputChanged(
         val value: String,
     ) : OperationHistoryEvent
 
-    data class CreateCategoryChanged(
+    data class CreateCategoryClicked(
         val id: String,
     ) : OperationHistoryEvent
 
-    data class CreateDateChanged(
-        val date: LocalDate,
+    data class CreateFeedbackShown(
+        val sequence: Long,
     ) : OperationHistoryEvent
-
-    data class CreateDescriptionChanged(
-        val value: String,
-    ) : OperationHistoryEvent
-
-    data object CreateSaved : OperationHistoryEvent
 
     data class TypeSelected(
         val type: OperationType?,

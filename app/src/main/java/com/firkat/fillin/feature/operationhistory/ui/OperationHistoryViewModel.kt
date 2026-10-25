@@ -12,6 +12,8 @@ import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHis
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
 import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
+import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputResult
+import com.firkat.fillin.feature.operationhistory.domain.usecase.parseOperationInput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +30,7 @@ class OperationHistoryViewModel(
     private val updatePurchaseAmount: UpdatePurchaseAmount,
     private val refundPurchase: RefundPurchase,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
+    startInCreateMode: Boolean = false,
 ) : ViewModel() {
     private data class Query(
         val filter: OperationHistoryFilter,
@@ -36,7 +39,13 @@ class OperationHistoryViewModel(
 
     private val initialFilter = OperationHistoryFilter.currentMonth(LocalDate.now(clock))
     private val query = MutableStateFlow(Query(initialFilter))
-    private val _uiState = MutableStateFlow(OperationHistoryUiState(filters = initialFilter, isInitialLoading = true))
+    private val _uiState = MutableStateFlow(
+        OperationHistoryUiState(
+            filters = initialFilter,
+            isInitialLoading = true,
+            createEditor = if (startInCreateMode) OperationCreateEditorUiState(occurredOn = LocalDate.now(clock)) else null,
+        ),
+    )
     val uiState: StateFlow<OperationHistoryUiState> = _uiState.asStateFlow()
 
     init {
@@ -98,27 +107,19 @@ class OperationHistoryViewModel(
             }
 
             is OperationHistoryEvent.CreateTypeChanged -> {
-                updateCreator { copy(type = event.type, categoryId = null, error = null) }
+                updateCreator { if (isSaving) this else copy(type = event.type, error = null) }
             }
 
-            is OperationHistoryEvent.CreateAmountChanged -> {
-                updateCreator { copy(amount = event.value, error = null) }
+            is OperationHistoryEvent.CreateInputChanged -> {
+                updateCreator { if (isSaving) this else copy(input = event.value, inputError = null, error = null) }
             }
 
-            is OperationHistoryEvent.CreateCategoryChanged -> {
-                updateCreator { copy(categoryId = event.id, error = null) }
+            is OperationHistoryEvent.CreateCategoryClicked -> {
+                create(event.id)
             }
 
-            is OperationHistoryEvent.CreateDateChanged -> {
-                updateCreator { copy(occurredOn = event.date, error = null) }
-            }
-
-            is OperationHistoryEvent.CreateDescriptionChanged -> {
-                updateCreator { copy(description = event.value, error = null) }
-            }
-
-            OperationHistoryEvent.CreateSaved -> {
-                create()
+            is OperationHistoryEvent.CreateFeedbackShown -> {
+                updateCreator { if (feedbackSequence == event.sequence) copy(feedback = null) else this }
             }
 
             is OperationHistoryEvent.TypeSelected -> {
@@ -196,40 +197,53 @@ class OperationHistoryViewModel(
                 createEditor =
                     OperationCreateEditorUiState(
                         type = rejected?.type ?: OperationType.Expense,
-                        amount = rejected?.originalAmount?.toPlainString().orEmpty(),
-                        categoryId = rejected?.categoryId?.takeIf { id -> current.offline.categories.any { it.id == id } },
+                        input = listOfNotNull(
+                            rejected?.description?.trim()?.takeIf(String::isNotEmpty),
+                            rejected?.originalAmount?.toPlainString(),
+                        ).joinToString(" "),
                         occurredOn = rejected?.occurredOn ?: LocalDate.now(clock),
-                        description = rejected?.description.orEmpty(),
                         replacesRejectedId = rejectedId,
                     ),
             )
         }
     }
 
-    private fun create() {
-        val editor = _uiState.value.createEditor?.takeIf { it.canSave } ?: return
-        val amount = editor.parsedAmount ?: return
-        val category =
-            _uiState.value.offline.categories
-                .firstOrNull { it.id == editor.categoryId }
-        val expectedKind = if (editor.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
-        if (category?.kind != expectedKind || editor.occurredOn > LocalDate.now(clock) ||
-            _uiState.value.offline.accountingStartedOn
-                ?.let { editor.occurredOn < it } == true
-        ) {
-            updateCreator { copy(error = OperationHistoryError.InvalidRequest) }
+    private fun create(categoryId: String) {
+        val current = _uiState.value
+        val editor = current.createEditor?.takeUnless { it.isSaving } ?: return
+        val parsed = parseOperationInput(editor.input)
+        if (parsed is OperationInputResult.Invalid) {
+            updateCreator {
+                copy(inputError = parsed.reason, feedback = OperationCreateFeedback.InvalidInput, feedbackSequence = feedbackSequence + 1)
+            }
             return
         }
-        updateCreator { copy(isSaving = true, error = null) }
+        parsed as OperationInputResult.Valid
+        if (!current.offline.initialSyncComplete || current.offline.syncError == "scope_changed") {
+            createFeedback(OperationCreateFeedback.Unavailable)
+            return
+        }
+        val category = current.offline.categories.firstOrNull { it.id == categoryId }
+        val expectedKind = if (editor.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
+        if (category?.kind != expectedKind) {
+            createFeedback(OperationCreateFeedback.InvalidCategory)
+            return
+        }
+        val occurredOn = if (editor.replacesRejectedId == null) LocalDate.now(clock) else editor.occurredOn
+        if (occurredOn > LocalDate.now(clock) || current.offline.accountingStartedOn?.let { occurredOn < it } == true) {
+            createFeedback(OperationCreateFeedback.Unavailable)
+            return
+        }
+        updateCreator { copy(isSaving = true, error = null, inputError = null, feedback = null) }
         viewModelScope.launch {
             try {
                 history.create(
                     NewOperation(
                         editor.type,
-                        requireNotNull(editor.categoryId),
-                        amount,
-                        editor.occurredOn,
-                        editor.description,
+                        categoryId,
+                        parsed.amount,
+                        occurredOn,
+                        parsed.description,
                     ),
                     editor.replacesRejectedId,
                 )
@@ -241,10 +255,16 @@ class OperationHistoryViewModel(
                     copy(
                         isSaving = false,
                         error = (exception as? OperationHistoryException)?.toUiError() ?: OperationHistoryError.Unknown,
+                        feedback = OperationCreateFeedback.SaveFailed,
+                        feedbackSequence = feedbackSequence + 1,
                     )
                 }
             }
         }
+    }
+
+    private fun createFeedback(feedback: OperationCreateFeedback) {
+        updateCreator { copy(feedback = feedback, feedbackSequence = feedbackSequence + 1) }
     }
 
     private fun openEditor(id: String) {

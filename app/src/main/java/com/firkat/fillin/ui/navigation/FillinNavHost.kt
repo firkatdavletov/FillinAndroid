@@ -26,6 +26,7 @@ import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupRoute
 import com.firkat.fillin.feature.launch.presentation.LaunchScreen
 import com.firkat.fillin.feature.main.ui.MainScreen
+import com.firkat.fillin.feature.operationhistory.ui.OperationCreateRoute
 import com.firkat.fillin.feature.budgetsharing.ui.FamilyAccessRoute
 import com.firkat.fillin.feature.sync.ui.CloudSyncRoute
 import com.firkat.fillin.ui.component.SnackbarType
@@ -45,12 +46,17 @@ fun FillinNavHost(
     val resolvingBudget by navigation.resolvingBudget.collectAsStateWithLifecycle()
     val runtime by budgets.active.collectAsStateWithLifecycle()
     val mainModels: MainBudgetViewModelStore = viewModel(key = "main-budget-models")
+    val operationCreateModels: MainBudgetViewModelStore = viewModel(key = "operation-create-models")
     mainModels.bind(runtime.takeIf { AppRoute.Main in navigation.backStack })
+    operationCreateModels.bind(runtime.takeIf { AppRoute.OperationCreate in navigation.backStack })
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-    DisposableEffect(mainModels, context) {
+    DisposableEffect(mainModels, operationCreateModels, context) {
         onDispose {
-            if ((context as? Activity)?.isChangingConfigurations != true) mainModels.bind(null)
+            if ((context as? Activity)?.isChangingConfigurations != true) {
+                mainModels.bind(null)
+                operationCreateModels.bind(null)
+            }
         }
     }
     LaunchedEffect(state.error) {
@@ -83,7 +89,13 @@ fun FillinNavHost(
                     user = (state.session as? AuthSession.Authenticated)?.user,
                     onFamilyAccessClick = navigation::openFamilyAccess,
                     onCloudSyncClick = navigation::openCloudSync,
+                    onCreateOperationClick = navigation::openOperationCreate,
                 )
+            }
+            entry<AppRoute.OperationCreate> {
+                ActiveBudgetContent(viewModelStoreOwner = operationCreateModels) {
+                    OperationCreateRoute(onBack = navigation::back)
+                }
             }
             entry<AppRoute.FamilyAccess> {
                 FamilyAccessRoute(onBack = navigation::back, onSignIn = navigation::openAuthentication)

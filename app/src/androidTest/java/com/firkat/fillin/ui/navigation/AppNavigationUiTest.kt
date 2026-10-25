@@ -314,7 +314,7 @@ class AppNavigationUiTest {
 
     @Test fun allTabsNavigateAndSystemBackReturnsThroughDashboard() {
         show(createdBudget = true)
-        for (tab in listOf("History", "Planned", "Categories", "Profile")) {
+        for (tab in listOf("History", "Planned", "Profile")) {
             compose.onNodeWithTag("tab_$tab").performClick().assertIsSelected()
             compose.onNodeWithTag("tab_$tab").performClick().assertIsSelected()
             compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
@@ -350,6 +350,48 @@ class AppNavigationUiTest {
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithTag("family_access_screen").assertIsDisplayed()
         compose.onNodeWithTag("main_screen").assertDoesNotExist()
+    }
+
+    @Test fun createOperationOpensFromEveryTabAndBackReturnsToThatTab() {
+        show(createdBudget = true)
+        listOf("Dashboard", "History", "Planned", "Profile").forEach { tab ->
+            compose.onNodeWithTag("tab_$tab").performClick()
+            compose.onNodeWithTag("tab_AddOperation").assertIsDisplayed().performClick()
+            assertEquals(listOf(AppRoute.Main, AppRoute.OperationCreate), navigation.backStack)
+            compose.onNodeWithTag("operation_create_screen").assertIsDisplayed()
+            compose.onNodeWithTag("main_screen").assertDoesNotExist()
+            compose.onNodeWithTag("operation-create-input").assertIsDisplayed()
+            compose.onNodeWithTag("tab_AddOperation").assertDoesNotExist()
+            compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+            compose.waitUntil(5000) { navigation.backStack.toList() == listOf(AppRoute.Main) }
+            assertEquals(listOf(AppRoute.Main), navigation.backStack)
+            compose.onNodeWithTag("tab_$tab").assertIsSelected()
+            compose.onNodeWithTag("tab_AddOperation").assertIsDisplayed()
+        }
+    }
+
+    @Test fun savingOperationFromDashboardReturnsToDashboardAndUpdatesHistory() {
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_AddOperation").performClick()
+        compose.onNodeWithTag("operation-create-input").performTextInput("Покупка из общей кнопки 42.50")
+        compose.onNodeWithText("Продукты").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("tab_Dashboard").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
+        compose.onNodeWithTag("tab_AddOperation").assertIsDisplayed()
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithText("Покупка из общей кнопки").assertIsDisplayed()
+    }
+
+    @Test fun cancellingOperationCreationKeepsHistoryFilter() {
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_History").performClick()
+        compose.onNodeWithTag("history-type-INCOME").performClick().assertIsSelected()
+        compose.onNodeWithTag("tab_AddOperation").performClick()
+        compose.onNodeWithTag("operation-create-input").performTextInput("42")
+        closeSoftKeyboard()
+        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.onNodeWithTag("tab_History").assertIsSelected()
+        compose.onNodeWithTag("history-type-INCOME").assertIsSelected()
     }
 
     @Test fun historyFilterSurvivesSwitchingTabsAndAuthentication() {

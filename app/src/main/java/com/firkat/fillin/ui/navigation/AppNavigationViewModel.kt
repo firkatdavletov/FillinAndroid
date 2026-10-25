@@ -67,7 +67,7 @@ class AppNavigationViewModel(
                                 if (ready) openMain() else replaceWith(AppRoute.Auth)
                             }
                             ready && entries.last() is AppRoute.BudgetSetup -> openMain()
-                            !ready && entries.last() in listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.CloudSync) -> openSetup(
+                            !ready && entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.FamilyAccess, AppRoute.CloudSync) -> openSetup(
                                 if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
                             )
                         }
@@ -94,11 +94,13 @@ class AppNavigationViewModel(
         }
     }
 
-    fun openFamilyAccess() = openProfileDestination(AppRoute.FamilyAccess)
+    fun openFamilyAccess() = openMainDestination(AppRoute.FamilyAccess)
 
-    fun openCloudSync() = openProfileDestination(AppRoute.CloudSync)
+    fun openCloudSync() = openMainDestination(AppRoute.CloudSync)
 
-    private fun openProfileDestination(route: AppRoute) {
+    fun openOperationCreate() = openMainDestination(AppRoute.OperationCreate)
+
+    private fun openMainDestination(route: AppRoute) {
         if (entries.last() == AppRoute.Main && budgetReady && !resolving.value) entries.add(route)
     }
 

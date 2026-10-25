@@ -8,8 +8,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,19 +56,15 @@ class OfflineOperationEntryTest {
                 FillinTheme { FeatureScaffold(R.string.operation_history_title) { OperationHistoryScreen(state, model::onEvent) } }
             }
             compose.waitUntil { model.uiState.value.offline.initialSyncComplete }
-            compose.onNodeWithText("Добавить операцию").performClick()
-            compose.onNodeWithTag("operation-create-amount").performTextInput("10.01")
-            compose.onNodeWithTag("operation-create-category").performClick()
-            compose.onNodeWithText("🍔 Продукты").performClick()
-            compose.onNodeWithTag("operation-create-save").performScrollTo().performClick()
+            compose.runOnIdle { model.onEvent(OperationHistoryEvent.CreateRequested) }
+            compose.onNodeWithTag("operation-create-input").performTextInput("10.01")
+            compose.onNodeWithTag("operation-create-category-" + api.expenseCategory.id).performClick()
             compose.waitUntil { model.uiState.value.createEditor == null && model.uiState.value.operations.size == 1 }
             compose.onNodeWithText("Ожидает отправки").assertIsDisplayed()
-            compose.onNodeWithText("Добавить операцию").performClick()
-            compose.onNodeWithText("Доход").performClick()
-            compose.onNodeWithTag("operation-create-amount").performTextInput("100.02")
-            compose.onNodeWithTag("operation-create-category").performClick()
-            compose.onNodeWithText("💰 Зарплата").performClick()
-            compose.onNodeWithTag("operation-create-save").performScrollTo().performClick()
+            compose.runOnIdle { model.onEvent(OperationHistoryEvent.CreateRequested) }
+            compose.onNodeWithTag("operation-create-type-INCOME").performScrollTo().performClick().assertIsSelected()
+            compose.onNodeWithTag("operation-create-input").performTextInput("100.02")
+            compose.onNodeWithTag("operation-create-category-" + api.incomeCategory.id).performClick()
             compose.waitUntil { model.uiState.value.createEditor == null && model.uiState.value.operations.size == 2 }
             assertEquals(0, api.postCount)
             compose.onAllNodesWithText("Ожидает отправки").assertCountEquals(2)
