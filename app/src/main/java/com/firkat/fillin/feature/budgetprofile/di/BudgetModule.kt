@@ -22,8 +22,6 @@ import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.domain.Observ
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastViewModel
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
-import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.domain.ObserveMonthlyBudget
-import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.ui.MonthlyBudgetViewModel
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.domain.ObserveTotalBalance
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceViewModel
 import com.firkat.fillin.feature.operationhistory.data.local.RoomOperationSyncStorage
@@ -86,8 +84,6 @@ val budgetModule = module {
         viewModel { DailyLimitViewModel(get()) }
         factory { ObserveBalanceForecast(get()) }
         viewModel { BalanceForecastViewModel(get()) }
-        factory { ObserveMonthlyBudget(get()) }
-        viewModel { MonthlyBudgetViewModel(get()) }
         scoped<OperationHistoryRepository>(named("remoteOperations")) {
             com.firkat.fillin.feature.sync.data.RetiredOperationHistory
         }

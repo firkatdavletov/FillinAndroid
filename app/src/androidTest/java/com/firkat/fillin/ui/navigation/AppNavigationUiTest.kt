@@ -425,15 +425,15 @@ class AppNavigationUiTest {
         val restoration = StateRestorationTester(compose)
         show(createdBudget = true, restoration = restoration, fontScale = 2f)
         compose.waitUntil(5000) { compose.onAllNodesWithTag("dashboard-grid").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("dashboard-grid").performScrollToNode(hasTestTag("dashboard-widget-monthly-budget"))
-        val top = compose.onNodeWithTag("dashboard-widget-monthly-budget").getUnclippedBoundsInRoot().top
+        compose.onNodeWithTag("dashboard-grid").performScrollToNode(hasTestTag("dashboard-widget-balance-forecast"))
+        val top = compose.onNodeWithTag("dashboard-widget-balance-forecast").getUnclippedBoundsInRoot().top
         compose.onNodeWithTag("tab_History").performClick()
         compose.onNodeWithTag("tab_Dashboard").performClick()
-        assertEquals(top, compose.onNodeWithTag("dashboard-widget-monthly-budget").getUnclippedBoundsInRoot().top)
+        assertEquals(top, compose.onNodeWithTag("dashboard-widget-balance-forecast").getUnclippedBoundsInRoot().top)
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
-        compose.waitUntil(5000) { compose.onAllNodesWithTag("dashboard-widget-monthly-budget").fetchSemanticsNodes().isNotEmpty() }
-        assertEquals(top, compose.onNodeWithTag("dashboard-widget-monthly-budget").getUnclippedBoundsInRoot().top)
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("dashboard-widget-balance-forecast").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(top, compose.onNodeWithTag("dashboard-widget-balance-forecast").getUnclippedBoundsInRoot().top)
     }
 
     @Test fun historySheetSupportsEveryDismissMethodAndKeepsTheFilter() {

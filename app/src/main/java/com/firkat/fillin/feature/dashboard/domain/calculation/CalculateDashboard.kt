@@ -25,7 +25,6 @@ data class DashboardCalculationInput(
     val knownExpenseIds: Set<String> = operations.filter {
         it.kind == DashboardOperationKind.Expense
     }.mapTo(hashSetOf()) { it.id },
-    val plannedExpenses: List<DashboardPlannedExpense> = emptyList(),
 )
 
 enum class DashboardOperationKind { Income, Expense, Refund }
@@ -43,7 +42,6 @@ data class DashboardOperation(
 data class DashboardCategory(val id: String, val name: String, val isExpense: Boolean)
 data class DashboardPayment(val id: String, val categoryName: String, val dueOn: LocalDate, val remaining: BigDecimal)
 data class DashboardExpectedIncome(val dueOn: LocalDate, val amount: BigDecimal)
-data class DashboardPlannedExpense(val dueOn: LocalDate, val amount: BigDecimal)
 
 /** Mirrors DashboardCalculator, BudgetCalculator and the summary fields of BudgetForecastCalculator. */
 object CalculateDashboard {
@@ -66,7 +64,6 @@ object CalculateDashboard {
                 categories[it.categoryId]?.isExpense == true
         }.sumOf { it.amount }
         val net = expenses - refunds
-        val monthPlanned = input.plannedExpenses.filter { it.dueOn in monthStart..monthEnd }.sumOf { it.amount }
         val balance = input.openingBalance + input.operations.filter { it.occurredAt <= input.asOf }.sumOf {
             if (it.kind == DashboardOperationKind.Expense) -it.amount else it.amount
         }
@@ -152,7 +149,6 @@ object CalculateDashboard {
             input.payments.sortedWith(compareBy({ it.dueOn }, { it.id })).take(5).map {
                 UpcomingPayment(it.categoryName, it.dueOn, money(it.remaining))
             },
-            MonthBudget(money(monthPlanned), money(net), money(monthPlanned - net)),
         )
     }
 

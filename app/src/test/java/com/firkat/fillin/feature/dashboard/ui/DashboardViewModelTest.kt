@@ -13,9 +13,6 @@ import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.domain.Observ
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastViewModel
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
-import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.domain.ObserveMonthlyBudget
-import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.ui.MonthlyBudgetUiState
-import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.ui.MonthlyBudgetViewModel
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.domain.ObserveTotalBalance
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceViewModel
 import com.firkat.fillin.feature.sync.domain.BudgetSyncContext
@@ -41,7 +38,7 @@ class DashboardViewModelTest {
     private fun <T : ViewModel> keep(key: String, model: T) = model.also { models.put(key, it) }
     private fun TestScope.watch(flow: StateFlow<*>) = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { flow.collect {} }
 
-    @Test fun `all five widget models share one observation and receive the same updated snapshot`() = runTest {
+    @Test fun `all four widget models share one observation and receive the same updated snapshot`() = runTest {
         val repository = FakeRepository()
         val sync = FakeSync()
         val source = DashboardDataSource(repository, sync, backgroundScope)
@@ -50,8 +47,7 @@ class DashboardViewModelTest {
         val available = keep("available", AvailableToSpendViewModel(ObserveAvailableToSpend(source)))
         val daily = keep("daily", DailyLimitViewModel(ObserveDailyLimit(source)))
         val forecast = keep("forecast", BalanceForecastViewModel(ObserveBalanceForecast(source)))
-        val month = keep("month", MonthlyBudgetViewModel(ObserveMonthlyBudget(source)))
-        listOf(host.uiState, balance.uiState, available.uiState, daily.uiState, forecast.uiState, month.uiState).forEach { watch(it) }
+        listOf(host.uiState, balance.uiState, available.uiState, daily.uiState, forecast.uiState).forEach { watch(it) }
         runCurrent()
         assertEquals(DashboardStatus.WaitingForBudget, host.uiState.value.status)
         assertNull(balance.uiState.value.amount)
@@ -64,7 +60,6 @@ class DashboardViewModelTest {
             availableMoney = money("25"),
             freeMoney = EMPTY.freeMoney.copy(amount = money("-7"), safeDailyLimit = money("0")),
             forecast = EMPTY.forecast.copy(base = EMPTY.forecast.base.copy(endingBalance = money("-50"))),
-            monthBudget = MonthBudget(money("100"), money("130"), money("-30")),
         )
         repository.data.value = updated
         runCurrent()
@@ -74,7 +69,6 @@ class DashboardViewModelTest {
         assertEquals(money("-7"), available.uiState.value.amount)
         assertEquals(money("0"), daily.uiState.value.amount)
         assertEquals(money("-50"), forecast.uiState.value.amount)
-        assertEquals(updated.monthBudget, month.uiState.value.budget)
         assertEquals(1, repository.subscriptions)
         host.onEvent(DashboardEvent.Refresh)
         sync.context.value = BudgetSyncContext(ready = true, error = "network", syncing = true)
@@ -100,8 +94,7 @@ class DashboardViewModelTest {
         val available = keep("available", AvailableToSpendViewModel(ObserveAvailableToSpend(source)))
         val daily = keep("daily", DailyLimitViewModel(ObserveDailyLimit(source)))
         val forecast = keep("forecast", BalanceForecastViewModel(ObserveBalanceForecast(source)))
-        val month = keep("month", MonthlyBudgetViewModel(ObserveMonthlyBudget(source)))
-        listOf(balance.uiState, available.uiState, daily.uiState, forecast.uiState, month.uiState).forEach { watch(it) }
+        listOf(balance.uiState, available.uiState, daily.uiState, forecast.uiState).forEach { watch(it) }
         runCurrent()
         assertNotNull(balance.uiState.value.amount)
         sync.context.value = BudgetSyncContext(ready = true, error = "scope_changed")
@@ -113,7 +106,6 @@ class DashboardViewModelTest {
         assertNull(available.uiState.value.amount)
         assertNull(daily.uiState.value.amount)
         assertNull(forecast.uiState.value.amount)
-        assertNull(month.uiState.value.budget)
         assertEquals(1, repository.subscriptions)
         sync.context.value = BudgetSyncContext(ready = true)
         runCurrent()
@@ -171,14 +163,6 @@ class DashboardViewModelTest {
         runCurrent()
         assertEquals(EMPTY.forecast.base.endingBalance, model.uiState.value.amount)
         assertFalse(model.uiState.value.insufficientHistory)
-    }
-
-    @Test fun `month progress has no percentage for zero plan and clamps refunds and overspending`() {
-        assertNull(MonthlyBudgetUiState(MonthBudget(money("0"), money("5"), money("-5"))).usedPercent)
-        val over = MonthlyBudgetUiState(MonthBudget(money("10"), money("15"), money("-5")))
-        assertEquals(BigDecimal("150.0"), over.usedPercent)
-        assertEquals(1f, over.progress)
-        assertEquals(0f, MonthlyBudgetUiState(MonthBudget(money("10"), money("-5"), money("15"))).progress)
     }
 
     private class FakeRepository : DashboardRepository {

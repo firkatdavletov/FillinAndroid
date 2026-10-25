@@ -156,55 +156,6 @@ class DashboardProjectionTest {
         assertEquals("0.00", second.forecast.base.expectedIncome.amount.toPlainString())
         assertEquals("282.00", second.availableMoney.amount.toPlainString())
     }
-    @Test fun `month plan keeps original amount after partial payment full payment and manual close`() {
-        val content = input()
-        val partial = content.copy(records = content.records.map { row ->
-            if (row.kind == "OCCURRENCE_PAYMENT") record(row.kind, SyncPlanRecord("current", ledgerId = "payment")) else row
-        })
-        assertEquals("100.00", calculate(partial).monthBudget.planned.amount.toPlainString())
-        val full = partial.copy(operations = listOf(operation("payment", "100.00")))
-        assertEquals("100.00", calculate(full).monthBudget.planned.amount.toPlainString())
-        assertEquals("0.00", calculate(full).monthBudget.remaining.amount.toPlainString())
-        val close = BudgetSyncCommand("close", "household", "member", "CLOSE_EXPENSE", "current", "2026-10-19")
-        val closed = partial.copy(commands = listOf(BudgetOutbox("close", "scope", "current", "RECURRING_OCCURRENCE", json.encodeToString(close), 1)))
-        assertEquals(calculate(partial).monthBudget, calculate(closed).monthBudget)
-        val paid = content.copy(records = content.records.map { row ->
-            if (row.kind == "RECURRING_OCCURRENCE" && row.id == "current") {
-                record(row.kind, json.decodeFromString<SyncPlanRecord>(row.payload).copy(status = "PAID"))
-            } else row
-        })
-        assertEquals("100.00", calculate(paid).monthBudget.planned.amount.toPlainString())
-    }
-
-    @Test fun `month plan applies queued create update delete and cancellation before summing`() {
-        val content = input()
-        fun withCommand(command: BudgetSyncCommand) = content.copy(commands = listOf(
-            BudgetOutbox(command.requestId, "scope", command.entityId, "RECURRING_RULE", json.encodeToString(command), 1),
-        ))
-        val update = BudgetSyncCommand("update", "household", "member", "UPDATE_RULE", "rule", "2026-10-19", amount = "150.00")
-        assertEquals("150.00", calculate(withCommand(update)).monthBudget.planned.amount.toPlainString())
-        val delete = update.copy(requestId = "delete", type = "DELETE_RULE")
-        assertEquals("0.00", calculate(withCommand(delete)).monthBudget.planned.amount.toPlainString())
-        val create = update.copy(requestId = "create", type = "CREATE_RULE", entityId = "new-rule", categoryId = EXPENSE,
-            amount = "30.00", frequency = "MONTHLY", scheduleValue = 20, startsOn = "2026-10-19")
-        assertEquals("130.00", calculate(withCommand(create)).monthBudget.planned.amount.toPlainString())
-        val cancelled = content.copy(records = content.records.map { row ->
-            if (row.kind == "RECURRING_OCCURRENCE" && row.id == "current") record(row.kind,
-                json.decodeFromString<SyncPlanRecord>(row.payload).copy(status = "CANCELLED")) else row
-        })
-        assertEquals("0.00", calculate(cancelled).monthBudget.planned.amount.toPlainString())
-    }
-
-    @Test fun `month plan generates every weekly occurrence without summing other months`() {
-        val content = input()
-        val weekly = content.copy(records = content.records.filter { it.kind !in setOf("RECURRING_OCCURRENCE", "OCCURRENCE_PAYMENT") }.map { row ->
-            if (row.kind == "RECURRING_RULE") record(row.kind, json.decodeFromString<SyncPlanRecord>(row.payload).copy(
-                amount = "10.00", startsOn = "2026-10-01", frequency = "WEEKLY", scheduleValue = 4,
-            )) else row
-        })
-        assertEquals("50.00", calculate(weekly).monthBudget.planned.amount.toPlainString())
-    }
-
     companion object {
         private const val EXPENSE = "00000000-0000-0000-0000-000000000001"
         private const val INCOME = "00000000-0000-0000-0000-000000000002"

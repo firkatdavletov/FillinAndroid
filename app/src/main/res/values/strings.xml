@@ -13,11 +13,7 @@
     <string name="dashboard_daily_limit">Дневной лимит</string>
     <string name="dashboard_balance_forecast">Прогноз остатка</string>
     <string name="dashboard_insufficient_history">Недостаточно истории</string>
-    <string name="dashboard_planned">Запланировано</string>
-    <string name="dashboard_spent">Потрачено</string>
-    <string name="dashboard_budget_remaining">Осталось</string>
     <string name="dashboard_title">Главная</string>
-    <string name="dashboard_monthly_budget">Бюджет месяца</string>
     <string name="dashboard_retry">Повторить</string>
     <string name="dashboard_error_forbidden">Доступ к семейному бюджету отозван</string>
     <string name="operation_history_title">История операций</string>

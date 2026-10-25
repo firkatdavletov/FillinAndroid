@@ -20,7 +20,6 @@ import com.firkat.fillin.feature.dashboard.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.*
-import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.*
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -44,17 +43,15 @@ class DashboardScreenOfflineTest {
         compose.onNodeWithText("Бюджет месяца").assertDoesNotExist()
     }
 
-    @Test fun emptyBudgetAndMissingHistoryAreShownWithoutInventedPercentOrForecast() {
+    @Test fun emptyBudgetAndMissingHistoryAreShownWithoutInventedForecast() {
         val empty = calculate().copy(forecast = calculate().forecast.copy(estimateSource = "UNAVAILABLE"))
         show(DashboardUiState(empty.date, DashboardStatus.Ready), empty)
         compose.onNodeWithText("Общий баланс").assertIsDisplayed()
         compose.onNodeWithText("Недостаточно истории").assertIsDisplayed()
-        scrollTo("monthly-budget")
-        compose.onNodeWithText("Бюджет месяца").assertIsDisplayed()
-        compose.onNodeWithText("0%").assertDoesNotExist()
+        compose.onNodeWithText("Бюджет месяца").assertDoesNotExist()
     }
 
-    @Test fun fiveWidgetsFollowFixedOrderAndOldSectionsAreRemoved() {
+    @Test fun fourWidgetsFollowFixedOrderAndOldSectionsAreRemoved() {
         showReady()
         val balance = bounds("total-balance")
         val available = bounds("available-to-spend")
@@ -65,10 +62,8 @@ class DashboardScreenOfflineTest {
         assertEquals(daily.top, forecast.top, 1f)
         assertTrue(balance.bottom < daily.top)
         assertEquals(balance.width, balance.height, 1f)
-        scrollTo("monthly-budget")
-        val month = bounds("monthly-budget")
-        assertEquals(balance.width * 2 + (available.left - balance.right), month.width, 1f)
-        assertEquals(balance.height, month.height, 1f)
+        assertEquals(4, DefaultDashboardWidgets.size)
+        compose.onNodeWithText("Бюджет месяца").assertDoesNotExist()
         compose.onNodeWithText("Крупнейшие категории").assertDoesNotExist()
         compose.onNodeWithText("Ближайшие платежи").assertDoesNotExist()
         compose.onNodeWithText("Добавить операцию", substring = true).assertDoesNotExist()
@@ -97,7 +92,7 @@ class DashboardScreenOfflineTest {
         val large = bounds("large")
         assertEquals(wide.width, large.width, 1f)
         assertEquals(one.height * 2 + gap, large.height, 1f)
-        assertEquals(5, DefaultDashboardWidgets.size)
+        assertEquals(4, DefaultDashboardWidgets.size)
     }
 
     @Test fun lightThemeShowsLargeAndNegativeAmountsWithoutOverflow() = checkAppearance(false, 1f, "dashboard-light.png")
@@ -123,9 +118,7 @@ class DashboardScreenOfflineTest {
         assertNoTextOverflow()
         scrollTo("balance-forecast")
         assertNoTextOverflow()
-        scrollTo("monthly-budget")
-        assertNoTextOverflow()
-        compose.onNodeWithText("Бюджет месяца").assertIsDisplayed()
+        compose.onNodeWithText("Прогноз остатка").assertIsDisplayed()
         screenshot(screenshotName)
     }
 
@@ -170,7 +163,6 @@ class DashboardScreenOfflineTest {
                 val insufficient = dashboard.forecast.estimateSource == "UNAVAILABLE"
                 BalanceForecastWidget(BalanceForecastUiState(dashboard.forecast.base.endingBalance.takeUnless { insufficient }, insufficient))
             }
-            DashboardWidgetKind.MonthlyBudget -> MonthlyBudgetWidget(MonthlyBudgetUiState(dashboard.monthBudget))
         }
     }
 
@@ -193,7 +185,6 @@ class DashboardScreenOfflineTest {
             availableMoney = money("12345678.90"),
             freeMoney = empty.freeMoney.copy(amount = money("-12345.67"), safeDailyLimit = money("123456.78")),
             forecast = empty.forecast.copy(base = empty.forecast.base.copy(endingBalance = money("-98765.43"))),
-            monthBudget = MonthBudget(money("1234567.89"), money("2345678.90"), money("-1111111.01")),
         ) }
     }
 }

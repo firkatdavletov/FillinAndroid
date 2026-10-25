@@ -56,7 +56,6 @@ class CalculateDashboardTest {
                 ExpenseCategory("Транспорт", money("10000"), BigDecimal("16.7"))
             ),
             listOf(UpcomingPayment("Жильё", LocalDate.parse("2026-09-06"), money("80000"))),
-            MonthBudget(money("0"), money("60000"), money("-60000")),
         )
         assertEquals(expected, CalculateDashboard.calculate(input))
     }
@@ -126,25 +125,6 @@ class CalculateDashboardTest {
         assertEquals(decimal("-0.01"), result.freeMoney.amount.amount)
         assertEquals(decimal("0"), result.freeMoney.safeDailyLimit.amount)
         assertEquals(FreeMoneyState.Deficit, result.freeMoney.state)
-    }
-
-    @Test fun `month budget uses the full calendar plan and preserves refunds and overspending`() {
-        val input = input().copy(
-            plannedExpenses = listOf(
-                DashboardPlannedExpense(LocalDate.parse("2026-08-31"), decimal("999")),
-                DashboardPlannedExpense(LocalDate.parse("2026-09-01"), decimal("20")),
-                DashboardPlannedExpense(LocalDate.parse("2026-09-30"), decimal("30")),
-                DashboardPlannedExpense(LocalDate.parse("2026-10-01"), decimal("999")),
-            ),
-            operations = listOf(
-                operation("expense", FOOD, DashboardOperationKind.Expense, "100", "2026-09-02"),
-                operation("refund", FOOD, DashboardOperationKind.Refund, "20", "2026-09-03"),
-            ),
-        )
-        assertEquals(MonthBudget(money("50"), money("80"), money("-30")), CalculateDashboard.calculate(input).monthBudget)
-        val refunded = input.copy(operations = listOf(operation("refund", FOOD, DashboardOperationKind.Refund, "80", "2026-09-03")))
-        assertEquals(MonthBudget(money("50"), money("-80"), money("130")), CalculateDashboard.calculate(refunded).monthBudget)
-        assertEquals(MonthBudget(money("0"), money("80"), money("-80")), CalculateDashboard.calculate(input.copy(plannedExpenses = emptyList())).monthBudget)
     }
 
     companion object {

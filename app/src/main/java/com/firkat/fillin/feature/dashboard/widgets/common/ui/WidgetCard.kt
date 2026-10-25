@@ -47,7 +47,7 @@ fun WidgetHeading(@StringRes title: Int, @DrawableRes icon: Int, stacked: Boolea
 }
 
 @Composable
-fun MoneyAmount(money: Money?, modifier: Modifier = Modifier, compact: Boolean = false) {
+fun MoneyAmount(money: Money?, modifier: Modifier = Modifier) {
     BasicText(
         text = money?.let { formatMoney(it.amount, it.currency) } ?: "—",
         modifier = modifier.fillMaxWidth(),
@@ -61,7 +61,7 @@ fun MoneyAmount(money: Money?, modifier: Modifier = Modifier, compact: Boolean =
         softWrap = false,
         autoSize = TextAutoSize.StepBased(
             minFontSize = (8f / LocalDensity.current.fontScale).sp,
-            maxFontSize = if (compact) 20.sp else 28.sp,
+            maxFontSize = 28.sp,
             stepSize = 1.sp,
         ),
     )

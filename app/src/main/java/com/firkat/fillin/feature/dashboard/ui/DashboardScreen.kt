@@ -25,7 +25,6 @@ import com.firkat.fillin.feature.dashboard.domain.model.DashboardStatus
 import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.AvailableToSpendRoute
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastRoute
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitRoute
-import com.firkat.fillin.feature.dashboard.widgets.monthlybudget.ui.MonthlyBudgetRoute
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceRoute
 import com.firkat.fillin.feature.sync.ui.BudgetSyncPanel
 import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
@@ -38,12 +37,10 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun DashboardRoute(
     viewModel: DashboardViewModel = koinViewModel(),
-    syncViewModel: BudgetSyncViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onEvent(DashboardEvent.Resume) }
     Column(Modifier.fillMaxSize()) {
-        BudgetSyncPanel(syncViewModel)
         Box(Modifier.weight(1f)) {
             DashboardScreen(state, viewModel::onEvent) { widget ->
                 when (widget.kind) {
@@ -51,7 +48,6 @@ fun DashboardRoute(
                     DashboardWidgetKind.AvailableToSpend -> AvailableToSpendRoute()
                     DashboardWidgetKind.DailyLimit -> DailyLimitRoute()
                     DashboardWidgetKind.BalanceForecast -> BalanceForecastRoute()
-                    DashboardWidgetKind.MonthlyBudget -> MonthlyBudgetRoute()
                 }
             }
         }
@@ -136,7 +132,7 @@ private fun DashboardHeader(date: LocalDate?) {
         date?.let {
             val locale = Locale.forLanguageTag("ru-KZ")
             Text(
-                it.format(DateTimeFormatter.ofPattern("LLLL yyyy", locale)).replaceFirstChar { char -> char.titlecase(locale) },
+                it.format(DateTimeFormatter.ofPattern("dd LLLL yyyy", locale)),
                 style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
