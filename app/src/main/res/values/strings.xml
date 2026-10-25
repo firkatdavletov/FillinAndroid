@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Fillin</string>
+    <string name="app_name">Saldomi</string>
     <string name="navigation_dashboard">Главная</string>
     <string name="navigation_history">Операции</string>
     <string name="navigation_planned">Планы</string>

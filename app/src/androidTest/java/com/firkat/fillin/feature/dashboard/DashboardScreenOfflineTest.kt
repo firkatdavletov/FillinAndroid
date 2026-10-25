@@ -44,10 +44,20 @@ class DashboardScreenOfflineTest {
     }
 
     @Test fun emptyBudgetAndMissingHistoryAreShownWithoutInventedForecast() {
+        checkMissingHistory(1f)
+    }
+
+    @Test fun largeFontKeepsMissingHistoryVisible() {
+        checkMissingHistory(2f)
+    }
+
+    private fun checkMissingHistory(fontScale: Float) {
         val empty = calculate().copy(forecast = calculate().forecast.copy(estimateSource = "UNAVAILABLE"))
-        show(DashboardUiState(empty.date, DashboardStatus.Ready), empty)
+        show(DashboardUiState(empty.date, DashboardStatus.Ready), empty, fontScale = fontScale)
         compose.onNodeWithText("Общий баланс").assertIsDisplayed()
+        scrollTo("balance-forecast")
         compose.onNodeWithText("Недостаточно истории").assertIsDisplayed()
+        assertNoTextOverflow()
         compose.onNodeWithText("Бюджет месяца").assertDoesNotExist()
     }
 
@@ -61,7 +71,7 @@ class DashboardScreenOfflineTest {
         assertTrue(balance.right < available.left)
         assertEquals(daily.top, forecast.top, 1f)
         assertTrue(balance.bottom < daily.top)
-        assertEquals(balance.width, balance.height, 1f)
+        assertEquals(balance.width * 0.5f, balance.height, 1f)
         assertEquals(4, DefaultDashboardWidgets.size)
         compose.onNodeWithText("Бюджет месяца").assertDoesNotExist()
         compose.onNodeWithText("Крупнейшие категории").assertDoesNotExist()

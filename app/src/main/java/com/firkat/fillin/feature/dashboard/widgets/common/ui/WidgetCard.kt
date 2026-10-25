@@ -26,7 +26,7 @@ fun WidgetCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
-        Column(Modifier.fillMaxSize().padding(12.dp), content = content)
+        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp), content = content)
     }
 }
 
@@ -37,10 +37,19 @@ fun WidgetHeading(@StringRes title: Int, @DrawableRes icon: Int, stacked: Boolea
         Spacer(Modifier.height(8.dp))
         Text(stringResource(title), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     } else Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
+        BasicText(
             stringResource(title), Modifier.weight(1f),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelLarge.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = TextUnit.Unspecified,
+            ),
+            maxLines = 1,
+            softWrap = false,
+            autoSize = TextAutoSize.StepBased(
+                minFontSize = 10.sp,
+                maxFontSize = MaterialTheme.typography.labelLarge.fontSize,
+                stepSize = 1.sp,
+            ),
         )
         Icon(painterResource(icon), null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
     }
@@ -78,9 +87,11 @@ fun MetricWidget(
     WidgetCard(modifier) {
         WidgetHeading(title, icon, stacked = LocalDensity.current.fontScale > 1.3f)
         Spacer(Modifier.weight(1f))
-        MoneyAmount(amount)
+        if (amount != null || supportingText == null) {
+            MoneyAmount(amount)
+        }
         if (supportingText != null) {
-            Spacer(Modifier.height(4.dp))
+            if (amount != null) Spacer(Modifier.height(4.dp))
             Text(supportingText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
