@@ -261,7 +261,7 @@ class BudgetStore(
         c.amount?.let { requireMoney(it.toBigDecimal()) }
         c.categoryId?.let { id ->
             val category = p.categories[id] ?: throw BudgetLocalFailure("invalid")
-            val expected = if (c.type.endsWith("INCOME") || c.type == "CREATE_OPERATION" && c.kind == "INCOME") "INCOME" else "EXPENSE"
+            val expected = if (c.type.endsWith("INCOME") || c.type in setOf("CREATE_OPERATION", "UPDATE_OPERATION") && c.kind == "INCOME") "INCOME" else "EXPENSE"
             if (category.archived || category.kind != expected) throw BudgetLocalFailure("invalid")
         }
         if (c.type.endsWith("CATEGORY")) {
@@ -299,7 +299,8 @@ class BudgetStore(
         }
         if (c.type in setOf("UPDATE_OPERATION", "REFUND_OPERATION")) {
             val operation = p.operations[c.entityId] ?: throw BudgetLocalFailure("not_found")
-            if (operation.type != "EXPENSE" || operation.originalCurrency != "KZT" || operation.status != "POSTED") throw BudgetLocalFailure("invalid")
+            val allowedTypes = if (c.type == "UPDATE_OPERATION") setOf("EXPENSE", "INCOME") else setOf("EXPENSE")
+            if (operation.type !in allowedTypes || operation.originalCurrency != "KZT" || operation.status != "POSTED") throw BudgetLocalFailure("invalid")
             val refunds = p.operations.values.filter { it.refundOf == c.entityId && it.status == "POSTED" && it.syncStatus != "REJECTED" }
             if (c.type == "UPDATE_OPERATION" && refunds.isNotEmpty()) throw BudgetLocalFailure("invalid")
             if (c.type == "REFUND_OPERATION" && operation.originalAmount.toBigDecimal() <= refunds.sumOf { it.originalAmount.toBigDecimal() }) throw BudgetLocalFailure("invalid")

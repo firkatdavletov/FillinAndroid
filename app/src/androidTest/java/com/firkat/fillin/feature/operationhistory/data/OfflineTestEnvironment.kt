@@ -53,7 +53,7 @@ internal class OfflineTestEnvironment(
                     filter: OperationHistoryFilter,
                 ): OperationPage = error("Unexpected network read")
 
-                override suspend fun updatePurchase(
+                override suspend fun updateOperationAmount(
                     id: String,
                     version: Long,
                     amount: BigDecimal,

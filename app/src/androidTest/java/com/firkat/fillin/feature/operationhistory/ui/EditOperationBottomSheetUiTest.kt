@@ -38,7 +38,8 @@ class EditOperationBottomSheetUiTest {
     @Test fun savingBlocksControlsBackScrimAndSwipeThenReturnsSuccess() {
         show()
         compose.onNodeWithTag("edit_operation_input").performTextReplacement("55,25")
-        compose.onNodeWithTag("edit_operation_save").performClick()
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.onNodeWithTag("edit_operation_save").performScrollTo().performClick()
         compose.onNodeWithTag("edit_operation_input").assertIsNotEnabled()
         compose.onNodeWithTag("edit_operation_save").assertIsNotEnabled()
         compose.onNodeWithTag("edit_operation_close").assertIsNotEnabled()
@@ -60,10 +61,12 @@ class EditOperationBottomSheetUiTest {
     }
 
     @Test fun failureKeepsInputAndReenablesControlsWithoutReturningSuccess() {
+        store.operation.value = store.operation.value!!.copy(type = OperationType.Income)
         store.failure = OperationHistoryException.Network
         show()
         compose.onNodeWithTag("edit_operation_input").performTextReplacement("55.25")
-        compose.onNodeWithTag("edit_operation_save").performClick()
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.onNodeWithTag("edit_operation_save").performScrollTo().performClick()
         compose.runOnIdle { store.gate.complete(Unit) }
         compose.onNodeWithTag("edit_operation_error").assertIsDisplayed()
         compose.onNodeWithTag("edit_operation_input").assertIsEnabled().assertTextEquals("55.25")
@@ -72,7 +75,7 @@ class EditOperationBottomSheetUiTest {
     }
 
     @Test fun unsupportedOperationShowsDetailsAndOnlyClosing() {
-        store.operation.value = store.operation.value!!.copy(type = OperationType.Income)
+        store.operation.value = store.operation.value!!.copy(type = OperationType.Income, originalCurrency = "RUB")
         show()
         compose.onNodeWithTag("edit_operation_input").assertDoesNotExist()
         compose.onNodeWithTag("edit_operation_save").assertDoesNotExist()
@@ -81,8 +84,35 @@ class EditOperationBottomSheetUiTest {
         compose.runOnIdle { assertEquals(1, closes); assertTrue(results.isEmpty()) }
     }
 
+    @Test fun incomeHasEditableAmountWithoutRefundAndBlocksDismissalUntilSaved() {
+        val income = store.operation.value!!.copy(type = OperationType.Income, categoryName = "Зарплата", description = "Аванс")
+        store.operation.value = income
+        show()
+        compose.onNodeWithTag("edit_operation_input").assertTextEquals(income.originalAmount.toPlainString())
+        compose.onNodeWithTag("edit_operation_save").assertIsNotEnabled()
+        compose.onNodeWithTag("edit_operation_refund").assertDoesNotExist()
+        compose.onNodeWithTag("edit_operation_input").performTextReplacement("150,25")
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.onNodeWithTag("edit_operation_save").performScrollTo().performClick()
+        compose.onNodeWithTag("edit_operation_input").assertIsNotEnabled()
+        compose.onNodeWithTag("edit_operation_close").assertIsNotEnabled()
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNode(isDialog()).performTouchInput { click(Offset(centerX, 1f)) }
+        compose.onNodeWithTag("edit_operation_bottom_sheet").performTouchInput { swipeDown() }
+        compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(0, closes)
+            assertTrue(results.isEmpty())
+            store.gate.complete(Unit)
+        }
+        compose.waitUntil { results.size == 1 }
+        assertEquals(EditOperationResult("operation", EditOperationOutcome.Updated), results.single())
+        assertEquals(income.copy(amount = BigDecimal("150.25"), originalAmount = BigDecimal("150.25"), version = 1), store.operation.value)
+    }
+
     private fun show() {
-        val model = EditOperationViewModel("operation", store, UpdatePurchaseAmount(store), RefundPurchase(store))
+        val model = EditOperationViewModel("operation", store, UpdateOperationAmount(store), RefundPurchase(store))
         models.put("editor", model)
         compose.setContent {
             var visible by remember { mutableStateOf(true) }
@@ -113,7 +143,7 @@ class EditOperationBottomSheetUiTest {
         override fun requestSync() = Unit
         override suspend fun create(operation: NewOperation, replacesRejectedId: String?) = Unit
         override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage = error("Unexpected network read")
-        override suspend fun updatePurchase(id: String, version: Long, amount: BigDecimal): Operation {
+        override suspend fun updateOperationAmount(id: String, version: Long, amount: BigDecimal): Operation {
             attempts++
             gate.await()
             failure?.let { throw it }

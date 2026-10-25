@@ -84,7 +84,7 @@ internal class FakeOfflineHistory :
         filter: OperationHistoryFilter,
     ): OperationPage = error("UI must observe local data")
 
-    override suspend fun updatePurchase(
+    override suspend fun updateOperationAmount(
         id: String,
         version: Long,
         amount: BigDecimal,
@@ -92,7 +92,7 @@ internal class FakeOfflineHistory :
         edits++
         val updated = operations.value.first { it.id == id }.copy(amount = amount, originalAmount = amount, version = version + 1)
         operations.value = operations.value.map { if (it.id == id) updated else it }
-        totals.value = OperationPeriodTotals(amount, totals.value.incomes)
+        totals.value = if (updated.type == OperationType.Expense) totals.value.copy(expenses = amount) else totals.value.copy(incomes = amount)
         return updated
     }
 

@@ -25,7 +25,7 @@ object RetiredBudgetSyncApi : BudgetSyncApi {
 
 object RetiredOperationHistory : OperationHistoryRepository {
     override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): Nothing = denied()
-    override suspend fun updatePurchase(id: String, version: Long, amount: BigDecimal): Nothing = denied()
+    override suspend fun updateOperationAmount(id: String, version: Long, amount: BigDecimal): Nothing = denied()
     override suspend fun refundPurchase(id: String, version: Long): Nothing = denied()
     private fun denied(): Nothing = throw OperationHistoryException.Unauthorized
 }

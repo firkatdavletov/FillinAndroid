@@ -17,12 +17,13 @@ import org.junit.Test
 
 class PurchaseCommandsTest {
     @Test
-    fun `income cannot be edited or refunded through purchase commands`() {
+    fun `income amount can be edited but cannot be refunded`() = runBlocking {
         val repository = RecordingOperationHistoryRepository()
         val income = purchase().copy(type = OperationType.Income)
-        assertThrows(OperationHistoryException.InvalidRequest::class.java) {
-            runBlocking { UpdatePurchaseAmount(repository)(income, BigDecimal("35.50")) }
-        }
+        UpdateOperationAmount(repository)(income, BigDecimal("35.50"))
+        assertEquals(income.id, repository.id)
+        assertEquals(BigDecimal("35.50"), repository.amount)
+        repository.id = null
         assertThrows(OperationHistoryException.InvalidRequest::class.java) {
             runBlocking { RefundPurchase(repository)(income) }
         }
@@ -30,10 +31,10 @@ class PurchaseCommandsTest {
     }
 
     @Test
-    fun `update forwards original-currency amount and current version`() = runBlocking {
+    fun `update forwards amount and current version`() = runBlocking {
         val repository = RecordingOperationHistoryRepository()
 
-        UpdatePurchaseAmount(repository)(purchase(), BigDecimal("35.50"))
+        UpdateOperationAmount(repository)(purchase(), BigDecimal("35.50"))
 
         assertEquals("purchase-id", repository.id)
         assertEquals(7L, repository.version)
@@ -43,13 +44,32 @@ class PurchaseCommandsTest {
     @Test
     fun `update rejects unchanged amount`() {
         val exception = assertThrows(OperationHistoryException.InvalidRequest::class.java) {
-            runBlocking { UpdatePurchaseAmount(RecordingOperationHistoryRepository())(
+            runBlocking { UpdateOperationAmount(RecordingOperationHistoryRepository())(
                 purchase(),
                 BigDecimal("30.0"),
             ) }
         }
 
         assertSame(OperationHistoryException.InvalidRequest, exception)
+    }
+
+    @Test
+    fun `update rejects invalid money and unsupported operations before writing`() {
+        for (type in OperationType.entries) {
+            val operation = purchase().copy(type = type)
+            for (amount in listOf("0", "-1", "1.001", "100000000000000000")) {
+                val repository = RecordingOperationHistoryRepository()
+                assertThrows(OperationHistoryException.InvalidRequest::class.java) {
+                    runBlocking { UpdateOperationAmount(repository)(operation, BigDecimal(amount)) }
+                }
+                assertEquals(null, repository.id)
+            }
+            for (unsupported in listOf(operation.copy(originalCurrency = "RUB"), operation.copy(status = OperationStatus.Voided), operation.copy(refundedAmount = BigDecimal.ONE))) {
+                assertThrows(OperationHistoryException.InvalidRequest::class.java) {
+                    runBlocking { UpdateOperationAmount(RecordingOperationHistoryRepository())(unsupported, BigDecimal("35.50")) }
+                }
+            }
+        }
     }
 
     @Test
@@ -79,10 +99,10 @@ class PurchaseCommandsTest {
         id = "purchase-id",
         categoryName = "Продукты",
         description = "Супермаркет",
-        amount = BigDecimal("15000.00"),
+        amount = BigDecimal("30.00"),
         currency = "KZT",
         originalAmount = BigDecimal("30.00"),
-        originalCurrency = "USD",
+        originalCurrency = "KZT",
         occurredOn = LocalDate.of(2026, 10, 6),
         status = status,
         version = 7,
@@ -97,7 +117,7 @@ private class RecordingOperationHistoryRepository : OperationHistoryRepository {
     override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage =
         OperationPage(emptyList(), null)
 
-    override suspend fun updatePurchase(
+    override suspend fun updateOperationAmount(
         id: String,
         version: Long,
         amount: BigDecimal,
@@ -109,10 +129,10 @@ private class RecordingOperationHistoryRepository : OperationHistoryRepository {
             id = id,
             categoryName = "Продукты",
             description = null,
-            amount = BigDecimal("17750.00"),
+            amount = amount,
             currency = "KZT",
             originalAmount = amount,
-            originalCurrency = "USD",
+            originalCurrency = "KZT",
             occurredOn = LocalDate.of(2026, 10, 6),
             status = OperationStatus.Posted,
             version = version + 1,

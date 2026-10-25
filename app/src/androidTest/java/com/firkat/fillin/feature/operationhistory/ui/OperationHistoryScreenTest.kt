@@ -220,7 +220,8 @@ class OperationHistoryScreenTest {
     }
 
     @Test
-    fun incomeHasPositiveAmountsAndNoPurchaseActions() {
+    fun incomeHasPositiveAmountsAndOpensEditorOnTap() {
+        val opened = mutableListOf<String>()
         show(
             OperationHistoryUiState(
                 filters = FILTER.copy(type = OperationType.Income),
@@ -242,11 +243,14 @@ class OperationHistoryScreenTest {
                 canLoadMore = false,
             ),
             mutableListOf(),
+            opened::add,
         )
         composeRule.onNodeWithText("Зарплата").assertIsDisplayed()
         composeRule.onAllNodes(hasText("+", substring = true)).assertCountEquals(2)
         composeRule.onNodeWithText("Изменить").assertDoesNotExist()
         screenshot("history-income.png")
+        composeRule.onNodeWithTag("operation-income").performClick()
+        composeRule.runOnIdle { assertEquals(listOf("income"), opened) }
     }
 
     @Test fun rejectedRowOpensSheetWhileCorrectionButtonKeepsItsOwnAction() {
@@ -279,13 +283,14 @@ class OperationHistoryScreenTest {
         }
     }
 
-    private fun show(state: OperationHistoryUiState, events: MutableList<OperationHistoryEvent>) {
+    private fun show(state: OperationHistoryUiState, events: MutableList<OperationHistoryEvent>, onOperationClick: (String) -> Unit = {}) {
         var currentState by mutableStateOf(state)
         composeRule.setContent {
             FillinTheme(dynamicColor = false) {
                 FeatureScaffold(titleResource = R.string.operation_history_title) {
                     OperationHistoryScreen(
                         state = currentState,
+                        onOperationClick = onOperationClick,
                         onEvent = { event ->
                             events += event
                             if (event is OperationHistoryEvent.TypeSelected) {

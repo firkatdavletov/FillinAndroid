@@ -14,7 +14,7 @@ import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHis
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputResult
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
-import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
+import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdateOperationAmount
 import com.firkat.fillin.feature.operationhistory.domain.usecase.parseOperationInput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -30,7 +30,7 @@ import java.time.ZoneId
 class EditOperationViewModel(
     private val operationId: String,
     private val history: OperationHistoryStore,
-    private val updatePurchaseAmount: UpdatePurchaseAmount,
+    private val updateOperationAmount: UpdateOperationAmount,
     private val refundPurchase: RefundPurchase,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
 ) : ViewModel() {
@@ -130,7 +130,7 @@ class EditOperationViewModel(
                 history.create(NewOperation(current.type, requireNotNull(current.categoryId), parsed.amount, date, parsed.description), operationId)
             }
         } else {
-            mutate(EditOperationOutcome.Updated) { updatePurchaseAmount(operation, parsed.amount) }
+            mutate(EditOperationOutcome.Updated) { updateOperationAmount(operation, parsed.amount) }
         }
     }
 
@@ -163,7 +163,7 @@ class EditOperationViewModel(
         val operation = next.operation
         val mode = when {
             operation?.syncStatus == OperationSyncStatus.Rejected -> EditOperationMode.Correct
-            operation?.type == OperationType.Expense && operation.status == OperationStatus.Posted && operation.originalCurrency == "KZT" -> EditOperationMode.Edit
+            operation?.status == OperationStatus.Posted && operation.originalCurrency == "KZT" -> EditOperationMode.Edit
             else -> EditOperationMode.ReadOnly
         }
         val categories = context.categories.filter { it.kind == if (next.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income }
@@ -176,7 +176,7 @@ class EditOperationViewModel(
                 EditOperationMode.Correct -> categories.any { it.id == next.categoryId }
                 EditOperationMode.ReadOnly -> false
             },
-            canRefund = available && mode == EditOperationMode.Edit && operation!!.refundedAmount < operation.originalAmount,
+            canRefund = available && mode == EditOperationMode.Edit && operation!!.type == OperationType.Expense && operation.refundedAmount < operation.originalAmount,
         )
     }
 

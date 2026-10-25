@@ -46,9 +46,9 @@ class EditOperationViewModelTest {
         assertNull(model.uiState.value.inputError)
     }
 
-    @Test fun `only posted KZT expenses can be edited or refunded`() = runTest {
+    @Test fun `only posted KZT operations can be edited and refunds remain expense only`() = runTest {
         val purchase = FakeOfflineHistory.purchase("first")
-        for (operation in listOf(purchase.copy(type = OperationType.Income), purchase.copy(status = OperationStatus.Voided), purchase.copy(originalCurrency = "USD"))) {
+        for (operation in listOf(purchase.copy(status = OperationStatus.Voided), purchase.copy(originalCurrency = "USD"), purchase.copy(type = OperationType.Income, originalCurrency = "RUB"))) {
             val repository = FakeOfflineHistory().apply { operations.value = listOf(operation) }
             val model = model(repository)
             runCurrent()
@@ -67,16 +67,41 @@ class EditOperationViewModelTest {
         assertFalse(partial.uiState.value.canRefund)
     }
 
+    @Test fun `income edit preserves all other fields and never allows a refund`() = runTest {
+        for (syncStatus in listOf(OperationSyncStatus.Pending, OperationSyncStatus.Synced)) {
+            val income = FakeOfflineHistory.purchase("first").copy(type = OperationType.Income, categoryId = "income-category", syncStatus = syncStatus)
+            val repository = FakeOfflineHistory().apply { operations.value = listOf(income) }
+            val model = model(repository)
+            runCurrent()
+            assertEquals(EditOperationMode.Edit, model.uiState.value.mode)
+            assertEquals(income.originalAmount.toPlainString(), model.uiState.value.input)
+            assertFalse(model.uiState.value.canSave)
+            model.onEvent(EditOperationEvent.InputChanged("150,25"))
+            assertTrue(model.uiState.value.canSave)
+            assertFalse(model.uiState.value.canRefund)
+            model.onEvent(EditOperationEvent.RefundClicked)
+            model.onEvent(EditOperationEvent.RefundConfirmed)
+            model.onEvent(EditOperationEvent.TypeChanged(OperationType.Expense))
+            model.onEvent(EditOperationEvent.CategorySelected("expense-category"))
+            assertFalse(model.uiState.value.isRefundConfirmationVisible)
+            model.onEvent(EditOperationEvent.SaveClicked)
+            runCurrent()
+            assertEquals(income.copy(amount = BigDecimal("150.25"), originalAmount = BigDecimal("150.25"), version = income.version + 1), repository.operations.value.single())
+            assertEquals(0, repository.refunds)
+        }
+    }
+
     @Test fun `pending offline save blocks edits duplicate requests and all dismissal callbacks`() = runTest {
         val repository = FakeOfflineHistory()
+        repository.operations.value = listOf(FakeOfflineHistory.purchase("first").copy(type = OperationType.Income))
         repository.context.value = repository.context.value.copy(isOnline = false)
         val gate = CompletableDeferred<Unit>()
         var attempts = 0
         val commands = object : OperationHistoryRepository by repository {
-            override suspend fun updatePurchase(id: String, version: Long, amount: BigDecimal): Operation {
+            override suspend fun updateOperationAmount(id: String, version: Long, amount: BigDecimal): Operation {
                 attempts++
                 gate.await()
-                return repository.updatePurchase(id, version, amount)
+                return repository.updateOperationAmount(id, version, amount)
             }
         }
         val model = model(repository, commands)
@@ -110,11 +135,12 @@ class EditOperationViewModelTest {
 
     @Test fun `failure keeps draft unlocks dismissal and permits retry without a success result`() = runTest {
         val repository = FakeOfflineHistory()
+        repository.operations.value = listOf(FakeOfflineHistory.purchase("first").copy(type = OperationType.Income))
         var fail = true
         val commands = object : OperationHistoryRepository by repository {
-            override suspend fun updatePurchase(id: String, version: Long, amount: BigDecimal): Operation {
+            override suspend fun updateOperationAmount(id: String, version: Long, amount: BigDecimal): Operation {
                 if (fail) throw OperationHistoryException.Network
-                return repository.updatePurchase(id, version, amount)
+                return repository.updateOperationAmount(id, version, amount)
             }
         }
         val model = model(repository, commands)
@@ -192,7 +218,7 @@ class EditOperationViewModelTest {
 
     @Test fun `sync acknowledgement preserves draft and uses the acknowledged version`() = runTest {
         val repository = FakeOfflineHistory()
-        repository.operations.value = listOf(FakeOfflineHistory.purchase("first").copy(syncStatus = OperationSyncStatus.Pending))
+        repository.operations.value = listOf(FakeOfflineHistory.purchase("first").copy(type = OperationType.Income, syncStatus = OperationSyncStatus.Pending))
         val model = model(repository)
         runCurrent()
         model.onEvent(EditOperationEvent.InputChanged("19.00"))
@@ -252,7 +278,7 @@ class EditOperationViewModelTest {
     }
 
     private fun model(history: FakeOfflineHistory, commands: OperationHistoryRepository = history) =
-        EditOperationViewModel("first", history, UpdatePurchaseAmount(commands), RefundPurchase(commands),
+        EditOperationViewModel("first", history, UpdateOperationAmount(commands), RefundPurchase(commands),
             Clock.fixed(Instant.parse("2026-10-25T05:00:00Z"), ZoneId.of("Asia/Almaty")))
             .also { models.put("editor-${System.identityHashCode(it)}", it) }
 }

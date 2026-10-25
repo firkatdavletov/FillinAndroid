@@ -192,7 +192,7 @@ class OfflineOperationHistoryRepository(
         return page.copy(items = page.items.drop(offset.toInt()))
     }
 
-    override suspend fun updatePurchase(
+    override suspend fun updateOperationAmount(
         id: String,
         version: Long,
         amount: BigDecimal,
@@ -202,8 +202,10 @@ class OfflineOperationHistoryRepository(
             return observeHistory(OperationHistoryFilter.currentMonth(LocalDate.now(clock)), Int.MAX_VALUE).first().items.firstOrNull { it.id == id }
                 ?: budgetStore.historySnapshot()!!.let { localHistory(it, OperationHistoryFilter(dateFrom = LocalDate.of(1, 1, 1), dateTo = LocalDate.now(clock)), Int.MAX_VALUE).items.first { it.id == id } }
         }
+        // The retired /purchases endpoint cannot update an income.
+        if (dao.operation(id)?.type != "EXPENSE") throw OperationHistoryException.InvalidRequest
         requireOnlineOperation(id)
-        val result = remote.updatePurchase(id, version, amount)
+        val result = remote.updateOperationAmount(id, version, amount)
         database.withTransaction {
             val current = dao.operation(id)
             if (current != null && current.version <= result.version) {

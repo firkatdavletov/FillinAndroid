@@ -90,7 +90,7 @@ class OperationHistoryRepositoryImplTest {
         val api = RecordingApi(response = OperationPageDto(listOf(purchaseDto()), null, TEST_TOTALS))
         val repository = OperationHistoryRepositoryImpl(api = api, apiToken = "owner-token")
 
-        val result = repository.updatePurchase(
+        val result = repository.updateOperationAmount(
             id = "purchase-id",
             version = 4,
             amount = BigDecimal("12000.50"),

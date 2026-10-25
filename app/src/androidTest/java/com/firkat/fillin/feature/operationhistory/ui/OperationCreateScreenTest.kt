@@ -182,7 +182,7 @@ class OperationCreateScreenTest {
         override fun requestSync() = Unit
         override suspend fun create(operation: NewOperation, replacesRejectedId: String?) { created += operation }
         override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage = error("Unused")
-        override suspend fun updatePurchase(id: String, version: Long, amount: java.math.BigDecimal): Operation = error("Unused")
+        override suspend fun updateOperationAmount(id: String, version: Long, amount: java.math.BigDecimal): Operation = error("Unused")
         override suspend fun refundPurchase(id: String, version: Long) = Unit
     }
 

@@ -3,7 +3,7 @@ package com.firkat.fillin.feature.operationhistory.ui
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.usecase.RefundPurchase
-import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdatePurchaseAmount
+import com.firkat.fillin.feature.operationhistory.domain.usecase.UpdateOperationAmount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -114,7 +114,7 @@ class OperationHistoryFiltersTest {
             val repository = FakeOfflineHistory()
             val model = model(repository)
             runCurrent()
-            val editor = EditOperationViewModel("first", repository, UpdatePurchaseAmount(repository), RefundPurchase(repository))
+            val editor = EditOperationViewModel("first", repository, UpdateOperationAmount(repository), RefundPurchase(repository))
             runCurrent()
             editor.onEvent(EditOperationEvent.InputChanged("11.01"))
             editor.onEvent(EditOperationEvent.SaveClicked)
@@ -127,7 +127,7 @@ class OperationHistoryFiltersTest {
                     .toPlainString(),
             )
             assertEquals(repository.totals.value, model.uiState.value.periodTotals)
-            val refund = EditOperationViewModel("first", repository, UpdatePurchaseAmount(repository), RefundPurchase(repository))
+            val refund = EditOperationViewModel("first", repository, UpdateOperationAmount(repository), RefundPurchase(repository))
             runCurrent()
             refund.onEvent(EditOperationEvent.RefundClicked)
             refund.onEvent(EditOperationEvent.RefundConfirmed)

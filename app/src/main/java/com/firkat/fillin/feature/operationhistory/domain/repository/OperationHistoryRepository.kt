@@ -12,7 +12,7 @@ interface OperationHistoryRepository {
         filter: OperationHistoryFilter,
     ): OperationPage
 
-    suspend fun updatePurchase(
+    suspend fun updateOperationAmount(
         id: String,
         version: Long,
         amount: BigDecimal,

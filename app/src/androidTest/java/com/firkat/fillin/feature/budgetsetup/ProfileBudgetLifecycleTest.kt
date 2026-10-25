@@ -92,7 +92,7 @@ class ProfileBudgetLifecycleTest {
                     filter: OperationHistoryFilter,
                 ): OperationPage = error("Remote read")
 
-                override suspend fun updatePurchase(
+                override suspend fun updateOperationAmount(
                     id: String,
                     version: Long,
                     amount: BigDecimal,
@@ -141,7 +141,7 @@ class ProfileBudgetLifecycleTest {
                     .first()
                     .items
                     .single()
-            repository.updatePurchase(operation.id, operation.version, BigDecimal("15.00"))
+            repository.updateOperationAmount(operation.id, operation.version, BigDecimal("15.00"))
             operation =
                 repository
                     .observeHistory(filter, 100)
@@ -187,6 +187,48 @@ class ProfileBudgetLifecycleTest {
             assertFalse(database.operations().state()!!.cloudEnabled)
             assertEquals(0, api.calls)
         }
+
+    @Test fun incomeEditsSurviveRestartAndLostResponseWithoutChangingOtherFields() = runBlocking {
+        session().createLocal(BigDecimal.ZERO, LocalDate.parse("2026-10-01"))
+        val repository = history()
+        val category = repository.context.first().categories.first { it.kind == com.firkat.fillin.feature.categories.domain.model.CategoryKind.Income }
+        repository.create(NewOperation(OperationType.Income, category.id, BigDecimal("100.00"), LocalDate.parse("2026-10-17"), "Аванс"))
+        val original = repository.observeHistory(filter, 100).first().items.single()
+        repository.updateOperationAmount(original.id, original.version, BigDecimal("125.10"))
+        val firstEdit = repository.observeOperation(original.id).first()!!
+        repository.updateOperationAmount(original.id, firstEdit.version, BigDecimal("150.25"))
+        val edited = repository.observeOperation(original.id).first()!!
+        assertEquals(original.copy(amount = BigDecimal("150.25"), originalAmount = BigDecimal("150.25"), version = 2), edited)
+        assertEquals(BigDecimal("150.25"), repository.observeHistory(filter, 100).first().totals.incomes)
+        assertEquals(BigDecimal("150.25"), OfflineDashboardRepository(database, store(), json, clock).observeDashboard().first().availableMoney.amount)
+        try {
+            repository.refundPurchase(edited.id, edited.version)
+            fail("Income cannot be refunded")
+        } catch (failure: OperationHistoryException) {
+            assertEquals(OperationHistoryException.InvalidRequest, failure)
+        }
+        val commands = database.budget().content()!!.commands
+        assertEquals(3, commands.size)
+        assertEquals(0, api.calls)
+        database.close()
+        database = open()
+        assertEquals(edited, history().observeOperation(original.id).first())
+        assertEquals(commands, database.budget().content()!!.commands)
+        session().enable()
+        api.loseCommand = "UPDATE_OPERATION"
+        assertEquals(SyncResult.Retry, synchronizer().synchronize())
+        val attempted = database.budget().content()!!.commands.first { it.wirePayload != null && it.status == "PENDING" }
+        database.close()
+        database = open()
+        assertEquals(attempted.wirePayload, database.budget().content()!!.commands.first { it.requestId == attempted.requestId }.wirePayload)
+        assertEquals(SyncResult.Completed, synchronizer().synchronize())
+        assertEquals(1, api.operations.size)
+        val synced = history().observeOperation(original.id).first()!!
+        assertEquals(edited.copy(syncStatus = OperationSyncStatus.Synced), synced)
+        assertEquals(BigDecimal("150.25"), history().observeHistory(filter, 100).first().totals.incomes)
+        assertEquals(BigDecimal("150.25"), OfflineDashboardRepository(database, store(), json, clock).observeDashboard().first().availableMoney.amount)
+        assertEquals(0, store().context.first().pending)
+    }
 
     @Test fun missingRemoteBudgetAndInterruptedBootstrapNeverInitializeLocalBudget() =
         runBlocking {
@@ -259,7 +301,7 @@ class ProfileBudgetLifecycleTest {
                     .first()
                     .items
                     .single()
-            repository.updatePurchase(operation.id, operation.version, BigDecimal("15.00"))
+            repository.updateOperationAmount(operation.id, operation.version, BigDecimal("15.00"))
             operation =
                 repository
                     .observeHistory(filter, 100)
@@ -328,7 +370,7 @@ class ProfileBudgetLifecycleTest {
         val payload = json.encodeToString(request)
         database.operations().putOperation(LocalOperation(id, state.scopeKey, category.id, "EXPENSE", "10.00", "KZT", "10.00", request.occurredOn, "2026-10-18T05:00:00Z", "POSTED", 0, 0, null, null, id, "PENDING"))
         database.operations().enqueue(OperationOutbox(id, state.scopeKey, id, payload))
-        history().updatePurchase(id, 0, BigDecimal("15.00"))
+        history().updateOperationAmount(id, 0, BigDecimal("15.00"))
         session().enable()
         if (committedBeforeSync) {
             session().ensureBound()

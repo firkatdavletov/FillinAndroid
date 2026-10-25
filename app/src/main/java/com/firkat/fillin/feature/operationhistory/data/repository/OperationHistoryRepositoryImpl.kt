@@ -45,7 +45,7 @@ class OperationHistoryRepositoryImpl(
         }
     }
 
-    override suspend fun updatePurchase(
+    override suspend fun updateOperationAmount(
         id: String,
         version: Long,
         amount: BigDecimal,

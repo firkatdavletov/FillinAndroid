@@ -159,7 +159,7 @@ internal fun EditOperationContent(
                     onClick = onSaveClick, enabled = canSave, isLoading = isSaving,
                     modifier = Modifier.fillMaxWidth().testTag("edit_operation_save"),
                 )
-                if (mode == EditOperationMode.Edit) {
+                if (mode == EditOperationMode.Edit && it.type == OperationType.Expense) {
                     TextButton(onClick = onRefundClick, enabled = canRefund, modifier = Modifier.fillMaxWidth().testTag("edit_operation_refund")) {
                         Text(stringResource(R.string.operation_history_refund_action))
                     }
@@ -191,6 +191,7 @@ private fun RefundConfirmation(onConfirm: () -> Unit, onDismiss: () -> Unit, mod
 }
 
 private val previewOperation = Operation("preview", "Продукты", "Супермаркет", BigDecimal("1200"), "KZT", BigDecimal("1200"), "KZT", LocalDate.of(2026, 10, 24), OperationStatus.Posted, 0)
+private val previewIncome = previewOperation.copy(type = OperationType.Income, categoryName = "Зарплата", description = "Аванс")
 
 @Composable
 private fun EditPreview(
@@ -209,7 +210,7 @@ private fun EditPreview(
     FillinTheme { Surface {
         EditOperationContent(operation, mode, input, type, visibleCategories, if (type == OperationType.Expense) "food" else "salary", loading, saving,
             canSave && !saving && inputError == null && operation?.refundedAmount?.signum() == 0,
-            !saving && operation != null && operation.refundedAmount < operation.originalAmount,
+            !saving && operation != null && operation.type == OperationType.Expense && operation.refundedAmount < operation.originalAmount,
             inputError, error, {}, {}, {}, {}, {}, {})
     } }
 }
@@ -220,6 +221,18 @@ private fun EditPreview(
 @Composable private fun EditOperationUnchangedPreview() { EditPreview(input = "1200", canSave = false) }
 @Preview(name = "Saving") @Preview(name = "Saving dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable private fun EditOperationSavingPreview() { EditPreview(saving = true) }
+@Preview(name = "Edit income") @Preview(name = "Edit income dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun EditIncomeAmountPreview() { EditPreview(operation = previewIncome, type = OperationType.Income) }
+@Preview(name = "Income unchanged") @Preview(name = "Income unchanged dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun EditIncomeAmountUnchangedPreview() { EditPreview(operation = previewIncome, type = OperationType.Income, input = "1200", canSave = false) }
+@Preview(name = "Income saving") @Preview(name = "Income saving dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun EditIncomeAmountSavingPreview() { EditPreview(operation = previewIncome, type = OperationType.Income, saving = true) }
+@Preview(name = "Income save failed") @Preview(name = "Income save failed dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun EditIncomeAmountErrorPreview() { EditPreview(operation = previewIncome, type = OperationType.Income, error = OperationHistoryError.Unknown) }
+@Preview(name = "Income invalid amount") @Preview(name = "Income invalid amount dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun EditIncomeAmountInvalidPreview() { EditPreview(operation = previewIncome, type = OperationType.Income, input = "12.345", inputError = OperationInputError.InvalidAmount) }
+@Preview(name = "Income compact", widthDp = 320, fontScale = 2f) @Preview(name = "Income wide", widthDp = 840)
+@Composable private fun EditIncomeAmountLongPreview() { EditPreview(operation = previewIncome.copy(categoryName = "Вознаграждение за дополнительную работу", description = "Выплата за завершённую работу по семейному проекту"), type = OperationType.Income) }
 @Preview(name = "Correct") @Preview(name = "Correct dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable private fun EditOperationCorrectPreview() { EditPreview(mode = EditOperationMode.Correct) }
 @Preview(name = "Correct income") @Preview(name = "Correct income dark", uiMode = UI_MODE_NIGHT_YES)
