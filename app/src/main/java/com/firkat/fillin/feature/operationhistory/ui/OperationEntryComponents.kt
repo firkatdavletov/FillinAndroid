@@ -102,19 +102,26 @@ internal fun OperationCategoryRow(
     LazyRow(
         state = rememberLazyListState(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(horizontal = 24.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
         modifier = modifier.fillMaxWidth().testTag("operation-create-categories"),
     ) {
         items(categories, key = { it.id }) { category ->
-            OperationCategoryCard(category.name, category.icon.code, enabled, { onCategoryClick(category.id) },
-                Modifier.testTag("operation-create-category-" + category.id), selected = category.id == selectedCategoryId)
+            OperationCategoryCard(
+                name = category.name,
+                iconCode = category.icon.code,
+                enabled = enabled,
+                onClick = { onCategoryClick(category.id) },
+                modifier = Modifier
+                    .testTag("operation-create-category-" + category.id),
+                selected = category.id == selectedCategoryId
+            )
         }
     }
 }
 
 @Composable
 private fun OperationCategoryCard(
-    name: String,
+    name: String?,
     iconCode: String,
     enabled: Boolean,
     onClick: () -> Unit,
@@ -134,7 +141,14 @@ private fun OperationCategoryCard(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CategoryIconImage(iconCode, Modifier.size(26.dp).alpha(if (enabled) 1f else 0.38f))
-            Text(name, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (!name.isNullOrBlank())
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
         }
     }
 }

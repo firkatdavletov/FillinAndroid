@@ -117,67 +117,142 @@ internal fun EditOperationContent(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth().testTag("edit_operation_bottom_sheet")
-            .imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("edit_operation_bottom_sheet")
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(stringResource(R.string.edit_operation_title), style = MaterialTheme.typography.titleLarge)
-        if (isLoading) CircularProgressIndicator(modifier = Modifier.testTag("edit_operation_loading"))
+        Text(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            text = stringResource(R.string.edit_operation_title),
+            style = MaterialTheme.typography.titleLarge
+        )
+
+        if (isLoading)
+            CircularProgressIndicator(
+                modifier = Modifier.testTag("edit_operation_loading")
+            )
+
         operation?.let {
-            Text(it.categoryName, style = MaterialTheme.typography.titleMedium)
-            Text(formatDateHeader(it.occurredOn), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                text = it.categoryName,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                text = formatDateHeader(it.occurredOn),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             if (mode == EditOperationMode.ReadOnly || mode == EditOperationMode.Edit && it.refundedAmount.signum() != 0) {
-                it.description?.takeIf(String::isNotBlank)?.let { description -> Text(description) }
+                it.description
+                    ?.takeIf(String::isNotBlank)
+                    ?.let {
+                        description -> Text(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            text = description
+                        )
+                    }
             }
             if (mode == EditOperationMode.ReadOnly) {
-                Text(formatOperationAmount(it.originalAmount, it.originalCurrency, it.type))
-                Text(stringResource(R.string.edit_operation_read_only), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    text = formatOperationAmount(it.originalAmount, it.originalCurrency, it.type)
+                )
+                Text(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    text = stringResource(R.string.edit_operation_read_only),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
-                Text(stringResource(if (mode == EditOperationMode.Correct) R.string.operation_create_placeholder else R.string.operation_history_amount_label))
+                Text(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    text = stringResource(if (mode == EditOperationMode.Correct) R.string.operation_create_placeholder else R.string.operation_history_amount_label)
+                )
                 SaldomiTextField(
                     value = input,
                     onValueChange = onInputChange,
                     enabled = !isSaving && (mode == EditOperationMode.Correct || it.refundedAmount.signum() == 0),
                     isError = inputError != null,
                     keyboardOptions = KeyboardOptions(keyboardType = if (mode == EditOperationMode.Correct) KeyboardType.Text else KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth().testTag("edit_operation_input"),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("edit_operation_input")
+                        .padding(horizontal = 16.dp),
                 )
                 inputError?.let { reason ->
-                    Text(stringResource(when (reason) {
-                        OperationInputError.DescriptionTooLong -> R.string.operation_create_description_too_long
-                        OperationInputError.AmbiguousAmount -> R.string.operation_create_ambiguous_amount
-                        else -> R.string.operation_create_invalid_input
-                    }), color = MaterialTheme.colorScheme.error)
+                    Text(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        text = stringResource(when (reason) {
+                            OperationInputError.DescriptionTooLong -> R.string.operation_create_description_too_long
+                            OperationInputError.AmbiguousAmount -> R.string.operation_create_ambiguous_amount
+                            else -> R.string.operation_create_invalid_input
+                        }),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
                 if (mode == EditOperationMode.Correct) {
-                    OperationTypeTabs(type, !isSaving, onTypeClick)
-                    if (categories.isEmpty()) Text(stringResource(R.string.operation_create_no_categories))
-                    else OperationCategoryRow(categories, !isSaving, onCategoryClick, selectedCategoryId = selectedCategoryId)
+                    OperationTypeTabs(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        type = type,
+                        enabled = !isSaving,
+                        onTypeClick = onTypeClick
+                    )
+                    if (categories.isEmpty())
+                        Text(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            text = stringResource(R.string.operation_create_no_categories)
+                        )
+                    else OperationCategoryRow(
+                        categories = categories,
+                        enabled = !isSaving,
+                        onCategoryClick = onCategoryClick,
+                        selectedCategoryId = selectedCategoryId
+                    )
                 } else {
                     if (it.refundedAmount.signum() == 0) {
-                        Text(stringResource(R.string.operation_create_description))
+                        Text(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            text = stringResource(R.string.operation_create_description)
+                        )
                         SaldomiTextField(
                             value = description, onValueChange = onDescriptionChange,
                             enabled = !isSaving, isError = descriptionError,
-                            modifier = Modifier.fillMaxWidth().testTag("edit_operation_description"),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .testTag("edit_operation_description"),
                         )
                         if (descriptionError) {
-                            Text(stringResource(R.string.operation_create_description_too_long),
+                            Text(
+                                text = stringResource(R.string.operation_create_description_too_long),
                                 color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.testTag("edit_operation_description_error"))
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .testTag("edit_operation_description_error")
+                            )
                         }
                         if (categories.isEmpty()) Text(stringResource(R.string.operation_create_no_categories))
                         else OperationCategoryRow(categories, !isSaving, onCategoryClick, selectedCategoryId = selectedCategoryId)
                     }
                     Text(
-                        stringResource(if (it.refundedAmount.signum() == 0) R.string.edit_operation_details_hint else R.string.edit_operation_refunded),
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        text = stringResource(if (it.refundedAmount.signum() == 0) R.string.edit_operation_details_hint else R.string.edit_operation_refunded),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 PrimaryButton(
                     text = stringResource(if (mode == EditOperationMode.Correct) R.string.operation_sync_correct else R.string.operation_history_save_action),
                     onClick = onSaveClick, enabled = canSave, isLoading = isSaving,
-                    modifier = Modifier.fillMaxWidth().testTag("edit_operation_save"),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .testTag("edit_operation_save"),
                 )
                 if (mode == EditOperationMode.Edit && it.type == OperationType.Expense) {
                     TextButton(onClick = onRefundClick, enabled = canRefund, modifier = Modifier.fillMaxWidth().testTag("edit_operation_refund")) {

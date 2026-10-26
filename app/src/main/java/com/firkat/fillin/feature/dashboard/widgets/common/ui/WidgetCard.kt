@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.TextUnit
 import com.firkat.fillin.feature.dashboard.domain.model.Money
 import com.firkat.fillin.ui.format.formatMoney
+import com.firkat.fillin.ui.theme.saldomiColors
 
 @Composable
 fun WidgetCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
@@ -63,7 +64,7 @@ fun MoneyAmount(money: Money?, modifier: Modifier = Modifier) {
         style = MaterialTheme.typography.titleLarge.copy(
             fontWeight = FontWeight.SemiBold,
             lineHeight = TextUnit.Unspecified,
-            color = if (money != null && money.amount.signum() < 0) MaterialTheme.colorScheme.error
+            color = if (money != null && money.amount.signum() < 0) MaterialTheme.saldomiColors.expense
                 else MaterialTheme.colorScheme.onSurface,
         ),
         maxLines = 1,
