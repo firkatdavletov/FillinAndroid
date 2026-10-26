@@ -1,54 +1,31 @@
 package com.firkat.fillin.feature.categories.ui
 
-import android.content.res.Configuration.UI_MODE_NIGHT_YES
-import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -64,14 +41,14 @@ import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.RefreshableContent
-import com.firkat.fillin.ui.icon.CategoryIconOption
-import com.firkat.fillin.ui.icon.CategoryIcons
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun CategoriesRoute(
     onBack: () -> Unit,
+    onCreateCategory: () -> Unit,
+    onEditCategory: (String) -> Unit,
     viewModel: CategoriesViewModel = koinViewModel(),
     syncViewModel: BudgetSyncViewModel = koinViewModel(),
 ) {
@@ -79,17 +56,17 @@ fun CategoriesRoute(
     val sync by syncViewModel.context.collectAsStateWithLifecycle()
     FeatureScaffold(
         titleResource = R.string.categories_title,
-        onNavigateBack =
-            if (state.editor != null) {
-                { viewModel.onEvent(CategoriesEvent.EditorClosed) }
-            } else {
-                onBack
-            },
-        navigateBackEnabled = state.editor?.isSaving != true,
+        onNavigateBack = onBack,
     ) {
         Column {
             BudgetSyncPanel(syncViewModel)
-            CategoriesScreen(state = state, onEvent = viewModel::onEvent, canWrite = sync.canWrite)
+            CategoriesScreen(
+                state = state,
+                onEvent = viewModel::onEvent,
+                canWrite = sync.canWrite,
+                onCreateCategory = onCreateCategory,
+                onEditCategory = onEditCategory,
+            )
         }
     }
 }
@@ -99,16 +76,9 @@ fun CategoriesScreen(
     state: CategoriesUiState,
     onEvent: (CategoriesEvent) -> Unit,
     canWrite: Boolean = true,
+    onCreateCategory: () -> Unit,
+    onEditCategory: (String) -> Unit,
 ) {
-    val editor = state.editor
-    if (editor != null) {
-        CategoryEditor(
-            state = editor,
-            onEvent = onEvent,
-        )
-        return
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         RefreshableContent(
             isRefreshing = state.isRefreshing,
@@ -137,7 +107,7 @@ fun CategoriesScreen(
                         items = state.items,
                         error = state.error,
                         onRetry = { onEvent(CategoriesEvent.Refresh) },
-                        onCategoryClick = { if (canWrite) onEvent(CategoriesEvent.EditRequested(it.id)) },
+                        onCategoryClick = { if (canWrite) onEditCategory(it.id) },
                     )
                 }
             }
@@ -145,7 +115,7 @@ fun CategoriesScreen(
 
         if (canWrite && !state.isLoading && !state.isRefreshing && state.error == null) {
             ExtendedFloatingActionButton(
-                onClick = { onEvent(CategoriesEvent.CreateRequested) },
+                onClick = onCreateCategory,
                 modifier =
                     Modifier
                         .align(Alignment.BottomEnd)
@@ -278,359 +248,9 @@ private fun CategoryItem(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CategoryEditor(
-    state: CategoryEditorUiState,
-    onEvent: (CategoriesEvent) -> Unit,
-) {
-    BackHandler(enabled = !state.isSaving) {
-        onEvent(CategoriesEvent.EditorClosed)
-    }
-
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text =
-                stringResource(
-                    if (state.isCreating) {
-                        R.string.categories_editor_create_title
-                    } else {
-                        R.string.categories_editor_edit_title
-                    },
-                ),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-
-        OutlinedTextField(
-            value = state.name,
-            onValueChange = { onEvent(CategoriesEvent.NameChanged(it)) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isSaving && state.original?.dictionaryKey != "OTHER",
-            label = { Text(stringResource(R.string.categories_name_label)) },
-            singleLine = true,
-        )
-
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = stringResource(R.string.categories_kind_label),
-                style = MaterialTheme.typography.labelLarge,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CategoryKind.entries.forEach { kind ->
-                    FilterChip(
-                        selected = state.kind == kind,
-                        onClick = { onEvent(CategoriesEvent.KindChanged(kind)) },
-                        enabled = state.isCreating && !state.isSaving,
-                        label = { Text(stringResource(kind.labelResource)) },
-                    )
-                }
-            }
-            if (!state.isCreating) {
-                Text(
-                    text = stringResource(R.string.categories_kind_immutable_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        CategoryIconSelector(
-            iconCode = state.iconCode,
-            enabled = !state.isSaving,
-            onClick = { onEvent(CategoriesEvent.IconPickerRequested) },
-        )
-
-        state.error?.let { error ->
-            Text(
-                text = stringResource(error.messageResource),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-
-        Button(
-            onClick = { onEvent(CategoriesEvent.SaveRequested) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.canSave,
-        ) {
-            if (state.isSaving) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Text(
-                    stringResource(
-                        if (state.isCreating) {
-                            R.string.categories_create_submit
-                        } else {
-                            R.string.categories_save_submit
-                        },
-                    ),
-                )
-            }
-        }
-
-        if (state.original?.kind == CategoryKind.Expense) {
-            OutlinedButton(
-                onClick = { onEvent(CategoriesEvent.DeleteRequested) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = state.canDelete,
-                colors =
-                    ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-            ) {
-                Text(stringResource(R.string.categories_delete_action))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-    }
-
-    if (state.isDeleteConfirmationVisible) {
-        AlertDialog(
-            onDismissRequest = { onEvent(CategoriesEvent.DeleteDismissed) },
-            title = { Text(stringResource(R.string.categories_delete_title)) },
-            text = { Text(stringResource(R.string.categories_delete_message)) },
-            confirmButton = {
-                TextButton(onClick = { onEvent(CategoriesEvent.DeleteConfirmed) }) {
-                    Text(
-                        text = stringResource(R.string.categories_delete_confirm),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { onEvent(CategoriesEvent.DeleteDismissed) }) {
-                    Text(stringResource(R.string.categories_delete_cancel))
-                }
-            },
-        )
-    }
-
-    if (state.isIconPickerVisible) {
-        CategoryIconPickerBottomSheet(
-            selectedIconCode = state.iconCode,
-            onIconSelected = { onEvent(CategoriesEvent.IconSelected(it)) },
-            onDismiss = { onEvent(CategoriesEvent.IconPickerDismissed) },
-        )
-    }
-}
-
-@Composable
-private fun CategoryIconSelector(
-    iconCode: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val selectedIcon = CategoryIcons.find(iconCode)
-
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(R.string.categories_icon_label),
-            style = MaterialTheme.typography.labelLarge,
-        )
-        OutlinedButton(
-            onClick = onClick,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 64.dp),
-            enabled = enabled,
-            contentPadding = PaddingValues(horizontal = 16.dp),
-        ) {
-            if (iconCode.isNotBlank()) {
-                CategoryIconImage(iconCode, Modifier.alpha(if (enabled) 1f else 0.38f))
-                Text(
-                    text = stringResource(selectedIcon?.labelResource ?: R.string.category_icon_default),
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .padding(start = 12.dp),
-                    textAlign = TextAlign.Start,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.categories_icon_select_action),
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Start,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
-            Text(
-                text = "▾",
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CategoryIconPickerBottomSheet(
-    selectedIconCode: String,
-    onIconSelected: (String) -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ModalBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 20.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.categories_icon_picker_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(104.dp),
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(384.dp)
-                        .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 16.dp),
-            ) {
-                gridItems(
-                    items = CategoryIcons.options,
-                    key = { it.code },
-                ) { icon ->
-                    CategoryIconPickerItem(
-                        icon = icon,
-                        isSelected = icon == CategoryIcons.find(selectedIconCode),
-                        onClick = { onIconSelected(icon.code) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CategoryIconPickerItem(
-    icon: CategoryIconOption,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth().heightIn(min = 104.dp).semantics { selected = isSelected },
-        shape = MaterialTheme.shapes.large,
-        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            CategoryIconImage(icon.code, Modifier.size(32.dp))
-            Text(
-                text = stringResource(icon.labelResource),
-                modifier = Modifier.padding(top = 8.dp),
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.labelSmall,
-            )
-        }
-    }
-}
-
-@Preview(name = "Icon option", widthDp = 120)
-@Preview(name = "Icon option dark", widthDp = 120, uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun CategoryIconOptionPreview() {
-    FillinTheme { CategoryIconPickerItem(CategoryIcons.options.first(), false, {}) }
-}
-
-@Preview(name = "Selected icon", widthDp = 120)
-@Preview(name = "Selected icon dark", widthDp = 120, uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun CategoryIconSelectedPreview() {
-    FillinTheme { CategoryIconPickerItem(CategoryIcons.options.first(), true, {}) }
-}
-
-@Preview(name = "Long icon label", widthDp = 120, fontScale = 2f)
-@Preview(name = "Long icon label dark", widthDp = 120, fontScale = 2f, uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun CategoryIconLongLabelPreview() {
-    FillinTheme { CategoryIconPickerItem(requireNotNull(CategoryIcons.find("CAFE_RESTAURANTS")), false, {}) }
-}
-
-@Preview(name = "No icon")
-@Preview(name = "No icon dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun CategoryIconSelectorEmptyPreview() {
-    FillinTheme { CategoryIconSelector("", true, {}) }
-}
-
-@Preview(name = "Known icon")
-@Preview(name = "Known icon dark", uiMode = UI_MODE_NIGHT_YES)
-@Preview(name = "Known icon large font", widthDp = 320, fontScale = 2f)
-@Composable
-private fun CategoryIconSelectorKnownPreview() {
-    FillinTheme { CategoryIconSelector("CAFE_RESTAURANTS", true, {}) }
-}
-
-@Preview(name = "Disabled icon")
-@Preview(name = "Disabled icon dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun CategoryIconSelectorDisabledPreview() {
-    FillinTheme { CategoryIconSelector("FOOD", false, {}) }
-}
-
-@Preview(name = "Unknown icon")
-@Preview(name = "Unknown icon dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun CategoryIconSelectorUnknownPreview() {
-    FillinTheme { CategoryIconSelector("custom.icon-v2", true, {}) }
-}
-
-@Preview(name = "Category item")
-@Preview(name = "Category item dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun CategoryItemPreview() {
-    FillinTheme { CategoryItem(Category("preview", "Продукты", CategoryKind.Expense, CategoryIcon("GROCERIES")), {}) }
-}
-
-@Preview(name = "Unknown category item")
-@Preview(name = "Unknown category item dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun CategoryItemUnknownPreview() {
-    FillinTheme { CategoryItem(Category("preview", "Прочие расходы", CategoryKind.Expense, CategoryIcon("custom.icon-v2")), {}) }
-}
-
-@Preview(name = "Long category item", widthDp = 320, fontScale = 2f)
-@Preview(name = "Long category item dark", widthDp = 320, fontScale = 2f, uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun CategoryItemLongPreview() {
-    FillinTheme { CategoryItem(Category("preview", "Обслуживание семейного автомобиля", CategoryKind.Expense, CategoryIcon("CAR")), {}) }
-}
-
 @Composable
 private fun LoadingContent(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
     }
 }
@@ -638,10 +258,7 @@ private fun LoadingContent(modifier: Modifier = Modifier) {
 @Composable
 private fun EmptyContent(modifier: Modifier = Modifier) {
     Box(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(horizontal = 32.dp),
+        modifier = modifier.fillMaxSize().padding(horizontal = 32.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -731,25 +348,8 @@ private fun CategoriesPreview() {
                         ),
                 ),
             onEvent = {},
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun CategoryEditorPreview() {
-    FillinTheme(dynamicColor = false) {
-        CategoriesScreen(
-            state =
-                CategoriesUiState(
-                    editor =
-                        CategoryEditorUiState(
-                            name = "Кафе",
-                            kind = CategoryKind.Expense,
-                            iconCode = "FOOD",
-                        ),
-                ),
-            onEvent = {},
+            onCreateCategory = {},
+            onEditCategory = {},
         )
     }
 }

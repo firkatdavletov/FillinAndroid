@@ -68,7 +68,7 @@ class AppNavigationViewModel(
                                 if (ready) openMain() else replaceWith(AppRoute.Auth)
                             }
                             ready && entries.last() is AppRoute.BudgetSetup -> openMain()
-                            !ready && (entries.last() is AppRoute.EditOperationBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
+                            !ready && (entries.last() is AppRoute.EditOperationBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.EditCategoryBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
                                 if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
                             )
                         }
@@ -96,6 +96,12 @@ class AppNavigationViewModel(
     }
 
     fun openCategories() = openMainDestination(AppRoute.Categories)
+
+    fun openCategoryEditor(categoryId: String? = null) {
+        if (entries.last() == AppRoute.Categories && budgetReady && !resolving.value) {
+            entries.add(AppRoute.EditCategoryBottomSheet(categoryId))
+        }
+    }
 
     fun openFamilyAccess() = openMainDestination(AppRoute.FamilyAccess)
 
