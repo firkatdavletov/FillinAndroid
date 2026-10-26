@@ -31,6 +31,7 @@ import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupRoute
 import com.firkat.fillin.feature.categories.ui.CategoriesRoute
+import com.firkat.fillin.feature.editcategory.ui.EditCategoryRoute
 import com.firkat.fillin.feature.launch.presentation.LaunchScreen
 import com.firkat.fillin.feature.main.ui.MainScreen
 import com.firkat.fillin.feature.operationhistory.ui.OperationCreateRoute
@@ -164,7 +165,19 @@ fun FillinNavHost(
             }
             entry<AppRoute.Categories> {
                 ActiveBudgetContent {
-                    CategoriesRoute(onBack = navigation::back)
+                    CategoriesRoute(
+                        onBack = navigation::back,
+                        onCreateCategory = { navigation.openCategoryEditor() },
+                        onEditCategory = { categoryId -> navigation.openCategoryEditor(categoryId) },
+                    )
+                }
+            }
+            entry<AppRoute.EditCategoryBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
+                ActiveBudgetContent {
+                    EditCategoryRoute(
+                        categoryId = route.categoryId,
+                        onClose = navigation::back,
+                    )
                 }
             }
             entry<AppRoute.FamilyAccess> {
