@@ -3,6 +3,7 @@ package com.firkat.fillin.feature.auth.ui
 import androidx.lifecycle.ViewModelStore
 import com.firkat.fillin.feature.auth.domain.*
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,7 +38,7 @@ class ServerProfileViewModelTest {
         runCurrent()
         assertEquals(ServerProfileState.Failed(ServerAuthError.Unavailable), model.state.value.serverProfile)
         assertEquals(AuthSession.Authenticated(USER), model.state.value.session)
-        model.retryServerAuthentication()
+        model.onAction(AuthAction.RetryServerAuthentication)
         runCurrent()
         assertEquals(ServerProfileState.Ready(profile(USER.uid)), model.state.value.serverProfile)
         assertEquals(2, attempts)
@@ -51,7 +52,7 @@ class ServerProfileViewModelTest {
         })
         runCurrent()
         assertEquals(ServerProfileState.Loading, model.state.value.serverProfile)
-        model.signOut()
+        model.onAction(AuthAction.SignOut)
         runCurrent()
         response.complete(profile(USER.uid))
         runCurrent()
@@ -78,12 +79,59 @@ class ServerProfileViewModelTest {
         val model = model(auth, object : ServerAuthRepository {
             override suspend fun authenticate(uid: String): ServerUser = error("Local mode must not call server")
         })
-        model.retryServerAuthentication()
+        model.onAction(AuthAction.RetryServerAuthentication)
         runCurrent()
         assertEquals(ServerProfileState.Idle, model.state.value.serverProfile)
     }
 
-    private fun model(auth: AuthRepository, server: ServerAuthRepository) = AuthViewModel(auth, server).also { models.put("auth", it) }
+    @Test fun `duplicate retry before dispatcher runs starts only one replacement profile request`() = runTest {
+        var calls = 0
+        val response = CompletableDeferred<ServerUser>()
+        val auth = FakeAuth()
+        val model = model(auth, object : ServerAuthRepository {
+            override suspend fun authenticate(uid: String): ServerUser {
+                if (++calls == 1) throw ServerAuthFailure(ServerAuthError.Network)
+                return response.await()
+            }
+        })
+        runCurrent()
+        model.onAction(AuthAction.RetryServerAuthentication)
+        model.onAction(AuthAction.RetryServerAuthentication)
+        runCurrent()
+        assertEquals(2, calls)
+        auth.session.value = AuthSession.Authenticated(USER.copy(displayName = "Updated"))
+        runCurrent()
+        assertEquals(2, calls)
+        response.complete(profile(USER.uid))
+        runCurrent()
+        assertEquals(ServerProfileState.Ready(profile(USER.uid)), model.state.value.serverProfile)
+    }
+
+    @Test fun `A to B to A cancels old work and starts a fresh request for A`() = runTest {
+        val calls = mutableListOf<String>()
+        val cancelled = mutableListOf<String>()
+        val auth = FakeAuth()
+        val model = model(auth, object : ServerAuthRepository {
+            override suspend fun authenticate(uid: String): ServerUser {
+                calls += uid
+                try { awaitCancellation() } finally { cancelled += uid }
+            }
+        })
+        runCurrent()
+        val firstId = model.state.value.profileRequestId
+        auth.session.value = AuthSession.Authenticated(USER.copy(uid = "b"))
+        runCurrent()
+        auth.session.value = AuthSession.Authenticated(USER)
+        runCurrent()
+        assertEquals(listOf(USER.uid, "b", USER.uid), calls)
+        assertEquals(listOf(USER.uid, "b"), cancelled)
+        assertTrue(model.state.value.profileRequestId > firstId)
+        models.clear()
+        runCurrent()
+        assertEquals(calls, cancelled)
+    }
+
+    private fun model(auth: AuthRepository, server: ServerAuthRepository) = AuthViewModel(AuthState(session = auth.session.value), AuthReducer(), AuthInteractor(auth, server, StandardTestDispatcher())).also { models.put("auth", it) }
     private class FakeAuth : AuthRepository {
         override val session = MutableStateFlow<AuthSession>(AuthSession.Authenticated(USER))
         override suspend fun signInWithGoogle(idToken: String) { session.value = AuthSession.Authenticated(USER) }

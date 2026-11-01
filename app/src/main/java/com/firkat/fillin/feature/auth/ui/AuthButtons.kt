@@ -1,15 +1,12 @@
 package com.firkat.fillin.feature.auth.ui
 
+import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -20,21 +17,17 @@ import com.firkat.fillin.R
 import com.firkat.fillin.ui.component.PrimaryButton
 import com.firkat.fillin.ui.theme.FillinTheme
 
-private enum class ClickedButton {
-    GOOGLE, EMAIL, GUEST,
-}
-
 @Composable
-fun AuthButtons(
+internal fun AuthButtons(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
+    loadingButton: AuthButton = AuthButton.Google,
     onGoogleClick: () -> Unit,
     onEmailClick: () -> Unit,
     onGuestClick: () -> Unit,
     googleEnabled: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
-    var clickedButton by rememberSaveable { mutableStateOf(ClickedButton.GOOGLE) }
 
     Column(
         modifier = modifier,
@@ -42,9 +35,9 @@ fun AuthButtons(
     ) {
         PrimaryButton(
             text = stringResource(R.string.auth_continue_google),
-            onClick = { clickedButton = ClickedButton.GOOGLE; onGoogleClick() },
+            onClick = onGoogleClick,
             modifier = Modifier.fillMaxWidth(),
-            isLoading = isLoading && (clickedButton == ClickedButton.GOOGLE),
+            isLoading = isLoading && (loadingButton == AuthButton.Google),
             enabled = !isLoading && googleEnabled,
             backgroundColor = colors.surface,
             textColor = colors.onSurface,
@@ -58,18 +51,18 @@ fun AuthButtons(
 
         PrimaryButton(
             text = stringResource(R.string.auth_continue_email),
-            onClick = { clickedButton = ClickedButton.EMAIL; onEmailClick() },
+            onClick = onEmailClick,
             modifier = Modifier.fillMaxWidth(),
-            isLoading = isLoading && (clickedButton == ClickedButton.EMAIL),
+            isLoading = isLoading && (loadingButton == AuthButton.Email),
             enabled = !isLoading,
             leadingIcon = painterResource(R.drawable.ic_mail_24),
         )
 
         PrimaryButton(
             text = stringResource(R.string.auth_continue_guest),
-            onClick = { clickedButton = ClickedButton.GUEST; onGuestClick() },
+            onClick = onGuestClick,
             modifier = Modifier.fillMaxWidth(),
-            isLoading = isLoading && (clickedButton == ClickedButton.GUEST),
+            isLoading = isLoading && (loadingButton == AuthButton.Guest),
             enabled = !isLoading,
             backgroundColor = colors.surfaceVariant,
             textColor = colors.onSurfaceVariant,
@@ -79,6 +72,7 @@ fun AuthButtons(
 }
 
 @Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun AuthButtons_Preview() {
     FillinTheme {
@@ -87,5 +81,41 @@ private fun AuthButtons_Preview() {
             onEmailClick = {},
             onGuestClick = {}
         )
+    }
+}
+
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AuthButtonsGoogleLoadingPreview() {
+    FillinTheme {
+        AuthButtons(isLoading = true, onGoogleClick = {}, onEmailClick = {}, onGuestClick = {})
+    }
+}
+
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AuthButtonsEmailLoadingPreview() {
+    FillinTheme {
+        AuthButtons(isLoading = true, loadingButton = AuthButton.Email, onGoogleClick = {}, onEmailClick = {}, onGuestClick = {})
+    }
+}
+
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AuthButtonsGuestLoadingPreview() {
+    FillinTheme {
+        AuthButtons(isLoading = true, loadingButton = AuthButton.Guest, onGoogleClick = {}, onEmailClick = {}, onGuestClick = {})
+    }
+}
+
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AuthButtonsGoogleUnavailablePreview() {
+    FillinTheme {
+        AuthButtons(googleEnabled = false, onGoogleClick = {}, onEmailClick = {}, onGuestClick = {})
     }
 }

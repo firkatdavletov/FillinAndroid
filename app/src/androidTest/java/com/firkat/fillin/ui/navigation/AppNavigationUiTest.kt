@@ -10,10 +10,16 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.credentials.exceptions.GetCredentialCancellationException
-import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.Lifecycle
+import kotlinx.coroutines.awaitCancellation
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import com.firkat.fillin.feature.auth.domain.*
 import com.firkat.fillin.feature.auth.ui.AuthViewModel
+import com.firkat.fillin.feature.auth.ui.AuthAction
+import com.firkat.fillin.feature.auth.ui.AuthState
+import com.firkat.fillin.feature.auth.ui.AuthReducer
+import com.firkat.fillin.feature.auth.ui.AuthInteractor
+import org.koin.compose.viewmodel.koinViewModel
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.budgetconnection.BudgetConnectionDeviceTest
 import com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionViewModel
@@ -55,11 +61,13 @@ import org.koin.dsl.module
 class AppNavigationUiTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val env = BudgetConnectionDeviceTest.Environment()
-    private val models = ViewModelStore()
     private var pickerCalls = 0
+    private var authModelsCreated = 0
+    private var profileCalls = 0
+    private var signInAction: suspend () -> Unit = { env.auth.login("owner") }
     private var launcher = GoogleSignInLauncher { pickerCalls++; "synthetic-credential" }
     private val auth = object : AuthRepository by env.auth {
-        override suspend fun signInWithGoogle(idToken: String) { env.auth.login("owner") }
+        override suspend fun signInWithGoogle(idToken: String) = signInAction()
     }
     private lateinit var navigation: AppNavigationViewModel
     private lateinit var authModel: AuthViewModel
@@ -92,7 +100,21 @@ class AppNavigationUiTest {
             }
         }
         env.koin.loadModules(listOf(module {
-            viewModel { AuthViewModel(auth) }
+            viewModel {
+                authModelsCreated++
+                AuthViewModel(
+                    AuthState(session = auth.session.value), AuthReducer(),
+                    AuthInteractor(auth, object : ServerAuthRepository {
+                        override suspend fun authenticate(uid: String): ServerUser {
+                            profileCalls++
+                            return ServerUser("server-$uid", uid, null, null)
+                        }
+                    }, kotlinx.coroutines.Dispatchers.Main.immediate),
+                )
+            }
+            viewModel {
+                AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager))
+            }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(auth, env.sharing) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(env.sharing) }
             viewModel {
@@ -112,15 +134,14 @@ class AppNavigationUiTest {
             single<GoogleSignInLauncher> { launcher }
             viewModel { parameters -> BudgetConnectionViewModel(auth, env.connection, env.creation, parameters.getOrNull<Boolean>() ?: false) }
         }))
-        authModel = AuthViewModel(auth).also { models.put("auth", it) }
-        navigation = AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager))
-            .also { models.put("navigation", it) }
         hostContent = {
             FillinTheme {
                 UnboundKoinScope(env.koin.scopeRegistry.rootScope) {
                     val density = LocalDensity.current
                     CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
-                        FillinNavHost(navigation, authModel, launcher)
+                        authModel = koinViewModel(viewModelStoreOwner = compose.activity)
+                        navigation = koinViewModel(viewModelStoreOwner = compose.activity)
+                        FillinNavHost()
                     }
                 }
             }
@@ -137,7 +158,7 @@ class AppNavigationUiTest {
     @After fun cleanup() {
         compose.activityRule.scenario.onActivity { it.setContentView(android.widget.FrameLayout(it)) }
         compose.waitForIdle()
-        models.clear()
+        compose.activityRule.scenario.onActivity { it.viewModelStore.clear() }
         env.close()
     }
 
@@ -219,6 +240,91 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
         assertNull(authModel.state.value.error)
         assertEquals(1, pickerCalls)
+    }
+
+    @Test fun activityRecreationRetainsAuthModelAndDoesNotReloadRestoredProfile() {
+        env.auth.login("owner")
+        show()
+        compose.waitUntil { profileCalls == 1 }
+        val originalModel = authModel
+        compose.activityRule.scenario.recreate()
+        compose.setContent(hostContent)
+        compose.onNodeWithTag("budget_setup_screen").assertIsDisplayed()
+        assertSame(originalModel, authModel)
+        assertEquals(1, authModelsCreated)
+        assertEquals(1, profileCalls)
+    }
+
+    @Test fun stoppingAuthCancelsOnlyPickerAndRestartAllowsOneNewRequest() {
+        var cancellations = 0
+        launcher = GoogleSignInLauncher {
+            pickerCalls++
+            try { awaitCancellation() } finally { cancellations++ }
+        }
+        show()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil { pickerCalls == 1 }
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.waitUntil { !authModel.state.value.busy && cancellations == 1 }
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.onNodeWithText("Продолжить с Google").assertIsEnabled().performClick()
+        compose.waitUntil { pickerCalls == 2 }
+        assertEquals(1, authModelsCreated)
+    }
+
+    @Test fun leavingAuthCancelsPickerWithoutCancellingSharedModel() {
+        var cancelled = false
+        launcher = GoogleSignInLauncher {
+            pickerCalls++
+            try { awaitCancellation() } finally { cancelled = true }
+        }
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil { pickerCalls == 1 }
+        compose.runOnIdle { navigation.back() }
+        compose.onNodeWithTag("main_screen").assertIsDisplayed()
+        compose.waitUntil { cancelled && !authModel.state.value.busy }
+        compose.onNodeWithText("Авторизоваться").performClick()
+        compose.onNodeWithText("Продолжить с Google").assertIsEnabled()
+        assertEquals(1, authModelsCreated)
+    }
+
+    @Test fun FirebaseExchangeFinishesAfterNavigationWithOneSharedModelAndProfileLoad() {
+        val completed = CompletableDeferred<Unit>()
+        var cancelled = false
+        signInAction = {
+            env.auth.login("owner")
+            try { completed.await() } finally { cancelled = !completed.isCompleted }
+        }
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil { navigation.backStack == listOf(AppRoute.Main) }
+        assertTrue(authModel.state.value.busy)
+        assertFalse(cancelled)
+        compose.runOnIdle { completed.complete(Unit) }
+        compose.waitUntil { !authModel.state.value.busy && profileCalls == 1 }
+        compose.onNodeWithContentDescription("Выйти из аккаунта").assertIsDisplayed()
+        assertEquals(1, authModelsCreated)
+    }
+
+    @Test fun errorWhileAuthStoppedIsShownOnceAfterRestart() {
+        show()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.runOnUiThread {
+            authModel.onAction(AuthAction.GoogleClicked)
+            authModel.onAction(AuthAction.CredentialFailed(authModel.state.value.operationId, AuthError.Network))
+        }
+        assertEquals(AuthError.Network, authModel.state.value.error)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.onNodeWithText("Не удалось выполнить вход. Проверьте интернет и повторите попытку.").assertIsDisplayed()
+        compose.waitUntil(10000) { authModel.state.value.error == null }
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.onNodeWithText("Не удалось выполнить вход. Проверьте интернет и повторите попытку.").assertDoesNotExist()
     }
 
     @Test fun GoogleFailureShowsSnackbarAndRetryReturnsToMain() {
