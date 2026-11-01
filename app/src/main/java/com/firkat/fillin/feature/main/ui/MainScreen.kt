@@ -99,7 +99,10 @@ private fun MainContent(
 ) {
     Scaffold(
         modifier = Modifier.testTag("main_screen"),
-        snackbarHost = { com.firkat.fillin.ui.component.SaldomiSnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            com.firkat.fillin.ui.component
+                .SaldomiSnackbarHost(snackbarHostState)
+        },
         floatingActionButtonPosition = FabPosition.Center,
         bottomBar = {
             NavigationBar {
@@ -126,39 +129,44 @@ private fun MainContent(
             }
         },
     ) { innerPadding ->
-        val provider = entryProvider<NavKey> {
-            entry(AppDestination.Dashboard) { DashboardRoute() }
-            entry(AppDestination.History) { OperationHistoryRoute(snackbarHostState = snackbarHostState, onOperationClick = onOperationClick) }
-            entry(AppDestination.Planned) {
-                Box(Modifier.fillMaxSize().padding(bottom = MainFabClearance)) {
+        val provider =
+            entryProvider<NavKey> {
+                entry(AppDestination.Dashboard) { DashboardRoute() }
+                entry(
+                    AppDestination.History,
+                ) { OperationHistoryRoute(snackbarHostState = snackbarHostState, onOperationClick = onOperationClick) }
+                entry(AppDestination.Planned) {
                     PlannedOperationsRoute(onOpenEditor = onPlannedOperationEditorClick)
                 }
+                entry(AppDestination.Profile) {
+                    ProfileRoute(
+                        user = user,
+                        authBusy = authBusy,
+                        onAccountClick = onAccountClick,
+                        onCategoriesClick = onCategoriesClick,
+                        onFamilyAccessClick = onFamilyAccessClick,
+                        onCloudSyncClick = onCloudSyncClick,
+                    )
+                }
             }
-            entry(AppDestination.Profile) {
-                ProfileRoute(
-                    user = user,
-                    authBusy = authBusy,
-                    onAccountClick = onAccountClick,
-                    onCategoriesClick = onCategoriesClick,
-                    onFamilyAccessClick = onFamilyAccessClick,
-                    onCloudSyncClick = onCloudSyncClick,
-                )
-            }
-        }
         // Keep each tab's decorators alive even while that tab is absent from NavDisplay.
-        val tabEntries = AppDestination.entries.filter { it != AppDestination.AddOperation }.associateWith { destination ->
-            key(destination) {
-                val stack = rememberNavBackStack(destination)
-                rememberDecoratedNavEntries(
-                    backStack = stack,
-                    entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
-                    entryProvider = provider,
-                )
+        val tabEntries =
+            AppDestination.entries.filter { it != AppDestination.AddOperation }.associateWith { destination ->
+                key(destination) {
+                    val stack = rememberNavBackStack(destination)
+                    rememberDecoratedNavEntries(
+                        backStack = stack,
+                        entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
+                        entryProvider = provider,
+                    )
+                }
             }
-        }
-        val visibleTabs = if (selectedDestination == AppDestination.Dashboard) {
-            listOf(AppDestination.Dashboard)
-        } else listOf(AppDestination.Dashboard, selectedDestination)
+        val visibleTabs =
+            if (selectedDestination == AppDestination.Dashboard) {
+                listOf(AppDestination.Dashboard)
+            } else {
+                listOf(AppDestination.Dashboard, selectedDestination)
+            }
         NavDisplay(
             entries = visibleTabs.flatMap { tabEntries.getValue(it) },
             onBack = { onSelectDestination(AppDestination.Dashboard) },

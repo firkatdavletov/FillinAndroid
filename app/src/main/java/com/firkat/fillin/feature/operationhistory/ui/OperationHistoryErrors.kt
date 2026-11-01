@@ -12,5 +12,6 @@ internal fun OperationHistoryException.toUiError(): OperationHistoryError =
         OperationHistoryException.Conflict -> OperationHistoryError.Conflict
         OperationHistoryException.Network -> OperationHistoryError.Network
         OperationHistoryException.InvalidResponse -> OperationHistoryError.InvalidResponse
+        OperationHistoryException.UnlinkBeforeCategoryChange -> OperationHistoryError.UnlinkBeforeCategoryChange
         OperationHistoryException.Unknown -> OperationHistoryError.Unknown
     }

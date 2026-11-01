@@ -68,7 +68,7 @@ internal class FakeOfflineHistory :
     override suspend fun create(
         operation: NewOperation,
         replacesRejectedId: String?,
-    ) {
+    ): com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult {
         creationError?.let { throw it }
         created = operation
         replaced = replacesRejectedId
@@ -77,6 +77,7 @@ internal class FakeOfflineHistory :
                 "created",
                 operation.type,
             ).copy(amount = operation.amount, originalAmount = operation.amount, syncStatus = OperationSyncStatus.Pending)
+        return com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("created")
     }
 
     override suspend fun getOperations(

@@ -437,6 +437,29 @@ class AppNavigationViewModelTest {
         assertEquals(listOf(AppRoute.Auth, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
     }
 
+    @Test fun `saved operation replaces creation with a separate link sheet and ignores duplicate callbacks`() = runTest {
+        val model = model(FakeAuth()) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openOperationCreate()
+        val result = com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("operation",
+            com.firkat.fillin.feature.operationhistory.domain.repository.SuggestedPlan(
+                com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkTarget("INCOME", "plan", dueOn = "2026-10-30"),
+                "category", "Доход", "100.00", "100.00", 0))
+        model.operationCreated(result, "budget")
+        val sheet = model.backStack.last() as AppRoute.OperationPlanLinkBottomSheet
+        assertEquals(listOf(AppRoute.Main, sheet), model.backStack)
+        model.operationCreated(result, "budget")
+        assertEquals(listOf(AppRoute.Main, sheet), model.backStack)
+        model.chooseAnotherPlan(sheet)
+        val editor = model.backStack.last() as AppRoute.EditOperationBottomSheet
+        assertEquals(listOf(AppRoute.Main, editor), model.backStack)
+        model.replaceEditorWithPlanLink(editor)
+        val next = model.backStack.last() as AppRoute.OperationPlanLinkBottomSheet
+        model.dismissOperationPlanLink(sheet)
+        assertEquals(listOf(AppRoute.Main, next), model.backStack)
+    }
+
     private fun model(
         auth: AuthRepository,
         ready: MutableStateFlow<Boolean> = MutableStateFlow(true),

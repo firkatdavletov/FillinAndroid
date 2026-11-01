@@ -9,6 +9,7 @@ import retrofit2.http.*
 @Serializable
 data class CloudBudget(
     val scope: SyncScopeDto,
+    val capabilities: Set<String> = emptySet(),
 )
 
 @Serializable

@@ -171,7 +171,7 @@ class BudgetProjectionTest {
     @Test fun `calendar projection uses month end and merges materialized occurrences`() {
         val plans = BudgetProjection(content(), json, today).plans(filter)
         assertEquals(BigDecimal("280.00"), plans.totals.expenses)
-        assertEquals(BigDecimal("50.00"), plans.totals.incomes)
+        assertEquals(BigDecimal("249.00"), plans.totals.incomes)
         val expenses = plans.items.filterIsInstance<PlannedOperation.Expense>()
         assertEquals(listOf("2026-01-31", "2026-02-28", "2026-03-31"), expenses.map { it.dueOn.toString() })
         assertEquals("occurrence", expenses[1].id)
@@ -182,7 +182,7 @@ class BudgetProjectionTest {
                 today,
             ).plans(filter.copy(type = PlannedOperationType.Income))
         assertEquals(plans.totals, incomesOnly.totals)
-        assertEquals(1, incomesOnly.items.size)
+        assertEquals(2, incomesOnly.items.size)
     }
 
     @Test fun `voiding linked facts restores obligation and expected income`() {
@@ -279,7 +279,7 @@ class BudgetProjectionTest {
         val plans = projection.plans(filter)
         assertTrue(plans.items.any { it.id == "occurrence" })
         assertTrue(projection.rules.getValue("r").active == true)
-        assertEquals(BigDecimal("60.00"), plans.totals.incomes)
+        assertEquals(BigDecimal("259.00"), plans.totals.incomes)
         assertEquals(plans, projection.plans(filter))
     }
 

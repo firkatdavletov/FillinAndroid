@@ -69,11 +69,12 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 internal fun OperationCreateRoute(
     onBack: () -> Unit,
+    onCreated: (com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult) -> Unit = { onBack() },
     viewModel: OperationCreateViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(state.createEditor == null) {
-        if (state.createEditor == null) onBack()
+        if (state.createEditor == null) state.created?.let(onCreated) ?: onBack()
     }
     OperationCreateScreen(
         editor = state.createEditor,

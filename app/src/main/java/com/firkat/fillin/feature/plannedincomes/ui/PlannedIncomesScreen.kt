@@ -487,7 +487,7 @@ internal fun PlannedIncomeItem(income: PlannedIncome, onEdit: () -> Unit) {
                 )
             }
             Text(
-                text = "+" + formatMoney(income.plannedAmount, income.currency),
+                text = "+" + formatMoney(income.remainingAmount, income.currency),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,

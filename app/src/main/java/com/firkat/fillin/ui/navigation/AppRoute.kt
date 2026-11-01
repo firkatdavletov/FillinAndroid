@@ -23,6 +23,11 @@ sealed interface AppRoute : NavKey {
         val budgetScopeId: String,
         val requestId: String = UUID.randomUUID().toString(),
     ) : AppRoute
+    @Serializable data class OperationPlanLinkBottomSheet(
+        val operationId: String,
+        val budgetScopeId: String,
+        val requestId: String = UUID.randomUUID().toString(),
+    ) : AppRoute
     @Serializable data class PlannedOperationBottomSheet(
         val type: PlannedOperationType,
         val budgetScopeId: String,

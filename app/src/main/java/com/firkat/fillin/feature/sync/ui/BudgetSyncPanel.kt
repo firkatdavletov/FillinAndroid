@@ -91,12 +91,15 @@ private fun BudgetSyncStatusErrorPreview() { FillinTheme { BudgetSyncStatus(true
 @Composable
 private fun BudgetSyncStatusPendingPreview() { FillinTheme { BudgetSyncStatus(true, false, false, 3) } }
 
+@Composable
 internal fun syncErrorText(code: String): String =
     when (code) {
         "sync_interrupted" -> "Предыдущая синхронизация прервана. Изменения сохранены; повторите синхронизацию."
         "budget_identity_conflict" -> "Бюджет с такими идентификаторами уже существует. Данные сохранены; обратитесь к разработчику."
         "budget_already_exists" -> "Токен уже связан с другим бюджетом. Локальный бюджет сохранён."
         "unauthorized", "access_denied", "scope_changed", "missing_api_token", "sign_in_required", "budget_not_found" -> setupError(BudgetConnectionFailure(code))
+        "client_upgrade_required" -> stringResource(R.string.plan_link_client_upgrade)
+        "backend_update_required" -> stringResource(R.string.plan_link_backend_upgrade)
         "pending_changes" -> "Не все изменения отправлены. Данные сохранены на устройстве."
         else -> "Не удалось синхронизировать. Данные сохранены на устройстве; повторите попытку."
     }

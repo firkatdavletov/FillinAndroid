@@ -16,6 +16,8 @@ data class PlannedIncome(
     val version: Long,
     val createdAt: Instant,
     val modifiedAt: Instant,
+    val receivedAmount: BigDecimal = BigDecimal.ZERO,
+    val remainingAmount: BigDecimal = (plannedAmount - receivedAmount).max(BigDecimal.ZERO),
 )
 
 enum class PlannedIncomeStatus {

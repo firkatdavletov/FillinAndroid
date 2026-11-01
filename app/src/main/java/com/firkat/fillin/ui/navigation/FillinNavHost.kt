@@ -1,6 +1,8 @@
 package com.firkat.fillin.ui.navigation
 
 import android.app.Activity
+import com.firkat.fillin.feature.operationhistory.ui.OperationPlanLinkBottomSheet
+import com.firkat.fillin.feature.operationhistory.ui.PendingPlanLinkRecovery
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,6 +64,10 @@ fun FillinNavHost(
     val context = LocalContext.current
     val resources = androidx.compose.ui.platform.LocalResources.current
     val sheet = navigation.backStack.lastOrNull() as? AppRoute.EditOperationBottomSheet
+    val linkSheet = navigation.backStack.lastOrNull() as? AppRoute.OperationPlanLinkBottomSheet
+    LaunchedEffect(runtime?.scope?.id, linkSheet) {
+        if (linkSheet != null && linkSheet.budgetScopeId != runtime?.scope?.id) navigation.dismissOperationPlanLink(linkSheet)
+    }
     val plannedSheet = navigation.backStack.lastOrNull() as? AppRoute.PlannedOperationBottomSheet
     LaunchedEffect(runtime?.scope?.id, sheet) {
         if (sheet != null && sheet.budgetScopeId != runtime?.scope?.id) {
@@ -94,7 +100,7 @@ fun FillinNavHost(
     NavDisplay(
         modifier = Modifier.fillMaxSize(),
         backStack = navigation.backStack,
-        onBack = { if ((sheet == null && plannedSheet == null) || sheetDismissController.canDismiss()) navigation.back() },
+        onBack = { if ((sheet == null && plannedSheet == null && linkSheet == null) || sheetDismissController.canDismiss()) navigation.back() },
         sceneStrategies = listOf(remember { BottomSheetSceneStrategy<AppRoute>(sheetDismissController) }),
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
@@ -106,6 +112,9 @@ fun FillinNavHost(
                 LaunchScreen(launchFailed, navigation::onLaunchShown, navigation::retryLaunch)
             }
             entry<AppRoute.Main> {
+                ActiveBudgetContent(viewModelStoreOwner = mainModels) {
+                    PendingPlanLinkRecovery(onPending = { id -> runtime?.scope?.id?.let { navigation.openOperationPlanLink(id, it) } }, isActive = navigation.backStack.lastOrNull() == AppRoute.Main)
+                }
                 MainScreen(
                     authBusy = state.busy,
                     onAccountClick = {
@@ -142,6 +151,15 @@ fun FillinNavHost(
                     }
                 }
             }
+            entry<AppRoute.OperationPlanLinkBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
+                val linkModels: MainBudgetViewModelStore = viewModel(key = "plan-link-${route.requestId}")
+                linkModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                ActiveBudgetContent(viewModelStoreOwner = linkModels) {
+                    if (route.budgetScopeId == runtime?.scope?.id) {
+                        OperationPlanLinkBottomSheet(route.operationId, onClose = { navigation.dismissOperationPlanLink(route) }, onChooseAnother = { navigation.chooseAnotherPlan(route) })
+                    }
+                }
+            }
             entry<AppRoute.EditOperationBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
                 val resultBus = LocalResultEventBus.current
                 val sheetModels: MainBudgetViewModelStore = viewModel(key = "edit-operation-${route.requestId}")
@@ -149,6 +167,7 @@ fun FillinNavHost(
                 ActiveBudgetContent(viewModelStoreOwner = sheetModels) {
                     EditOperationBottomSheet(
                         operationId = route.operationId,
+                        onLinkSelected = { navigation.replaceEditorWithPlanLink(route) },
                         onClose = { navigation.dismissEditOperationBottomSheet(route) },
                         onResult = { result ->
                             if (route.budgetScopeId == runtime?.scope?.id && navigation.dismissEditOperationBottomSheet(route)) {
@@ -160,7 +179,7 @@ fun FillinNavHost(
             }
             entry<AppRoute.OperationCreate> {
                 ActiveBudgetContent(viewModelStoreOwner = operationCreateModels) {
-                    OperationCreateRoute(onBack = navigation::back)
+                    OperationCreateRoute(onBack = navigation::back, onCreated = { result -> runtime?.scope?.id?.let { navigation.operationCreated(result, it) } })
                 }
             }
             entry<AppRoute.Categories> {

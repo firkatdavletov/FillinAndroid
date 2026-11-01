@@ -118,7 +118,9 @@ fun PlannedOperationsScreen(
     canWrite: Boolean = true,
 ) {
     val listState = key(state.filters) { rememberLazyListState() }
-    Column(Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
         PlannedOperationsFilters(state, onEvent)
 
         Box(Modifier.weight(1f)) {
@@ -157,7 +159,7 @@ fun PlannedOperationsScreen(
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().testTag("planned-operations-list"),
                             state = listState,
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             state.error?.let { error ->
@@ -226,7 +228,11 @@ fun PlannedOperationsScreen(
                     }
                 }
             }
-            Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+            ) {
                 var showCreateMenu by rememberSaveable { mutableStateOf(false) }
                 if (canWrite) {
                     ExtendedFloatingActionButton(

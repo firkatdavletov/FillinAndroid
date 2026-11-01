@@ -180,7 +180,7 @@ class OperationCreateScreenTest {
         val created = mutableListOf<NewOperation>()
         override fun observeHistory(filter: OperationHistoryFilter, limit: Int) = flowOf(OperationPage(emptyList(), null))
         override fun requestSync() = Unit
-        override suspend fun create(operation: NewOperation, replacesRejectedId: String?) { created += operation }
+        override suspend fun create(operation: NewOperation, replacesRejectedId: String?): com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult { created += operation; return com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("created") }
         override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage = error("Unused")
         override suspend fun updateOperationAmount(id: String, version: Long, amount: java.math.BigDecimal): Operation = error("Unused")
         override suspend fun refundPurchase(id: String, version: Long) = Unit

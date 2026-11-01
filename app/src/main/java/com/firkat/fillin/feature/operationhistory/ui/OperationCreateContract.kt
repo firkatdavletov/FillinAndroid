@@ -18,7 +18,7 @@ data class OperationCreateUiState(
 
 enum class OperationCreateFeedback { InvalidInput, InvalidCategory, Unavailable, SaveFailed }
 
-data class OperationCreateState(val createEditor: OperationCreateUiState?, val offline: OfflineHistoryContext = OfflineHistoryContext())
+data class OperationCreateState(val createEditor: OperationCreateUiState?, val offline: OfflineHistoryContext = OfflineHistoryContext(), val created: com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult? = null)
 
 sealed interface OperationCreateEvent {
     data object CreateClosed : OperationCreateEvent

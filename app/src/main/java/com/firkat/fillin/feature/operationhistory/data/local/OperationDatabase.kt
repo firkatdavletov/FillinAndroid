@@ -151,9 +151,9 @@ interface OperationDao {
 @Database(
     entities = [
         LocalOperation::class, LocalCategory::class, OperationOutbox::class, OperationSyncState::class,
-        LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class,
+        LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class, OperationPlanProposal::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class OperationDatabase : RoomDatabase() {

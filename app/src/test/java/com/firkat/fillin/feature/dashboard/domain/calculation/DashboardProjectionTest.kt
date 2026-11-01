@@ -135,7 +135,7 @@ class DashboardProjectionTest {
         assertEquals("0.00", result.budgetExecution.variable.spent!!.amount.toPlainString())
     }
 
-    @Test fun `queued incomes use nearest plan date then due date and fulfill plans independently of amount`() {
+    @Test fun `queued incomes do not fulfill plans without explicit confirmation`() {
         val content = input()
         fun incomePlan(id: String, date: String) =
             record("EXPECTED_INCOME", SyncPlanRecord(id, INCOME, amount = "50.00", dueOn = date, status = "SCHEDULED"))
@@ -158,9 +158,9 @@ class DashboardProjectionTest {
                     content.operations + income("income-1") + income("income-2")
             )
         )
-        assertEquals("0.00", second.forecast.base.expectedIncome.amount.toPlainString())
+        assertEquals("50.00", second.forecast.base.expectedIncome.amount.toPlainString())
         assertEquals("282.00", second.availableMoney.amount.toPlainString())
-        assertEquals("202.00", second.balanceForecast.maximum!!.balance.amount.toPlainString())
+        assertEquals("252.00", second.balanceForecast.maximum!!.balance.amount.toPlainString())
     }
 
     @Test fun `cancelled plans and fulfilled incomes are excluded and next month occurrences are materialized`() {

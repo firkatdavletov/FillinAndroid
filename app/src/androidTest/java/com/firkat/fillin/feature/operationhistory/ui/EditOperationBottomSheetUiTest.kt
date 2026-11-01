@@ -70,7 +70,7 @@ class EditOperationBottomSheetUiTest {
         androidx.test.espresso.Espresso.closeSoftKeyboard()
         compose.onNodeWithTag("edit_operation_save").performScrollTo().performClick()
         compose.runOnIdle { store.gate.complete(Unit) }
-        compose.onNodeWithTag("edit_operation_error").assertIsDisplayed()
+        compose.onNodeWithTag("edit_operation_error").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("edit_operation_input").assertIsEnabled().assertTextEquals("55.25")
         compose.onNodeWithTag("edit_operation_description").assertIsEnabled().assertTextEquals("Черновик 2")
         compose.onNodeWithTag("edit_operation_close").assertIsEnabled().performClick()
@@ -180,7 +180,7 @@ class EditOperationBottomSheetUiTest {
         override fun observeOperation(id: String) = operation
         override fun observeHistory(filter: OperationHistoryFilter, limit: Int) = operation.map { OperationPage(listOfNotNull(it), null) }
         override fun requestSync() = Unit
-        override suspend fun create(operation: NewOperation, replacesRejectedId: String?) = Unit
+        override suspend fun create(operation: NewOperation, replacesRejectedId: String?) = com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("created")
         override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage = error("Unexpected network read")
         override suspend fun updateOperation(id: String, version: Long, update: OperationUpdate): Operation {
             attempts++

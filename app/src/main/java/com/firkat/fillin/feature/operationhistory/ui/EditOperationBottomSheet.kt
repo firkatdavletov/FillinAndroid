@@ -49,6 +49,7 @@ internal fun EditOperationBottomSheet(
     onClose: () -> Unit,
     onResult: (EditOperationResult) -> Unit,
     viewModel: EditOperationViewModel = koinViewModel { parametersOf(operationId) },
+    onLinkSelected: (() -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val close by rememberUpdatedState(onClose)
@@ -70,6 +71,11 @@ internal fun EditOperationBottomSheet(
         }
     }
     EditOperationContent(
+        planLinksContent = {
+            if (onLinkSelected != null && state.operation != null && state.mode == EditOperationMode.Edit) {
+                OperationPlanLinkActions(operationId, !state.isSaving, onLinkSelected)
+            }
+        },
         operation = state.operation, mode = state.mode, input = state.input, type = state.type,
         categories = state.categories, selectedCategoryId = state.categoryId, isLoading = state.isLoading,
         isSaving = state.isSaving, canSave = state.canSave, canRefund = state.canRefund,
@@ -115,6 +121,7 @@ internal fun EditOperationContent(
     descriptionError: Boolean = false,
     onDescriptionChange: (String) -> Unit = {},
     modifier: Modifier = Modifier,
+    planLinksContent: @Composable () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -130,6 +137,8 @@ internal fun EditOperationContent(
             text = stringResource(R.string.edit_operation_title),
             style = MaterialTheme.typography.titleLarge
         )
+
+        planLinksContent()
 
         if (isLoading)
             CircularProgressIndicator(
@@ -237,8 +246,17 @@ internal fun EditOperationContent(
                                     .testTag("edit_operation_description_error")
                             )
                         }
-                        if (categories.isEmpty()) Text(stringResource(R.string.operation_create_no_categories))
-                        else OperationCategoryRow(categories, !isSaving, onCategoryClick, selectedCategoryId = selectedCategoryId)
+                        if (categories.isEmpty())
+                            Text(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                text = stringResource(R.string.operation_create_no_categories)
+                            )
+                        else OperationCategoryRow(
+                            categories = categories,
+                            enabled = !isSaving,
+                            onCategoryClick = onCategoryClick,
+                            selectedCategoryId = selectedCategoryId
+                        )
                     }
                     Text(
                         modifier = Modifier.padding(horizontal = 16.dp),

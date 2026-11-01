@@ -68,7 +68,7 @@ class OperationCreateViewModel(
         updateCreator { copy(isSaving = true, error = null, inputError = null, feedback = null) }
         viewModelScope.launch {
             try {
-                history.create(
+                val result = history.create(
                     NewOperation(
                         editor.type,
                         categoryId,
@@ -77,7 +77,7 @@ class OperationCreateViewModel(
                         parsed.description,
                     ),
                 )
-                _uiState.update { it.copy(createEditor = null) }
+                _uiState.update { it.copy(createEditor = null, created = result) }
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {

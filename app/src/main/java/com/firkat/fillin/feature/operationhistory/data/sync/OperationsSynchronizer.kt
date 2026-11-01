@@ -64,6 +64,7 @@ class OperationsSynchronizer(
     private val canSynchronize: () -> Boolean = { true },
 ) {
     private val mutex = Mutex()
+    private var confirmedLinkingSupported = false
     private val _running = MutableStateFlow(false)
     val running: StateFlow<Boolean> = _running.asStateFlow()
 
@@ -75,6 +76,7 @@ class OperationsSynchronizer(
                 storage.finish("sign_in_required")
                 return@withLock SyncResult.Blocked
             }
+            confirmedLinkingSupported = false
             _running.value = true
             try {
                 if (cloud?.firebase == true && (storage.state().protocolVersion != 4 || storage.pending().isNotEmpty() || budget?.pending().orEmpty().any { it.protocolVersion != 4 })) {
@@ -162,10 +164,11 @@ class OperationsSynchronizer(
                         401 -> "unauthorized"
                         403 -> "access_denied"
                         409 -> "scope_changed"
+                        426 -> "client_upgrade_required"
                         else -> "server_unavailable"
                     }
                 storage.finish(code)
-                if (exception.code() in listOf(401, 403, 409)) SyncResult.Blocked else SyncResult.Retry
+                if (exception.code() in listOf(401, 403, 409, 426)) SyncResult.Blocked else SyncResult.Retry
             } catch (exception: IOException) {
                 storage.finish("network")
                 SyncResult.Retry
@@ -181,6 +184,17 @@ class OperationsSynchronizer(
             }
         }
 
+    private suspend fun ensureConfirmedLinkingSupport() {
+        if (confirmedLinkingSupported) return
+        cloud?.checkEnabled()
+        val response = cloudApi?.budget("Bearer $apiToken") ?: throw SyncBlockedException("backend_update_required")
+        if (!response.isSuccessful) throw HttpException(response)
+        val remote = response.body() ?: throw IOException("Empty budget response")
+        if (remote.scope.key != storage.state().scopeKey) throw SyncBlockedException("scope_changed")
+        if ("confirmedPlanLinkingV1" !in remote.capabilities) throw SyncBlockedException("backend_update_required")
+        confirmedLinkingSupported = true
+    }
+
     private suspend fun pushBudget(
         commands: List<com.firkat.fillin.core.database.BudgetOutbox>,
         deferDeletes: Boolean,
@@ -192,6 +206,10 @@ class OperationsSynchronizer(
                 json.decodeFromString<BudgetSyncCommand>(item.intent).type == "DELETE_CATEGORY"
             ) {
                 continue
+            }
+            val intent = json.decodeFromString<BudgetSyncCommand>(item.wirePayload ?: item.intent)
+            if (intent.planMatchingMode == "CONFIRM_REQUIRED" || intent.type in BudgetProjection.LINK_COMMANDS) {
+                ensureConfirmedLinkingSupport()
             }
             val command = store.prepare(item) ?: continue
             val state = storage.state()

@@ -82,10 +82,10 @@ class OperationCreateViewModelTest {
         val gate = CompletableDeferred<Unit>()
         var attempts = 0
         val history = object : OperationHistoryStore by repository {
-            override suspend fun create(operation: NewOperation, replacesRejectedId: String?) {
+            override suspend fun create(operation: NewOperation, replacesRejectedId: String?): com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult {
                 attempts++
                 gate.await()
-                repository.create(operation, replacesRejectedId)
+                return repository.create(operation, replacesRejectedId)
             }
         }
         val model = model(repository, history)

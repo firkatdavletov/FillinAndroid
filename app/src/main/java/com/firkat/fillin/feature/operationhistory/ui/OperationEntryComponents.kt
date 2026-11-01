@@ -26,6 +26,7 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
@@ -99,8 +100,15 @@ internal fun OperationCategoryRow(
     modifier: Modifier = Modifier,
     selectedCategoryId: String? = null,
 ) {
+    val scrollState = rememberLazyListState()
+    LaunchedEffect(selectedCategoryId) {
+        val index = categories.indexOfFirst {
+            it.id == selectedCategoryId
+        }.coerceAtLeast(0)
+        scrollState.scrollToItem(index)
+    }
     LazyRow(
-        state = rememberLazyListState(),
+        state = scrollState,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(horizontal = 16.dp),
         modifier = modifier.fillMaxWidth().testTag("operation-create-categories"),

@@ -328,6 +328,7 @@ internal val OperationHistoryError.messageResource: Int
 
             OperationHistoryError.InvalidResponse -> R.string.operation_history_error_invalid_response
 
+            OperationHistoryError.UnlinkBeforeCategoryChange -> R.string.plan_link_unlink_before_category
             OperationHistoryError.Unknown -> R.string.operation_history_error_generic
         }
 

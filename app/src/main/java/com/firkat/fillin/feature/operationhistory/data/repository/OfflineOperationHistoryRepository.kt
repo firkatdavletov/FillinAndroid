@@ -1,6 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.data.repository
 
 import androidx.room.withTransaction
+import com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
@@ -103,8 +104,8 @@ class OfflineOperationHistoryRepository(
     override suspend fun create(
         operation: NewOperation,
         replacesRejectedId: String?,
-    ) {
-        database.withTransaction {
+    ): CreateOperationResult {
+        val result = database.withTransaction {
             val state = dao.state()?.takeIf { it.localReady || it.initialSyncComplete } ?: throw OperationHistoryException.InvalidRequest
             if (state.protocolVersion < 4 && state.errorCode == "scope_changed") throw OperationHistoryException.Forbidden
             try {
@@ -171,15 +172,17 @@ class OfflineOperationHistoryRepository(
             )
             if (state.protocolVersion >= 4 && budgetStore != null) {
                 budgetStore.enqueue("CREATE_OPERATION", id) {
-                    it.copy(categoryId = request.categoryId, amount = request.amount, kind = request.type, occurredOn = request.occurredOn, description = request.description)
+                    it.copy(categoryId = request.categoryId, amount = request.amount, kind = request.type, occurredOn = request.occurredOn, description = request.description, planMatchingMode = "CONFIRM_REQUIRED")
                 }
             } else {
                 dao.enqueue(OperationOutbox(id, state.scopeKey, id, json.encodeToString(request)))
             }
+            CreateOperationResult(id, budgetStore?.suggest(id))
         }
         // A scheduler failure must not turn a committed local save into an apparent failure.
         // Startup will discover the durable outbox again.
         runCatching { scheduler.schedule() }
+        return result
     }
 
     override suspend fun getOperations(
@@ -281,6 +284,7 @@ private inline fun <T> localCommand(action: () -> T): T = try {
     action()
 } catch (failure: com.firkat.fillin.feature.sync.data.BudgetLocalFailure) {
     throw when (failure.code) {
+        "unlink_before_category_change" -> OperationHistoryException.UnlinkBeforeCategoryChange
         "not_found" -> OperationHistoryException.NotFound
         "conflict" -> OperationHistoryException.Conflict
         "forbidden" -> OperationHistoryException.Forbidden

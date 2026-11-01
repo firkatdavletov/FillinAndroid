@@ -1,6 +1,7 @@
 package com.firkat.fillin.feature.sync.data
 
 import androidx.room.withTransaction
+import com.firkat.fillin.feature.operationhistory.domain.repository.*
 import com.firkat.fillin.core.database.*
 import com.firkat.fillin.feature.operationhistory.data.local.*
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
@@ -22,7 +23,7 @@ class BudgetStore(
     private val scheduler: OperationSyncScheduler,
     private val json: Json,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
-) : BudgetSyncControl {
+) : BudgetSyncControl, OperationPlanLinkStore {
     private val dao get() = database.budget()
 
     private fun today() = LocalDate.now(clock.withZone(ZoneId.of("Asia/Almaty")))
@@ -108,6 +109,55 @@ class BudgetStore(
             project(c).let { LocalHistoryContent(c.sync, it.operations.values.toList(), it.categories.values.toList()) }
         }
 
+    override val pendingProposal = dao.observePendingProposal()
+
+    override fun observeLinks(operationId: String): Flow<OperationPlanLinks> = dao.observeContent().map {
+        it?.let { content -> project(content).links(operationId) } ?: OperationPlanLinks()
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+
+    override suspend fun proposal(operationId: String): SuggestedPlan? {
+        val content = dao.content() ?: return null
+        return dao.proposal(content.sync.scopeKey, operationId)?.takeIf { it.decision == "PENDING" }?.payload?.let { json.decodeFromString(it) }
+    }
+
+    suspend fun suggest(operationId: String): SuggestedPlan? {
+        val content = requireNotNull(dao.content())
+        val plan = project(content).links(operationId).candidates.firstOrNull()
+        dao.putProposal(OperationPlanProposal(content.sync.scopeKey, operationId, plan?.let { json.encodeToString(it) }, if (plan == null) "NONE" else "PENDING"))
+        return plan
+    }
+
+    override suspend fun selectProposal(operationId: String, plan: SuggestedPlan) = database.withTransaction {
+        val content = requireNotNull(dao.content())
+        writable(content, allowMember = true)
+        val current = project(content).links(operationId).candidates.firstOrNull { it.target.stableKey == plan.target.stableKey && it.target.type == plan.target.type }
+            ?: throw BudgetLocalFailure("plan_unavailable")
+        dao.putProposal(OperationPlanProposal(content.sync.scopeKey, operationId, json.encodeToString(current), "PENDING"))
+    }
+
+    override suspend fun dismissProposal(operationId: String) = database.withTransaction {
+        val content = dao.content() ?: return@withTransaction
+        val old = dao.proposal(content.sync.scopeKey, operationId)
+        dao.putProposal(OperationPlanProposal(content.sync.scopeKey, operationId, old?.payload, "DISMISSED"))
+    }
+
+    override suspend fun setLink(operationId: String, plan: SuggestedPlan, operationVersion: Long) {
+        database.withTransaction {
+            enqueue("SET_OPERATION_PLAN_LINK", operationId, operationVersion) {
+                it.copy(planTarget = plan.target, expectedPlanVersion = plan.version)
+            }
+            val scope = requireNotNull(dao.content()).sync.scopeKey
+            dao.putProposal(OperationPlanProposal(scope, operationId, json.encodeToString(plan), "CONFIRMED"))
+        }
+    }
+
+    override suspend fun removeLink(operationId: String, operationVersion: Long) {
+        database.withTransaction {
+            enqueue("REMOVE_OPERATION_PLAN_LINK", operationId, operationVersion)
+            dismissProposal(operationId)
+        }
+    }
+
     override fun requestSync() = scheduler.schedule()
 
     suspend fun enqueue(
@@ -119,7 +169,7 @@ class BudgetStore(
     ): String {
         database.withTransaction {
             val content = dao.content() ?: throw BudgetLocalFailure("not_initialized")
-            writable(content, type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION"))
+            writable(content, type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION") || type in BudgetProjection.LINK_COMMANDS)
             val projection = project(content)
             var command =
                 edit(
@@ -161,9 +211,9 @@ class BudgetStore(
             if (prior?.status in setOf("CONFLICT", "REJECTED") && content.sync.protocolVersion >= 4) {
                 val failed = requireNotNull(prior)
                 dao.update(failed.copy(status = "CANCELLED"))
-                content.commands.filter { it.requestId != failed.requestId && (it.predecessor == failed.requestId || it.dependency == failed.requestId) }.forEach { child ->
+                content.commands.filter { it.requestId != failed.requestId && (it.predecessor == failed.requestId || it.dependency == failed.requestId || failed.requestId in json.decodeFromString<List<String>>(it.dependencies)) }.forEach { child ->
                     require(child.wirePayload == null)
-                    dao.update(child.copy(predecessor = if (child.predecessor == failed.requestId) command.requestId else child.predecessor, dependency = if (child.dependency == failed.requestId) command.requestId else child.dependency, status = "PENDING", errorCode = null))
+                    dao.update(child.copy(predecessor = if (child.predecessor == failed.requestId) command.requestId else child.predecessor, dependency = if (child.dependency == failed.requestId) command.requestId else child.dependency, dependencies = rebindDependencies(child, failed.requestId, command.requestId), status = "PENDING", errorCode = null))
                 }
                 prior = null
             }
@@ -219,6 +269,10 @@ class BudgetStore(
                     prior?.requestId,
                     dependency,
                     protocolVersion = if (content.sync.protocolVersion >= 4) 4 else 2,
+                    dependencies = json.encodeToString(command.planTarget?.let { target ->
+                        content.commands.filter { it.entityId in setOfNotNull(target.ruleId, target.planId) && it.status != "CANCELLED" }
+                            .map { it.requestId }
+                    }.orEmpty()),
                 ),
             )
         }
@@ -261,6 +315,19 @@ class BudgetStore(
         p: BudgetProjection,
         content: BudgetContent,
     ) {
+        if (c.type in BudgetProjection.LINK_COMMANDS) {
+            val operation = p.operations[c.entityId] ?: throw BudgetLocalFailure("not_found")
+            if (operation.status != "POSTED" || operation.syncStatus == "REJECTED" || operation.originalCurrency != "KZT") throw BudgetLocalFailure("invalid")
+            if (c.type == "SET_OPERATION_PLAN_LINK") {
+                val target = requireNotNull(c.planTarget)
+                val plan = p.links(c.entityId).candidates.firstOrNull { it.target.stableKey == target.stableKey && it.target.type == target.type }
+                    ?: throw BudgetLocalFailure("plan_unavailable")
+                if (plan.version != c.expectedPlanVersion) throw BudgetLocalFailure("plan_changed")
+            }
+        }
+        if (c.type == "UPDATE_OPERATION" && c.categoryId != null && c.categoryId != p.operations[c.entityId]?.categoryId && p.links(c.entityId).current.isNotEmpty()) {
+            throw BudgetLocalFailure("unlink_before_category_change")
+        }
         if (c.type != "CLOSE_EXPENSE" || !c.entityId.contains("@")) UUID.fromString(c.entityId)
         c.amount?.let { requireMoney(it.toBigDecimal()) }
         c.categoryId?.let { id ->
@@ -354,7 +421,7 @@ class BudgetStore(
             val current = dao.command(item.requestId) ?: return@withTransaction null
             if (current.status != "PENDING") return@withTransaction null
             current.wirePayload?.let { return@withTransaction json.decodeFromString<BudgetSyncCommand>(it) }
-            val parents = listOfNotNull(current.predecessor, current.dependency).mapNotNull { dao.command(it) }
+            val parents = (listOfNotNull(current.predecessor, current.dependency) + json.decodeFromString<List<String>>(current.dependencies)).distinct().mapNotNull { dao.command(it) }
             if (parents.any { it.status in setOf("CONFLICT", "REJECTED", "BLOCKED", "CANCELLED") }) {
                 dao.update(current.copy(status = "BLOCKED", errorCode = "dependency_failed"))
                 return@withTransaction null
@@ -375,6 +442,12 @@ class BudgetStore(
                 intent = intent.copy(ruleId = occurrence?.ruleId, dueOn = occurrence?.dueOn)
             }
             val prior = current.predecessor?.let { dao.command(it) }
+            if (intent.type == "SET_OPERATION_PLAN_LINK") {
+                val target = requireNotNull(intent.planTarget)
+                val targetParent = parents.filter { it.entityId == target.planId || it.entityId == target.ruleId }.maxByOrNull { it.createdOrder }
+                // Income versions come from their own receipt. A rule receipt is not an occurrence version.
+                if (target.type == "INCOME" && targetParent?.receiptToken != null) intent = intent.copy(expectedPlanVersion = targetParent.receiptToken)
+            }
             val wire = if (prior != null) intent.copy(expectedToken = prior.receiptToken) else intent
             dao.update(current.copy(wirePayload = json.encodeToString(wire)))
             wire
@@ -387,9 +460,9 @@ class BudgetStore(
             val replacement = intent.copy(requestId = UUID.randomUUID().toString())
             dao.update(current.copy(status = "CANCELLED"))
             dao.enqueue(current.copy(requestId = replacement.requestId, intent = json.encodeToString(replacement), wirePayload = null, status = "PENDING", errorCode = null, receiptRevision = null, receiptToken = null, protocolVersion = 4))
-            dao.commands(current.scopeKey).filter { it.requestId != current.requestId && (it.predecessor == current.requestId || it.dependency == current.requestId) }.forEach { child ->
+            dao.commands(current.scopeKey).filter { it.requestId != current.requestId && (it.predecessor == current.requestId || it.dependency == current.requestId || current.requestId in json.decodeFromString<List<String>>(it.dependencies)) }.forEach { child ->
                 require(child.wirePayload == null)
-                dao.update(child.copy(predecessor = if (child.predecessor == current.requestId) replacement.requestId else child.predecessor, dependency = if (child.dependency == current.requestId) replacement.requestId else child.dependency, status = "PENDING", errorCode = null))
+                dao.update(child.copy(predecessor = if (child.predecessor == current.requestId) replacement.requestId else child.predecessor, dependency = if (child.dependency == current.requestId) replacement.requestId else child.dependency, dependencies = rebindDependencies(child, current.requestId, replacement.requestId), status = "PENDING", errorCode = null))
             }
         }
 
@@ -424,6 +497,10 @@ class BudgetStore(
     ) = database.withTransaction {
         require(receipt.requestId == item.requestId && receipt.revision >= 0 && receipt.entityToken != null && receipt.entityToken >= 0)
         val current = requireNotNull(dao.command(item.requestId))
+        val proposal = dao.proposal(item.scopeKey, item.entityId)
+        if (receipt.suggestedPlan != null && proposal?.decision == "NONE") {
+            dao.putProposal(OperationPlanProposal(item.scopeKey, item.entityId, json.encodeToString(receipt.suggestedPlan), "PENDING"))
+        }
         dao.update(
             current.copy(
                 status = "ACKNOWLEDGED",
@@ -478,13 +555,14 @@ class BudgetStore(
                 changed = false
                 content.commands.forEach {
                     if (it.predecessor in descendants ||
-                        it.dependency in descendants
+                        it.dependency in descendants || json.decodeFromString<List<String>>(it.dependencies).any { dependency -> dependency in descendants }
                     ) {
                         changed = descendants.add(it.requestId) || changed
                     }
                 }
             } while (changed)
             if (reapply) {
+                if (intent.type in BudgetProjection.LINK_COMMANDS) throw BudgetLocalFailure("confirmation_required")
                 val canonical = token(content, failed.kind, failed.entityId)
                 if (canonical == null && !intent.type.startsWith("CREATE_")) throw BudgetLocalFailure("not_found")
                 val replacement = intent.copy(requestId = UUID.randomUUID().toString(), expectedToken = canonical)
@@ -529,6 +607,7 @@ class BudgetStore(
                                     child.predecessor
                                 },
                             dependency = if (child.dependency == id) replacement.requestId else child.dependency,
+                            dependencies = rebindDependencies(child, id, replacement.requestId),
                             status = "PENDING",
                             errorCode = null,
                         ),
@@ -543,6 +622,9 @@ class BudgetStore(
         }
         runCatching { scheduler.schedule() }
     }
+
+    private fun rebindDependencies(child: BudgetOutbox, oldId: String, newId: String): String =
+        json.encodeToString(json.decodeFromString<List<String>>(child.dependencies).map { if (it == oldId) newId else it })
 
     private fun issue(
         c: BudgetContent,
@@ -565,6 +647,8 @@ class BudgetStore(
             }
         val action =
             when {
+                intent.type == "SET_OPERATION_PLAN_LINK" -> "Связь с планом"
+                intent.type == "REMOVE_OPERATION_PLAN_LINK" -> "Снятие связи с планом"
                 intent.type.startsWith("CREATE") -> "Создание"
 
                 intent.type.startsWith("DELETE") -> "Удаление"
@@ -612,7 +696,7 @@ class BudgetStore(
             local,
             server,
             item.status,
-            item.status != "BLOCKED" && (available || intent.type.startsWith("CREATE_")),
+            item.status != "BLOCKED" && intent.type !in BudgetProjection.LINK_COMMANDS && (available || intent.type.startsWith("CREATE_")),
         )
     }
 }

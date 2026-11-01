@@ -100,7 +100,7 @@ class CategoryIconsUiTest {
                         is CategoriesEvent.IconSelected -> editor.copy(iconCode = event.iconCode, isIconPickerVisible = false)
                         else -> editor
                     }
-                })
+                }, onCreateCategory = {}, onEditCategory = {})
             }
         }
         compose.onNodeWithText("Другая иконка").assertIsEnabled().performClick()
@@ -112,7 +112,7 @@ class CategoryIconsUiTest {
 
     @Test fun legacyIconIsHighlightedAndSavingDisablesTheSelector() {
         var editor by mutableStateOf(CategoryEditorUiState(name = "Кафе", iconCode = "FOOD", isIconPickerVisible = true))
-        compose.setContent { FillinTheme { CategoriesScreen(CategoriesUiState(editor = editor), {}) } }
+        compose.setContent { FillinTheme { CategoriesScreen(CategoriesUiState(editor = editor), {}, onCreateCategory = {}, onEditCategory = {}) } }
         compose.onNode(hasText("Продукты") and isSelectable()).assertIsSelected()
         compose.runOnIdle { editor = editor.copy(isIconPickerVisible = false, isSaving = true) }
         compose.onNodeWithText("Продукты").assertIsNotEnabled()

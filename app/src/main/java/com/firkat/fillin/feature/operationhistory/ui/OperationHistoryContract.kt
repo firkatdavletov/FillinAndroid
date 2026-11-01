@@ -31,6 +31,7 @@ enum class OperationHistoryError {
     Conflict,
     Network,
     InvalidResponse,
+    UnlinkBeforeCategoryChange,
     Unknown,
 }
 

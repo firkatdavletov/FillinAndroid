@@ -45,5 +45,5 @@ interface OperationHistoryStore {
     suspend fun create(
         operation: NewOperation,
         replacesRejectedId: String? = null,
-    )
+    ): CreateOperationResult
 }

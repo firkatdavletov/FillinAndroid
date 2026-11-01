@@ -45,7 +45,7 @@ class ProfileBudgetLifecycleTest {
     private val scheduler = OperationSyncScheduler {}
     private val token = "synthetic-cloud-token"
 
-    private fun open() = Room.databaseBuilder(context, OperationDatabase::class.java, name).addMigrations(BUDGET_MIGRATION_1_2, BUDGET_MIGRATION_2_3, BUDGET_MIGRATION_3_4).build()
+    private fun open() = Room.databaseBuilder(context, OperationDatabase::class.java, name).addMigrations(BUDGET_MIGRATION_1_2, BUDGET_MIGRATION_2_3, BUDGET_MIGRATION_3_4, BUDGET_MIGRATION_4_5).build()
 
     private fun session(value: String = token) = CloudBudgetSession(database, api, value, json, scheduler, clock)
 
@@ -518,7 +518,7 @@ internal class TestCloudApi : CloudBudgetApi {
 
     override suspend fun budget(authorization: String): Response<CloudBudget> {
         calls++
-        return scope?.let { Response.success(CloudBudget(it)) } ?: error(404)
+        return scope?.let { Response.success(CloudBudget(it, capabilities = setOf("confirmedPlanLinkingV1"))) } ?: error(404)
     }
 
     override suspend fun create(
