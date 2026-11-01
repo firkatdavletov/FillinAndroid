@@ -25,7 +25,6 @@ import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.ui.AuthScreen
 import com.firkat.fillin.feature.auth.ui.AuthViewModel
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
-import com.firkat.fillin.feature.auth.ui.messageResource
 import com.firkat.fillin.feature.operationhistory.ui.EditOperationBottomSheet
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationBottomSheet
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
@@ -90,7 +89,7 @@ fun FillinNavHost(
     LaunchedEffect(state.error) {
         state.error?.let { error ->
             snackbar.showSaldomiSnackbar(
-                message = resources.getString(error.messageResource()),
+                message = error.name,
                 type = SnackbarType.Info
             )
             auth.errorShown(error)
