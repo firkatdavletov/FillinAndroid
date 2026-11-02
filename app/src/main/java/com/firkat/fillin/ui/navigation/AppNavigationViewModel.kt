@@ -1,6 +1,9 @@
 package com.firkat.fillin.ui.navigation
 
 import androidx.compose.runtime.mutableStateListOf
+import androidx.lifecycle.SavedStateHandle
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupPage
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.auth.domain.AuthRepository
@@ -25,6 +28,7 @@ class AppNavigationViewModel(
     private val auth: AuthRepository,
     private val localBudget: LocalBudgetRestorer,
     private val budgetReadiness: ActiveBudgetReadiness,
+    private val savedState: SavedStateHandle = SavedStateHandle(),
 ) : ViewModel() {
     // Activity ownership keeps navigation on rotation; a new process starts at Launch.
     private val entries = mutableStateListOf<AppRoute>(AppRoute.Launch)
@@ -37,6 +41,40 @@ class AppNavigationViewModel(
     private var observer: Job? = null
     private var lastUid: String? = null
     private var budgetReady = false
+    private var setupActive: Boolean
+        get() = savedState["setup_active"] ?: false
+        set(value) { savedState["setup_active"] = value }
+    private var setupAuth: String?
+        get() = savedState["setup_auth"]
+        set(value) { savedState["setup_auth"] = value }
+
+    val configuringBudget: Boolean get() = setupActive
+
+    fun authenticateForSetup(target: SetupAuthTarget) {
+        if (!setupActive || auth.session.value is AuthSession.Authenticated) return
+        setupAuth = target.name
+        if (entries.last() != AppRoute.Auth) entries.add(AppRoute.Auth)
+    }
+
+    fun showSetupPage(page: SetupPage) {
+        if (!setupActive || !entries.last().isBudgetSetup()) return
+        val route = when (page) {
+            SetupPage.Create -> AppRoute.BudgetSetup(if (auth.session.value is AuthSession.Authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local)
+            SetupPage.List -> AppRoute.BudgetSetupList
+            SetupPage.Join -> AppRoute.BudgetSetupJoin
+        }
+        if (entries.last() != route) entries[entries.lastIndex] = route
+    }
+
+    fun exitSetup() { setupActive = false; setupAuth = null; replaceWith(AppRoute.Auth) }
+    fun finishSetup() { if (!setupActive || !entries.last().isBudgetSetup()) return; setupActive = false; setupAuth = null; openMain() }
+    private fun resumeSetup() {
+        val target = setupAuth
+        setupAuth = null
+        entries.clear()
+        entries.add(AppRoute.Auth)
+        entries.add(if (target == SetupAuthTarget.Join.name) AppRoute.BudgetSetupJoin else AppRoute.BudgetSetup(BudgetSetupMode.Cloud))
+    }
 
     /** Called after Launch enters composition, even for an immediately restored user. */
     fun onLaunchShown() {
@@ -47,7 +85,7 @@ class AppNavigationViewModel(
                 budgetReady = false
                 if (session == AuthSession.Loading) return@collectLatest
                 val authenticated = session is AuthSession.Authenticated
-                if (!authenticated && lastUid != null) replaceWith(AppRoute.Auth)
+                if (!authenticated && lastUid != null) { setupActive = false; setupAuth = null; replaceWith(AppRoute.Auth) }
                 lastUid = (session as? AuthSession.Authenticated)?.user?.uid
                 failure.value = false
                 try {
@@ -61,13 +99,20 @@ class AppNavigationViewModel(
                         budgetReady = ready
                         resolving.value = false
                         when {
+                            first && setupActive -> {
+                                if (authenticated && setupAuth != null) resumeSetup()
+                                else if (entries.last() == AppRoute.Launch) {
+                                    entries.clear(); entries.add(AppRoute.Auth)
+                                    entries.add(AppRoute.BudgetSetup(if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local))
+                                    if (setupAuth != null) entries.add(AppRoute.Auth)
+                                }
+                            }
                             first && authenticated -> {
                                 if (ready) openMain() else openSetup(BudgetSetupMode.Cloud)
                             }
                             entries.last() == AppRoute.Launch -> {
                                 if (ready) openMain() else replaceWith(AppRoute.Auth)
                             }
-                            ready && entries.last() is AppRoute.BudgetSetup -> openMain()
                             !ready && (entries.last() is AppRoute.EditOperationBottomSheet || entries.last() is AppRoute.OperationPlanLinkBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.EditCategoryBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
                                 if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
                             )
@@ -158,19 +203,24 @@ class AppNavigationViewModel(
 
     fun continueAsGuest() {
         if (entries.last() != AppRoute.Auth || resolving.value) return
+        if (setupActive && setupAuth != null) { setupAuth = null; if (entries.size > 1) entries.removeAt(entries.lastIndex); return }
         if (budgetReady) openMain() else openSetup(BudgetSetupMode.Local)
     }
 
     fun continueWithAccount() {
         if (entries.last() != AppRoute.Auth || resolving.value || auth.session.value !is AuthSession.Authenticated) return
+        if (setupActive && setupAuth != null) { resumeSetup(); return }
         if (budgetReady) openMain() else openSetup(BudgetSetupMode.Cloud)
     }
 
     fun back() {
+        if (entries.last().isBudgetSetup()) { exitSetup(); return }
+        if (setupActive && entries.last() == AppRoute.Auth && setupAuth != null) setupAuth = null
         if (entries.size > 1 && entries.last() != AppRoute.Launch) entries.removeAt(entries.lastIndex)
     }
 
     private fun openSetup(mode: BudgetSetupMode) {
+        setupActive = true
         entries.clear()
         entries.add(AppRoute.Auth)
         entries.add(AppRoute.BudgetSetup(mode))

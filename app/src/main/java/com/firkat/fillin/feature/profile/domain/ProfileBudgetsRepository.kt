@@ -16,4 +16,5 @@ interface ProfileBudgetsRepository {
     suspend fun refresh()
     suspend fun select(id: String)
     suspend fun createLocal(balance: BigDecimal, startedOn: LocalDate)
+    suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate)
 }

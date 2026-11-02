@@ -34,6 +34,13 @@ class RoomBudgetProfileRegistry(
         return BudgetProfile(id, "budget-$id.db", BudgetProfileKind.LOCAL).also { dao.insert(it.entity()) }
     }
 
+    override suspend fun createLocal(name: String): BudgetProfile {
+        require(name.isNotBlank() && name.length <= 80 && name.none(Char::isISOControl))
+        val id = UUID.randomUUID().toString()
+        return BudgetProfile(id, "budget-$id.db", BudgetProfileKind.LOCAL, name = name)
+            .also { dao.insert(it.entity()) }
+    }
+
     override suspend fun registerCloud(uid: String, budgetId: String, role: String): BudgetProfile = database.withTransaction {
         require(uid.isNotBlank() && budgetId.isNotBlank() && role in setOf("OWNER", "MEMBER"))
         dao.cloud(uid, budgetId)?.profile() ?: run {
@@ -79,6 +86,6 @@ class RoomBudgetProfileRegistry(
     }
 
     private fun accountKey(uid: String?) = uid?.let { "uid:$it" } ?: "local"
-    private fun BudgetProfile.entity() = BudgetProfileEntity(id, databaseName, kind.name, firebaseUid, budgetId, role, if (archived) null else budgetId)
-    private fun BudgetProfileEntity.profile() = BudgetProfile(id, databaseName, BudgetProfileKind.valueOf(kind), firebaseUid, budgetId, role, kind == "CLOUD" && activeCloudKey == null)
+    private fun BudgetProfile.entity() = BudgetProfileEntity(id, databaseName, kind.name, firebaseUid, budgetId, role, if (archived) null else budgetId, name)
+    private fun BudgetProfileEntity.profile() = BudgetProfile(id, databaseName, BudgetProfileKind.valueOf(kind), firebaseUid, budgetId, role, kind == "CLOUD" && activeCloudKey == null, name)
 }

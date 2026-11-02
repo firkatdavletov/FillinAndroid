@@ -95,6 +95,7 @@ class ProfileViewModelTest {
         override suspend fun refresh() { refreshResult?.await() }
         override suspend fun select(id: String) { selections += id; selectionResult?.await() }
         override suspend fun createLocal(balance: BigDecimal, startedOn: LocalDate) { local = balance to startedOn }
+        override suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate) { local = balance to startedOn }
     }
 
     private class Creation : BudgetCreationRepository {

@@ -11,6 +11,8 @@ import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
 val budgetConnectionModule = module {
+    single<com.firkat.fillin.feature.budgetsetup.domain.LocalBudgetCreator> { com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator(get(), get(), get(), get(), get()) }
+    viewModel { com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel(get(), get(), get(), get(), get(), get(), dispatcher = kotlinx.coroutines.Dispatchers.IO) }
     single {
         FirebaseBudgetBackend(BuildConfig.FIREBASE_API_BASE_URL.takeIf(String::isNotBlank)?.let {
             get<Retrofit>().newBuilder().baseUrl(it).client(OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)

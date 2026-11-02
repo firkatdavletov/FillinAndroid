@@ -7,6 +7,6 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val profileModule = module {
-    single<ProfileBudgetsRepository> { RoomProfileBudgetsRepository(get(), get(), get(), get(), get(), get(), get()) }
+    single<ProfileBudgetsRepository> { RoomProfileBudgetsRepository(get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { ProfileViewModel(get(), get(), get()) }
 }

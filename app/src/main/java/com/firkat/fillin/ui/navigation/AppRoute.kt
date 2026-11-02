@@ -17,6 +17,8 @@ sealed interface AppRoute : NavKey {
     @Serializable data object FamilyAccess : AppRoute
     @Serializable data object CloudSync : AppRoute
     @Serializable data class BudgetSetup(val mode: BudgetSetupMode) : AppRoute
+    @Serializable data object BudgetSetupList : AppRoute
+    @Serializable data object BudgetSetupJoin : AppRoute
     @Serializable data class EditOperationBottomSheet(
         val operationId: String,
         val resultKey: String,
@@ -34,3 +36,5 @@ sealed interface AppRoute : NavKey {
         val requestId: String = UUID.randomUUID().toString(),
     ) : AppRoute
 }
+
+internal fun AppRoute.isBudgetSetup() = this is AppRoute.BudgetSetup || this == AppRoute.BudgetSetupList || this == AppRoute.BudgetSetupJoin

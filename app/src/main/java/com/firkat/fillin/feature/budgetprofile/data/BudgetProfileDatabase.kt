@@ -19,6 +19,7 @@ data class BudgetProfileEntity(
     val budgetId: String?,
     val role: String?,
     val activeCloudKey: String? = budgetId,
+    val name: String? = null,
 )
 
 @Entity(tableName = "budget_profile_selection")
@@ -48,7 +49,7 @@ interface BudgetProfileDao {
     suspend fun select(selection: BudgetProfileSelection)
 }
 
-@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class], version = 5, exportSchema = true)
+@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class], version = 6, exportSchema = true)
 abstract class BudgetProfileDatabase : RoomDatabase() {
     abstract fun profiles(): BudgetProfileDao
     abstract fun creation(): BudgetCreationDao
@@ -80,5 +81,11 @@ val PROFILE_MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL("UPDATE budget_profiles SET activeCloudKey = budgetId WHERE kind = 'CLOUD'")
         db.execSQL("DROP INDEX index_budget_profiles_firebaseUid_budgetId")
         db.execSQL("CREATE UNIQUE INDEX index_budget_profiles_firebaseUid_activeCloudKey ON budget_profiles(firebaseUid, activeCloudKey)")
+    }
+}
+
+val PROFILE_MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE budget_profiles ADD COLUMN name TEXT")
     }
 }

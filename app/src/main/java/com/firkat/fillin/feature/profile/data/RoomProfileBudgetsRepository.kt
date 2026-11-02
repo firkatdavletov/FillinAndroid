@@ -11,9 +11,6 @@ import com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore
 import com.firkat.fillin.feature.profile.domain.ProfileBudget
 import com.firkat.fillin.feature.profile.domain.ProfileBudgetsRepository
 import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
-import com.firkat.fillin.feature.sync.data.CloudBudgetSession
-import com.firkat.fillin.feature.sync.data.LocalOnlyCloudApi
-import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -31,6 +28,7 @@ class RoomProfileBudgetsRepository(
     private val connection: BudgetConnectionRepository,
     private val json: Json,
     private val uploads: LocalBudgetUploadStore,
+    private val localCreator: com.firkat.fillin.feature.budgetsetup.domain.LocalBudgetCreator = com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator(auth, profiles, active, databases, json),
 ) : ProfileBudgetsRepository {
     private val revision = MutableStateFlow(0)
 
@@ -44,7 +42,7 @@ class RoomProfileBudgetsRepository(
             val ready = try {
                 database.operations().state()?.let { it.localReady || it.initialSyncComplete } == true
             } finally { database.close() }
-            if (ready) ProfileBudget(profile.id, null, false, runtime?.profile?.id == profile.id) else null
+            if (ready) ProfileBudget(profile.id, profile.name, false, runtime?.profile?.id == profile.id) else null
         }
         val cloudRows = cloud.map { budget ->
             ProfileBudget("cloud:${budget.id}", budget.name, true, runtime?.profile?.budgetId == budget.id)
@@ -75,15 +73,15 @@ class RoomProfileBudgetsRepository(
     }
 
     override suspend fun createLocal(balance: BigDecimal, startedOn: LocalDate) {
-        val uid = currentUid()
-        val profile = profiles.createLocal()
-        val database = databases.open(profile)
-        try {
-            CloudBudgetSession(database, LocalOnlyCloudApi, "", json, OperationSyncScheduler {})
-                .createLocal(balance, startedOn)
-        } finally { database.close() }
-        if (uid != currentUid()) throw BudgetConnectionFailure("account_changed")
-        active.select(profile.id, expectedUid = uid)
+        createLocalInternal(null, balance, startedOn)
+    }
+
+    override suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate) {
+        createLocalInternal(name, balance, startedOn)
+    }
+
+    private suspend fun createLocalInternal(name: String?, balance: BigDecimal, startedOn: LocalDate) {
+        localCreator.createLocal(name, balance, startedOn)
     }
 
     private fun currentUid() = (auth.session.value as? AuthSession.Authenticated)?.user?.uid

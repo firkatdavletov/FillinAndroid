@@ -37,6 +37,8 @@ import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupRoute
+import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.BudgetSetupAction
 import com.firkat.fillin.feature.categories.ui.CategoriesRoute
 import com.firkat.fillin.feature.editcategory.ui.EditCategoryRoute
 import com.firkat.fillin.feature.launch.presentation.LaunchScreen
@@ -56,7 +58,16 @@ fun FillinNavHost(
     auth: AuthViewModel = koinViewModel(viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)),
     budgets: ActiveBudgetManager = koinInject(),
 ) {
+    val setup: BudgetSetupViewModel = koinViewModel(viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity))
+    val setupState by setup.state.collectAsStateWithLifecycle()
     val state by auth.state.collectAsStateWithLifecycle()
+    LaunchedEffect(navigation.backStack.lastOrNull(), setupState.uid, state.session) {
+        if (navigation.backStack.lastOrNull() == AppRoute.Auth && !navigation.configuringBudget) setup.onAction(BudgetSetupAction.Reset)
+        if (navigation.backStack.lastOrNull()?.isBudgetSetup() == true && setupState.authTarget != null &&
+            (setupState.uid != null || state.session !is AuthSession.Authenticated)) {
+            setup.onAction(BudgetSetupAction.AuthReturned)
+        }
+    }
     val launchFailed by navigation.launchFailed.collectAsStateWithLifecycle()
     val runtime by budgets.active.collectAsStateWithLifecycle()
     val mainModels: MainBudgetViewModelStore = viewModel(key = "main-budget-models")
@@ -104,7 +115,7 @@ fun FillinNavHost(
     NavDisplay(
         modifier = Modifier.fillMaxSize(),
         backStack = navigation.backStack,
-        onBack = { if ((sheet == null && plannedSheet == null && linkSheet == null) || sheetDismissController.canDismiss()) navigation.back() },
+        onBack = { if (navigation.backStack.lastOrNull()?.isBudgetSetup() == true) setup.onAction(BudgetSetupAction.Back) else if ((sheet == null && plannedSheet == null && linkSheet == null) || sheetDismissController.canDismiss()) navigation.back() },
         sceneStrategies = listOf(remember { BottomSheetSceneStrategy<AppRoute>(sheetDismissController) }),
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
@@ -217,10 +228,14 @@ fun FillinNavHost(
                     onContinueWithAccount = navigation::continueWithAccount,
                 )
             }
-            entry<AppRoute.BudgetSetup> { route ->
-                ActiveBudgetContent {
-                    BudgetSetupRoute(route.mode, navigation::back)
-                }
+            entry<AppRoute.BudgetSetup> {
+                BudgetSetupRoute(setup, navigation::exitSetup, navigation::authenticateForSetup, navigation::finishSetup, navigation::showSetupPage)
+            }
+            entry<AppRoute.BudgetSetupList> {
+                BudgetSetupRoute(setup, navigation::exitSetup, navigation::authenticateForSetup, navigation::finishSetup, navigation::showSetupPage)
+            }
+            entry<AppRoute.BudgetSetupJoin> {
+                BudgetSetupRoute(setup, navigation::exitSetup, navigation::authenticateForSetup, navigation::finishSetup, navigation::showSetupPage)
             }
         },
     )

@@ -81,8 +81,51 @@ class AppNavigationUiTest {
         compose.onNodeWithText("Вступить в семейный бюджет").performScrollTo().performClick()
         compose.onNodeWithText("Код приглашения").assertExists()
         assertTrue(env.server.creations.isEmpty())
-        compose.onNodeWithText("К списку бюджетов").performScrollTo().performClick()
+        compose.onNodeWithTag("setup_back").performScrollTo().performClick()
         compose.onNodeWithText("Код приглашения").assertDoesNotExist()
+    }
+
+    @Test fun setupGoogleLoginReturnsToDraftInsteadOfReadyAccountBudget() {
+        runBlocking {
+            env.auth.login("owner"); env.manager.restore()
+            env.connection.connect("owner", env.connection.budgets("owner").single())
+            env.auth.logout(); env.manager.restore()
+        }
+        show()
+        compose.onNodeWithText("Продолжить без авторизации").performClick()
+        compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
+        closeSoftKeyboard()
+        compose.onNodeWithTag("setup_cloud").performScrollTo().performClick()
+        compose.onNodeWithTag("setup_create").performScrollTo().performClick()
+        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("budget_setup_name").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Поездка").assertExists()
+        compose.onNodeWithTag("main_screen").assertDoesNotExist()
+        assertTrue(env.server.creations.isEmpty())
+    }
+
+    @Test fun cancelingAuthenticationFromSetupKeepsDraftAndDoesNotReopenAuth() {
+        show()
+        compose.onNodeWithText("Продолжить без авторизации").performClick()
+        compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
+        closeSoftKeyboard(); compose.onNodeWithTag("setup_cloud").performScrollTo().performClick()
+        compose.onNodeWithTag("setup_create").performScrollTo().performClick()
+        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.runOnIdle { navigation.back() }
+        compose.onNodeWithText("Поездка").assertExists()
+        compose.onNodeWithTag("auth_screen").assertDoesNotExist()
+    }
+
+    @Test fun guestJoinAuthenticatesAndOpensTheInvitationPage() {
+        show()
+        compose.onNodeWithText("Продолжить без авторизации").performClick()
+        compose.onNodeWithTag("setup_open_join").performScrollTo().performClick()
+        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("setup_code").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(AppRoute.BudgetSetupJoin, navigation.backStack.last())
+        assertTrue(env.server.creations.isEmpty())
     }
 
     private fun show(
@@ -116,6 +159,8 @@ class AppNavigationUiTest {
             viewModel {
                 AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager))
             }
+            viewModel { com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel(auth, env.connection, env.creation,
+                com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.koin.get()), env.sharing, get(), dispatcher = Dispatchers.IO) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(auth, env.sharing) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(env.sharing) }
             viewModel {
@@ -221,7 +266,7 @@ class AppNavigationUiTest {
         compose.onNodeWithText("Продолжить с Google").assertIsNotEnabled()
         compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithTag("auth_screen").assertDoesNotExist()
-        compose.onNodeWithText("Создание бюджета").assertIsDisplayed()
+        compose.onNodeWithText("Настройте свой бюджет").assertIsDisplayed()
         compose.onNodeWithText("Продолжить без авторизации").assertDoesNotExist()
         compose.onNodeWithTag("main_screen").assertDoesNotExist()
         assertEquals(0, pickerCalls)
@@ -359,11 +404,11 @@ class AppNavigationUiTest {
     @Test fun guestCreatesBudgetAfterOneClickAndBackCannotReopenSetup() {
         show()
         compose.onNodeWithText("Продолжить без авторизации").performClick()
-        compose.onNodeWithText("Создание бюджета").assertIsDisplayed()
+        compose.onNodeWithText("Настройте свой бюджет").assertIsDisplayed()
         compose.onNodeWithText("Продолжить без авторизации").assertDoesNotExist()
         compose.onNodeWithText("Профиль").assertDoesNotExist()
         assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Local), navigation.backStack.last())
-        compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("123,45")
+        compose.onNodeWithTag("budget_setup_balance").performScrollTo().performTextReplacement("123,45")
         closeSoftKeyboard()
         compose.onNodeWithText("Создать бюджет").performScrollTo().performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("main_screen").fetchSemanticsNodes().isNotEmpty() }
@@ -380,7 +425,7 @@ class AppNavigationUiTest {
         val restoration = StateRestorationTester(compose)
         show(restoration = restoration)
         compose.onNodeWithText("Продолжить без авторизации").performClick()
-        compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("456,78")
+        compose.onNodeWithTag("budget_setup_balance").performScrollTo().performTextReplacement("456,78")
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithText("456,78").assertIsDisplayed()
         closeSoftKeyboard()
@@ -399,7 +444,7 @@ class AppNavigationUiTest {
         assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Cloud), navigation.backStack.last())
         compose.onNodeWithText("Название бюджета").performTextReplacement("Семейный")
         closeSoftKeyboard()
-        compose.onNodeWithText("Создать облачный бюджет").performScrollTo().performClick()
+        compose.onNodeWithText("Создать бюджет").performScrollTo().performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("main_screen").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(listOf(AppRoute.Main), navigation.backStack)
         assertEquals(1, env.server.creations.size)
@@ -422,7 +467,7 @@ class AppNavigationUiTest {
         env.auth.login("owner")
         show()
         compose.waitUntil(5000) { compose.onAllNodesWithText("Название бюджета").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Назад").performScrollTo().performClick()
+        compose.onNodeWithTag("setup_back").performScrollTo().performClick()
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
         compose.onNodeWithText("Продолжить с Google").performClick()
         compose.onNodeWithTag("budget_setup_screen").assertIsDisplayed()

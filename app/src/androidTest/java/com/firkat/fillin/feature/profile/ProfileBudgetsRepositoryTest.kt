@@ -30,6 +30,17 @@ class ProfileBudgetsRepositoryTest {
         assertTrue(env.server.creations.isEmpty())
     }
 
+    @Test fun namedLocalBudgetIsStoredAndShownInTheProfile() = runBlocking {
+        env.manager.restore()
+        repository.createLocal("Поездка", "25.50".toBigDecimal(), LocalDate.now().minusDays(1))
+        val budget = repository.observe().first().single()
+        assertEquals("Поездка", budget.name)
+        assertEquals("Поездка", env.registry.find(budget.id)?.name)
+        env.manager.restore()
+        assertEquals("Поездка", repository.observe().first().single().name)
+        assertTrue(env.server.creations.isEmpty())
+    }
+
     @Test fun uploadedBudgetStaysVisibleBeforeTheFirstServerSync() = runBlocking {
         env.manager.restore()
         repository.createLocal("0.00".toBigDecimal(), LocalDate.now())

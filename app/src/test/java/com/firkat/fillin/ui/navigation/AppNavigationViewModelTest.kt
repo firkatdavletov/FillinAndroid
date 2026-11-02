@@ -239,6 +239,7 @@ class AppNavigationViewModelTest {
         assertEquals(2, model.backStack.size)
         ready.value = true
         runCurrent()
+        model.finishSetup()
         model.back()
         assertEquals(listOf(AppRoute.Main), model.backStack)
     }
@@ -256,6 +257,7 @@ class AppNavigationViewModelTest {
         assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Cloud), model.backStack.last())
         ready.value = true
         runCurrent()
+        model.finishSetup()
         assertEquals(listOf(AppRoute.Main), model.backStack)
     }
 
@@ -295,6 +297,7 @@ class AppNavigationViewModelTest {
         assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Local), model.backStack.last())
         ready.value = true
         runCurrent()
+        model.finishSetup()
         assertEquals(listOf(AppRoute.Main), model.backStack)
     }
 
@@ -382,6 +385,7 @@ class AppNavigationViewModelTest {
         model.continueAsGuest()
         ready.value = true
         runCurrent()
+        model.finishSetup()
         model.openEditOperationBottomSheet("operation", "history", "budget")
         assertTrue(model.backStack.last() is AppRoute.EditOperationBottomSheet)
         ready.value = false
@@ -430,6 +434,7 @@ class AppNavigationViewModelTest {
         model.continueAsGuest()
         ready.value = true
         runCurrent()
+        model.finishSetup()
         model.openPlannedOperationBottomSheet(PlannedOperationType.Expense, "budget")
         assertTrue(model.backStack.last() is AppRoute.PlannedOperationBottomSheet)
         ready.value = false
@@ -458,6 +463,46 @@ class AppNavigationViewModelTest {
         val next = model.backStack.last() as AppRoute.OperationPlanLinkBottomSheet
         model.dismissOperationPlanLink(sheet)
         assertEquals(listOf(AppRoute.Main, next), model.backStack)
+    }
+
+    @Test fun `setup login returns to the draft even when the account has a ready budget`() = runTest {
+        val auth = FakeAuth()
+        val ready = MutableStateFlow(false)
+        val model = model(auth, ready) { false }
+        model.onLaunchShown(); runCurrent(); model.continueAsGuest()
+        model.authenticateForSetup(com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget.Create)
+        auth.signInWithGoogle("token"); ready.value = true; runCurrent()
+        assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Cloud), model.backStack.last())
+        assertFalse(model.backStack.contains(AppRoute.Main))
+        model.finishSetup(); assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
+
+    @Test fun `canceling setup login returns to the same setup route`() = runTest {
+        val model = model(FakeAuth(), MutableStateFlow(false)) { false }
+        model.onLaunchShown(); runCurrent(); model.continueAsGuest()
+        model.authenticateForSetup(com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget.Create)
+        assertEquals(AppRoute.Auth, model.backStack.last())
+        model.back()
+        assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Local), model.backStack.last())
+    }
+
+    @Test fun `login to join resumes the invitation route`() = runTest {
+        val auth = FakeAuth(); val ready = MutableStateFlow(false)
+        val model = model(auth, ready) { false }
+        model.onLaunchShown(); runCurrent(); model.continueAsGuest()
+        model.authenticateForSetup(com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget.Join)
+        auth.signInWithGoogle("token"); runCurrent()
+        assertEquals(AppRoute.BudgetSetupJoin, model.backStack.last())
+    }
+
+    @Test fun `pending setup login is restored before normal launch navigation`() = runTest {
+        val saved = androidx.lifecycle.SavedStateHandle(mapOf("setup_active" to true, "setup_auth" to "Join"))
+        val auth = FakeAuth(AuthSession.Authenticated(USER))
+        val restored = AppNavigationViewModel(auth, LocalBudgetRestorer { false }, ActiveBudgetReadiness { MutableStateFlow(true) }, saved)
+        models.put("restored", restored)
+        restored.onLaunchShown(); runCurrent()
+        assertEquals(AppRoute.BudgetSetupJoin, restored.backStack.last())
+        assertFalse(restored.backStack.contains(AppRoute.Main))
     }
 
     private fun model(

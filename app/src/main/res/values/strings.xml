@@ -315,4 +315,21 @@
     <string name="plan_link_backend_upgrade">Обновите сервер для подтверждаемой связи с планами. Изменения сохранены на устройстве.</string>
     <string name="budget_setup_cloud_brand">Fillin</string>
     <string name="budget_setup_back_to_list">К списку бюджетов</string>
+    <string name="setup_title">Настройте свой бюджет</string>
+    <string name="setup_subtitle">Создайте первый бюджет, чтобы начать учёт финансов.</string>
+    <string name="setup_name">Название бюджета</string>
+    <string name="setup_currency">Валюта</string>
+    <string name="setup_currency_value">KZT — тенге</string>
+    <string name="setup_balance">Начальный баланс</string>
+    <string name="setup_storage">Где хранить бюджет?</string>
+    <string name="setup_cloud">В облаке</string>
+    <string name="setup_cloud_hint">Синхронизация между вашими устройствами</string>
+    <string name="setup_local">На устройстве</string>
+    <string name="setup_local_hint">Хранение только на этом устройстве</string>
+    <string name="setup_name_error">Введите название: от 1 до 80 символов без управляющих символов.</string>
+    <string name="setup_balance_error">Введите сумму с точностью до двух знаков после запятой.</string>
+    <string name="setup_code_error">Введите код приглашения полностью: 20 букв и цифр.</string>
+    <string name="setup_list_title">Выберите бюджет</string>
+    <string name="setup_pending">Запрос сохранён. Продолжите создание бюджета.</string>
+    <string name="setup_join_hint">Введите код приглашения, полученный от владельца бюджета.</string>
 </resources>
