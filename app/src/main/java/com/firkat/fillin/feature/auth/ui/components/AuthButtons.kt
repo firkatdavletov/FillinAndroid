@@ -1,4 +1,4 @@
-package com.firkat.fillin.feature.auth.ui
+package com.firkat.fillin.feature.auth.ui.components
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.BorderStroke
@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.auth.ui.interactor.AuthButton
 import com.firkat.fillin.ui.component.PrimaryButton
 import com.firkat.fillin.ui.theme.FillinTheme
 

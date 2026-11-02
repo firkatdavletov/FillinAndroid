@@ -1,4 +1,4 @@
-package com.firkat.fillin.feature.auth.ui
+package com.firkat.fillin.feature.auth.ui.components
 
 import androidx.annotation.StringRes
 import com.firkat.fillin.R

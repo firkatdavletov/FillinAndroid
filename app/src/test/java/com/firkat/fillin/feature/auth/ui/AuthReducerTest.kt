@@ -1,6 +1,12 @@
 package com.firkat.fillin.feature.auth.ui
 
 import com.firkat.fillin.feature.auth.domain.*
+import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
+import com.firkat.fillin.feature.auth.ui.interactor.AuthButton
+import com.firkat.fillin.feature.auth.ui.interactor.AuthEvent
+import com.firkat.fillin.feature.auth.ui.interactor.AuthOperation
+import com.firkat.fillin.feature.auth.ui.interactor.AuthReducer
+import com.firkat.fillin.feature.auth.ui.interactor.AuthState
 import org.junit.Assert.*
 import org.junit.Test
 

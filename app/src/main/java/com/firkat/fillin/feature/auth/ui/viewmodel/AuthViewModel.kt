@@ -1,4 +1,4 @@
-package com.firkat.fillin.feature.auth.ui
+package com.firkat.fillin.feature.auth.ui.viewmodel
 
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.core.mvi.BaseViewModel
@@ -6,6 +6,13 @@ import com.firkat.fillin.core.mvi.Interactor
 import com.firkat.fillin.core.mvi.Reducer
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.domain.ServerProfileState
+import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
+import com.firkat.fillin.feature.auth.ui.interactor.AuthCommand
+import com.firkat.fillin.feature.auth.ui.interactor.AuthEffect
+import com.firkat.fillin.feature.auth.ui.interactor.AuthEvent
+import com.firkat.fillin.feature.auth.ui.interactor.AuthOperation
+import com.firkat.fillin.feature.auth.ui.interactor.AuthState
+import com.firkat.fillin.feature.auth.ui.interactor.uid
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch

@@ -6,8 +6,8 @@ import androidx.activity.compose.LocalActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import com.firkat.fillin.feature.auth.ui.AuthAction
-import com.firkat.fillin.feature.auth.ui.messageRes
+import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
+import com.firkat.fillin.feature.auth.ui.components.messageRes
 import com.firkat.fillin.feature.operationhistory.ui.OperationPlanLinkBottomSheet
 import com.firkat.fillin.feature.operationhistory.ui.PendingPlanLinkRecovery
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,7 +30,7 @@ import androidx.navigation3.runtime.result.rememberResultEventBusNavEntryDecorat
 import androidx.navigation3.ui.NavDisplay
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.ui.AuthScreen
-import com.firkat.fillin.feature.auth.ui.AuthViewModel
+import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
 import com.firkat.fillin.feature.operationhistory.ui.EditOperationBottomSheet
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationBottomSheet
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent

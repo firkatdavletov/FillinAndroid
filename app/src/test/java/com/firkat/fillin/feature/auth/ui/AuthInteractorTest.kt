@@ -1,6 +1,9 @@
 package com.firkat.fillin.feature.auth.ui
 
 import com.firkat.fillin.feature.auth.domain.*
+import com.firkat.fillin.feature.auth.ui.interactor.AuthCommand
+import com.firkat.fillin.feature.auth.ui.interactor.AuthEvent
+import com.firkat.fillin.feature.auth.ui.interactor.AuthInteractor
 import kotlin.coroutines.ContinuationInterceptor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -41,7 +44,8 @@ class AuthInteractorTest {
         assertEquals(listOf(AuthEvent.OperationFinished(3, AuthError.SignInFailed)), interactor.execute(AuthCommand.SignInWithGoogle(3, "synthetic")).toList())
         assertEquals(listOf(AuthEvent.OperationFinished(4)), interactor.execute(AuthCommand.SignOut(4)).toList())
         auth.signOut = { throw AuthFailure(AuthError.CredentialResetFailed) }
-        assertEquals(listOf(AuthEvent.OperationFinished(5, AuthError.CredentialResetFailed)), interactor.execute(AuthCommand.SignOut(5)).toList())
+        assertEquals(listOf(AuthEvent.OperationFinished(5, AuthError.CredentialResetFailed)), interactor.execute(
+            AuthCommand.SignOut(5)).toList())
         auth.signOut = { error("Unexpected") }
         assertEquals(listOf(AuthEvent.OperationFinished(6, AuthError.SignOutFailed)), interactor.execute(AuthCommand.SignOut(6)).toList())
     }
@@ -109,7 +113,9 @@ class AuthInteractorTest {
         val response = CompletableDeferred<ServerUser>()
         var calls = 0
         val interactor = AuthInteractor(auth, object : ServerAuthRepository {
-            override suspend fun authenticate(uid: String): ServerUser { calls++; return response.await() }
+            override suspend fun authenticate(uid: String): ServerUser {
+                calls++; return response.await()
+            }
         }, StandardTestDispatcher(testScheduler))
         assertTrue(interactor.execute(AuthCommand.LoadServerProfile(1, "a")).toList().isEmpty())
         assertEquals(0, calls)

@@ -1,4 +1,4 @@
-package com.firkat.fillin.feature.auth.ui
+package com.firkat.fillin.feature.auth.ui.interactor
 
 import com.firkat.fillin.core.mvi.Action
 import com.firkat.fillin.core.mvi.Command

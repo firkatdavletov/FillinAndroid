@@ -9,10 +9,10 @@ import com.firkat.fillin.feature.auth.domain.ServerAuthRepository
 import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.feature.auth.data.FirebaseAuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthRepository
-import com.firkat.fillin.feature.auth.ui.AuthViewModel
-import com.firkat.fillin.feature.auth.ui.AuthState
-import com.firkat.fillin.feature.auth.ui.AuthReducer
-import com.firkat.fillin.feature.auth.ui.AuthInteractor
+import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
+import com.firkat.fillin.feature.auth.ui.interactor.AuthState
+import com.firkat.fillin.feature.auth.ui.interactor.AuthReducer
+import com.firkat.fillin.feature.auth.ui.interactor.AuthInteractor
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.qualifier.named

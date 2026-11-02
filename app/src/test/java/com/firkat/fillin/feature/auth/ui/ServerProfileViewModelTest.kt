@@ -2,6 +2,11 @@ package com.firkat.fillin.feature.auth.ui
 
 import androidx.lifecycle.ViewModelStore
 import com.firkat.fillin.feature.auth.domain.*
+import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
+import com.firkat.fillin.feature.auth.ui.interactor.AuthInteractor
+import com.firkat.fillin.feature.auth.ui.interactor.AuthReducer
+import com.firkat.fillin.feature.auth.ui.interactor.AuthState
+import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.Dispatchers
@@ -131,7 +136,11 @@ class ServerProfileViewModelTest {
         assertEquals(calls, cancelled)
     }
 
-    private fun model(auth: AuthRepository, server: ServerAuthRepository) = AuthViewModel(AuthState(session = auth.session.value), AuthReducer(), AuthInteractor(auth, server, StandardTestDispatcher())).also { models.put("auth", it) }
+    private fun model(auth: AuthRepository, server: ServerAuthRepository) = AuthViewModel(
+        AuthState(session = auth.session.value),
+        AuthReducer(),
+        AuthInteractor(auth, server, StandardTestDispatcher())
+    ).also { models.put("auth", it) }
     private class FakeAuth : AuthRepository {
         override val session = MutableStateFlow<AuthSession>(AuthSession.Authenticated(USER))
         override suspend fun signInWithGoogle(idToken: String) { session.value = AuthSession.Authenticated(USER) }

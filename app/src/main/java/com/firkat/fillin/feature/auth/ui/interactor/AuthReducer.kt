@@ -1,4 +1,4 @@
-package com.firkat.fillin.feature.auth.ui
+package com.firkat.fillin.feature.auth.ui.interactor
 
 import com.firkat.fillin.core.mvi.Reducer
 import com.firkat.fillin.feature.auth.domain.AuthError

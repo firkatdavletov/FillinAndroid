@@ -14,11 +14,11 @@ import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.awaitCancellation
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import com.firkat.fillin.feature.auth.domain.*
-import com.firkat.fillin.feature.auth.ui.AuthViewModel
-import com.firkat.fillin.feature.auth.ui.AuthAction
-import com.firkat.fillin.feature.auth.ui.AuthState
-import com.firkat.fillin.feature.auth.ui.AuthReducer
-import com.firkat.fillin.feature.auth.ui.AuthInteractor
+import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
+import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
+import com.firkat.fillin.feature.auth.ui.interactor.AuthState
+import com.firkat.fillin.feature.auth.ui.interactor.AuthReducer
+import com.firkat.fillin.feature.auth.ui.interactor.AuthInteractor
 import org.koin.compose.viewmodel.koinViewModel
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.budgetconnection.BudgetConnectionDeviceTest
@@ -45,6 +45,7 @@ import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsRepository
+import kotlinx.coroutines.Dispatchers
 import java.time.LocalDate
 import org.junit.After
 import org.junit.Assert.*
@@ -109,7 +110,7 @@ class AppNavigationUiTest {
                             profileCalls++
                             return ServerUser("server-$uid", uid, null, null)
                         }
-                    }, kotlinx.coroutines.Dispatchers.Main.immediate),
+                    }, Dispatchers.Main.immediate),
                 )
             }
             viewModel {

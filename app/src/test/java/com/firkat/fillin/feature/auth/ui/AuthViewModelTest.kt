@@ -6,6 +6,13 @@ import com.firkat.fillin.feature.auth.domain.AuthFailure
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.domain.AuthUser
+import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
+import com.firkat.fillin.feature.auth.ui.interactor.AuthEffect
+import com.firkat.fillin.feature.auth.ui.interactor.AuthInteractor
+import com.firkat.fillin.feature.auth.ui.interactor.AuthOperation
+import com.firkat.fillin.feature.auth.ui.interactor.AuthReducer
+import com.firkat.fillin.feature.auth.ui.interactor.AuthState
+import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
@@ -32,7 +39,11 @@ class AuthViewModelTest {
     @Before fun setup() = Dispatchers.setMain(StandardTestDispatcher())
     @After fun cleanup() { models.clear(); Dispatchers.resetMain() }
 
-    private fun model(repository: FakeAuthRepository) = AuthViewModel(AuthState(session = repository.session.value), AuthReducer(), AuthInteractor(repository, null, StandardTestDispatcher())).also {
+    private fun model(repository: FakeAuthRepository) = AuthViewModel(
+        AuthState(session = repository.session.value),
+        AuthReducer(),
+        AuthInteractor(repository, null, StandardTestDispatcher())
+    ).also {
         models.put("auth", it)
     }
 
