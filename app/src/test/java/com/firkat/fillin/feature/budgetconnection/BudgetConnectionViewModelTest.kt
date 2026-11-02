@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModelStore
 import com.firkat.fillin.feature.auth.domain.*
 import com.firkat.fillin.feature.budgetconnection.domain.*
 import com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionViewModel
+import com.firkat.fillin.feature.budgetconnection.ui.interactor.BudgetConnectionAction
 import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,10 +50,10 @@ class BudgetConnectionViewModelTest {
         })
         runCurrent()
         assertNotNull(model.state.value.error)
-        model.refresh(); runCurrent()
+        model.onAction(BudgetConnectionAction.Refresh); runCurrent()
         assertEquals(listOf(budget("owner")), model.state.value.budgets)
         assertNull(model.state.value.error)
-        model.connect(budget("owner")); model.connect(budget("owner")); runCurrent()
+        model.onAction(BudgetConnectionAction.Connect(budget("owner"))); model.onAction(BudgetConnectionAction.Connect(budget("owner"))); runCurrent()
         assertEquals(1, connects)
         finish.complete(Unit); runCurrent()
         assertNull(model.state.value.connecting)
@@ -63,8 +64,8 @@ class BudgetConnectionViewModelTest {
         runCurrent()
         assertTrue(model.state.value.loaded)
         assertEquals("0", model.state.value.draft?.openingBalance)
-        model.editDraft(model.state.value.draft!!.copy(name = "Семья"))
-        model.refresh(); runCurrent()
+        model.onAction(BudgetConnectionAction.EditDraft(model.state.value.draft!!.copy(name = "Семья")))
+        model.onAction(BudgetConnectionAction.Refresh); runCurrent()
         assertEquals("Семья", model.state.value.draft?.name)
     }
 
@@ -88,7 +89,7 @@ class BudgetConnectionViewModelTest {
         runCurrent()
         assertEquals(pending, model.state.value.pending)
         assertEquals(pending.draft, model.state.value.draft)
-        model.editDraft(pending.draft.copy(name = "Другое"))
+        model.onAction(BudgetConnectionAction.EditDraft(pending.draft.copy(name = "Другое")))
         assertEquals(pending.draft, model.state.value.draft)
     }
 
@@ -105,16 +106,16 @@ class BudgetConnectionViewModelTest {
         assertNotNull(model.state.value.error)
         assertNull(model.state.value.draft)
         fail = false
-        model.refresh(); runCurrent()
+        model.onAction(BudgetConnectionAction.Refresh); runCurrent()
         assertNotNull(model.state.value.draft)
     }
 
     @Test fun `additional creation remains available when the account already has budgets`() = runTest {
         val model = model(Auth(), repository(listOf(budget("owner"))))
         runCurrent()
-        model.chooseCreate()
+        model.onAction(BudgetConnectionAction.ChooseCreate())
         assertNotNull(model.state.value.draft)
-        model.cancelCreate()
+        model.onAction(BudgetConnectionAction.CancelCreate)
         assertEquals(listOf(budget("owner")), model.state.value.budgets)
         assertNull(model.state.value.draft)
     }
@@ -133,7 +134,7 @@ class BudgetConnectionViewModelTest {
         assertTrue(model.state.value.showingSaved)
         assertEquals("budget-owner", model.state.value.activeBudgetId)
         assertEquals(listOf(budget("owner")), model.state.value.budgets)
-        model.connect(budget("owner")); runCurrent()
+        model.onAction(BudgetConnectionAction.Connect(budget("owner"))); runCurrent()
         assertEquals(budget("owner"), chosen)
         auth.session.value = AuthSession.Authenticated(AuthUser("other", null, null)); runCurrent()
         assertTrue(model.state.value.budgets.isEmpty())
@@ -144,7 +145,7 @@ class BudgetConnectionViewModelTest {
         val pending = PendingBudgetCreation("saved", BudgetCreationDraft("Дополнительный", "12.00", "2026-10-20"))
         val model = model(Auth(), repository(listOf(budget("owner"))), pending = pending)
         runCurrent()
-        model.chooseCreate()
+        model.onAction(BudgetConnectionAction.ChooseCreate())
         assertEquals(pending.draft, model.state.value.draft)
         assertEquals(pending, model.state.value.pending)
     }

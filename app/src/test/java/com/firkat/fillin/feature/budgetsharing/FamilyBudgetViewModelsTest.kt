@@ -30,17 +30,17 @@ class FamilyBudgetViewModelsTest {
         val auth = Auth(); val repository = Repository()
         val model = FamilyBudgetJoinViewModel(auth, repository).also { models.put("join", it) }
         runCurrent()
-        model.editCode("bad"); model.join(); runCurrent()
+        model.onAction(FamilyJoinAction.EditCode("bad")); model.onAction(FamilyJoinAction.Join); runCurrent()
         assertEquals(0, repository.joins)
-        model.editCode(code.lowercase()); repository.gate = CompletableDeferred()
-        model.join(); model.join(); runCurrent()
+        model.onAction(FamilyJoinAction.EditCode(code.lowercase())); repository.gate = CompletableDeferred()
+        model.onAction(FamilyJoinAction.Join); model.onAction(FamilyJoinAction.Join); runCurrent()
         assertEquals(1, repository.joins)
         assertTrue(model.state.value.busy)
         repository.failJoin = true; repository.gate!!.complete(Unit); runCurrent()
         assertEquals(code.lowercase(), model.state.value.code)
         assertNotNull(model.state.value.error)
         repository.failJoin = false; repository.gate = null
-        model.join(); runCurrent()
+        model.onAction(FamilyJoinAction.Join); runCurrent()
         assertEquals("Семейный", model.state.value.joinedName)
         assertEquals("", model.state.value.code)
         assertEquals(2, repository.joins)
@@ -49,7 +49,7 @@ class FamilyBudgetViewModelsTest {
     @Test fun `account change clears the code and discards a late join response`() = runTest {
         val auth = Auth(); val repository = Repository().apply { gate = CompletableDeferred() }
         val model = FamilyBudgetJoinViewModel(auth, repository).also { models.put("join", it) }
-        runCurrent(); model.editCode(code); model.join(); runCurrent()
+        runCurrent(); model.onAction(FamilyJoinAction.EditCode(code)); model.onAction(FamilyJoinAction.Join); runCurrent()
         auth.session.value = AuthSession.Authenticated(AuthUser("other", null, null)); runCurrent()
         repository.gate!!.complete(Unit); runCurrent()
         assertEquals("", model.state.value.code)

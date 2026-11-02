@@ -37,7 +37,23 @@ fun SaldomiTextField(
     isError: Boolean = false,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    label: String? = null,
 ) {
+    if (label != null) {
+        androidx.compose.material3.OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = modifier,
+            label = { Text(label) },
+            placeholder = placeholder?.let { { Text(it) } },
+            enabled = enabled,
+            isError = isError,
+            singleLine = true,
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
+        )
+        return
+    }
     val interactions = remember { MutableInteractionSource() }
     val scheme = MaterialTheme.colorScheme
     val colors = OutlinedTextFieldDefaults.colors(
@@ -124,3 +140,20 @@ private fun SaldomiTextFieldDisabledPreview() {
 private fun SaldomiTextFieldLongPreview() {
     FillinTheme { SaldomiTextField("Подставка для ног и рабочего кресла 5000", {}) }
 }
+
+@Preview(name = "Label empty")
+@Preview(name = "Label dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LabelEmptyPreview() { FillinTheme { SaldomiTextField("", {}, label = "Название бюджета") } }
+@Preview(name = "Label filled")
+@Composable
+private fun LabelFilledPreview() { FillinTheme { SaldomiTextField("Семья", {}, label = "Название бюджета") } }
+@Preview(name = "Label disabled")
+@Composable
+private fun LabelDisabledPreview() { FillinTheme { SaldomiTextField("Семья", {}, label = "Название бюджета", enabled = false) } }
+@Preview(name = "Label error")
+@Composable
+private fun LabelErrorPreview() { FillinTheme { SaldomiTextField("?", {}, label = "Баланс", isError = true) } }
+@Preview(name = "Label large text", widthDp = 320, fontScale = 2f)
+@Composable
+private fun LabelLargePreview() { FillinTheme { SaldomiTextField("Большой семейный бюджет", {}, label = "Название бюджета") } }

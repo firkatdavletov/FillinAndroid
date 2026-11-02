@@ -15,13 +15,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import com.firkat.fillin.feature.budgetconnection.BudgetConnectionDeviceTest
+import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationDraft
+import com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel
 import com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionViewModel
 import com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileKind
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupRepository
 import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupScreen
 import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel
-import com.firkat.fillin.feature.budgetsetup.ui.CloudBudgetSetupScreen
 import com.firkat.fillin.ui.theme.FillinTheme
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
@@ -37,6 +38,7 @@ class BudgetSetupUiTest {
     private val models = ViewModelStore()
     private lateinit var localModel: BudgetSetupViewModel
     private var cloudModel by mutableStateOf<BudgetConnectionViewModel?>(null)
+    private lateinit var joinModel: FamilyBudgetJoinViewModel
     private var backs = 0
     private var commit: CompletableDeferred<Unit>? = null
 
@@ -58,12 +60,13 @@ class BudgetSetupUiTest {
             }
         }).also { models.put("local", it) }
         cloudModel = newCloudModel()
+        joinModel = FamilyBudgetJoinViewModel(env.auth, env.sharing).also { models.put("join", it) }
         val content: @Composable () -> Unit = {
             FillinTheme(dynamicColor = false) {
                 val form: @Composable () -> Unit = {
                     when (mode) {
-                        BudgetSetupMode.Local -> BudgetSetupScreen(localModel, onBack = { backs++ })
-                        BudgetSetupMode.Cloud -> CloudBudgetSetupScreen(cloudModel!!, onBack = { backs++ })
+                        BudgetSetupMode.Local -> BudgetSetupScreen(mode, onBack = { backs++ }, localViewModel = localModel)
+                        BudgetSetupMode.Cloud -> BudgetSetupScreen(mode, onBack = { backs++ }, cloudViewModel = cloudModel, joinViewModel = joinModel)
                     }
                 }
                 if (compact) {
@@ -88,23 +91,23 @@ class BudgetSetupUiTest {
         show()
         compose.onNodeWithText("Создание бюджета").assertIsDisplayed()
         compose.onNodeWithText("Продолжить без авторизации").assertDoesNotExist()
-        compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("123,45")
+        compose.onNodeWithTag("budget_setup_balance").performTextReplacement("123,45")
         closeSoftKeyboard()
         compose.onNodeWithText("Создать бюджет").performScrollTo().performClick()
-        compose.waitUntil(5000) { localModel.ready.value == true }
+        compose.waitUntil(5000) { localModel.state.value.ready == true }
         assertTrue(server.creations.isEmpty())
     }
 
     @Test fun invalidInputShowsErrorAndCanBeCorrected() {
         show()
-        compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("1.234")
+        compose.onNodeWithTag("budget_setup_balance").performTextReplacement("1.234")
         closeSoftKeyboard()
         compose.onNodeWithText("Создать бюджет").performScrollTo().performClick()
         compose.onNodeWithText("Проверьте баланс и дату начала учёта.").assertIsDisplayed()
-        compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("10")
+        compose.onNodeWithTag("budget_setup_balance").performTextReplacement("10")
         closeSoftKeyboard()
         compose.onNodeWithText("Создать бюджет").performScrollTo().performClick()
-        compose.waitUntil(5000) { localModel.ready.value == true }
+        compose.waitUntil(5000) { localModel.state.value.ready == true }
     }
 
     @Test fun savingBlocksButtonAndSystemBackUntilCommit() {
@@ -115,16 +118,16 @@ class BudgetSetupUiTest {
         compose.onNodeWithText("Назад").assertIsNotEnabled()
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
         assertEquals(0, backs)
-        assertEquals(false, localModel.ready.value)
+        assertEquals(false, localModel.state.value.ready)
         compose.runOnIdle { commit!!.complete(Unit) }
-        compose.waitUntil(5000) { localModel.ready.value == true }
+        compose.waitUntil(5000) { localModel.state.value.ready == true }
     }
 
     @Test fun localFormRetainsBalanceAndDateAfterSavedStateRestoration() {
         val restoration = StateRestorationTester(compose)
         show(restoration = restoration)
-        compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("345,67")
-        compose.onNodeWithText("Дата начала учёта (ГГГГ-ММ-ДД)").performTextReplacement("2026-10-01")
+        compose.onNodeWithTag("budget_setup_balance").performTextReplacement("345,67")
+        compose.onNodeWithTag("budget_setup_date").performTextReplacement("2026-10-01")
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithText("345,67").assertIsDisplayed()
         compose.onNodeWithText("2026-10-01").assertIsDisplayed()
@@ -183,6 +186,43 @@ class BudgetSetupUiTest {
         compose.onNodeWithText("Продолжить создание").performScrollTo().performClick()
         compose.waitUntil(5000) { env.manager.active.value?.profile?.kind == BudgetProfileKind.CLOUD }
         assertEquals(1, server.creations.size)
+    }
+
+    @Test fun pendingCreationTakesPrecedenceOverRestoredUnsentDraft() {
+        val restoration = StateRestorationTester(compose)
+        show(mode = BudgetSetupMode.Cloud, restoration = restoration)
+        compose.waitUntil(5000) { cloudModel!!.state.value.draft != null }
+        compose.onNodeWithText("Название бюджета").performTextReplacement("Несохранённый")
+        server.loseCreationResponse = true
+        runBlocking {
+            runCatching { env.creation.create("owner", BudgetCreationDraft("Сохранённый запрос", "10", "2026-10-01")) }
+        }
+        restoration.emulateSavedInstanceStateRestore()
+        compose.runOnIdle { cloudModel = newCloudModel() }
+        compose.waitUntil(5000) { cloudModel!!.state.value.pending != null && !cloudModel!!.state.value.busy }
+        compose.onNodeWithText("Сохранённый запрос").assertExists()
+        compose.onNodeWithText("Несохранённый").assertDoesNotExist()
+        compose.onNodeWithText("Название бюджета").assertIsNotEnabled()
+        compose.onNodeWithText("Продолжить создание").performScrollTo().performClick()
+        compose.waitUntil(5000) { env.manager.active.value?.profile?.kind == BudgetProfileKind.CLOUD }
+        assertEquals(1, server.creations.size)
+    }
+
+    @Test fun familySectionAndInputSurviveReturningToTheListAndRestoration() {
+        val restoration = StateRestorationTester(compose)
+        show(mode = BudgetSetupMode.Cloud, restoration = restoration)
+        compose.waitUntil(5000) { cloudModel!!.state.value.loaded }
+        compose.onNodeWithText("Вступить в семейный бюджет").performScrollTo().performClick()
+        compose.onNodeWithText("Код приглашения").performTextReplacement("bad")
+        closeSoftKeyboard()
+        compose.onNodeWithText("Присоединиться по коду").performScrollTo().performClick()
+        compose.onNodeWithText("Введите код приглашения полностью: 20 букв и цифр.").assertExists()
+        compose.onNodeWithText("К списку бюджетов").performScrollTo().performClick()
+        compose.onNodeWithText("Вступить в семейный бюджет").performScrollTo().performClick()
+        compose.onNodeWithText("bad").assertExists()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("К списку бюджетов").assertExists()
+        compose.onNodeWithText("bad").assertExists()
     }
 
     @Test fun largeTextOnShortScreenKeepsCreationAndBackReachable() {

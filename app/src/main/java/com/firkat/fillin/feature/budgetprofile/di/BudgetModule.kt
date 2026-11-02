@@ -109,11 +109,7 @@ val budgetModule = module {
             com.firkat.fillin.feature.budgetsetup.domain
                 .CreateLocalBudget(get())
         }
-        factory {
-            com.firkat.fillin.feature.budgetsetup.domain
-                .ConnectExistingBudget(get())
-        }
-        viewModel { com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel(get(), get()) }
+        viewModel { com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel(get(), get(), dispatcher = Dispatchers.IO) }
         scoped<OperationSyncStorage> { RoomOperationSyncStorage(get(), get()) }
         scoped {
             com.firkat.fillin.feature.sync.data.BudgetStore(

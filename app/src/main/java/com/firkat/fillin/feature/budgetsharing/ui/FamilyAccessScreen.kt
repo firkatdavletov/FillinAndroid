@@ -57,8 +57,8 @@ fun FamilyAccessRoute(
         },
         onRevokeCode = invitations::revoke,
         onRefreshCode = invitations::refresh,
-        onCodeChange = joining::editCode,
-        onJoin = joining::join,
+        onCodeChange = { joining.onAction(FamilyJoinAction.EditCode(it)) },
+        onJoin = { joining.onAction(FamilyJoinAction.Join) },
     ) { FamilyMembersSection() }
 }
 
