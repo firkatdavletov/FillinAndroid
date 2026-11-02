@@ -1,6 +1,13 @@
 package com.firkat.fillin.ui.navigation
 
 import android.app.Activity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import com.firkat.fillin.feature.auth.ui.AuthAction
+import com.firkat.fillin.feature.auth.ui.messageRes
 import com.firkat.fillin.feature.operationhistory.ui.OperationPlanLinkBottomSheet
 import com.firkat.fillin.feature.operationhistory.ui.PendingPlanLinkRecovery
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,7 +31,6 @@ import androidx.navigation3.ui.NavDisplay
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.ui.AuthScreen
 import com.firkat.fillin.feature.auth.ui.AuthViewModel
-import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.operationhistory.ui.EditOperationBottomSheet
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationBottomSheet
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
@@ -46,14 +52,12 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun FillinNavHost(
-    navigation: AppNavigationViewModel = koinViewModel(),
-    auth: AuthViewModel = koinViewModel(),
-    googleSignIn: GoogleSignInLauncher = koinInject(),
+    navigation: AppNavigationViewModel = koinViewModel(viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)),
+    auth: AuthViewModel = koinViewModel(viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)),
     budgets: ActiveBudgetManager = koinInject(),
 ) {
     val state by auth.state.collectAsStateWithLifecycle()
     val launchFailed by navigation.launchFailed.collectAsStateWithLifecycle()
-    val resolvingBudget by navigation.resolvingBudget.collectAsStateWithLifecycle()
     val runtime by budgets.active.collectAsStateWithLifecycle()
     val mainModels: MainBudgetViewModelStore = viewModel(key = "main-budget-models")
     val operationCreateModels: MainBudgetViewModelStore = viewModel(key = "operation-create-models")
@@ -86,13 +90,14 @@ fun FillinNavHost(
             }
         }
     }
-    LaunchedEffect(state.error) {
-        state.error?.let { error ->
-            snackbar.showSaldomiSnackbar(
-                message = error.name,
-                type = SnackbarType.Info
-            )
-            auth.errorShown(error)
+    val authVisible = navigation.backStack.lastOrNull() == AppRoute.Auth
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(authVisible, state.errorId, state.error, lifecycleOwner, resources) {
+        if (!authVisible) lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            state.error?.let { error ->
+                snackbar.showSaldomiSnackbar(resources.getString(error.messageRes), type = SnackbarType.Info)
+                auth.onAction(AuthAction.ErrorShown(state.errorId))
+            }
         }
     }
     val sheetDismissController = remember { BottomSheetDismissController() }
@@ -117,7 +122,7 @@ fun FillinNavHost(
                 MainScreen(
                     authBusy = state.busy,
                     onAccountClick = {
-                        if (state.session is AuthSession.Authenticated) auth.signOut()
+                        if (state.session is AuthSession.Authenticated) auth.onAction(AuthAction.SignOut)
                         else navigation.openAuthentication()
                     },
                     snackbarHostState = snackbar,
@@ -208,8 +213,8 @@ fun FillinNavHost(
             }
             entry<AppRoute.Auth> {
                 AuthScreen(
-                    state.copy(busy = state.busy || resolvingBudget), auth, googleSignIn, snackbar,
-                    navigation::continueAsGuest, navigation::continueWithAccount,
+                    onContinueAsGuest = navigation::continueAsGuest,
+                    onContinueWithAccount = navigation::continueWithAccount,
                 )
             }
             entry<AppRoute.BudgetSetup> { route ->

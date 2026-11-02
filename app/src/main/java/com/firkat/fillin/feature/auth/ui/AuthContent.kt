@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -24,10 +23,11 @@ import com.firkat.fillin.ui.component.SaldomiSnackbarHost
 import com.firkat.fillin.ui.theme.FillinTheme
 
 @Composable
-fun AuthContent(
+internal fun AuthContent(
     modifier: Modifier = Modifier,
     snackBarHostState: SnackbarHostState = remember { SnackbarHostState() },
     isLoading: Boolean = false,
+    loadingButton: AuthButton = AuthButton.Google,
     onGoogleClick: () -> Unit = {},
     onEmailClick: () -> Unit = {},
     onGuestClick: () -> Unit = {},
@@ -62,6 +62,7 @@ fun AuthContent(
                 .navigationBarsPadding()
                 .align(Alignment.BottomCenter),
             isLoading = isLoading,
+            loadingButton = loadingButton,
             googleEnabled = googleEnabled,
             onGoogleClick = onGoogleClick,
             onEmailClick = onEmailClick,
@@ -90,4 +91,32 @@ private fun AuthContent_Preview() {
     FillinTheme {
         AuthContent()
     }
+}
+
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AuthContentGoogleLoadingPreview() {
+    FillinTheme { AuthContent(isLoading = true) }
+}
+
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AuthContentEmailLoadingPreview() {
+    FillinTheme { AuthContent(isLoading = true, loadingButton = AuthButton.Email) }
+}
+
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AuthContentGuestLoadingPreview() {
+    FillinTheme { AuthContent(isLoading = true, loadingButton = AuthButton.Guest) }
+}
+
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AuthContentGoogleUnavailablePreview() {
+    FillinTheme { AuthContent(googleEnabled = false) }
 }

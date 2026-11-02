@@ -10,6 +10,12 @@ import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.feature.auth.data.FirebaseAuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.ui.AuthViewModel
+import com.firkat.fillin.feature.auth.ui.AuthState
+import com.firkat.fillin.feature.auth.ui.AuthReducer
+import com.firkat.fillin.feature.auth.ui.AuthInteractor
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import org.koin.core.qualifier.named
 import com.firkat.fillin.feature.auth.ui.CredentialManagerGoogleSignInLauncher
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.google.firebase.auth.FirebaseAuth
@@ -44,5 +50,10 @@ val authModule = module {
         FirebaseServerAuthRepository(api, get())
     }
     single<GoogleSignInLauncher> { CredentialManagerGoogleSignInLauncher(get()) }
-    viewModel { AuthViewModel(get(), get()) }
+    single<CoroutineDispatcher>(named("authIo")) { Dispatchers.IO }
+    factory { AuthReducer() }
+    factory { AuthInteractor(get(), get(), get(named("authIo"))) }
+    viewModel {
+        AuthViewModel(AuthState(session = get<AuthRepository>().session.value), get<AuthReducer>(), get<AuthInteractor>())
+    }
 }
