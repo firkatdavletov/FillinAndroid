@@ -313,4 +313,6 @@
     <string name="plan_link_keep_current">Сохранить текущую связь</string>
     <string name="plan_link_client_upgrade">Обновите приложение для работы с этим бюджетом.</string>
     <string name="plan_link_backend_upgrade">Обновите сервер для подтверждаемой связи с планами. Изменения сохранены на устройстве.</string>
+    <string name="budget_setup_cloud_brand">Fillin</string>
+    <string name="budget_setup_back_to_list">К списку бюджетов</string>
 </resources>

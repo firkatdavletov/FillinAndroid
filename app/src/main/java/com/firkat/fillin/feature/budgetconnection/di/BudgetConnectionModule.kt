@@ -27,7 +27,7 @@ val budgetConnectionModule = module {
         com.firkat.fillin.feature.budgetsharing.data.FirebaseFamilyBudgetRepository(
             get<FirebaseBudgetBackend>().retrofit?.create(com.firkat.fillin.feature.budgetsharing.data.FirebaseFamilyBudgetApi::class.java), get(), get(), get(), get(), get(), get())
     }
-    viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(get(), get()) }
+    viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(get(), get(), dispatcher = kotlinx.coroutines.Dispatchers.IO) }
     viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(get()) }
     single<BudgetCatalogStore> { RoomBudgetCatalogStore(get()) }
     single<BudgetConnectionRepository> { RoomBudgetConnectionRepository(get(), get(), get(), get(), get(), get(), get()) }
@@ -37,7 +37,7 @@ val budgetConnectionModule = module {
     single<com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadRepository> { com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadRepository(get(), get(), get(), get(), get(), get(), get()) }
     viewModel { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadViewModel(get(), get()) }
     viewModel { parameters ->
-        BudgetConnectionViewModel(get(), get(), get(), autoStartCreation = parameters.getOrNull<Boolean>() ?: false)
+        BudgetConnectionViewModel(get(), get(), get(), autoStartCreation = parameters.getOrNull<Boolean>() ?: false, dispatcher = kotlinx.coroutines.Dispatchers.IO)
     }
 }
 

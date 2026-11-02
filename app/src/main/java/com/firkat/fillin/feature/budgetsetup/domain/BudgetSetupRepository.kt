@@ -28,9 +28,3 @@ class CreateLocalBudget(
         repository.createLocal(balance, date)
     }
 }
-
-class ConnectExistingBudget(
-    private val repository: BudgetSetupRepository,
-) {
-    suspend operator fun invoke() = repository.connectExisting()
-}

@@ -19,9 +19,6 @@ fun BudgetSetupRoute(
             .testTag("budget_setup_screen"),
         color = MaterialTheme.colorScheme.background
     ) {
-        when (mode) {
-            BudgetSetupMode.Local -> BudgetSetupScreen(onBack = onBack)
-            BudgetSetupMode.Cloud -> CloudBudgetSetupScreen(onBack = onBack)
-        }
+        BudgetSetupScreen(mode = mode, onBack = onBack)
     }
 }

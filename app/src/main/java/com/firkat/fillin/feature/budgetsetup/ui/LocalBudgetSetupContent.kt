@@ -10,11 +10,9 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import com.firkat.fillin.ui.component.SaldomiProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,18 +21,24 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
 import com.firkat.fillin.ui.component.SaldomiTextField
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiTextButton
+import androidx.compose.ui.platform.testTag
 
 @Composable
 internal fun LocalBudgetSetupContent(
-    viewModel: BudgetSetupViewModel,
+    busy: Boolean,
+    error: String?,
+    onCreateClick: () -> Unit,
     balance: String,
     onBalanceChange: (String) -> Unit,
     date: String,
     onDateChange: (String) -> Unit,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        Modifier
+        modifier
             .fillMaxSize()
             .systemBarsPadding()
             .imePadding()
@@ -52,36 +56,36 @@ internal fun LocalBudgetSetupContent(
         SaldomiTextField(
             value = balance,
             onValueChange = onBalanceChange,
-            enabled = !viewModel.busy,
+            enabled = !busy,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("budget_setup_balance"),
         )
         SaldomiTextField(
             value = date,
             onValueChange = onDateChange,
-            enabled = !viewModel.busy,
-            modifier = Modifier.fillMaxWidth()
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth().testTag("budget_setup_date")
         )
-        Button(
-            onClick = { viewModel.create(balance, date) },
-            enabled = !viewModel.busy,
+        SaldomiButton(
+            onClick = onCreateClick,
+            enabled = !busy,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 text = stringResource(R.string.budget_setup_create)
             )
         }
-        TextButton(
+        SaldomiTextButton(
             onClick = onBack,
-            enabled = !viewModel.busy,
+            enabled = !busy,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.navigation_back))
         }
-        if (viewModel.busy) {
-            CircularProgressIndicator()
+        if (busy) {
+            SaldomiProgressIndicator()
             Text(stringResource(R.string.budget_setup_loading))
         }
-        viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }
