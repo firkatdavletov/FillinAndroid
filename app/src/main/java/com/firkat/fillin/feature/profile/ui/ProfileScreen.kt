@@ -42,6 +42,9 @@ import com.firkat.fillin.feature.profile.domain.ProfileBudget
 import com.firkat.fillin.ui.component.PrimaryButton
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.icon.FillinIcons
+import com.firkat.fillin.feature.budgetmanagement.ui.*
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.DeleteOutline
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -56,6 +59,10 @@ fun ProfileRoute(
     onMethodsClick: () -> Unit = onAccountClick,
     deletionViewModel: ProfileDeletionViewModel = koinViewModel(),
 ) {
+    val management: BudgetManagementViewModel = koinViewModel()
+    val managementState by management.state.collectAsStateWithLifecycle()
+    val pendingDeletions by management.pending.collectAsStateWithLifecycle()
+    managementState?.let { BudgetManagementSheet(it, management::change, management::confirm, management::close) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val deletionState by deletionViewModel.deletion.state.collectAsStateWithLifecycle()
     val confirmation by deletionViewModel.confirmation.collectAsStateWithLifecycle()
@@ -82,6 +89,8 @@ fun ProfileRoute(
         }
     }
     ProfileScreen(
+        onManageBudget = management::open,
+        managementContent = { pendingDeletions.forEach { PendingBudgetDeletion(it.name, it.error != null && it.error != "sending", management::retry, sending = it.error == "sending", denied = it.error == "access_denied") } },
         deletionState = deletionState,
         onDeleteClick = deletionViewModel::open,
         deletionContent = {
@@ -136,6 +145,8 @@ fun ProfileScreen(
     deletionState: ProfileDeletionState = ProfileDeletionState(),
     onDeleteClick: () -> Unit = {},
     deletionContent: @Composable () -> Unit = {},
+    onManageBudget: (String, String, Boolean) -> Unit = { _, _, _ -> },
+    managementContent: @Composable () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.testTag("profile_screen"),
@@ -167,8 +178,13 @@ fun ProfileScreen(
             Spacer(Modifier.height(12.dp))
             if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("profile_loading"))
             state.budgets.forEachIndexed { index, budget ->
+                val displayName = budget.name ?: if (budget.family) stringResource(R.string.profile_family_budget_name) else stringResource(R.string.profile_local_budget_name, state.budgets.take(index + 1).count { !it.family })
                 ProfileBudgetCard(
-                    name = budget.name ?: if (budget.family) stringResource(R.string.profile_family_budget_name) else stringResource(R.string.profile_local_budget_name, state.budgets.take(index + 1).count { !it.family }),
+                    name = displayName,
+                    canManage = budget.canManage,
+                    pendingRename = budget.pendingRename,
+                    onRename = { onManageBudget(budget.id, displayName, false) },
+                    onRemove = { onManageBudget(budget.id, displayName, true) },
                     family = budget.family,
                     selected = budget.selected,
                     enabled = !state.busy,
@@ -176,6 +192,7 @@ fun ProfileScreen(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 )
             }
+            managementContent()
             PrimaryButton(stringResource(R.string.profile_create_budget), onCreateBudgetClick, Modifier.fillMaxWidth(), enabled = !state.busy)
             if (state.busy && state.creation == null) {
                 LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
@@ -231,6 +248,10 @@ private fun ProfileBudgetCard(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    canManage: Boolean = false,
+    pendingRename: Boolean = false,
+    onRename: () -> Unit = {},
+    onRemove: () -> Unit = {},
 ) {
     OutlinedCard(
         onClick = onClick,
@@ -246,7 +267,12 @@ private fun ProfileBudgetCard(
         Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
+                if (pendingRename) Text(stringResource(R.string.budget_manage_pending_rename), style = MaterialTheme.typography.bodySmall)
                 Text(stringResource(if (family) R.string.profile_family_budget else R.string.profile_personal_budget), style = MaterialTheme.typography.bodySmall)
+            }
+            if (canManage) {
+                IconButton(onClick = onRename, enabled = enabled) { Icon(Icons.Outlined.Edit, stringResource(R.string.budget_manage_rename)) }
+                IconButton(onClick = onRemove, enabled = enabled) { Icon(Icons.Outlined.DeleteOutline, stringResource(R.string.budget_manage_delete)) }
             }
             Icon(
                 imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
@@ -426,3 +452,23 @@ private fun previewProfileState() = ProfileUiState(loading = false, budgets = li
 @Composable private fun DeleteActionPreview() { FillinTheme { ProfileAccountAction(stringResource(R.string.profile_delete), true, true, {}) } }
 @Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable private fun DisabledAccountActionsPreview() { FillinTheme { Column { ProfileAccountAction(stringResource(R.string.auth_sign_out), false, false, {}); ProfileAccountAction(stringResource(R.string.profile_delete), true, false, {}) } } }
+
+@Composable
+internal fun BudgetPickerRoute(onSignIn: () -> Unit = {}, viewModel: ProfileViewModel = koinViewModel(), management: BudgetManagementViewModel = koinViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val pending by management.pending.collectAsStateWithLifecycle()
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(stringResource(R.string.budget_manage_pick), style = MaterialTheme.typography.headlineSmall)
+        state.budgets.forEach { budget ->
+            OutlinedButton(onClick = { viewModel.selectBudget(budget.id) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                Text(budget.name ?: stringResource(R.string.profile_personal_budget))
+            }
+        }
+        pending.forEach { PendingBudgetDeletion(it.name, it.error != null && it.error != "sending", management::retry, sending = it.error == "sending", denied = it.error == "access_denied") }
+        PrimaryButton(stringResource(R.string.profile_create_budget), viewModel::openCreation, Modifier.fillMaxWidth(), enabled = !state.busy)
+        if (state.cloudAllowed) com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinSection()
+        else TextButton(onClick = onSignIn) { Text(stringResource(R.string.profile_sign_in)) }
+        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+    state.creation?.let { draft -> ProfileBudgetCreationDialog(draft, state.busy, state.pendingCreation, state.error, viewModel::editCreation, viewModel::createCloud, viewModel::createLocal, viewModel::closeCreation, signedIn = state.cloudAllowed) }
+}

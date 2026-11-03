@@ -45,7 +45,7 @@ val appModule =
         single<OperationSyncApi> { com.firkat.fillin.feature.sync.data.RetiredOperationSyncApi }
         single<com.firkat.fillin.feature.sync.data.BudgetSyncApi> { com.firkat.fillin.feature.sync.data.RetiredBudgetSyncApi }
         single { com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory(androidContext()) }
-        single { Room.databaseBuilder(androidContext(), com.firkat.fillin.feature.budgetprofile.data.BudgetProfileDatabase::class.java, "budget-profiles.db").addMigrations(com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_1_2, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_2_3, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_3_4, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_4_5, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_5_6).build() } onClose { it?.close() }
+        single { Room.databaseBuilder(androidContext(), com.firkat.fillin.feature.budgetprofile.data.BudgetProfileDatabase::class.java, "budget-profiles.db").addMigrations(com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_1_2, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_2_3, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_3_4, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_4_5, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_5_6, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_6_7).build() } onClose { it?.close() }
         single<com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileRegistry> {
             com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry(get(), BuildConfig.API_BASE_URL)
         }

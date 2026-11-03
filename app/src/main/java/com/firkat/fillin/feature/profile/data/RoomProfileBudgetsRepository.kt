@@ -29,10 +29,11 @@ class RoomProfileBudgetsRepository(
     private val json: Json,
     private val uploads: LocalBudgetUploadStore,
     private val localCreator: com.firkat.fillin.feature.budgetsetup.domain.LocalBudgetCreator = com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator(auth, profiles, active, databases, json),
+    private val management: com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement? = null,
 ) : ProfileBudgetsRepository {
     private val revision = MutableStateFlow(0)
 
-    override fun observe() = combine(auth.session, active.active, revision) { session, runtime, _ ->
+    override fun observe() = combine(auth.session, active.active, revision, management?.entries ?: kotlinx.coroutines.flow.flowOf(emptyList()), management?.catalogChanges ?: kotlinx.coroutines.flow.flowOf(emptyList())) { session, runtime, _, pending, _ ->
         val uid = (session as? AuthSession.Authenticated)?.user?.uid
         if (session == AuthSession.Loading) return@combine emptyList()
         val available = profiles.available(uid)
@@ -45,16 +46,19 @@ class RoomProfileBudgetsRepository(
             if (ready) ProfileBudget(profile.id, profile.name, false, runtime?.profile?.id == profile.id) else null
         }
         val cloudRows = cloud.map { budget ->
-            ProfileBudget("cloud:${budget.id}", budget.name, true, runtime?.profile?.budgetId == budget.id)
+            ProfileBudget("cloud:${budget.id}", budget.name, true, runtime?.profile?.budgetId == budget.id, budget.role == "OWNER")
         }
         // An uploaded local budget is selectable before its first successful server exchange.
         val uploadedRows = available.filter { profile ->
             profile.kind == BudgetProfileKind.CLOUD && cloud.none { it.id == profile.budgetId }
         }.map { profile ->
-            ProfileBudget(profile.id, uploads.find(profile.id)?.name, true, runtime?.profile?.id == profile.id)
+            ProfileBudget(profile.id, uploads.find(profile.id)?.name, true, runtime?.profile?.id == profile.id, profile.role == "OWNER")
         }
         // A suspended read from a previous account must never publish that account's catalog.
-        if (uid == currentUid()) cloudRows + uploadedRows + localRows else emptyList()
+        if (uid == currentUid()) (cloudRows + uploadedRows + localRows).mapNotNull { row ->
+            val changes = pending.filter { it.error != "access_denied" && (it.uid == null || it.uid == uid) && (it.profileId == row.id || "cloud:${it.budgetId}" == row.id) }
+            if (changes.any { it.deleting }) null else row.copy(name = changes.lastOrNull()?.name ?: row.name, pendingRename = changes.isNotEmpty())
+        } else emptyList()
     }.flowOn(Dispatchers.IO)
 
     override suspend fun refresh() {

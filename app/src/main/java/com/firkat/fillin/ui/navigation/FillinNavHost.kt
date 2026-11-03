@@ -71,6 +71,7 @@ fun FillinNavHost(
     }
     val launchFailed by navigation.launchFailed.collectAsStateWithLifecycle()
     val runtime by budgets.active.collectAsStateWithLifecycle()
+    val selectionRequired by budgets.selectionRequired.collectAsStateWithLifecycle()
     val mainModels: MainBudgetViewModelStore = viewModel(key = "main-budget-models")
     val operationCreateModels: MainBudgetViewModelStore = viewModel(key = "operation-create-models")
     mainModels.bind(runtime.takeIf { AppRoute.Main in navigation.backStack })
@@ -113,6 +114,11 @@ fun FillinNavHost(
         }
     }
     val sheetDismissController = remember { BottomSheetDismissController() }
+    if (selectionRequired && !authVisible) {
+        com.firkat.fillin.feature.profile.ui.BudgetPickerRoute(onSignIn = navigation::authenticateFromPicker)
+        return
+    }
+    LaunchedEffect(runtime?.scope?.id) { if (runtime != null && navigation.configuringBudget) navigation.budgetChosen() }
     NavDisplay(
         modifier = Modifier.fillMaxSize(),
         backStack = navigation.backStack,

@@ -13,13 +13,17 @@ class AccountCloudEraser(private val context: Context, private val database: Bud
     }
     suspend fun erase(uid: String, removedBudgetIds: Set<String>? = null) {
         val rows = database.profiles().allCloud(uid).filter { removedBudgetIds == null || it.budgetId in removedBudgetIds }
-        active.quiesce(uid, rows.map { it.id }.toSet())
+        if (rows.any { it.id == active.active.value?.profile?.id }) {
+            RoomBudgetProfileRegistry(database, com.firkat.fillin.BuildConfig.FIREBASE_API_BASE_URL).deselect(uid)
+        }
+        rows.forEach { database.profiles().markSelectionRequired(it.id); active.detach(it.id) }
         for (row in rows) {
             check(!context.getDatabasePath(row.databaseName).exists() || context.deleteDatabase(row.databaseName))
             database.withTransaction {
                 database.profiles().deleteUpload(row.id)
                 database.profiles().deleteSelection(row.id)
                 database.profiles().deleteProfile(row.id)
+                database.management().removeProfile(row.id)
             }
         }
         if (removedBudgetIds == null) database.withTransaction {

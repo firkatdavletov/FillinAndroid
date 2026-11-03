@@ -9,6 +9,8 @@ data class ProfileBudget(
     val name: String?,
     val family: Boolean,
     val selected: Boolean,
+    val canManage: Boolean = !family,
+    val pendingRename: Boolean = false,
 )
 
 interface ProfileBudgetsRepository {

@@ -25,9 +25,15 @@ class RoomBudgetProfileRegistry(
         }
     }
 
+    suspend fun requiresSelection(uid: String?): Boolean = dao.selection(accountKey(uid)) == "choose-budget"
+    suspend fun deselect(uid: String?) { dao.select(BudgetProfileSelection(accountKey(uid), "choose-budget")) }
+
     override suspend fun find(id: String): BudgetProfile? = dao.find(id)?.profile()
 
-    override suspend fun available(uid: String?): List<BudgetProfile> = dao.available(uid).map { it.profile() }
+    override suspend fun available(uid: String?): List<BudgetProfile> {
+        val hidden = database.management().all().filter { it.deleting }.map { it.profileId }.toSet()
+        return dao.available(uid).filter { it.id !in hidden }.map { it.profile() }
+    }
 
     override suspend fun createLocal(): BudgetProfile {
         val id = UUID.randomUUID().toString()
@@ -80,6 +86,7 @@ class RoomBudgetProfileRegistry(
 
     override suspend fun select(id: String, uid: String?): BudgetProfile = database.withTransaction {
         val profile = requireNotNull(find(id))
+        require(database.management().all().none { it.profileId == id && it.deleting })
         require(profile.accessibleTo(uid)) { "Budget profile is unavailable for this account" }
         dao.select(BudgetProfileSelection(accountKey(uid), id))
         profile

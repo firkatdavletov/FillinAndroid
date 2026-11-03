@@ -15,7 +15,15 @@ data class CreateFirebaseBudgetDto(val requestId: String, val name: String, val 
 @Serializable
 data class ImportFirebaseBudgetDto(val name: String, val budget: CreateCloudBudget)
 
+@Serializable
+data class RenameBudgetDto(val requestId: String, val name: String)
+
 interface FirebaseBudgetApi {
+    @PATCH("api/v4/budgets/{budgetId}")
+    suspend fun rename(@Header("Authorization") authorization: String, @Path("budgetId") id: String, @Body request: RenameBudgetDto): Response<AvailableBudgetDto>
+    @DELETE("api/v4/budgets/{budgetId}")
+    suspend fun delete(@Header("Authorization") authorization: String, @Path("budgetId") id: String, @Query("requestId") requestId: String): Response<Unit>
+
     @POST("api/v4/budgets/import")
     suspend fun importLocal(@Header("Authorization") authorization: String, @Body request: ImportFirebaseBudgetDto): Response<AvailableBudgetDto>
 

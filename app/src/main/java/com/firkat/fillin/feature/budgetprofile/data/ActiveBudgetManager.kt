@@ -69,6 +69,8 @@ class ActiveBudgetManager(
     private val retiredProfiles = ConcurrentHashMap.newKeySet<String>()
     private val _active = MutableStateFlow<BudgetRuntime?>(null)
     val active: StateFlow<BudgetRuntime?> = _active.asStateFlow()
+    private val _selectionRequired = MutableStateFlow(false)
+    val selectionRequired = _selectionRequired.asStateFlow()
     private val _failed = MutableStateFlow(false)
     val failed: StateFlow<Boolean> = _failed.asStateFlow()
     private var observer: Job? = null
@@ -89,6 +91,13 @@ class ActiveBudgetManager(
             var profile: BudgetProfile
             do {
                 uid = currentUid()
+                if (registry is RoomBudgetProfileRegistry && registry.requiresSelection(uid)) {
+                    _active.value?.let { cancelWork(it.profile.syncIdentity); it.release() }
+                    _active.value = null
+                    _selectionRequired.value = true
+                    initialized.complete(Unit)
+                    return@withLock
+                }
                 profile = registry.selected(uid).takeUnless { it.id in retiredProfiles } ?: registry.selected(null)
             } while (uid != currentUid())
             activate(profile)
@@ -192,6 +201,29 @@ class ActiveBudgetManager(
         while (runtimes.values.any { it.profile.firebaseUid == uid && (profileIds == null || it.profile.id in profileIds) }) delay(25)
     }
 
+    fun revive(profileId: String) { retiredProfiles.remove(profileId) }
+
+    suspend fun detach(profileId: String) {
+        val targets = mutex.withLock {
+            retiredProfiles.add(profileId)
+            if (_active.value?.profile?.id == profileId) {
+                val old = _active.value
+                _selectionRequired.value = true
+                _active.value = null
+                old?.release()
+            }
+            runtimes.values.filter { it.profile.id == profileId }.mapNotNull { it.retain() }
+        }
+        try {
+            targets.forEach {
+                cancelWork(it.runtime.profile.syncIdentity)
+                it.scope.get<OperationSyncRequests>().cancelForeground()
+                it.scope.get<OperationsSynchronizer>().awaitIdle()
+            }
+        } finally { targets.forEach { it.close() } }
+        while (runtimes.values.any { it.profile.id == profileId }) delay(25)
+    }
+
     private fun currentUid(): String? = (auth.session.value as? AuthSession.Authenticated)?.user?.uid?.takeUnless(blocked)
 
     private suspend fun activate(profile: BudgetProfile) {
@@ -216,6 +248,7 @@ class ActiveBudgetManager(
                 throw failure
             }
         }
+        _selectionRequired.value = false
         _active.value = runtime
         previous?.let {
             cancelWork(it.profile.syncIdentity)

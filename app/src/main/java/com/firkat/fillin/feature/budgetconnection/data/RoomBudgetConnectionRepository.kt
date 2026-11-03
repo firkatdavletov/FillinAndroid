@@ -50,7 +50,7 @@ class RoomBudgetConnectionRepository(
             eraseMissing(uid, catalog.budgets(uid).map { it.id }.toSet() - rows.map { it.id }.toSet())
             requests.ensureCurrent(uid)
             catalog.replace(uid, rows)
-        }
+        }.let { catalog.budgets(uid) }
     } }
 
     suspend fun awaitIdle() = mutex.withLock { }

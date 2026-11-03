@@ -34,6 +34,7 @@ open class FillinApplication :
         budgets.start()
         if (automaticSyncEnabled) {
             getKoin().get<com.firkat.fillin.feature.profile.data.ProfileDeletionCoordinator>().start()
+            getKoin().get<com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement>().start()
             // Old work has no profile/UID. Its durable queue is preserved and rescheduled below.
             androidx.work.WorkManager.getInstance(this).cancelUniqueWork("operation-history-sync")
             budgets.applicationScope.launch {
@@ -44,6 +45,7 @@ open class FillinApplication :
                 object : DefaultLifecycleObserver {
                     override fun onStart(owner: LifecycleOwner) {
                         getKoin().get<OperationSyncScheduler>().schedule()
+                        getKoin().get<com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement>().schedule()
                     }
                 },
             )

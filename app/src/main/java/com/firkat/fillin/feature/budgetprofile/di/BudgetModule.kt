@@ -129,7 +129,7 @@ val budgetModule = module {
         scoped { OperationSyncRequests(synchronize = {
             val lease = get<ActiveBudgetManager>().acquire(get<BudgetProfile>().syncIdentity)
             if (lease == null) SyncResult.Completed else try {
-                lease.scope.get<OperationsSynchronizer>().synchronize()
+                lease.scope.get<OperationsSynchronizer>().synchronize().also { getKoin().getOrNull<com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement>()?.schedule() }
             } finally { lease.close() }
         }) } onClose { it?.close() }
         scoped<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get<BudgetProfile>().syncIdentity, get()) }

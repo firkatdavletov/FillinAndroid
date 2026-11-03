@@ -14,6 +14,7 @@ class RoomLocalBudgetRestorer(
     private val manager: ActiveBudgetManager,
 ) : LocalBudgetRestorer {
     override suspend fun restoreCreatedBudget(): Boolean = withContext(Dispatchers.IO) {
+        if (registry is com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry && registry.requiresSelection(null)) return@withContext false
         val selected = registry.selected(null)
         val candidates = (listOf(selected) + registry.available(null)).distinctBy { it.id }
         for (profile in candidates) {

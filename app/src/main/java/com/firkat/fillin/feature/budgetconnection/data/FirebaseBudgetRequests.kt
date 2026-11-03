@@ -8,6 +8,8 @@ import retrofit2.Response
 
 /** Tokens are acquired per request and are never persisted in profile or work data. */
 class FirebaseBudgetRequests(private val api: FirebaseBudgetApi?, tokens: FirebaseIdTokenProvider, private val serverAuth: com.firkat.fillin.feature.auth.domain.ServerAuthRepository? = null) {
+    suspend fun rename(uid: String, id: String, request: RenameBudgetDto) = execute(uid) { api, auth -> api.rename(auth, id, request) }
+    suspend fun delete(uid: String, id: String, requestId: String) = execute(uid) { api, auth -> api.delete(auth, id, requestId) }
     suspend fun importLocal(uid: String, request: ImportFirebaseBudgetDto) = execute(uid) { api, auth -> api.importLocal(auth, request) }
     suspend fun create(uid: String, request: CreateFirebaseBudgetDto) = execute(uid) { api, auth -> api.create(auth, request) }
     suspend fun budgets(uid: String) = execute(uid) { api, auth ->

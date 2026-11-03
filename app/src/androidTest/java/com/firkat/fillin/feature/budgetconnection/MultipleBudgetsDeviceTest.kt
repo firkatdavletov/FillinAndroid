@@ -155,6 +155,8 @@ class MultipleBudgetsDeviceTest {
     }
 
     internal class MultiServer : FirebaseBudgetApi {
+        override suspend fun rename(authorization: String, id: String, request: com.firkat.fillin.feature.budgetconnection.data.RenameBudgetDto): retrofit2.Response<com.firkat.fillin.feature.budgetconnection.data.AvailableBudgetDto> = error("Not used in this fixture")
+        override suspend fun delete(authorization: String, id: String, requestId: String): retrofit2.Response<Unit> = error("Not used in this fixture")
         val budgets = linkedMapOf<String, BudgetConnectionDeviceTest.Server>()
         val creations = linkedMapOf<String, Pair<CreateFirebaseBudgetDto, AvailableBudgetDto>>()
         var offline = false

@@ -15,8 +15,14 @@ data class CachedCloudBudget(
 
 @Dao
 interface BudgetCatalogDao {
+    @Query("SELECT * FROM cloud_budget_catalog")
+    fun observe(): kotlinx.coroutines.flow.Flow<List<CachedCloudBudget>>
+
     @Query("SELECT * FROM cloud_budget_catalog WHERE firebaseUid = :uid ORDER BY name, budgetId")
     suspend fun budgets(uid: String): List<CachedCloudBudget>
+
+    @Query("DELETE FROM cloud_budget_catalog WHERE firebaseUid = :uid AND budgetId = :id")
+    suspend fun remove(uid: String, id: String)
 
     @Query("DELETE FROM cloud_budget_catalog WHERE firebaseUid = :uid")
     suspend fun clear(uid: String)
@@ -27,7 +33,13 @@ interface BudgetCatalogDao {
 
 class RoomBudgetCatalogStore(private val database: BudgetProfileDatabase) : BudgetCatalogStore {
     private val dao get() = database.catalog()
-    override suspend fun budgets(uid: String) = dao.budgets(uid).map { AvailableBudget(it.budgetId, it.name, it.memberId, it.role) }
+    override suspend fun budgets(uid: String): List<AvailableBudget> {
+        val pending = database.management().all().filter { it.uid == uid }
+        return dao.budgets(uid).mapNotNull { row ->
+            val changes = pending.filter { it.error != "access_denied" && it.budgetId == row.budgetId }
+            if (changes.any { it.deleting }) null else AvailableBudget(row.budgetId, changes.lastOrNull()?.name ?: row.name, row.memberId, row.role)
+        }
+    }
     override suspend fun replace(uid: String, budgets: List<AvailableBudget>) = database.withTransaction {
         dao.clear(uid)
         budgets.forEach { remember(uid, it) }

@@ -133,6 +133,10 @@ class AppNavigationViewModel(
         }
     }
 
+    fun authenticateFromPicker() { setupActive = false; setupAuth = null; replaceWith(AppRoute.Auth) }
+
+    fun budgetChosen() { setupActive = false; setupAuth = null; openMain() }
+
     fun retryLaunch() { retries.update { it + 1 } }
 
     fun openAuthentication() {

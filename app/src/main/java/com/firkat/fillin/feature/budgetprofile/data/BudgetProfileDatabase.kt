@@ -31,6 +31,9 @@ interface BudgetProfileDao {
     suspend fun allCloud(uid: String): List<BudgetProfileEntity>
     @Query("DELETE FROM local_budget_upload WHERE profileId = :id")
     suspend fun deleteUpload(id: String)
+    @Query("UPDATE budget_profile_selection SET profileId = 'choose-budget' WHERE profileId = :id")
+    suspend fun markSelectionRequired(id: String)
+
     @Query("DELETE FROM budget_profile_selection WHERE profileId = :id")
     suspend fun deleteSelection(id: String)
     @Query("DELETE FROM budget_profiles WHERE id = :id")
@@ -60,8 +63,9 @@ interface BudgetProfileDao {
     suspend fun select(selection: BudgetProfileSelection)
 }
 
-@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class], version = 6, exportSchema = true)
+@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class, com.firkat.fillin.feature.budgetmanagement.data.BudgetManagementEntry::class], version = 7, exportSchema = true)
 abstract class BudgetProfileDatabase : RoomDatabase() {
+    abstract fun management(): com.firkat.fillin.feature.budgetmanagement.data.BudgetManagementDao
     abstract fun profiles(): BudgetProfileDao
     abstract fun creation(): BudgetCreationDao
     abstract fun uploads(): LocalBudgetUploadDao
@@ -98,5 +102,11 @@ val PROFILE_MIGRATION_4_5 = object : Migration(4, 5) {
 val PROFILE_MIGRATION_5_6 = object : Migration(5, 6) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE budget_profiles ADD COLUMN name TEXT")
+    }
+}
+
+val PROFILE_MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS budget_management (requestId TEXT NOT NULL PRIMARY KEY, profileId TEXT NOT NULL, uid TEXT, budgetId TEXT, name TEXT NOT NULL, deleting INTEGER NOT NULL, createdAt INTEGER NOT NULL, error TEXT)")
     }
 }

@@ -165,6 +165,8 @@ class FamilyBudgetDeviceTest {
     }
 
     internal class Server : FirebaseBudgetApi, FirebaseFamilyBudgetApi {
+        override suspend fun rename(authorization: String, id: String, request: com.firkat.fillin.feature.budgetconnection.data.RenameBudgetDto): retrofit2.Response<com.firkat.fillin.feature.budgetconnection.data.AvailableBudgetDto> = error("Not used in this fixture")
+        override suspend fun delete(authorization: String, id: String, requestId: String): retrofit2.Response<Unit> = error("Not used in this fixture")
         val shared = BudgetConnectionDeviceTest.Server().apply {
             budgetName = "Семейный"
             categories = categories + com.firkat.fillin.feature.operationhistory.data.local.LocalCategory(scope.key, UUID.randomUUID().toString(), "Зарплата", "INCOME", "SALARY", "💰", false, 0, "SALARY")

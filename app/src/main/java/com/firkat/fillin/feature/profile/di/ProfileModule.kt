@@ -22,6 +22,7 @@ import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
 val profileModule = module {
+    single { com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement(androidContext(), get(), get(), get(), get(), get(), get(), get(), refreshCatalog = { uid -> get<BudgetConnectionRepository>().budgets(uid) }) }
     single<DeletionStore> { EncryptedDeletionStore(androidContext()) }
     single { AccountCloudEraser(androidContext(), get(), get()) }
     single {
@@ -38,13 +39,15 @@ val profileModule = module {
             check(auth.currentUser?.uid == uid)
             requireNotNull(token)
         }, pause = { uid ->
+            get<com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement>().pause(uid)
             get<AccountCloudEraser>().pause(uid)
             (get<BudgetCreationRepository>() as FirebaseBudgetCreationRepository).awaitIdle()
             (get<BudgetConnectionRepository>() as RoomBudgetConnectionRepository).awaitIdle()
             (get<LocalBudgetUploadRepository>() as RoomLocalBudgetUploadRepository).awaitIdle()
         }, erase = { uid -> get<AccountCloudEraser>().erase(uid) })
     }
-    single<ProfileBudgetsRepository> { RoomProfileBudgetsRepository(get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<ProfileBudgetsRepository> { RoomProfileBudgetsRepository(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { ProfileDeletionViewModel(get(), get()) }
+    viewModel { com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel(get(), get()) }
     viewModel { ProfileViewModel(get(), get(), get()) }
 }
