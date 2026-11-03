@@ -9,7 +9,6 @@ import org.koin.compose.koinInject
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -17,6 +16,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.DeleteOutline
+import com.firkat.fillin.ui.component.AccountIdentity
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,7 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.auth.domain.AuthUser
@@ -106,7 +106,6 @@ fun ProfileRoute(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     state: ProfileUiState,
@@ -129,30 +128,29 @@ fun ProfileScreen(
         modifier = modifier.testTag("profile_screen"),
         containerColor = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.navigation_profile), Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleLarge) },
-                actions = {
-                    if (user != null) IconButton(onClick = onAccountClick, enabled = !authBusy) {
-                        Icon(Icons.AutoMirrored.Outlined.Logout, stringResource(R.string.auth_sign_out), Modifier.size(20.dp))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-            )
-        },
     ) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-                .verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(top = 24.dp, bottom = 32.dp),
+                .verticalScroll(rememberScrollState()).padding(horizontal = 18.dp).padding(top = 16.dp, bottom = 32.dp),
         ) {
+            Text(stringResource(R.string.navigation_profile), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(20.dp))
             if (user != null) {
-                ProfileAccount(user.displayName, user.email)
-                TextButton(onClick = onMethodsClick) { Text(stringResource(if (user.emailVerified) R.string.email_methods else R.string.email_verify)) }
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp)) {
+                    ProfileAccount(user.displayName, user.email, Modifier.padding(16.dp))
+                    HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    Surface(onClick = onMethodsClick, enabled = !authBusy, color = MaterialTheme.colorScheme.surface) {
+                        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(if (user.emailVerified) R.string.email_methods else R.string.email_verify), Modifier.weight(1f), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
+                            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
+                        }
+                    }
+                }
             } else {
                 PrimaryButton(stringResource(R.string.profile_sign_in), onAccountClick, Modifier.fillMaxWidth(), enabled = !authBusy, isLoading = authBusy)
             }
-            Spacer(Modifier.height(48.dp))
-            Text(stringResource(R.string.profile_budgets), style = MaterialTheme.typography.titleMedium, fontSize = 18.sp, fontWeight = FontWeight.Normal)
+            Spacer(Modifier.height(20.dp))
+            Text(stringResource(R.string.profile_budgets), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))
             if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("profile_loading"))
             state.budgets.forEachIndexed { index, budget ->
@@ -173,7 +171,7 @@ fun ProfileScreen(
                 Text(state.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
                 TextButton(onClick = onRetry, enabled = !state.busy) { Text(stringResource(R.string.budget_profile_retry)) }
             }
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(20.dp))
             ProfileSettingRow(
                 title = stringResource(R.string.navigation_categories),
                 subtitle = stringResource(R.string.profile_categories_subtitle),
@@ -197,8 +195,11 @@ fun ProfileScreen(
             Spacer(Modifier.height(32.dp))
             if (deletionState.phase != DeletionPhase.Idle) deletionContent()
             if (user != null && deletionState.phase in setOf(DeletionPhase.Idle, DeletionPhase.Completed)) {
-                TextButton(onClick = onDeleteClick, enabled = !authBusy && !state.busy, modifier = Modifier.fillMaxWidth().testTag("delete_profile"),
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.profile_delete)) }
+                Text(stringResource(R.string.profile_account_management), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(12.dp))
+                ProfileAccountAction(stringResource(R.string.auth_sign_out), false, !authBusy && !state.busy, onAccountClick)
+                Spacer(Modifier.height(8.dp))
+                ProfileAccountAction(stringResource(R.string.profile_delete), true, !authBusy && !state.busy, onDeleteClick, Modifier.testTag("delete_profile"))
             }
         }
     }
@@ -206,17 +207,7 @@ fun ProfileScreen(
 
 @Composable
 private fun ProfileAccount(name: String?, email: String?, modifier: Modifier = Modifier) {
-    val displayName = name?.takeIf(String::isNotBlank) ?: email?.takeIf(String::isNotBlank) ?: stringResource(R.string.email_methods)
-    val initials = displayName.trim().split(Regex("\\s+")).take(2).mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(48.dp)) {
-            Box(contentAlignment = Alignment.Center) { Text(initials, style = MaterialTheme.typography.bodyMedium) }
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(displayName, style = MaterialTheme.typography.titleMedium, fontSize = 20.sp, fontWeight = FontWeight.Normal)
-            email?.takeIf(String::isNotBlank)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-        }
-    }
+    AccountIdentity(name, email, modifier)
 }
 
 @Composable
@@ -233,7 +224,7 @@ private fun ProfileBudgetCard(
         enabled = enabled,
         modifier = modifier.semantics { this.selected = selected; role = Role.RadioButton },
         shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
         colors = CardDefaults.outlinedCardColors(
             containerColor = if (selected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface,
@@ -241,7 +232,7 @@ private fun ProfileBudgetCard(
     ) {
         Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(name, style = MaterialTheme.typography.bodyLarge)
+                Text(name, style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(if (family) R.string.profile_family_budget else R.string.profile_personal_budget), style = MaterialTheme.typography.bodySmall)
             }
             Icon(
@@ -255,15 +246,26 @@ private fun ProfileBudgetCard(
 
 @Composable
 private fun ProfileSettingRow(title: String, subtitle: String, icon: Painter, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(12.dp)) {
-        Row(Modifier.heightIn(min = 64.dp).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(44.dp)) {
-                Box(contentAlignment = Alignment.Center) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.wrapContentSize()) }
-            }
+    Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp)) {
+        Row(Modifier.heightIn(min = 72.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall)
             }
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
+        }
+    }
+}
+
+@Composable
+private fun ProfileAccountAction(title: String, destructive: Boolean, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(onClick = onClick, enabled = enabled, modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        color = if (destructive) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surface,
+        contentColor = if (destructive) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface) {
+        Row(Modifier.heightIn(min = 64.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Icon(if (destructive) Icons.Outlined.DeleteOutline else Icons.AutoMirrored.Outlined.Logout, null)
+            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
         }
     }
@@ -362,6 +364,8 @@ private fun ProfileCloudSettingPreview() { FillinTheme { ProfileSettingRow(strin
 private fun ProfileGuestPreview() { FillinTheme { ProfileScreen(previewProfileState(), null, false, {}, {}, {}, {}, {}, {}, {}) } }
 
 @Preview(name = "Profile account", widthDp = 393, heightDp = 760)
+@Preview(name = "Profile account dark", widthDp = 393, heightDp = 760, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Profile large font", widthDp = 320, heightDp = 760, fontScale = 2f)
 @Composable
 private fun ProfileAuthenticatedPreview() { FillinTheme { ProfileScreen(previewProfileState(), AuthUser("preview", "Анна Иванова", "anna@example.com"), false, {}, {}, {}, {}, {}, {}, {}) } }
 
@@ -402,3 +406,10 @@ private fun ProfileBudgetExpandedPreview() { FillinTheme { ProfileBudgetCard("Н
 private fun previewProfileState() = ProfileUiState(loading = false, budgets = listOf(
     ProfileBudget("family", "Основной бюджет", true, true), ProfileBudget("local", "Накопления", false, false),
 ))
+
+@Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable private fun SignOutActionPreview() { FillinTheme { ProfileAccountAction(stringResource(R.string.auth_sign_out), false, true, {}) } }
+@Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable private fun DeleteActionPreview() { FillinTheme { ProfileAccountAction(stringResource(R.string.profile_delete), true, true, {}) } }
+@Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable private fun DisabledAccountActionsPreview() { FillinTheme { Column { ProfileAccountAction(stringResource(R.string.auth_sign_out), false, false, {}); ProfileAccountAction(stringResource(R.string.profile_delete), true, false, {}) } } }

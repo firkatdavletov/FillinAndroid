@@ -28,6 +28,11 @@ internal fun EmailAuthContent(
     onLocal: () -> Unit, onSignOut: () -> Unit, onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (page == EmailPage.Methods) {
+        AccountMethodsContent(user, busy, error, notice, onGoogle = { onGoogle(false) },
+            onAddPassword = { onPage(EmailPage.AddPassword) }, onVerify = { onPage(EmailPage.Verify) }, onBack = onBack, modifier = modifier)
+        return
+    }
     Column(modifier.fillMaxSize().systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp).testTag("email_auth"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TextButton(onClick = onBack, enabled = !busy) { Text(stringResource(R.string.email_back)) }
         Text(stringResource(when (page) {
@@ -50,16 +55,7 @@ internal fun EmailAuthContent(
                 TextButton(onClick = onLocal, enabled = !busy) { Text(stringResource(R.string.email_local)) }
                 TextButton(onClick = onSignOut, enabled = !busy) { Text(stringResource(R.string.auth_sign_out)) }
             }
-            EmailPage.Methods -> {
-                Text(user?.email.orEmpty())
-                TextButton(onClick = { onPage(EmailPage.Reauthenticate) }, enabled = !busy) { Text(stringResource(R.string.email_reauthenticate)) }
-                TextButton(onClick = onSignOut, enabled = !busy) { Text(stringResource(R.string.auth_sign_out)) }
-                Text(stringResource(if (user?.providers?.contains("google.com") == true) R.string.email_google_connected else R.string.email_google_missing))
-                Text(stringResource(if (user?.providers?.contains("password") == true) R.string.email_password_connected else R.string.email_password_missing))
-                if (user?.emailVerified == false) TextButton(onClick = { onPage(EmailPage.Verify) }) { Text(stringResource(R.string.email_verify)) }
-                if (user?.providers?.contains("password") != true) Button(onClick = { onPage(EmailPage.AddPassword) }, enabled = !busy) { Text(stringResource(R.string.email_add_password)) }
-                if (user?.providers?.contains("google.com") != true) Button(onClick = { onGoogle(false) }, enabled = !busy) { Text(stringResource(R.string.email_link_google)) }
-            }
+
             else -> {
                 if (page in setOf(EmailPage.Login, EmailPage.Register, EmailPage.Reset)) OutlinedTextField(email, onEmail, label = { Text(stringResource(R.string.email_address)) }, singleLine = true, enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), isError = error == AuthError.InvalidEmail, modifier = Modifier.fillMaxWidth().testTag("email_input"))
                 else Text(user?.email.orEmpty())

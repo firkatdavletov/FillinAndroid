@@ -35,4 +35,7 @@
     <string name="email_too_many">Слишком много попыток. Повторите позже.</string>
     <string name="email_mismatch">Выберите Google-аккаунт с тем же email.</string>
     <string name="email_reauthenticate">Повторить вход</string>
+    <string name="email_google_same_email_hint">Можно подключить только Google-аккаунт с тем же email</string>
+    <string name="email_password_method">Вход по паролю</string>
+    <string name="email_google_provider">Google</string>
 </resources>

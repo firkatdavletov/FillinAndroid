@@ -1,6 +1,12 @@
 package com.firkat.fillin.feature.profile
 
 import android.graphics.Bitmap
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
@@ -49,10 +55,43 @@ class ProfileScreenTest {
         assertEquals(1, cloud)
     }
 
+    @Test fun profileMethodsAndAccountActionsDispatch() {
+        var methods = 0
+        var signOut = 0
+        var deletion = 0
+        compose.setContent { FillinTheme(darkTheme = true) {
+            ProfileScreen(profileState(), USER, false, { signOut++ }, {}, {}, {}, {}, {}, {},
+                onMethodsClick = { methods++ }, onDeleteClick = { deletion++ })
+        } }
+        compose.onNodeWithText("Способы входа").performClick()
+        assertEquals(1, methods)
+        snapshot("profile-account-dark")
+        compose.onNodeWithText("Выйти из аккаунта").performScrollTo().performClick()
+        compose.onNodeWithTag("delete_profile").performScrollTo().performClick()
+        assertEquals(1, signOut)
+        assertEquals(1, deletion)
+        snapshot("profile-management-dark")
+    }
+
+    @Test fun narrowLargeFontKeepsProfileActionsReachable() {
+        var signOut = 0
+        compose.setContent { FillinTheme {
+            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
+                ProfileScreen(profileState(), USER.copy(displayName = "Анна Александровна Иванова", email = "anna.alexandrovna@example.com"), false,
+                    { signOut++ }, {}, {}, {}, {}, {}, {}, modifier = Modifier.requiredWidth(320.dp))
+            }
+        } }
+        snapshot("profile-large-font-light")
+        compose.onNodeWithText("Выйти из аккаунта").performScrollTo().assertIsDisplayed().performClick()
+        assertEquals(1, signOut)
+    }
+
     @Test fun guestCanSignInAndHasNoSignOutAction() {
         var signIn = 0
         compose.setContent { FillinTheme { ProfileScreen(profileState(), null, false, { signIn++ }, {}, {}, {}, {}, {}, {}) } }
-        compose.onNodeWithContentDescription("Выйти из аккаунта").assertDoesNotExist()
+        compose.onNodeWithText("Выйти из аккаунта").assertDoesNotExist()
+        compose.onNodeWithText("Управление аккаунтом").assertDoesNotExist()
+        compose.onNodeWithTag("delete_profile").assertDoesNotExist()
         compose.onNodeWithText("Авторизоваться").performClick()
         assertEquals(1, signIn)
         snapshot("profile-guest")
@@ -101,7 +140,10 @@ class ProfileScreenTest {
 
     private fun snapshot(name: String) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val file = File(context.getExternalFilesDir("profile-redesign"), "$name.png")
+        val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
+            ?: context.getExternalFilesDir("profile-redesign")!!
+        directory.mkdirs()
+        val file = File(directory, "$name.png")
         file.outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
