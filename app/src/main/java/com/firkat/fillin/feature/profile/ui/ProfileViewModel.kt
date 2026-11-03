@@ -23,6 +23,7 @@ import java.time.ZoneId
 
 data class ProfileUiState(
     val budgets: List<ProfileBudget> = emptyList(),
+    val expandedBudgetId: String? = null,
     val loading: Boolean = true,
     val busy: Boolean = false,
     val error: String? = null,
@@ -47,13 +48,13 @@ class ProfileViewModel(
             reload.collectLatest {
                 budgets.observe().catch { failure ->
                     mutableState.update { it.copy(loading = false, error = setupError(failure as? Exception ?: Exception(failure))) }
-                }.collect { rows -> mutableState.update { it.copy(budgets = rows, loading = false) } }
+                }.collect { rows -> mutableState.update { it.copy(budgets = rows, loading = false, expandedBudgetId = it.expandedBudgetId?.takeIf { id -> rows.any { row -> row.id == id && row.canManage } }) } }
             }
         }
         viewModelScope.launch {
             auth.session.collectLatest { session ->
                 action?.cancel()
-                mutableState.update { it.copy(budgets = emptyList(), loading = true, creation = null, pendingCreation = false, busy = false, error = null, cloudAllowed = session is AuthSession.Authenticated) }
+                mutableState.update { it.copy(expandedBudgetId = null, budgets = emptyList(), loading = true, creation = null, pendingCreation = false, busy = false, error = null, cloudAllowed = session is AuthSession.Authenticated) }
                 if (session != AuthSession.Loading) refresh()
             }
         }
@@ -71,7 +72,17 @@ class ProfileViewModel(
         }
     }
 
+    fun closeBudgetActions() { mutableState.update { it.copy(expandedBudgetId = null) } }
+
+    fun toggleBudgetActions(id: String) {
+        mutableState.update { state ->
+            if (state.busy || state.budgets.none { it.id == id && it.canManage }) state
+            else state.copy(expandedBudgetId = id.takeUnless { state.expandedBudgetId == id })
+        }
+    }
+
     fun selectBudget(id: String) {
+        closeBudgetActions()
         if (state.value.budgets.none { it.id == id && !it.selected }) return
         perform { budgets.select(id) }
     }

@@ -76,6 +76,28 @@ class ProfileViewModelTest {
         assertNull(model.state.value.creation)
     }
 
+    @Test fun `budget actions toggle exclusively without selecting and close when removed`() = runTest {
+        val budgets = Budgets()
+        val model = model(budgets)
+        runCurrent()
+        val manageable = model.state.value.budgets.filter { it.canManage }
+        val id = manageable.first().id
+        model.toggleBudgetActions(id)
+        assertEquals(id, model.state.value.expandedBudgetId)
+        assertTrue(budgets.selections.isEmpty())
+        model.toggleBudgetActions(id)
+        assertNull(model.state.value.expandedBudgetId)
+        model.toggleBudgetActions(id)
+        manageable.lastOrNull()?.let { last ->
+            model.toggleBudgetActions(last.id)
+            assertEquals(if (last.id == id) null else last.id, model.state.value.expandedBudgetId)
+        }
+        model.toggleBudgetActions(id)
+        budgets.rows.value = emptyList()
+        runCurrent()
+        assertNull(model.state.value.expandedBudgetId)
+    }
+
     private fun model(budgets: Budgets = Budgets(), auth: Auth = Auth(), creation: Creation = Creation()) =
         ProfileViewModel(budgets, auth, creation).also { store.put("profile", it) }
 

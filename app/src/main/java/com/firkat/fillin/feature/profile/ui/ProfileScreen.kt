@@ -43,6 +43,7 @@ import com.firkat.fillin.ui.component.PrimaryButton
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.icon.FillinIcons
 import com.firkat.fillin.feature.budgetmanagement.ui.*
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.DeleteOutline
 import org.koin.compose.viewmodel.koinViewModel
@@ -89,7 +90,11 @@ fun ProfileRoute(
         }
     }
     ProfileScreen(
-        onManageBudget = management::open,
+        onManageBudget = { id, name, deleting ->
+            viewModel.closeBudgetActions()
+            management.open(id, name, deleting, state.budgets.firstOrNull { it.id == id }?.family == true)
+        },
+        onBudgetActionsClick = viewModel::toggleBudgetActions,
         managementContent = { pendingDeletions.forEach { PendingBudgetDeletion(it.name, it.error != null && it.error != "sending", management::retry, sending = it.error == "sending", denied = it.error == "access_denied") } },
         deletionState = deletionState,
         onDeleteClick = deletionViewModel::open,
@@ -147,6 +152,7 @@ fun ProfileScreen(
     deletionContent: @Composable () -> Unit = {},
     onManageBudget: (String, String, Boolean) -> Unit = { _, _, _ -> },
     managementContent: @Composable () -> Unit = {},
+    onBudgetActionsClick: (String) -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.testTag("profile_screen"),
@@ -175,12 +181,15 @@ fun ProfileScreen(
             }
             Spacer(Modifier.height(20.dp))
             Text(stringResource(R.string.profile_budgets), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.budget_manage_selection_hint), style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(12.dp))
             if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("profile_loading"))
             state.budgets.forEachIndexed { index, budget ->
                 val displayName = budget.name ?: if (budget.family) stringResource(R.string.profile_family_budget_name) else stringResource(R.string.profile_local_budget_name, state.budgets.take(index + 1).count { !it.family })
                 ProfileBudgetCard(
                     name = displayName,
+                    expanded = state.expandedBudgetId == budget.id,
+                    onActionsClick = { onBudgetActionsClick(budget.id) },
                     canManage = budget.canManage,
                     pendingRename = budget.pendingRename,
                     onRename = { onManageBudget(budget.id, displayName, false) },
@@ -252,6 +261,8 @@ private fun ProfileBudgetCard(
     pendingRename: Boolean = false,
     onRename: () -> Unit = {},
     onRemove: () -> Unit = {},
+    expanded: Boolean = false,
+    onActionsClick: () -> Unit = {},
 ) {
     OutlinedCard(
         onClick = onClick,
@@ -265,20 +276,36 @@ private fun ProfileBudgetCard(
         ),
     ) {
         Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Icon(if (family) FillinIcons.FamilyAccess else FillinIcons.Wallet, null, tint = MaterialTheme.colorScheme.primary)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
+                if (selected) Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small) {
+                    Text(stringResource(R.string.budget_manage_current), Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall)
+                }
                 if (pendingRename) Text(stringResource(R.string.budget_manage_pending_rename), style = MaterialTheme.typography.bodySmall)
                 Text(stringResource(if (family) R.string.profile_family_budget else R.string.profile_personal_budget), style = MaterialTheme.typography.bodySmall)
             }
-            if (canManage) {
-                IconButton(onClick = onRename, enabled = enabled) { Icon(Icons.Outlined.Edit, stringResource(R.string.budget_manage_rename)) }
-                IconButton(onClick = onRemove, enabled = enabled) { Icon(Icons.Outlined.DeleteOutline, stringResource(R.string.budget_manage_delete)) }
+            if (selected) {
+                Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
             }
-            Icon(
-                imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                contentDescription = null,
-                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-            )
+            if (canManage) IconButton(onClick = onActionsClick, enabled = enabled) {
+                Icon(Icons.Filled.MoreVert, stringResource(R.string.budget_manage_actions))
+            }
+        }
+        if (canManage && expanded) {
+            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+            androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(onClick = onRename, enabled = enabled) {
+                    Icon(Icons.Outlined.Edit, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.budget_manage_edit_action))
+                }
+                TextButton(onClick = onRemove, enabled = enabled, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Icon(Icons.Outlined.DeleteOutline, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.budget_manage_delete_action))
+                }
+            }
         }
     }
 }
@@ -472,3 +499,9 @@ internal fun BudgetPickerRoute(onSignIn: () -> Unit = {}, viewModel: ProfileView
     }
     state.creation?.let { draft -> ProfileBudgetCreationDialog(draft, state.busy, state.pendingCreation, state.error, viewModel::editCreation, viewModel::createCloud, viewModel::createLocal, viewModel::closeCreation, signedIn = state.cloudAllowed) }
 }
+
+@Preview(name = "Budget actions")
+@Preview(name = "Budget actions dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Budget actions compact", widthDp = 320, fontScale = 2f)
+@Preview(name = "Budget actions wide", widthDp = 840)
+@Composable private fun ProfileBudgetActionsPreview() { FillinTheme { ProfileBudgetCard("Большой семейный бюджет", true, true, true, {}, canManage = true, expanded = true) } }

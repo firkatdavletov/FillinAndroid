@@ -20,13 +20,17 @@ import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement
 import com.firkat.fillin.feature.budgetmanagement.domain.validBudgetName
-import com.firkat.fillin.ui.component.SaldomiBottomSheet
+import com.firkat.fillin.ui.component.*
+import com.firkat.fillin.ui.icon.FillinIcons
+import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeleteOutline
 import com.firkat.fillin.ui.theme.FillinTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-data class BudgetManagementState(val id: String, val name: String, val deleting: Boolean, val value: String, val busy: Boolean = false, val error: Boolean = false)
+data class BudgetManagementState(val id: String, val name: String, val deleting: Boolean, val value: String, val busy: Boolean = false, val error: Boolean = false, val family: Boolean = false)
 class BudgetManagementViewModel(private val management: BudgetManagement, auth: AuthRepository) : ViewModel() {
     private val mutableState = MutableStateFlow<BudgetManagementState?>(null)
     val state = mutableState.asStateFlow()
@@ -35,7 +39,7 @@ class BudgetManagementViewModel(private val management: BudgetManagement, auth: 
         entries.filter { (it.deleting || it.error == "access_denied") && (it.uid == null || it.uid == uid) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     init { viewModelScope.launch { auth.session.collect { mutableState.value = null } } }
-    fun open(id: String, name: String, deleting: Boolean) { mutableState.value = BudgetManagementState(id, name, deleting, if (deleting) "" else name) }
+    fun open(id: String, name: String, deleting: Boolean, family: Boolean = false) { mutableState.value = BudgetManagementState(id, name, deleting, if (deleting) "" else name, family = family) }
     fun change(value: String) { mutableState.value?.takeUnless { it.busy }?.let { mutableState.value = it.copy(value = value, error = false) } }
     fun close() { if (mutableState.value?.busy != true) mutableState.value = null }
     fun retry() = management.retry()
@@ -55,24 +59,37 @@ class BudgetManagementViewModel(private val management: BudgetManagement, auth: 
 internal fun BudgetManagementSheet(state: BudgetManagementState, onChange: (String) -> Unit, onConfirm: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     SaldomiBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            Text(stringResource(if (state.deleting) R.string.budget_manage_delete else R.string.budget_manage_rename), style = MaterialTheme.typography.headlineSmall)
             if (state.deleting) {
-                Text(state.name, style = MaterialTheme.typography.titleLarge)
-                Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium) {
-                    Text(stringResource(R.string.budget_manage_warning), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+                Surface(modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.large) {
+                    Icon(Icons.Outlined.DeleteOutline, null, Modifier.padding(20.dp).size(36.dp), tint = MaterialTheme.colorScheme.error)
                 }
             }
-            OutlinedTextField(value = state.value, onValueChange = onChange, enabled = !state.busy, singleLine = true,
-                label = { Text(stringResource(if (state.deleting) R.string.budget_manage_confirm_name else R.string.cloud_budget_name)) }, modifier = Modifier.fillMaxWidth().testTag("budget_management_input"))
+            Text(stringResource(if (state.deleting) R.string.budget_manage_delete_title else R.string.budget_manage_rename), style = MaterialTheme.typography.headlineSmall)
+            if (!state.deleting) Text(stringResource(R.string.budget_manage_edit_description), style = MaterialTheme.typography.bodyMedium)
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Icon(if (state.family) FillinIcons.FamilyAccess else FillinIcons.Wallet, null, tint = MaterialTheme.colorScheme.primary)
+                    Column {
+                        Text(state.name, style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(if (state.family) R.string.profile_family_budget else R.string.profile_personal_budget), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+            if (state.deleting) {
+                Text(stringResource(R.string.budget_manage_warning), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            }
+            SaldomiTextField(value = state.value, onValueChange = onChange, enabled = !state.busy,
+                label = stringResource(if (state.deleting) R.string.budget_manage_confirm_name else R.string.cloud_budget_name), modifier = Modifier.fillMaxWidth().testTag("budget_management_input"))
+            if (!state.deleting) {
+                ListItem(headlineContent = { Text(stringResource(R.string.budget_manage_type)) }, trailingContent = { Text(stringResource(if (state.family) R.string.budget_manage_family else R.string.budget_manage_personal)) })
+                ListItem(headlineContent = { Text(stringResource(R.string.budget_manage_currency)) }, trailingContent = { Text(stringResource(R.string.budget_manage_kzt)) }, leadingContent = { Icon(FillinIcons.Currency, null) })
+            }
             if (state.error) Text(stringResource(R.string.budget_manage_error), color = MaterialTheme.colorScheme.error)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FilledTonalButton(onClick = onDismiss, enabled = !state.busy, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.profile_delete_cancel)) }
-                Button(onClick = onConfirm, modifier = Modifier.weight(1f).testTag("budget_management_confirm"),
-                    enabled = !state.busy && if (state.deleting) state.value.trim() == state.name.trim() else validBudgetName(state.value),
-                    colors = if (state.deleting) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()) {
-                    Text(stringResource(if (state.deleting) R.string.budget_manage_delete else R.string.budget_manage_save))
-                }
+            SaldomiButton(onClick = onConfirm, modifier = Modifier.fillMaxWidth().testTag("budget_management_confirm"), large = true, isLoading = state.busy, destructive = state.deleting,
+                enabled = !state.busy && if (state.deleting) state.value.trim() == state.name.trim() else validBudgetName(state.value)) {
+                Text(stringResource(if (state.deleting) R.string.budget_manage_delete else R.string.budget_manage_save))
             }
+            SaldomiOutlinedButton(onClick = onDismiss, enabled = !state.busy, large = true, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.profile_delete_cancel)) }
         }
     }
 }

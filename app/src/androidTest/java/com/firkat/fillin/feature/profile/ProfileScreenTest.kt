@@ -34,6 +34,31 @@ import java.io.File
 class ProfileScreenTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun budgetActionsDoNotSelectAndDispatchBothForms() {
+        var selected = 0
+        val actions = mutableListOf<Boolean>()
+        val state = mutableStateOf(ProfileUiState(loading = false, budgets = listOf(
+            ProfileBudget("one", "Дом", false, true),
+            ProfileBudget("two", "Поездка", false, false),
+            ProfileBudget("shared", "Общий", true, false, canManage = false),
+        )))
+        compose.setContent { FillinTheme {
+            ProfileScreen(state.value, null, false, {}, { selected++ }, {}, {}, {}, {}, {},
+                onBudgetActionsClick = { id -> state.value = state.value.copy(expandedBudgetId = id.takeUnless { state.value.expandedBudgetId == id }) },
+                onManageBudget = { _, _, deleting -> actions.add(deleting) })
+        } }
+        compose.onAllNodesWithContentDescription("Действия с бюджетом").assertCountEquals(2)
+        compose.onAllNodesWithContentDescription("Действия с бюджетом")[0].performClick()
+        compose.onNodeWithText("Редактировать").performClick()
+        compose.onNodeWithText("Удалить").performClick()
+        assertEquals(listOf(false, true), actions)
+        assertEquals(0, selected)
+        compose.onAllNodesWithContentDescription("Действия с бюджетом")[1].performClick()
+        compose.onAllNodesWithText("Редактировать").assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("Действия с бюджетом")[1].performClick()
+        compose.onNodeWithText("Редактировать").assertDoesNotExist()
+    }
+
     @Test fun profileDisplaysAccountAndSelectionAndDispatchesActions() {
         var selected: String? = null
         var family = 0

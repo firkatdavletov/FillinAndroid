@@ -24,4 +24,17 @@ class BudgetManagementUiTest {
         compose.onNodeWithTag("budget_management_confirm").assertIsEnabled().performClick()
         compose.runOnIdle { assertTrue(confirmed) }
     }
+    @Test fun renameValidationAndBusyState() {
+        val state = mutableStateOf(BudgetManagementState("1", "Семья", false, ""))
+        compose.setContent { FillinTheme { BudgetManagementSheet(state.value, { state.value = state.value.copy(value = it) }, {}, {}) } }
+        compose.onNodeWithTag("budget_management_confirm").assertIsNotEnabled()
+        compose.onNodeWithTag("budget_management_input").performTextInput("Дом")
+        compose.onNodeWithTag("budget_management_confirm").assertIsEnabled()
+        compose.runOnIdle { state.value = state.value.copy(busy = true) }
+        compose.onNodeWithTag("budget_management_confirm").assertIsNotEnabled()
+        compose.onNodeWithTag("budget_management_input").assertIsNotEnabled()
+        compose.runOnIdle { state.value = state.value.copy(busy = false, error = true) }
+        compose.onNodeWithTag("budget_management_input").assertTextContains("Дом")
+        compose.onNodeWithTag("budget_management_confirm").assertIsEnabled()
+    }
 }

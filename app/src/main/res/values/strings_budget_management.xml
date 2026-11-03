@@ -1,5 +1,5 @@
 <resources>
-    <string name="budget_manage_rename">Переименовать бюджет</string>
+    <string name="budget_manage_rename">Редактировать бюджет</string>
     <string name="budget_manage_delete">Удалить бюджет</string>
     <string name="budget_manage_save">Сохранить</string>
     <string name="budget_manage_confirm_name">Введите название бюджета</string>
@@ -10,4 +10,16 @@
     <string name="budget_manage_pick">Выберите бюджет</string>
     <string name="budget_manage_sending">Отправляем удаление на сервер…</string>
     <string name="budget_manage_denied">Действие отклонено: права на бюджет изменились. Данные восстановлены с сервера.</string>
+    <string name="budget_manage_selection_hint">Нажмите на бюджет, чтобы сделать его текущим</string>
+    <string name="budget_manage_current">Текущий</string>
+    <string name="budget_manage_actions">Действия с бюджетом</string>
+    <string name="budget_manage_edit_action">Редактировать</string>
+    <string name="budget_manage_delete_action">Удалить</string>
+    <string name="budget_manage_delete_title">Удалить бюджет?</string>
+    <string name="budget_manage_edit_description">Измените название бюджета</string>
+    <string name="budget_manage_type">Тип бюджета</string>
+    <string name="budget_manage_currency">Валюта</string>
+    <string name="budget_manage_family">Семейный</string>
+    <string name="budget_manage_personal">Личный</string>
+    <string name="budget_manage_kzt">KZT</string>
 </resources>

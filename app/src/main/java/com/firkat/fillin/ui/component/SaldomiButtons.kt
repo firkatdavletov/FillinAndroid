@@ -20,10 +20,12 @@ fun SaldomiButton(
     enabled: Boolean = true,
     large: Boolean = false,
     isLoading: Boolean = false,
+    destructive: Boolean = false,
     leadingIcon: Painter? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     Button(
+        colors = if (destructive) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError) else ButtonDefaults.buttonColors(),
         onClick = onClick,
         modifier = if (large) modifier.heightIn(min = 56.dp) else modifier,
         enabled = enabled && !isLoading,
@@ -110,3 +112,10 @@ private fun DisabledOutlinedButtonPreview() { FillinTheme { SaldomiOutlinedButto
 @Composable private fun LargeOutlinedButtonLoadingPreview() { FillinTheme { SaldomiOutlinedButton({}, large = true, isLoading = true) { Text("Создать бюджет") } } }
 @Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
 @Composable private fun LargeOutlinedButtonDisabledPreview() { FillinTheme { SaldomiOutlinedButton({}, large = true, enabled = false) { Text("Вступить в семейный бюджет") } } }
+
+@Preview(name = "Destructive") @Preview(name = "Destructive dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun DestructiveButtonPreview() { FillinTheme { SaldomiButton({}, large = true, destructive = true) { Text(androidx.compose.ui.res.stringResource(com.firkat.fillin.R.string.budget_manage_delete)) } } }
+@Preview(name = "Destructive disabled")
+@Composable private fun DestructiveDisabledPreview() { FillinTheme { SaldomiButton({}, enabled = false, large = true, destructive = true) { Text(androidx.compose.ui.res.stringResource(com.firkat.fillin.R.string.budget_manage_delete)) } } }
+@Preview(name = "Destructive loading")
+@Composable private fun DestructiveLoadingPreview() { FillinTheme { SaldomiButton({}, isLoading = true, large = true, destructive = true) { Text(androidx.compose.ui.res.stringResource(com.firkat.fillin.R.string.budget_manage_delete)) } } }
