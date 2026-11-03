@@ -33,6 +33,7 @@ open class FillinApplication :
         val budgets = getKoin().get<ActiveBudgetManager>()
         budgets.start()
         if (automaticSyncEnabled) {
+            getKoin().get<com.firkat.fillin.feature.profile.data.ProfileDeletionCoordinator>().start()
             // Old work has no profile/UID. Its durable queue is preserved and rescheduled below.
             androidx.work.WorkManager.getInstance(this).cancelUniqueWork("operation-history-sync")
             budgets.applicationScope.launch {

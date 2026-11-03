@@ -19,6 +19,7 @@ class FirebaseBudgetCreationRepository(
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
 ) : BudgetCreationRepository {
     private val mutex = Mutex()
+    suspend fun awaitIdle() = mutex.withLock { }
     override suspend fun pending(uid: String): PendingBudgetCreation? {
         requests.ensureCurrent(uid)
         return store.pending(uid).also { requests.ensureCurrent(uid) }

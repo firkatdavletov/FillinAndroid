@@ -32,7 +32,7 @@ val budgetConnectionModule = module {
     viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(get(), get(), dispatcher = kotlinx.coroutines.Dispatchers.IO) }
     viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(get()) }
     single<BudgetCatalogStore> { RoomBudgetCatalogStore(get()) }
-    single<BudgetConnectionRepository> { RoomBudgetConnectionRepository(get(), get(), get(), get(), get(), get(), get()) }
+    single<BudgetConnectionRepository> { RoomBudgetConnectionRepository(get(), get(), get(), get(), get(), get(), get(), eraseMissing = { uid, retained -> get<com.firkat.fillin.feature.profile.data.AccountCloudEraser>().erase(uid, retained) }) }
     single<BudgetCreationStore> { RoomBudgetCreationStore(get()) }
     single<BudgetCreationRepository> { FirebaseBudgetCreationRepository(get(), get(), get()) }
     single<com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore> { com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadStore(get()) }

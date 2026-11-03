@@ -50,7 +50,7 @@ val appModule =
             com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry(get(), BuildConfig.API_BASE_URL)
         }
         single {
-            com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager(get(), get(), getKoin()) { identity ->
+            com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager(get(), get(), getKoin(), blocked = { uid -> get<com.firkat.fillin.feature.profile.domain.DeletionStore>().blocked(uid) }) { identity ->
                 androidx.work.WorkManager.getInstance(androidContext()).cancelUniqueWork(com.firkat.fillin.feature.budgetprofile.data.BudgetWorkIdentity.uniqueName(identity))
             }
         } onClose { it?.close() }

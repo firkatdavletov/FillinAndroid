@@ -1,0 +1,14 @@
+<resources>
+    <string name="profile_delete">Удалить профиль</string>
+    <string name="profile_delete_warning">Аккаунт и все ваши облачные бюджеты будут удалены без возможности восстановления. Общие бюджеты, которыми вы владеете, будут удалены для всех участников. В чужих бюджетах ваши операции и их описания останутся в общей истории. Автономные бюджеты на этом устройстве сохранятся.</string>
+    <string name="profile_delete_type">Введите УДАЛИТЬ</string>
+    <string name="profile_delete_cancel">Отмена</string>
+    <string name="profile_delete_forever">Удалить навсегда</string>
+    <string name="profile_delete_pending">Удаление выполняется. Автономными бюджетами можно пользоваться.</string>
+    <string name="profile_deleted">Профиль удалён</string>
+    <string name="profile_delete_error">Не удалось проверить или завершить удаление. Облачный обмен остановлен. Повторите проверку; при необходимости войдите в прежний аккаунт.</string>
+    <string name="profile_delete_conflict">Аккаунт уже удаляется в другой операции. Облачный обмен остановлен. Исходная операция удаления недоступна на этом устройстве.</string>
+    <string name="profile_delete_reauthenticate">Подтвердите вход в этот же аккаунт, чтобы продолжить удаление.</string>
+    <string name="profile_delete_confirm_identity">Подтвердить вход</string>
+    <string name="profile_delete_identity_error">Не удалось подтвердить вход. Проверьте пароль или выберите тот же Google-аккаунт и повторите попытку.</string>
+</resources>

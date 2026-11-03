@@ -10,6 +10,8 @@ import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncSchedul
 import com.firkat.fillin.feature.sync.data.CreateCloudBudget
 import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 
@@ -23,6 +25,8 @@ class RoomLocalBudgetUploadRepository(
     private val scheduler: OperationSyncScheduler,
     private val json: Json,
 ) : LocalBudgetUploadRepository {
+    private val mutex = Mutex()
+    suspend fun awaitIdle() = mutex.withLock { }
     override val candidates: Flow<List<LocalBudgetCandidate>> = combine(auth.session, active.active) { session, runtime -> session to runtime }
         .flatMapLatest { (session, runtime) ->
             val uid = (session as? AuthSession.Authenticated)?.user?.uid
@@ -53,7 +57,7 @@ class RoomLocalBudgetUploadRepository(
         } finally { db.close() }
     }
 
-    override suspend fun connect(uid: String, profileId: String, name: String) {
+    override suspend fun connect(uid: String, profileId: String, name: String) = mutex.withLock {
         ensureCurrent(uid)
         withContext(NonCancellable) {
             val profile = profiles.find(profileId) ?: throw BudgetConnectionFailure("scope_changed")

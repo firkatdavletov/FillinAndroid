@@ -1,6 +1,11 @@
 package com.firkat.fillin.feature.profile.ui
 
 import android.content.res.Configuration
+import com.firkat.fillin.feature.profile.domain.ProfileDeletionState
+import com.firkat.fillin.feature.profile.domain.DeletionPhase
+import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
+import androidx.compose.ui.platform.LocalContext
+import org.koin.compose.koinInject
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -49,9 +54,31 @@ fun ProfileRoute(
     onCloudSyncClick: () -> Unit,
     viewModel: ProfileViewModel = koinViewModel(),
     onMethodsClick: () -> Unit = onAccountClick,
+    deletionViewModel: ProfileDeletionViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val deletionState by deletionViewModel.deletion.state.collectAsStateWithLifecycle()
+    val confirmation by deletionViewModel.confirmation.collectAsStateWithLifecycle()
+    val password by deletionViewModel.password.collectAsStateWithLifecycle()
+    val googleBusy by deletionViewModel.googleBusy.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val google: GoogleSignInLauncher = koinInject()
+    DisposableEffect(deletionViewModel) {
+        deletionViewModel.deletion.setVisible(true)
+        onDispose { deletionViewModel.deletion.setVisible(false) }
+    }
+    confirmation?.let { DeleteProfileDialog(it, { deletionViewModel.confirmation.value = it }, deletionViewModel::submit, deletionViewModel::close) }
     ProfileScreen(
+        deletionState = deletionState,
+        onDeleteClick = deletionViewModel::open,
+        deletionContent = {
+            DeletionStatusContent(deletionState, deletionViewModel.deletion::retry)
+            if (deletionState.phase == DeletionPhase.Reauthenticate) {
+                DeletionReauthentication(password, { deletionViewModel.password.value = it }, user?.providers?.contains("password") == true,
+                    user?.providers?.contains("google.com") == true, googleBusy, deletionViewModel::password,
+                    { deletionViewModel.google { google.launch(context) } })
+            }
+        },
         state = state,
         user = user,
         authBusy = authBusy,
@@ -94,6 +121,9 @@ fun ProfileScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     onMethodsClick: () -> Unit = onAccountClick,
+    deletionState: ProfileDeletionState = ProfileDeletionState(),
+    onDeleteClick: () -> Unit = {},
+    deletionContent: @Composable () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.testTag("profile_screen"),
@@ -164,6 +194,12 @@ fun ProfileScreen(
                 icon = FillinIcons.CloudUpload,
                 onClick = onCloudSyncClick,
             )
+            Spacer(Modifier.height(32.dp))
+            if (deletionState.phase != DeletionPhase.Idle) deletionContent()
+            if (user != null && deletionState.phase in setOf(DeletionPhase.Idle, DeletionPhase.Completed)) {
+                TextButton(onClick = onDeleteClick, enabled = !authBusy && !state.busy, modifier = Modifier.fillMaxWidth().testTag("delete_profile"),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.profile_delete)) }
+            }
         }
     }
 }

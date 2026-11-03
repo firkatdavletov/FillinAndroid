@@ -60,11 +60,13 @@ class ActiveBudgetManager(
     private val registry: BudgetProfileRegistry,
     private val auth: AuthRepository,
     private val koin: Koin,
+    private val blocked: (String) -> Boolean = { false },
     private val cancelWork: (BudgetSyncIdentity) -> Unit,
 ) : AutoCloseable {
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
     private val runtimes = ConcurrentHashMap<BudgetProfile, BudgetRuntime>()
+    private val retiredProfiles = ConcurrentHashMap.newKeySet<String>()
     private val _active = MutableStateFlow<BudgetRuntime?>(null)
     val active: StateFlow<BudgetRuntime?> = _active.asStateFlow()
     private val _failed = MutableStateFlow(false)
@@ -87,7 +89,7 @@ class ActiveBudgetManager(
             var profile: BudgetProfile
             do {
                 uid = currentUid()
-                profile = registry.selected(uid)
+                profile = registry.selected(uid).takeUnless { it.id in retiredProfiles } ?: registry.selected(null)
             } while (uid != currentUid())
             activate(profile)
             _failed.value = false
@@ -103,6 +105,7 @@ class ActiveBudgetManager(
     suspend fun select(profileId: String, expectedUid: String? = null, requireExpectedAccount: Boolean = false) = mutex.withLock {
         val uid = currentUid()
         if ((requireExpectedAccount || expectedUid != null) && uid != expectedUid) throw BudgetConnectionFailure("account_changed")
+        if (profileId in retiredProfiles) throw BudgetConnectionFailure("access_denied")
         val profile = registry.select(profileId, uid)
         check(uid == currentUid()) { "Account changed during profile selection" }
         activate(profile)
@@ -116,7 +119,7 @@ class ActiveBudgetManager(
         }
     }
 
-    fun isCurrent(profile: BudgetProfile): Boolean = _active.value?.profile == profile && profile.accessibleTo(currentUid())
+    fun isCurrent(profile: BudgetProfile): Boolean = _active.value?.profile == profile && profile.id !in retiredProfiles && profile.accessibleTo(currentUid())
 
     /** Publish ownership only after the old exchange has stopped; never move the database file. */
     suspend fun attachLegacy(uid: String, budgetId: String, memberId: String, role: String) = mutex.withLock {
@@ -169,7 +172,27 @@ class ActiveBudgetManager(
         }
     }
 
-    private fun currentUid(): String? = (auth.session.value as? AuthSession.Authenticated)?.user?.uid
+    /** Detach before waiting for all UI and worker leases to release the database. */
+    suspend fun quiesce(uid: String, profileIds: Set<String>? = null) {
+        val targets = mutex.withLock {
+            profileIds?.let { retiredProfiles.addAll(it) }
+            val leases = runtimes.values.filter { it.profile.firebaseUid == uid && (profileIds == null || it.profile.id in profileIds) }.mapNotNull { it.retain() }
+            leases.forEach {
+                cancelWork(it.runtime.profile.syncIdentity)
+                it.scope.get<OperationSyncRequests>().cancelForeground()
+            }
+            try {
+                val selected = _active.value
+                if (selected?.profile?.firebaseUid == uid && (profileIds == null || selected.profile.id in profileIds)) activate(registry.selected(null))
+                leases
+            } catch (failure: Exception) { leases.forEach { it.close() }; throw failure }
+        }
+        try { targets.forEach { it.scope.get<OperationsSynchronizer>().awaitIdle() } }
+        finally { targets.forEach { it.close() } }
+        while (runtimes.values.any { it.profile.firebaseUid == uid && (profileIds == null || it.profile.id in profileIds) }) delay(25)
+    }
+
+    private fun currentUid(): String? = (auth.session.value as? AuthSession.Authenticated)?.user?.uid?.takeUnless(blocked)
 
     private suspend fun activate(profile: BudgetProfile) {
         val previous = _active.value

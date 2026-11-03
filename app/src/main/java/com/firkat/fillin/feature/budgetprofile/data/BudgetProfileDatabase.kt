@@ -27,6 +27,17 @@ data class BudgetProfileSelection(@PrimaryKey val accountKey: String, val profil
 
 @Dao
 interface BudgetProfileDao {
+    @Query("SELECT * FROM budget_profiles WHERE firebaseUid = :uid")
+    suspend fun allCloud(uid: String): List<BudgetProfileEntity>
+    @Query("DELETE FROM local_budget_upload WHERE profileId = :id")
+    suspend fun deleteUpload(id: String)
+    @Query("DELETE FROM budget_profile_selection WHERE profileId = :id")
+    suspend fun deleteSelection(id: String)
+    @Query("DELETE FROM budget_profiles WHERE id = :id")
+    suspend fun deleteProfile(id: String)
+    @Query("DELETE FROM pending_budget_creation WHERE firebaseUid = :uid")
+    suspend fun deleteCreation(uid: String)
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(profile: BudgetProfileEntity)
 
