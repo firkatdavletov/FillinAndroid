@@ -6,25 +6,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.profile.domain.*
 import com.firkat.fillin.ui.theme.FillinTheme
-
-@Composable
-internal fun DeleteProfileDialog(value: String, onChange: (String) -> Unit, onConfirm: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
-    AlertDialog(onDismissRequest = onDismiss, modifier = modifier,
-        title = { Text(stringResource(R.string.profile_delete)) },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(stringResource(R.string.profile_delete_warning))
-            OutlinedTextField(value, onChange, label = { Text(stringResource(R.string.profile_delete_type)) }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("delete_confirmation_input"))
-        } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.profile_delete_cancel)) } },
-        confirmButton = { TextButton(onClick = onConfirm, enabled = value.trim() == "УДАЛИТЬ", colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error), modifier = Modifier.testTag("delete_confirm")) { Text(stringResource(R.string.profile_delete_forever)) } })
-}
 
 @Composable
 internal fun DeletionStatusContent(state: ProfileDeletionState, onRetry: () -> Unit, modifier: Modifier = Modifier) {
@@ -51,10 +38,6 @@ internal fun DeletionReauthentication(password: String, onPassword: (String) -> 
     }
 }
 
-@Preview @Preview(uiMode = UI_MODE_NIGHT_YES) @Preview(fontScale = 2f, widthDp = 320)
-@Composable private fun DeleteDialogPreview() { FillinTheme { DeleteProfileDialog("", {}, {}, {}) } }
-@Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun DeleteDialogConfirmedPreview() { FillinTheme { DeleteProfileDialog("УДАЛИТЬ", {}, {}, {}) } }
 @Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
 @Composable private fun DeletionWorkingPreview() { FillinTheme { DeletionStatusContent(ProfileDeletionState(DeletionPhase.Working), {}) } }
 @Preview @Preview(uiMode = UI_MODE_NIGHT_YES)

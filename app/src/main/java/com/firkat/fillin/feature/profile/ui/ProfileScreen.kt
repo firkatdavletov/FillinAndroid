@@ -67,7 +67,20 @@ fun ProfileRoute(
         deletionViewModel.deletion.setVisible(true)
         onDispose { deletionViewModel.deletion.setVisible(false) }
     }
-    confirmation?.let { DeleteProfileDialog(it, { deletionViewModel.confirmation.value = it }, deletionViewModel::submit, deletionViewModel::close) }
+    confirmation?.takeIf { it.uid == user?.uid }?.let { current ->
+        when (current.kind) {
+            AccountConfirmationKind.SignOut -> SignOutAccountBottomSheet(
+                onConfirm = { deletionViewModel.confirmSignOut(onAccountClick) },
+                onDismiss = deletionViewModel::close,
+            )
+            AccountConfirmationKind.Delete -> DeleteAccountBottomSheet(
+                value = current.value,
+                onChange = deletionViewModel::changeConfirmation,
+                onConfirm = deletionViewModel::submit,
+                onDismiss = deletionViewModel::close,
+            )
+        }
+    }
     ProfileScreen(
         deletionState = deletionState,
         onDeleteClick = deletionViewModel::open,
@@ -82,7 +95,7 @@ fun ProfileRoute(
         state = state,
         user = user,
         authBusy = authBusy,
-        onAccountClick = onAccountClick,
+        onAccountClick = { if (user == null) onAccountClick() else deletionViewModel.openSignOut() },
         onMethodsClick = onMethodsClick,
         onBudgetClick = viewModel::selectBudget,
         onCreateBudgetClick = viewModel::openCreation,
@@ -197,7 +210,7 @@ fun ProfileScreen(
             if (user != null && deletionState.phase in setOf(DeletionPhase.Idle, DeletionPhase.Completed)) {
                 Text(stringResource(R.string.profile_account_management), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(12.dp))
-                ProfileAccountAction(stringResource(R.string.auth_sign_out), false, !authBusy && !state.busy, onAccountClick)
+                ProfileAccountAction(stringResource(R.string.auth_sign_out), false, !authBusy && !state.busy, onAccountClick, Modifier.testTag("sign_out_profile"))
                 Spacer(Modifier.height(8.dp))
                 ProfileAccountAction(stringResource(R.string.profile_delete), true, !authBusy && !state.busy, onDeleteClick, Modifier.testTag("delete_profile"))
             }
