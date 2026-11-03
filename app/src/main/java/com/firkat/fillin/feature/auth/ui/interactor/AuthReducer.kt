@@ -1,6 +1,7 @@
 package com.firkat.fillin.feature.auth.ui.interactor
 
 import com.firkat.fillin.core.mvi.Reducer
+import com.firkat.fillin.feature.auth.domain.userOrNull
 import com.firkat.fillin.feature.auth.domain.AuthError
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.domain.ServerProfileState
@@ -8,6 +9,19 @@ import com.firkat.fillin.feature.auth.domain.ServerProfileState
 class AuthReducer : Reducer<AuthState, AuthAction, AuthEvent> {
     override fun reduceAction(state: AuthState, action: AuthAction): AuthState = with(state) {
         when (action) {
+            is AuthAction.EmailFailed -> copy(emailBusy = false).withError(action.error)
+            is AuthAction.GoogleLinkPicking -> copy(emailBusy = action.picking)
+            is AuthAction.Page -> if (!busy) copy(page = action.page, password = "", confirmation = "", error = null, notice = null) else this
+            is AuthAction.EmailChanged -> if (!busy) copy(email = action.value, error = null) else this
+            is AuthAction.PasswordChanged -> if (!busy) copy(password = action.value, error = null) else this
+            is AuthAction.ConfirmationChanged -> if (!busy) copy(confirmation = action.value, error = null) else this
+            is AuthAction.SubmitEmail -> if (busy) this else when {
+                action.task == EmailTask.Resend && action.nowMillis < resendAt -> this
+                action.task in setOf(EmailTask.Login, EmailTask.Register, EmailTask.Reset) && !Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(email.trim()) -> withError(AuthError.InvalidEmail)
+                action.task in setOf(EmailTask.Register, EmailTask.LinkPassword) && (password.length < 12 || password != confirmation) -> withError(AuthError.WeakPassword)
+                else -> copy(emailBusy = true, error = null, notice = null)
+            }
+
             AuthAction.GoogleClicked -> when {
                 !buttonsEnabled -> this
                 session is AuthSession.Authenticated -> copy(selectedButton = AuthButton.Google)
@@ -19,9 +33,9 @@ class AuthReducer : Reducer<AuthState, AuthAction, AuthEvent> {
                     error = null,
                 )
             }
-            AuthAction.EmailClicked -> if (buttonsEnabled) copy(selectedButton = AuthButton.Email) else this
+            AuthAction.EmailClicked -> if (buttonsEnabled) copy(selectedButton = AuthButton.Email, page = EmailPage.Login) else this
             AuthAction.GuestClicked -> if (buttonsEnabled) copy(selectedButton = AuthButton.Guest) else this
-            AuthAction.SignOut -> if (!busy && session is AuthSession.Authenticated) {
+            AuthAction.SignOut -> if (!busy && session != AuthSession.Anonymous && session != AuthSession.Unavailable && session != AuthSession.Loading) {
                 copy(operation = AuthOperation.SigningOut, operationId = operationId + 1, error = null)
             } else this
             AuthAction.RetryServerAuthentication -> if (
@@ -51,10 +65,26 @@ class AuthReducer : Reducer<AuthState, AuthAction, AuthEvent> {
 
     override fun reduceEvent(state: AuthState, event: AuthEvent): AuthState = with(state) {
         when (event) {
+            is AuthEvent.EmailFinished -> copy(emailBusy = false, password = "", confirmation = "",
+                page = when {
+                    event.error == AuthError.RecentLoginRequired -> EmailPage.Reauthenticate
+                    event.task == EmailTask.Register && session is AuthSession.EmailVerificationRequired -> EmailPage.Verify
+                    event.error == null && event.task == EmailTask.LinkPassword -> EmailPage.Methods
+                    else -> page
+                },
+                resendAt = if (event.error == null && event.task in setOf(EmailTask.Register, EmailTask.Resend)) event.now + 60_000 else resendAt,
+                notice = if (event.error == null && event.task == EmailTask.Reset) "reset" else if (event.error == null && event.task in setOf(EmailTask.Register, EmailTask.Resend)) "sent" else if (event.error == null && event.task == EmailTask.Verify && session is AuthSession.EmailVerificationRequired) "unverified" else null,
+            ).let { if (event.error != null) it.withError(event.error) else it }
+
             is AuthEvent.SessionChanged -> {
                 val reload = session.uid != event.session.uid || profileRequestId == 0L
                 copy(
                     session = event.session,
+                    page = when {
+                        event.session == AuthSession.Anonymous && session.userOrNull != null -> EmailPage.Welcome
+                        event.session is AuthSession.EmailVerificationRequired && page != EmailPage.Methods -> EmailPage.Verify
+                        else -> page
+                    },
                     profileAvailable = event.profileAvailable,
                     profileRequestId = if (reload) profileRequestId + 1 else profileRequestId,
                     serverProfile = if (reload) {

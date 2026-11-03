@@ -48,6 +48,7 @@ fun ProfileRoute(
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
     viewModel: ProfileViewModel = koinViewModel(),
+    onMethodsClick: () -> Unit = onAccountClick,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     ProfileScreen(
@@ -55,6 +56,7 @@ fun ProfileRoute(
         user = user,
         authBusy = authBusy,
         onAccountClick = onAccountClick,
+        onMethodsClick = onMethodsClick,
         onBudgetClick = viewModel::selectBudget,
         onCreateBudgetClick = viewModel::openCreation,
         onCategoriesClick = onCategoriesClick,
@@ -72,7 +74,7 @@ fun ProfileRoute(
             onCreateCloudClick = viewModel::createCloud,
             onCreateLocalClick = viewModel::createLocal,
             onDismiss = viewModel::closeCreation,
-            signedIn = user != null,
+            signedIn = state.cloudAllowed,
         )
     }
 }
@@ -91,6 +93,7 @@ fun ProfileScreen(
     onCloudSyncClick: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onMethodsClick: () -> Unit = onAccountClick,
 ) {
     Scaffold(
         modifier = modifier.testTag("profile_screen"),
@@ -114,6 +117,7 @@ fun ProfileScreen(
         ) {
             if (user != null) {
                 ProfileAccount(user.displayName, user.email)
+                TextButton(onClick = onMethodsClick) { Text(stringResource(if (user.emailVerified) R.string.email_methods else R.string.email_verify)) }
             } else {
                 PrimaryButton(stringResource(R.string.profile_sign_in), onAccountClick, Modifier.fillMaxWidth(), enabled = !authBusy, isLoading = authBusy)
             }
@@ -166,7 +170,7 @@ fun ProfileScreen(
 
 @Composable
 private fun ProfileAccount(name: String?, email: String?, modifier: Modifier = Modifier) {
-    val displayName = name?.takeIf(String::isNotBlank) ?: stringResource(R.string.auth_google_account)
+    val displayName = name?.takeIf(String::isNotBlank) ?: email?.takeIf(String::isNotBlank) ?: stringResource(R.string.email_methods)
     val initials = displayName.trim().split(Regex("\\s+")).take(2).mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(48.dp)) {

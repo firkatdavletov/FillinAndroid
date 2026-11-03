@@ -37,7 +37,7 @@ class BudgetStore(
             if (content == null) {
                 BudgetSyncContext()
             } else {
-                val blocked = content.sync.errorCode in setOf("scope_changed", "unauthorized", "access_denied")
+                val blocked = content.sync.errorCode in setOf("email_not_verified", "scope_changed", "unauthorized", "access_denied")
                 BudgetSyncContext(
                     content.sync.localReady || content.sync.initialSyncComplete,
                     (content.sync.localReady || content.sync.initialSyncComplete) && content.sync.role == "OWNER" && (!blocked || content.sync.protocolVersion >= 4),

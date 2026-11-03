@@ -69,6 +69,7 @@ class AppNavigationUiTest {
     private var launcher = GoogleSignInLauncher { pickerCalls++; "synthetic-credential" }
     private val auth = object : AuthRepository by env.auth {
         override suspend fun signInWithGoogle(idToken: String) = signInAction()
+        override suspend fun reloadUser() {}
     }
     private lateinit var navigation: AppNavigationViewModel
     private lateinit var authModel: AuthViewModel
@@ -252,12 +253,24 @@ class AppNavigationUiTest {
         assertEquals(0, pickerCalls)
     }
 
-    @Test fun emptyDeviceShowsAuthAndEmailExplainsItsAvailability() {
+    @Test fun emptyDeviceShowsAuthAndEmailOpensLogin() {
         show()
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
         compose.onNodeWithText("Профиль").assertDoesNotExist()
         compose.onNodeWithText("Продолжить с email").performClick()
-        compose.onNodeWithText("Вход по email пока недоступен").assertIsDisplayed()
+        compose.onNodeWithTag("email_input").assertIsDisplayed()
+    }
+
+    @Test fun pendingEmailCanReturnToLocalBudgetThroughProfile() {
+        env.auth.session.value = AuthSession.EmailVerificationRequired(AuthUser("pending", null, "pending@example.test", setOf("password"), false))
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Подтвердите email").performScrollTo().performClick()
+        compose.onNodeWithText("Я подтвердил email").assertExists()
+        compose.onNodeWithText("Продолжить локально").performScrollTo().performClick()
+        compose.onNodeWithTag("main_screen").assertIsDisplayed()
+        assertTrue(auth.session.value is AuthSession.EmailVerificationRequired)
+        assertEquals(listOf(AppRoute.Main), navigation.backStack)
     }
 
     @Test fun missingFirebaseConfigurationStillAllowsGuestSetup() {
@@ -348,11 +361,15 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("tab_Profile").performClick()
         compose.onNodeWithText("Авторизоваться").performClick()
         compose.onNodeWithText("Продолжить с Google").performClick()
-        compose.waitUntil { navigation.backStack == listOf(AppRoute.Main) }
+        // Synchronize with composition before reading SnapshotStateList from the test thread.
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodesWithTag("main_screen").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.runOnIdle { assertEquals(listOf(AppRoute.Main), navigation.backStack) }
         assertTrue(authModel.state.value.busy)
         assertFalse(cancelled)
         compose.runOnIdle { completed.complete(Unit) }
-        compose.waitUntil { !authModel.state.value.busy && profileCalls == 1 }
+        compose.waitUntil(timeoutMillis = 10_000) { !authModel.state.value.busy && profileCalls == 1 }
         compose.onNodeWithContentDescription("Выйти из аккаунта").assertIsDisplayed()
         assertEquals(1, authModelsCreated)
     }

@@ -8,7 +8,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import kotlinx.coroutines.tasks.await
 
-class SdkFirebaseIdTokenProvider(private val auth: FirebaseAuth?) : FirebaseIdTokenProvider {
+class SdkFirebaseIdTokenProvider(private val auth: FirebaseAuth?, private val repository: com.firkat.fillin.feature.auth.domain.AuthRepository? = null) : FirebaseIdTokenProvider {
+    override fun emailVerificationRequired() { repository?.requireEmailVerification() }
     override fun isCurrentUser(uid: String): Boolean =
         auth?.currentUser?.let { !it.isAnonymous && it.uid == uid } == true
 
@@ -16,6 +17,7 @@ class SdkFirebaseIdTokenProvider(private val auth: FirebaseAuth?) : FirebaseIdTo
         val firebase = auth ?: throw ServerAuthFailure(ServerAuthError.NotConfigured)
         val user = firebase.currentUser?.takeIf { !it.isAnonymous && it.uid == uid }
             ?: throw ServerAuthFailure(ServerAuthError.SessionChanged)
+        if (repository?.session?.value is com.firkat.fillin.feature.auth.domain.AuthSession.EmailVerificationRequired) throw ServerAuthFailure(ServerAuthError.EmailNotVerified)
         val token = try {
             user.getIdToken(forceRefresh).await().token
         } catch (_: FirebaseNetworkException) {

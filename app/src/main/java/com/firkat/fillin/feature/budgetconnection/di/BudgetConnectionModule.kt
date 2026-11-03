@@ -19,7 +19,7 @@ val budgetConnectionModule = module {
                 .connectTimeout(10, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).callTimeout(30, TimeUnit.SECONDS).build()).build()
         })
     }
-    single { FirebaseBudgetRequests(get<FirebaseBudgetBackend>().retrofit?.create(FirebaseBudgetApi::class.java), get()) }
+    single { FirebaseBudgetRequests(get<FirebaseBudgetBackend>().retrofit?.create(FirebaseBudgetApi::class.java), get(), get()) }
     single<com.firkat.fillin.feature.budgetinvitation.domain.BudgetInvitationRepository> {
         com.firkat.fillin.feature.budgetinvitation.data.FirebaseBudgetInvitationRepository(
             get<FirebaseBudgetBackend>().retrofit?.create(com.firkat.fillin.feature.budgetinvitation.data.FirebaseBudgetInvitationApi::class.java), get(), get(), get())

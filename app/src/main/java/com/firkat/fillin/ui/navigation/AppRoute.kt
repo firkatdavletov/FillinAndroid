@@ -12,6 +12,7 @@ sealed interface AppRoute : NavKey {
     @Serializable data object Main : AppRoute
     @Serializable data object OperationCreate : AppRoute
     @Serializable data object Auth : AppRoute
+    @Serializable data object AccountMethods : AppRoute
     @Serializable data object Categories : AppRoute
     @Serializable data class EditCategoryBottomSheet(val categoryId: String? = null) : AppRoute
     @Serializable data object FamilyAccess : AppRoute

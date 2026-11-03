@@ -86,6 +86,7 @@ class AppNavigationViewModel(
                 if (session == AuthSession.Loading) return@collectLatest
                 val authenticated = session is AuthSession.Authenticated
                 if (!authenticated && lastUid != null) { setupActive = false; setupAuth = null; replaceWith(AppRoute.Auth) }
+                val accountChanged = lastUid != (session as? AuthSession.Authenticated)?.user?.uid
                 lastUid = (session as? AuthSession.Authenticated)?.user?.uid
                 failure.value = false
                 try {
@@ -107,7 +108,7 @@ class AppNavigationViewModel(
                                     if (setupAuth != null) entries.add(AppRoute.Auth)
                                 }
                             }
-                            first && authenticated -> {
+                            first && authenticated && (accountChanged || entries.last() in listOf(AppRoute.Launch, AppRoute.Auth)) -> {
                                 if (ready) openMain() else openSetup(BudgetSetupMode.Cloud)
                             }
                             entries.last() == AppRoute.Launch -> {
@@ -135,10 +136,13 @@ class AppNavigationViewModel(
     fun retryLaunch() { retries.update { it + 1 } }
 
     fun openAuthentication() {
+        if (auth.session.value is AuthSession.Authenticated) { openAccountMethods(); return }
         if (entries.last() in listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.CloudSync) && auth.session.value !is AuthSession.Authenticated) {
             entries.add(AppRoute.Auth)
         }
     }
+
+    fun openAccountMethods() { if (entries.last() in listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.CloudSync)) entries.add(AppRoute.AccountMethods) }
 
     fun openCategories() = openMainDestination(AppRoute.Categories)
 

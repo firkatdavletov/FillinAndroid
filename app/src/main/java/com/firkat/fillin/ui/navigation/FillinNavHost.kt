@@ -29,6 +29,7 @@ import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.rememberResultEventBusNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.firkat.fillin.feature.auth.domain.AuthSession
+import com.firkat.fillin.feature.auth.domain.userOrNull
 import com.firkat.fillin.feature.auth.ui.AuthScreen
 import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
 import com.firkat.fillin.feature.operationhistory.ui.EditOperationBottomSheet
@@ -101,7 +102,7 @@ fun FillinNavHost(
             }
         }
     }
-    val authVisible = navigation.backStack.lastOrNull() == AppRoute.Auth
+    val authVisible = navigation.backStack.lastOrNull() in listOf(AppRoute.Auth, AppRoute.AccountMethods)
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(authVisible, state.errorId, state.error, lifecycleOwner, resources) {
         if (!authVisible) lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -133,12 +134,13 @@ fun FillinNavHost(
                 MainScreen(
                     authBusy = state.busy,
                     onAccountClick = {
-                        if (state.session is AuthSession.Authenticated) auth.onAction(AuthAction.SignOut)
+                        if (state.session.userOrNull != null) auth.onAction(AuthAction.SignOut)
                         else navigation.openAuthentication()
                     },
+                    onMethodsClick = navigation::openAccountMethods,
                     snackbarHostState = snackbar,
                     budgetViewModelStoreOwner = mainModels,
-                    user = (state.session as? AuthSession.Authenticated)?.user,
+                    user = state.session.userOrNull,
                     onCategoriesClick = navigation::openCategories,
                     onFamilyAccessClick = navigation::openFamilyAccess,
                     onCloudSyncClick = navigation::openCloudSync,
@@ -221,6 +223,9 @@ fun FillinNavHost(
                 ActiveBudgetContent {
                     CloudSyncRoute(onBack = navigation::back, onSignIn = navigation::openAuthentication)
                 }
+            }
+            entry<AppRoute.AccountMethods> {
+                AuthScreen(onContinueAsGuest = navigation::back, onContinueWithAccount = navigation::back, methods = true, onBack = navigation::back)
             }
             entry<AppRoute.Auth> {
                 AuthScreen(

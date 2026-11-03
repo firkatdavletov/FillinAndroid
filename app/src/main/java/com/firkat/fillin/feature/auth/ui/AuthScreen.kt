@@ -1,6 +1,17 @@
 package com.firkat.fillin.feature.auth.ui
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
+import androidx.lifecycle.LifecycleEventObserver
+import com.firkat.fillin.feature.auth.domain.userOrNull
+import com.firkat.fillin.feature.auth.ui.interactor.EmailPage
+import com.firkat.fillin.feature.auth.ui.interactor.EmailTask
+import com.firkat.fillin.feature.auth.ui.components.EmailAuthContent
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.delay
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.material3.SnackbarHostState
@@ -45,6 +56,8 @@ import org.koin.compose.viewmodel.koinViewModel
 fun AuthScreen(
     onContinueAsGuest: () -> Unit,
     onContinueWithAccount: () -> Unit,
+    methods: Boolean = false,
+    onBack: () -> Unit = {},
 ) {
     // Use the same Activity owner as FillinNavHost; leaving this entry must not cancel Firebase exchange.
     val owner = checkNotNull(LocalActivity.current as? ComponentActivity)
@@ -54,7 +67,7 @@ fun AuthScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val resolvingBudget by navigation.resolvingBudget.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    val authVisible = navigation.backStack.lastOrNull() == AppRoute.Auth
+    val authVisible = navigation.backStack.lastOrNull() in listOf(AppRoute.Auth, AppRoute.AccountMethods)
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -67,7 +80,7 @@ fun AuthScreen(
             try {
                 launch {
                     viewModel.state.map { it.errorId to it.error }.distinctUntilChanged().collectLatest { (id, error) ->
-                        if (error != null) {
+                        if (error != null && viewModel.state.value.page == EmailPage.Welcome) {
                             snackbar.showSaldomiSnackbar(resources.getString(error.messageRes))
                             viewModel.onAction(AuthAction.ErrorShown(id))
                         }
@@ -83,9 +96,6 @@ fun AuthScreen(
                                 launch { receiveGoogleCredential(viewModel, googleSignIn, context, effect.requestId) }
                             }
                         }
-                        AuthEffect.EmailUnavailable -> launch {
-                            snackbar.showSaldomiSnackbar(resources.getString(R.string.auth_email_unavailable))
-                        }
                         AuthEffect.ContinueAsGuest -> continueAsGuest()
                         AuthEffect.ContinueWithAccount -> continueWithAccount()
                     }
@@ -95,6 +105,51 @@ fun AuthScreen(
                 viewModel.onAction(AuthAction.UiDetached)
             }
         }
+    }
+
+    val scope = rememberCoroutineScope()
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(state.resendAt) {
+        now = System.currentTimeMillis()
+        if (state.resendAt > now) { delay(state.resendAt - now); now = System.currentTimeMillis() }
+    }
+    LaunchedEffect(methods) {
+        if (methods) viewModel.onAction(AuthAction.Page(if (state.session is AuthSession.EmailVerificationRequired) EmailPage.Verify else EmailPage.Methods))
+    }
+    DisposableEffect(viewModel, lifecycleOwner, state.page) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && viewModel.state.value.page == EmailPage.Verify && !viewModel.state.value.busy) viewModel.onAction(AuthAction.SubmitEmail(EmailTask.Verify))
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val emailBack = {
+        if (methods && state.page in setOf(EmailPage.Methods, EmailPage.Verify)) onBack()
+        else viewModel.onAction(AuthAction.Page(if (methods) EmailPage.Methods else if (state.page in setOf(EmailPage.Register, EmailPage.Reset)) EmailPage.Login else EmailPage.Welcome))
+    }
+    BackHandler(enabled = state.page != EmailPage.Welcome) { if (!state.busy) emailBack() }
+    if (state.page != EmailPage.Welcome) {
+        EmailAuthContent(state.page, state.email, state.password, state.confirmation, state.busy, state.error,
+            state.notice, state.session.userOrNull, now >= state.resendAt,
+            { viewModel.onAction(AuthAction.EmailChanged(it)) }, { viewModel.onAction(AuthAction.PasswordChanged(it)) },
+            { viewModel.onAction(AuthAction.ConfirmationChanged(it)) }, { viewModel.onAction(AuthAction.Page(it)) },
+            { viewModel.onAction(AuthAction.SubmitEmail(it)) },
+            { reauthenticate -> scope.launch {
+                if (viewModel.state.value.busy) return@launch
+                viewModel.onAction(AuthAction.GoogleLinkPicking(true))
+                try {
+                    val token = googleSignIn.launch(context)
+                    viewModel.onAction(AuthAction.GoogleLinkPicking(false))
+                    viewModel.onAction(AuthAction.SubmitEmail(if (reauthenticate) EmailTask.ReauthenticateGoogle else EmailTask.LinkGoogle, token))
+                } catch (_: GetCredentialCancellationException) { viewModel.onAction(AuthAction.GoogleLinkPicking(false)) }
+                catch (e: CancellationException) { viewModel.onAction(AuthAction.GoogleLinkPicking(false)); throw e }
+                catch (_: NoCredentialException) { viewModel.onAction(AuthAction.EmailFailed(AuthError.NoGoogleAccount)) }
+                catch (e: AuthFailure) { viewModel.onAction(AuthAction.EmailFailed(e.error)) }
+                catch (_: Exception) { viewModel.onAction(AuthAction.EmailFailed(AuthError.SignInFailed)) }
+            } },
+            { viewModel.onAction(AuthAction.Page(EmailPage.Welcome)); continueAsGuest() },
+            { viewModel.onAction(AuthAction.SignOut) }, emailBack)
+        return
     }
 
     AuthContent(

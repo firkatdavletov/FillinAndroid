@@ -1,6 +1,7 @@
 package com.firkat.fillin.feature.auth.ui.interactor
 
 import com.firkat.fillin.core.mvi.Interactor
+import com.firkat.fillin.feature.auth.domain.userOrNull
 import com.firkat.fillin.feature.auth.domain.AuthError
 import com.firkat.fillin.feature.auth.domain.AuthFailure
 import com.firkat.fillin.feature.auth.domain.AuthRepository
@@ -23,6 +24,24 @@ class AuthInteractor(
 ) : Interactor<AuthCommand, AuthEvent> {
     override fun execute(command: AuthCommand): Flow<AuthEvent> = flow {
         when (command) {
+            is AuthCommand.Email -> {
+                val error = authError(AuthError.SignInFailed) {
+                    if (command.expectedUid != null && repository.session.value.userOrNull?.uid != command.expectedUid) throw AuthFailure(AuthError.InvalidCredential)
+                    when (command.task) {
+                        EmailTask.Login -> repository.signInWithEmail(command.email, command.password)
+                        EmailTask.Register -> { repository.register(command.email, command.password); repository.sendVerification() }
+                        EmailTask.Reset -> repository.resetPassword(command.email)
+                        EmailTask.Verify -> repository.reloadUser()
+                        EmailTask.Resend -> repository.sendVerification()
+                        EmailTask.LinkPassword -> repository.linkPassword(command.password)
+                        EmailTask.LinkGoogle -> repository.linkGoogle(command.token)
+                        EmailTask.ReauthenticatePassword -> repository.reauthenticatePassword(command.password)
+                        EmailTask.ReauthenticateGoogle -> repository.reauthenticateGoogle(command.token)
+                    }
+                }
+                emit(AuthEvent.EmailFinished(command.task, error, System.currentTimeMillis()))
+            }
+
             AuthCommand.ObserveSession -> repository.session.collect {
                 emit(AuthEvent.SessionChanged(it, serverAuth != null))
             }

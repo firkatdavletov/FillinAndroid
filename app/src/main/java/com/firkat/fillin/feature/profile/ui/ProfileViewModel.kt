@@ -28,6 +28,7 @@ data class ProfileUiState(
     val error: String? = null,
     val creation: BudgetCreationDraft? = null,
     val pendingCreation: Boolean = false,
+    val cloudAllowed: Boolean = false,
 )
 
 class ProfileViewModel(
@@ -50,10 +51,10 @@ class ProfileViewModel(
             }
         }
         viewModelScope.launch {
-            auth.session.collectLatest {
+            auth.session.collectLatest { session ->
                 action?.cancel()
-                mutableState.update { it.copy(budgets = emptyList(), loading = true, creation = null, pendingCreation = false, busy = false, error = null) }
-                if (it != AuthSession.Loading) refresh()
+                mutableState.update { it.copy(budgets = emptyList(), loading = true, creation = null, pendingCreation = false, busy = false, error = null, cloudAllowed = session is AuthSession.Authenticated) }
+                if (session != AuthSession.Loading) refresh()
             }
         }
     }

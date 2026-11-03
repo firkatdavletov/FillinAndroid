@@ -1,6 +1,8 @@
 package com.firkat.fillin.feature.auth.di
 
 import androidx.credentials.CredentialManager
+import com.firkat.fillin.feature.auth.data.FirebaseAuthGateway
+import com.firkat.fillin.feature.auth.data.SdkFirebaseAuthGateway
 import com.firkat.fillin.feature.auth.data.FirebaseAuthApi
 import com.firkat.fillin.feature.auth.data.FirebaseServerAuthRepository
 import com.firkat.fillin.feature.auth.data.SdkFirebaseIdTokenProvider
@@ -29,15 +31,16 @@ import java.util.concurrent.TimeUnit
 
 val authModule = module {
     single { CredentialManager.create(androidContext()) }
+    single<FirebaseAuthGateway> { SdkFirebaseAuthGateway(FirebaseAuth.getInstance()) }
     single {
         FirebaseAuthRepository(
-            if (BuildConfig.FIREBASE_CONFIGURED) FirebaseAuth.getInstance() else null,
-            get(),
+            if (BuildConfig.FIREBASE_CONFIGURED) get<FirebaseAuthGateway>() else null,
+            get<CredentialManager>(),
         )
     } onClose { it?.close() }
     single<AuthRepository> { get<FirebaseAuthRepository>() }
     single<FirebaseIdTokenProvider> {
-        SdkFirebaseIdTokenProvider(if (BuildConfig.FIREBASE_CONFIGURED) FirebaseAuth.getInstance() else null)
+        SdkFirebaseIdTokenProvider(if (BuildConfig.FIREBASE_CONFIGURED) FirebaseAuth.getInstance() else null, get())
     }
     single<ServerAuthRepository> {
         val api = BuildConfig.FIREBASE_API_BASE_URL.takeIf(String::isNotBlank)?.let { url ->
@@ -47,7 +50,7 @@ val authModule = module {
                     .callTimeout(20, TimeUnit.SECONDS).build())
                 .build().create(FirebaseAuthApi::class.java)
         }
-        FirebaseServerAuthRepository(api, get())
+        FirebaseServerAuthRepository(api, get(), get())
     }
     single<GoogleSignInLauncher> { CredentialManagerGoogleSignInLauncher(get()) }
     single<CoroutineDispatcher>(named("authIo")) { Dispatchers.IO }

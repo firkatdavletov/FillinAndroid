@@ -7,7 +7,7 @@ data class ServerUser(
     val email: String?,
 )
 
-enum class ServerAuthError { NotConfigured, Network, Unavailable, Unauthorized, SessionChanged }
+enum class ServerAuthError { EmailNotVerified, AccessDenied, NotConfigured, Network, Unavailable, Unauthorized, SessionChanged }
 
 class ServerAuthFailure(val reason: ServerAuthError) : Exception()
 
@@ -17,6 +17,7 @@ interface ServerAuthRepository {
 
 /** Tokens are obtained from Firebase immediately before a request, never stored by the app. */
 interface FirebaseIdTokenProvider {
+    fun emailVerificationRequired() {}
     fun isCurrentUser(uid: String): Boolean
     suspend fun idToken(uid: String, forceRefresh: Boolean): String
 }
