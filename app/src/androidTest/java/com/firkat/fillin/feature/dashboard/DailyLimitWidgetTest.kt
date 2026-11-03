@@ -38,28 +38,46 @@ class DailyLimitWidgetTest {
     private fun show(state: DailyLimitUiState, onClick: () -> Unit = {}) {
         compose.setContent { FillinTheme(dynamicColor=false) { DailyLimitWidget(state,Modifier.width(360.dp),onClick) } }
     }
-    @Test fun showsSpendingRemainingHorizonAndProgress() {
+    @Test fun showsSpendingRemainingAndProgress() {
         show(state("59000","1000"))
         compose.onNodeWithTag("daily-limit-spent",useUnmergedTree=true).assertTextContains("Потрачено",substring=true)
         compose.onNodeWithTag("daily-limit-remaining",useUnmergedTree=true).assertTextContains("Осталось",substring=true)
-        compose.onNodeWithText("Прогноз на",substring=true,useUnmergedTree=true).assertIsDisplayed()
+        compose.onNodeWithText("Прогноз на",substring=true,useUnmergedTree=true).assertDoesNotExist()
         compose.onNodeWithTag("daily-limit-progress",useUnmergedTree=true).assert(
             SemanticsMatcher.expectValue(SemanticsProperties.ProgressBarRangeInfo,ProgressBarRangeInfo(1f,0f..1f)))
     }
     @Test fun overspendingIsSeparateFromZeroRemaining() {
         show(state("57000","3000"))
         compose.onNodeWithText("Превышение",substring=true,useUnmergedTree=true).assertIsDisplayed()
-        compose.onNodeWithText("На следующие дни",substring=true,useUnmergedTree=true).assertIsDisplayed()
+        compose.onNodeWithText("На следующие дни",substring=true,useUnmergedTree=true).assertDoesNotExist()
     }
     @Test fun deficitShowsWarning() {
         show(state("-100","3000"))
         compose.onNodeWithText("Не хватит",substring=true,useUnmergedTree=true).assertIsDisplayed()
+        compose.onNodeWithTag("daily-limit-progress").assertDoesNotExist()
+        compose.onNodeWithTag("daily-limit-remaining").assertDoesNotExist()
+        compose.onNodeWithText("Превышение",substring=true).assertDoesNotExist()
     }
     @Test fun infoOpensDetails() {
         var opened=false
         show(state("60000","0")) { opened=true }
         compose.onNodeWithContentDescription("Расчёт дневного лимита").performClick()
         compose.runOnIdle { assertTrue(opened) }
+    }
+    @Test fun paymentsAndInfoAreIndependent() {
+        var details = 0
+        var payments = 0
+        compose.setContent { FillinTheme { DailyLimitWidget(state("-100", "3000"),
+            onDetailsClick = { details++ }, onPaymentsClick = { payments++ }) } }
+        compose.onNodeWithTag("daily-limit-payments").performClick()
+        compose.runOnIdle { org.junit.Assert.assertEquals(1, payments); org.junit.Assert.assertEquals(0, details) }
+        compose.onNodeWithContentDescription("Расчёт дневного лимита").performClick()
+        compose.runOnIdle { org.junit.Assert.assertEquals(1, details); org.junit.Assert.assertEquals(1, payments) }
+    }
+    @Test fun zeroLimitHasNoProgressOrRemaining() {
+        show(state("0", "0"))
+        compose.onNodeWithTag("daily-limit-progress").assertDoesNotExist()
+        compose.onNodeWithTag("daily-limit-remaining").assertDoesNotExist()
     }
     @Test fun missingSnapshotShowsPlaceholder() {
         show(DailyLimitUiState())

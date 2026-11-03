@@ -9,6 +9,8 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlinx.coroutines.flow.*
 
+enum class DailyLimitCardStatus { Normal, Overspent, Deficit }
+
 data class DailyLimitUiState(
     val forecast: com.firkat.fillin.feature.dailylimit.domain.DailyLimitResult? = null,
     val amount: Money? = null,
@@ -19,21 +21,28 @@ data class DailyLimitUiState(
     val progress: Float = 0f,
     val isOverspent: Boolean = false,
 ) {
+    val status: DailyLimitCardStatus get() = when {
+        forecast?.status == com.firkat.fillin.feature.dailylimit.domain.ForecastStatus.DEFICIT -> DailyLimitCardStatus.Deficit
+        isOverspent -> DailyLimitCardStatus.Overspent
+        else -> DailyLimitCardStatus.Normal
+    }
+    val showProgress: Boolean get() = amount?.amount?.signum() == 1
+    val showRemaining: Boolean get() = showProgress && status != DailyLimitCardStatus.Deficit
+
     companion object {
         fun from(summary: DailyLimitSummary) = DailyLimitUiState(
             forecast = summary.forecast,
             amount = summary.limit,
             spentToday = summary.spentToday,
-            remainingToday = summary.remainingToday.copy(amount = summary.remainingToday.amount.abs()),
+            remainingToday = summary.remainingToday.copy(amount = summary.remainingToday.amount.max(BigDecimal.ZERO)),
             spentPercent = summary.spentPercent,
-            remainingPercent = summary.remainingPercent?.abs(),
+            remainingPercent = summary.remainingPercent?.max(BigDecimal.ZERO),
             progress = when {
                 summary.limit.amount.signum() > 0 -> summary.spentToday.amount.min(summary.limit.amount)
-                    .divide(summary.limit.amount, 6, RoundingMode.HALF_UP).toFloat()
-                summary.spentToday.amount.signum() > 0 -> 1f
+                    .divide(summary.limit.amount, 6, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
                 else -> 0f
             },
-            isOverspent = summary.forecast?.overspentToday?.amount?.signum() == 1,
+            isOverspent = summary.spentToday.amount > summary.limit.amount,
         )
     }
 }

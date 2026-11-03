@@ -59,7 +59,9 @@ class DailyLimitSummaryTest {
             assertNull(spent.spentPercent)
             assertNull(spent.remainingPercent)
             assertEquals(decimal("0"), spent.remainingToday!!.amount)
-            assertEquals(1f, spent.progress, 0f)
+            assertEquals(0f, spent.progress, 0f)
+            assertFalse(spent.showProgress)
+            assertFalse(spent.showRemaining)
             assertTrue(spent.isOverspent)
         }
     }
@@ -84,6 +86,21 @@ class DailyLimitSummaryTest {
         val half = summary("0.01", "480")
         assertEquals(BigDecimal("0.1"), half.spentPercent)
         assertEquals(BigDecimal("99.9"), half.remainingPercent)
+    }
+
+    @Test fun `deficit takes priority over overspending and hides remaining`() {
+        val ui = DailyLimitUiState.from(summary("10", "-100"))
+        assertTrue(ui.isOverspent)
+        assertEquals(com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitCardStatus.Deficit, ui.status)
+        assertFalse(ui.showRemaining)
+        assertFalse(ui.showProgress)
+    }
+
+    @Test fun `unavailable has no progress or remaining`() {
+        val ui = DailyLimitUiState()
+        assertFalse(ui.showProgress)
+        assertFalse(ui.showRemaining)
+        assertNull(ui.amount)
     }
 
     private fun summary(spent: String, opening: String = "600000") = DailyLimitSummary.from(dashboard(spent, opening))

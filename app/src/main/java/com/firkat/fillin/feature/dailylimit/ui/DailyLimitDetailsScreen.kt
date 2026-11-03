@@ -34,6 +34,9 @@ internal fun DailyLimitDetailsScreen(result: DailyLimitResult, modifier: Modifie
                 amount(requireNotNull(result.deficitAmount)), result.firstDeficitDate.toString()), color = MaterialTheme.colorScheme.error)
             if (result.dependsOnPlannedIncome) Text(stringResource(R.string.daily_depends_income))
             if (result.warnings.isNotEmpty()) Text(stringResource(R.string.daily_incomplete))
+            if (result.overspentToday.amount.signum() > 0) Text(stringResource(R.string.daily_overspent_value,
+                amount(result.overspentToday), amount(result.nextDaysLimit)), color = MaterialTheme.colorScheme.error)
+            Text(stringResource(R.string.daily_horizon_value, result.horizonDays, result.horizonEnd.toString()))
             Text(amount(result.dailyTarget), style = MaterialTheme.typography.headlineLarge)
             Text(stringResource(R.string.daily_forecast_period, result.horizonStart.toString(), result.horizonEnd.toString()))
             Text(stringResource(R.string.daily_balance_value, amount(result.currentBalance)))

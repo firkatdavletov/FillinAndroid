@@ -32,6 +32,7 @@ data class PlannedOperationsUiState(
 )
 
 sealed interface PlannedOperationsEvent {
+    data class FilterApplied(val filter: PlannedOperationsFilter) : PlannedOperationsEvent
     data class TypeSelected(
         val type: PlannedOperationType?,
     ) : PlannedOperationsEvent
@@ -69,6 +70,10 @@ class PlannedOperationsViewModel(
     fun onEvent(event: PlannedOperationsEvent) {
         val filters = _uiState.value.filters
         when (event) {
+            is PlannedOperationsEvent.FilterApplied -> {
+                _uiState.update { it.copy(isPeriodPickerVisible = false) }
+                changeFilters(event.filter)
+            }
             is PlannedOperationsEvent.TypeSelected -> {
                 changeFilters(filters.copy(type = event.type))
             }

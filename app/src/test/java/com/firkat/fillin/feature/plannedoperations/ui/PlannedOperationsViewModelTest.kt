@@ -37,6 +37,27 @@ class PlannedOperationsViewModelTest {
     @Before fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
     @After fun tearDown() = Dispatchers.resetMain()
 
+    @Test fun `risk filter is atomic repeatable and isolated to its budget model`() = runTest {
+        val repository = FakePlansRepository()
+        val model = model(repository)
+        runCurrent()
+        val from = LocalDate.of(2026, 10, 18)
+        val filter = PlannedOperationsFilter(PlannedOperationType.Expense, PlannedOperationPeriod.Custom,
+            from, LocalDate.of(2026, 12, 1))
+        model.onEvent(PlannedOperationsEvent.FilterApplied(filter))
+        runCurrent()
+        assertEquals(filter, repository.requests.last())
+        model.onEvent(PlannedOperationsEvent.TypeSelected(PlannedOperationType.Income))
+        runCurrent()
+        model.onEvent(PlannedOperationsEvent.FilterApplied(filter.copy(dateTo = from)))
+        runCurrent()
+        assertEquals(filter.copy(dateTo = from), model.uiState.value.filters)
+        val otherBudget = model(FakePlansRepository())
+        runCurrent()
+        assertNull(otherBudget.uiState.value.filters.type)
+        assertEquals(PlannedOperationPeriod.CurrentMonth, otherBudget.uiState.value.filters.period)
+    }
+
     @Test
     fun `defaults to both types for the whole current month using the Almaty date`() = runTest {
         val repository = FakePlansRepository()

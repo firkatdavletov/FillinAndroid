@@ -100,6 +100,7 @@ private fun MainContent(
     onOperationClick: (String, String) -> Unit,
     onPlannedOperationEditorClick: (PlannedOperationType) -> Unit,
 ) {
+    val plansViewModel: com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsViewModel = org.koin.compose.viewmodel.koinViewModel()
     Scaffold(
         modifier = Modifier.testTag("main_screen"),
         snackbarHost = {
@@ -134,12 +135,19 @@ private fun MainContent(
     ) { innerPadding ->
         val provider =
             entryProvider<NavKey> {
-                entry(AppDestination.Dashboard) { DashboardRoute() }
+                entry(AppDestination.Dashboard) { DashboardRoute(onPaymentsClick = { from, to ->
+                    plansViewModel.onEvent(com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsEvent.FilterApplied(
+                        com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter(
+                            type = PlannedOperationType.Expense,
+                            period = com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod.Custom,
+                            dateFrom = from, dateTo = to)))
+                    onSelectDestination(AppDestination.Planned)
+                }) }
                 entry(
                     AppDestination.History,
                 ) { OperationHistoryRoute(snackbarHostState = snackbarHostState, onOperationClick = onOperationClick) }
                 entry(AppDestination.Planned) {
-                    PlannedOperationsRoute(onOpenEditor = onPlannedOperationEditorClick)
+                    PlannedOperationsRoute(onOpenEditor = onPlannedOperationEditorClick, viewModel = plansViewModel)
                 }
                 entry(AppDestination.Profile) {
                     ProfileRoute(

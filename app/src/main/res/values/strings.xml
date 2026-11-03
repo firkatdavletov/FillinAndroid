@@ -356,4 +356,14 @@
     <string name="income_frequency_biweekly">Раз в две недели</string>
     <string name="income_frequency_monthly">Ежемесячно</string>
     <string name="income_remainder_label">Ожидаю остаток: укажите сумму и дату</string>
+    <string name="daily_per_day">%1$s / день</string>
+    <string name="daily_status_normal">В пределах плана</string>
+    <string name="daily_status_overspent">Лимит превышен</string>
+    <string name="daily_status_deficit">Дефицит</string>
+    <string name="daily_status_zero">Лимит на сегодня — 0</string>
+    <string name="daily_spent_today">Потрачено сегодня: %1$s</string>
+    <string name="daily_remaining_today">Осталось на сегодня: %1$s</string>
+    <string name="daily_excess">Превышение на %1$s</string>
+    <string name="daily_shortfall">Не хватит %1$s к %2$s</string>
+    <string name="daily_view_payments">Посмотреть платежи</string>
 </resources>
