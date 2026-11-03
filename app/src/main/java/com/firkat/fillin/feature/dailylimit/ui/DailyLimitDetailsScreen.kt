@@ -27,7 +27,6 @@ fun DailyLimitDetailsRoute(onBack: () -> Unit, viewModel: DailyLimitViewModel = 
 @Composable
 internal fun DailyLimitDetailsScreen(result: DailyLimitResult, modifier: Modifier = Modifier) {
     fun amount(value: com.firkat.fillin.feature.dashboard.domain.model.Money) = formatMoney(value.amount, value.currency)
-    val events = result.projectedDailyBalances.flatMap { it.events }
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             if (result.firstDeficitDate != null) Text(stringResource(R.string.daily_deficit_value,
@@ -40,9 +39,9 @@ internal fun DailyLimitDetailsScreen(result: DailyLimitResult, modifier: Modifie
             Text(amount(result.dailyTarget), style = MaterialTheme.typography.headlineLarge)
             Text(stringResource(R.string.daily_forecast_period, result.horizonStart.toString(), result.horizonEnd.toString()))
             Text(stringResource(R.string.daily_balance_value, amount(result.currentBalance)))
-            Text(stringResource(R.string.daily_income_value, formatMoney(events.filter { it.income }.sumOf { it.amount.amount }, result.dailyTarget.currency)))
-            Text(stringResource(R.string.daily_payments_value, formatMoney(events.filterNot { it.income }.sumOf { it.amount.amount }, result.dailyTarget.currency)))
-            Text(stringResource(R.string.daily_available_value, amount(result.projectedDailyBalances.last().withoutDailySpending)))
+            Text(stringResource(R.string.daily_income_value, amount(result.plannedIncome)))
+            Text(stringResource(R.string.daily_payments_value, amount(result.plannedPayments)))
+            Text(stringResource(R.string.daily_available_value, amount(result.availableBeforeDailySpending)))
             Text(stringResource(R.string.daily_limiting_value, result.limitingDate.toString()))
             Text(stringResource(R.string.daily_rounding_explanation))
         }

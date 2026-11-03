@@ -44,6 +44,9 @@ data class DailyLimitResult(
     val warnings: Set<ForecastWarning>,
     val currentBalance: Money,
 ) {
+    val plannedIncome: Money = Money(projectedDailyBalances.flatMap { it.events }.filter { it.income }.sumOf { it.amount.amount }.setScale(2), dailyTarget.currency)
+    val plannedPayments: Money = Money(projectedDailyBalances.flatMap { it.events }.filterNot { it.income }.sumOf { it.amount.amount }.setScale(2), dailyTarget.currency)
+    val availableBeforeDailySpending: Money = projectedDailyBalances.last().withoutDailySpending
     val horizonDays: Int get() = ChronoUnit.DAYS.between(horizonStart, horizonEnd).toInt() + 1
 }
 
@@ -67,29 +70,34 @@ object ForecastEventGenerator {
     }
 }
 
-class CashFlowForecaster {
-    fun forecast(input: DailyLimitInput, end: LocalDate): List<DailyBalance> {
-        require(input.balance.currency == input.todayVariableNet.currency && input.reserve.currency == input.balance.currency)
-        require(input.events.all { it.amount.currency == input.balance.currency && it.amount.amount.signum() >= 0 })
-        val events = input.events.filter { !it.income || it.dueOn >= input.today }
-            .groupBy { if (it.income) it.availableOn else maxOf(input.today, it.dueOn) }
-        var balance = input.balance.amount
-        return (0..ChronoUnit.DAYS.between(input.today, end).toInt()).map { offset ->
-            val date = input.today.plusDays(offset.toLong())
-            val dayEvents = events[date].orEmpty().sortedBy { it.id }
-            balance += dayEvents.sumOf { if (it.income) it.amount.amount else -it.amount.amount }
-            val money = Money(balance, input.balance.currency)
-            DailyBalance(date, dayEvents, money, money)
-        }
+internal fun calendar(input: DailyLimitInput, end: LocalDate): List<DailyBalance> {
+    require(input.balance.currency == input.todayVariableNet.currency && input.reserve.currency == input.balance.currency)
+    require(input.events.all { it.amount.currency == input.balance.currency && it.amount.amount.signum() >= 0 })
+    val events = input.events.filter { !it.income || it.dueOn >= input.today }
+        .groupBy { if (it.income) it.availableOn else maxOf(input.today, it.dueOn) }
+    var balance = input.balance.amount
+    return (0..ChronoUnit.DAYS.between(input.today, end).toInt()).map { offset ->
+        val date = input.today.plusDays(offset.toLong())
+        val dayEvents = events[date].orEmpty().sortedBy { it.id }
+        balance += dayEvents.sumOf { if (it.income) it.amount.amount else -it.amount.amount }
+        val money = Money(balance, input.balance.currency)
+        DailyBalance(date, dayEvents, money, money)
     }
 }
 
-class DailyLimitCalculator(private val forecaster: CashFlowForecaster = CashFlowForecaster()) {
-    fun calculate(input: DailyLimitInput): DailyLimitResult {
+internal fun horizonEnd(input: DailyLimitInput): LocalDate {
+    val eligible = input.events.filter { it.income && it.dueOn >= input.today && it.amount.amount.signum() > 0 }
+    val boundary = eligible.map { it.dueOn }.filter { it in input.today.plusDays(30)..input.today.plusDays(60) }.minOrNull()
+    val end = boundary?.minusDays(1) ?: input.today.plusDays(59)
+    return end
+}
+
+class DailyLimitCalculator {
+    fun calculate(input: DailyLimitInput): DailyLimitResult = calculate(input, calendar(input, horizonEnd(input)))
+
+    internal fun calculate(input: DailyLimitInput, days: List<DailyBalance>): DailyLimitResult {
         val eligible = input.events.filter { it.income && it.dueOn >= input.today && it.amount.amount.signum() > 0 }
-        val boundary = eligible.map { it.dueOn }.filter { it in input.today.plusDays(30)..input.today.plusDays(60) }.minOrNull()
-        val end = boundary?.minusDays(1) ?: input.today.plusDays(59)
-        val days = forecaster.forecast(input, end)
+        val end = days.last().date
         fun money(value: BigDecimal) = Money(value.setScale(2), input.balance.currency)
         fun floor(value: BigDecimal) = value.max(BigDecimal.ZERO).setScale(0, RoundingMode.FLOOR)
         val constraints = days.mapIndexed { index, day ->

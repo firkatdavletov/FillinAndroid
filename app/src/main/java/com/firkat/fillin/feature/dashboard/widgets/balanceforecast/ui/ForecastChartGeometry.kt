@@ -8,10 +8,12 @@ internal data class ChartPoint(val x: Float, val y: Float)
 internal data class ChartSegment(val start: ChartPoint, val first: ChartPoint, val second: ChartPoint, val end: ChartPoint)
 
 /** Normalized coordinates; interpolation stays within each pair of daily balances. */
-internal class ForecastChartGeometry(points: List<ForecastPoint>) {
+internal class ForecastChartGeometry(
+    points: List<ForecastPoint>,
+    private val minimum: BigDecimal = points.minOfOrNull { it.balance.amount } ?: BigDecimal.ZERO,
+    private val maximum: BigDecimal = points.maxOfOrNull { it.balance.amount } ?: BigDecimal.ZERO,
+) {
     private val amounts = points.map { it.balance.amount }
-    private val minimum = amounts.minOrNull() ?: BigDecimal.ZERO
-    private val maximum = amounts.maxOrNull() ?: BigDecimal.ZERO
     private val range = maximum - minimum
 
     private fun y(amount: BigDecimal): Float = if (range.signum() == 0) 0.5f else

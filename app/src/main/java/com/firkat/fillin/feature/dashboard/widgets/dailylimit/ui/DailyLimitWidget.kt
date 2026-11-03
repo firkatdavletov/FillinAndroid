@@ -70,11 +70,11 @@ internal fun DailyLimitWidget(state: DailyLimitUiState, modifier: Modifier = Mod
                     Text(stringResource(R.string.daily_spent_today, state.spentToday?.let { formatMoney(it.amount, it.currency) } ?: "—"),
                         Modifier.testTag("daily-limit-spent"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (state.showRemaining) Text(stringResource(R.string.daily_remaining_today,
-                        state.remainingToday?.let { formatMoney(it.amount.max(BigDecimal.ZERO), it.currency) } ?: "—"),
+                        state.displayedRemainingToday?.let { formatMoney(it.amount, it.currency) } ?: "—"),
                         Modifier.testTag("daily-limit-remaining"), color = MaterialTheme.colorScheme.primary)
                 }
                 if (!deficit && state.isOverspent) Text(stringResource(R.string.daily_excess,
-                    formatMoney(requireNotNull(state.spentToday).amount.subtract(state.amount.amount).max(BigDecimal.ZERO), state.amount.currency)), color = color)
+                    requireNotNull(state.overspentAmount).let { formatMoney(it.amount, it.currency) }), color = color)
             }
             if (deficit) state.forecast?.let { result ->
                 val date = requireNotNull(result.firstDeficitDate)

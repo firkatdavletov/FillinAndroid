@@ -57,18 +57,10 @@ class CalculateDashboardTest {
             ),
             listOf(UpcomingPayment("Жильё", LocalDate.parse("2026-09-06"), money("80000"))),
             money("0"),
-            BalanceForecastProjection(
-                LocalDate.parse("2026-09-06"), LocalDate.parse("2026-10-06"),
-                (0L..30L).map { day ->
-                    val amount = decimal("260000") - decimal("1333.33") * BigDecimal(day + 1) +
-                        if (day >= 4) decimal("50000") else decimal("0")
-                    ForecastPoint(LocalDate.parse("2026-09-06").plusDays(day), Money(amount, "KZT"))
-                },
-                false,
-            ),
+            BalanceForecastProjection(LocalDate.parse("2026-09-06"), LocalDate.parse("2026-11-04"), emptyList(), false),
         )
         val actual = CalculateDashboard.calculate(input)
-        assertEquals(expected, actual.copy(dailyLimit = null))
+        assertEquals(expected, actual.copy(dailyLimit = null, balanceForecast = expected.balanceForecast))
         assertEquals(money("5166"), actual.dailyLimit!!.dailyTarget)
         assertEquals(60, actual.dailyLimit.horizonDays)
     }

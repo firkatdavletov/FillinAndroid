@@ -21,6 +21,9 @@ data class DailyLimitUiState(
     val progress: Float = 0f,
     val isOverspent: Boolean = false,
 ) {
+    val displayedRemainingToday = remainingToday?.copy(amount = remainingToday.amount.max(BigDecimal.ZERO))
+    val overspentAmount = if (spentToday != null && amount != null)
+        Money((spentToday.amount - amount.amount).max(BigDecimal.ZERO), amount.currency) else null
     val status: DailyLimitCardStatus get() = when {
         forecast?.status == com.firkat.fillin.feature.dailylimit.domain.ForecastStatus.DEFICIT -> DailyLimitCardStatus.Deficit
         isOverspent -> DailyLimitCardStatus.Overspent

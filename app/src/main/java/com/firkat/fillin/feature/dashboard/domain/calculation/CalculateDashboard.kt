@@ -125,14 +125,16 @@ object CalculateDashboard {
         ).take(5).map {
             ExpenseCategory(categories.getValue(it.key).name, money(it.value), percent(it.value, shareBasis))
         }
-        val dailyLimit = com.firkat.fillin.feature.dailylimit.domain.DailyLimitCalculator().calculate(
+        val cashFlowForecast = com.firkat.fillin.feature.dailylimit.domain.CashFlowForecaster().forecast(
                 com.firkat.fillin.feature.dailylimit.domain.DailyLimitInput(
                     money(balance), money(todayVariableNet),
                     input.incomes.map { com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(it.id, it.name, it.dueOn, money(it.amount), true) } +
                         input.payments.map { com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(it.id, it.categoryName, it.dueOn, money(it.remaining), false) },
                     today, warnings = input.incomeWarnings,
                 ),
+                averageDailySpending = if (complete) money(daily) else null,
             )
+        val dailyLimit = cashFlowForecast.dailyLimit
         return Dashboard(
             today,
             money(balance),
@@ -163,7 +165,7 @@ object CalculateDashboard {
                 UpcomingPayment(it.categoryName, it.dueOn, money(it.remaining))
             },
             money(todayVariableNet),
-            CalculateBalanceForecast.calculate(input, today, balance, daily, todayVariableNet, complete),
+            cashFlowForecast.projection,
             dailyLimit,
         )
     }

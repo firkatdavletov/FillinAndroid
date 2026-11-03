@@ -14,7 +14,7 @@ import com.firkat.fillin.feature.dashboard.widgets.availabletospend.domain.Obser
 import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.AvailableToSpendViewModel
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.domain.ObserveBalanceForecast
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastViewModel
-import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastUiState
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastUiState
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitUiState
@@ -112,7 +112,7 @@ class DashboardViewModelTest {
         assertNull(balance.uiState.value.amount)
         assertNull(available.uiState.value.amount)
         assertEquals(DailyLimitUiState(), daily.uiState.value)
-        assertEquals(BalanceForecastUiState(), forecast.uiState.value)
+        assertEquals(ForecastUiState(), forecast.uiState.value)
         assertEquals(1, repository.subscriptions)
         sync.context.value = BudgetSyncContext(ready = true)
         runCurrent()

@@ -1,0 +1,8 @@
+<resources>
+    <string name="forecast_by_limit">По лимиту</string>
+    <string name="forecast_current_pace">Текущий темп</string>
+    <string name="forecast_ending">Остаток к концу периода</string>
+    <string name="forecast_no_deficit">Дефицита не ожидается</string>
+    <string name="forecast_pace_unavailable">Текущий темп: недостаточно истории — нужно 14 полных дней</string>
+    <string name="forecast_deficit">Дефицит %1$s к %2$s</string>
+</resources>

@@ -20,7 +20,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.feature.dashboard.domain.model.ForecastPoint
 import com.firkat.fillin.feature.dashboard.domain.model.Money
-import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastUiState
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastUiState
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastWidget
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -36,7 +36,7 @@ class BalanceForecastWidgetTest {
     @get:Rule val compose = createComposeRule()
     private val start = LocalDate.of(2026, 10, 25)
     private fun point(day: Long, amount: String) = ForecastPoint(start.plusDays(day), Money(amount.toBigDecimal().setScale(2), "KZT"))
-    private val state get() = BalanceForecastUiState(start, start.plusDays(30), (0L..30L).map { day ->
+    private val state get() = ForecastUiState(start, start.plusDays(30), (0L..30L).map { day ->
         val balance = when {
             day <= 5 -> 100000 - day * 24000
             day <= 12 -> -20000 + (day - 5) * 200000 / 7
@@ -50,9 +50,9 @@ class BalanceForecastWidgetTest {
         compose.onNodeWithText("Прогноз").assertIsDisplayed()
         amount("forecast-minimum", "-20000")
         amount("forecast-maximum", "180000")
-        compose.onNode(hasText("30 окт.") and hasAnyAncestor(hasTestTag("forecast-minimum"))).assertIsDisplayed()
-        compose.onNode(hasText("6 нояб.") and hasAnyAncestor(hasTestTag("forecast-maximum"))).assertIsDisplayed()
-        compose.onNodeWithContentDescription("Прогноз остатка на конец дня").assertIsDisplayed().assert(
+        compose.onNode(hasText("30 окт.") and hasAnyAncestor(hasTestTag("forecast-minimum"))).performScrollTo().assertIsDisplayed()
+        compose.onNode(hasText("6 нояб.") and hasAnyAncestor(hasTestTag("forecast-maximum"))).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Прогноз остатка на конец дня").performScrollTo().assertIsDisplayed().assert(
             SemanticsMatcher("Both extrema are described") {
                 val text = it.config[SemanticsProperties.StateDescription]
                 text.contains("Минимум") && text.contains("Максимум") && text.contains("2026")
@@ -62,18 +62,32 @@ class BalanceForecastWidgetTest {
         saveScreenshot("forecast-curve-light.png")
     }
 
-    @Test fun insufficientHistoryHidesChartAndAmounts() {
-        show(state.copy(points = emptyList(), insufficientHistory = true))
-        compose.onNodeWithText("Недостаточно истории").assertIsDisplayed()
-        compose.onNodeWithTag("forecast-chart").assertDoesNotExist()
-        compose.onNodeWithTag("forecast-minimum").assertDoesNotExist()
-        compose.onNodeWithTag("forecast-maximum").assertDoesNotExist()
+    @Test fun insufficientHistoryKeepsLimitChart() {
+        show(state.copy(insufficientHistory = true))
+        compose.onNodeWithText("Текущий темп: недостаточно истории — нужно 14 полных дней").assertExists()
+        compose.onNodeWithTag("forecast-chart").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("По лимиту").assertExists()
     }
 
     @Test fun loadingShowsPlaceholdersInsteadOfInventedZeroAmounts() {
-        show(BalanceForecastUiState())
-        compose.onAllNodesWithText("—").assertCountEquals(5)
+        show(ForecastUiState())
         compose.onNodeWithText(formatMoney("0".toBigDecimal(), "KZT")).assertDoesNotExist()
+    }
+
+    @Test fun showsBothScenarioLabelsAndDeficit() {
+        show(state.copy(currentPacePoints = state.points))
+        compose.onNodeWithText("По лимиту").assertExists()
+        compose.onNodeWithText("Текущий темп").assertExists()
+        compose.onNodeWithTag("forecast-chart").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun warningsAndIncomeDependencyRemainVisibleAlongsideScenarioRisk() {
+        show(state.copy(dependsOnPlannedIncome = true,
+            warnings = setOf(com.firkat.fillin.feature.dailylimit.domain.ForecastWarning.OVERDUE_INCOME)))
+        compose.onNodeWithTag("forecast-chart").assertIsDisplayed()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        compose.onNodeWithText(context.getString(com.firkat.fillin.R.string.daily_depends_income)).assertExists()
+        compose.onNodeWithText(context.getString(com.firkat.fillin.R.string.daily_incomplete)).assertExists()
     }
 
     @Test fun flatForecastShowsTheSameEarliestDateForBothExtrema() {
@@ -81,7 +95,7 @@ class BalanceForecastWidgetTest {
         amount("forecast-minimum", "0")
         amount("forecast-maximum", "0")
         compose.onAllNodesWithText("25 окт.").assertCountEquals(2)
-        compose.onNodeWithTag("forecast-chart").assertIsDisplayed()
+        compose.onNodeWithTag("forecast-chart").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun lightThemeFitsLargeNegativeAmounts() = checkAppearance(false, 1f, "forecast-light.png")
@@ -91,7 +105,7 @@ class BalanceForecastWidgetTest {
 
     @Test fun crossingYearShowsYearsInPeriodAndExtremaDates() {
         val first = LocalDate.of(2026, 12, 25)
-        show(BalanceForecastUiState(first, first.plusDays(30), listOf(
+        show(ForecastUiState(first, first.plusDays(30), listOf(
             ForecastPoint(first, Money("100.00".toBigDecimal(), "KZT")),
             ForecastPoint(first.plusDays(30), Money("200.00".toBigDecimal(), "KZT")),
         )))
@@ -103,7 +117,7 @@ class BalanceForecastWidgetTest {
         show(state.copy(points = listOf(point(0, "12345678.90"), point(30, "-9876543.21"))), dark, fontScale)
         amount("forecast-minimum", "-9876543.21")
         amount("forecast-maximum", "12345678.90")
-        compose.onNodeWithTag("forecast-chart").assertIsDisplayed()
+        compose.onNodeWithTag("forecast-chart").performScrollTo().assertIsDisplayed()
         assertNoTextOverflow()
         saveScreenshot(screenshot)
     }
@@ -121,15 +135,15 @@ class BalanceForecastWidgetTest {
     }
 
     private fun amount(tag: String, value: String) {
-        compose.onNode(hasText(formatMoney(value.toBigDecimal(), "KZT")) and hasAnyAncestor(hasTestTag(tag))).assertIsDisplayed()
+        compose.onNode(hasText(formatMoney(value.toBigDecimal(), "KZT")) and hasAnyAncestor(hasTestTag(tag))).performScrollTo().assertIsDisplayed()
     }
 
-    private fun show(state: BalanceForecastUiState, dark: Boolean = false, fontScale: Float = 1f) {
+    private fun show(state: ForecastUiState, dark: Boolean = false, fontScale: Float = 1f) {
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
                 FillinTheme(darkTheme = dark, dynamicColor = false) {
-                    Box(Modifier.width(288.dp).height(if (fontScale > 1.3f) 741.dp else 231.dp)) {
+                    Box(Modifier.width(288.dp).height(if (fontScale > 1.3f) 741.dp else 621.dp)) {
                         BalanceForecastWidget(state, Modifier.testTag("forecast-widget"))
                     }
                 }

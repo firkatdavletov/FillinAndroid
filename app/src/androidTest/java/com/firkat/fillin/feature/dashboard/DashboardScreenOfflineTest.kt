@@ -184,7 +184,7 @@ class DashboardScreenOfflineTest {
             DashboardWidgetKind.TotalBalance -> TotalBalanceWidget(TotalBalanceUiState(dashboard.availableMoney))
             DashboardWidgetKind.AvailableToSpend -> AvailableToSpendWidget(AvailableToSpendUiState(dashboard.freeMoney.amount))
             DashboardWidgetKind.DailyLimit -> DailyLimitWidget(DailyLimitUiState.from(DailyLimitSummary.from(dashboard)))
-            DashboardWidgetKind.BalanceForecast -> BalanceForecastWidget(BalanceForecastUiState.from(dashboard.balanceForecast))
+            DashboardWidgetKind.BalanceForecast -> BalanceForecastWidget(ForecastUiState.from(dashboard.balanceForecast))
         }
     }
 
