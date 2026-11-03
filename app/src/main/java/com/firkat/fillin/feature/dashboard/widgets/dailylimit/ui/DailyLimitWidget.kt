@@ -1,6 +1,7 @@
 package com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui
 
 import android.content.res.Configuration
+import androidx.compose.material.icons.outlined.Info
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicText
@@ -38,110 +39,52 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun DailyLimitRoute(modifier: Modifier = Modifier, viewModel: DailyLimitViewModel = koinViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    DailyLimitWidget(state, modifier)
+    val navigation: com.firkat.fillin.ui.navigation.AppNavigationViewModel = koinViewModel(
+        viewModelStoreOwner = checkNotNull(androidx.activity.compose.LocalActivity.current as? androidx.activity.ComponentActivity))
+    val budgets: com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager = org.koin.compose.koinInject()
+    DailyLimitWidget(state, modifier, onDetailsClick = { budgets.active.value?.scope?.id?.let(navigation::openDailyLimit) })
 }
 
 @Composable
-internal fun DailyLimitWidget(state: DailyLimitUiState, modifier: Modifier = Modifier) {
-    val progressLabel = stringResource(R.string.dashboard_daily_progress)
-    val progressState = state.spentPercent?.let {
-        stringResource(R.string.dashboard_percent, formatPercentageNumber(it))
-    } ?: stringResource(R.string.dashboard_value_unavailable)
-    WidgetCard(modifier) {
-        WidgetHeading(R.string.dashboard_daily_limit, R.drawable.ic_calendar)
-        Spacer(Modifier.height(4.dp))
-        MoneyAmount(state.amount, Modifier.testTag("daily-limit-amount"))
-        Spacer(Modifier.weight(1f))
-        LinearProgressIndicator(
-            progress = { state.progress },
-            modifier = Modifier.fillMaxWidth().testTag("daily-limit-progress").semantics {
-                contentDescription = progressLabel
-                stateDescription = progressState
-            },
-            color = if (state.isOverspent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.height(8.dp))
-        if (LocalDensity.current.fontScale > 1.3f) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                DailyLimitStat(
-                    title = R.string.dashboard_spent_today,
-                    money = state.spentToday,
-                    percent = state.spentPercent,
-                    modifier = Modifier.fillMaxWidth().testTag("daily-limit-spent"),
-                )
-                DailyLimitStat(
-                    title = if (state.isOverspent) R.string.dashboard_daily_overspending else R.string.dashboard_remaining_today,
-                    money = state.remainingToday,
-                    percent = state.remainingPercent,
-                    modifier = Modifier.fillMaxWidth().testTag("daily-limit-remaining"),
-                    isError = state.isOverspent,
-                )
+internal fun DailyLimitWidget(state: DailyLimitUiState, modifier: Modifier = Modifier, onDetailsClick: () -> Unit = {}) {
+    val progressDescription = stringResource(R.string.dashboard_daily_progress)
+    val forecast = state.forecast
+    androidx.compose.material3.Card(onClick = onDetailsClick, modifier = modifier.fillMaxWidth(),
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(stringResource(R.string.dashboard_daily_limit), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                androidx.compose.material3.IconButton(onClick = onDetailsClick) {
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Outlined.Info,
+                        stringResource(R.string.daily_details_title))
+                }
             }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                DailyLimitStat(
-                    title = R.string.dashboard_spent_today,
-                    money = state.spentToday,
-                    percent = state.spentPercent,
-                    modifier = Modifier.weight(1f).testTag("daily-limit-spent"),
-                )
-                DailyLimitStat(
-                    title = if (state.isOverspent) R.string.dashboard_daily_overspending else R.string.dashboard_remaining_today,
-                    money = state.remainingToday,
-                    percent = state.remainingPercent,
-                    modifier = Modifier.weight(1f).testTag("daily-limit-remaining"),
-                    isError = state.isOverspent,
-                )
+            MoneyAmount(state.amount, Modifier.testTag("daily-limit-amount"))
+            LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth().testTag("daily-limit-progress").semantics { contentDescription = progressDescription },
+                color = if (state.isOverspent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.daily_spent_value, state.spentToday?.let { formatMoney(it.amount, it.currency) } ?: "—"),
+                    Modifier.testTag("daily-limit-spent"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.daily_remaining_value, state.remainingToday?.let { formatMoney(it.amount, it.currency) } ?: "—"),
+                    Modifier.testTag("daily-limit-remaining"), color = MaterialTheme.colorScheme.primary)
+            }
+            forecast?.let {
+                if (it.overspentToday.amount.signum() > 0) Text(stringResource(R.string.daily_overspent_value,
+                    formatMoney(it.overspentToday.amount, it.overspentToday.currency), formatMoney(it.nextDaysLimit.amount, it.nextDaysLimit.currency)),
+                    color = MaterialTheme.colorScheme.error)
+                if (it.status == com.firkat.fillin.feature.dailylimit.domain.ForecastStatus.DEFICIT) Text(
+                    stringResource(R.string.daily_deficit_value, formatMoney(requireNotNull(it.deficitAmount).amount, it.dailyTarget.currency), it.firstDeficitDate.toString()),
+                    color = MaterialTheme.colorScheme.error)
+                if (it.dependsOnPlannedIncome) Text(stringResource(R.string.daily_depends_income), style = MaterialTheme.typography.bodySmall)
+                if (it.warnings.isNotEmpty()) Text(stringResource(R.string.daily_incomplete), style = MaterialTheme.typography.bodySmall)
+                androidx.compose.material3.HorizontalDivider()
+                Text(stringResource(R.string.daily_horizon_value, it.horizonDays, it.horizonEnd.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM", Locale.forLanguageTag("ru")))),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
-
-@Composable
-private fun DailyLimitStat(
-    @StringRes title: Int,
-    money: Money?,
-    percent: BigDecimal?,
-    modifier: Modifier = Modifier,
-    isError: Boolean = false,
-) {
-    val color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            stringResource(title),
-            style = MaterialTheme.typography.bodySmall,
-            color = if (isError) color else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        BasicText(
-            text = money?.let { formatMoney(it.amount, it.currency) } ?: stringResource(R.string.dashboard_value_unavailable),
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = TextUnit.Unspecified,
-                color = color,
-            ),
-            maxLines = 1,
-            softWrap = false,
-            autoSize = TextAutoSize.StepBased(
-                minFontSize = (8f / LocalDensity.current.fontScale).sp,
-                maxFontSize = 20.sp,
-                stepSize = 1.sp,
-            ),
-        )
-        Text(
-            text = percent?.let { stringResource(R.string.dashboard_percent, formatPercentageNumber(it)) }
-                ?: stringResource(R.string.dashboard_value_unavailable),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (isError) color else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-private fun formatPercentageNumber(value: BigDecimal): String =
-    NumberFormat.getNumberInstance(Locale.forLanguageTag("ru-KZ")).apply {
-        minimumFractionDigits = 1
-        maximumFractionDigits = 1
-    }.format(value)
 
 private val previewState = DailyLimitUiState(
     amount = Money("10000.00".toBigDecimal(), "KZT"),
@@ -238,3 +181,48 @@ private fun DailyLimitLargeAmountsPreview() {
         ))
     }
 }
+
+private fun forecastPreviewState(kind: Int): DailyLimitUiState {
+    val date = java.time.LocalDate.of(2026,11,1)
+    fun money(value: String) = Money(value.toBigDecimal(), "KZT")
+    val events = when (kind) {
+        0 -> listOf(com.firkat.fillin.feature.dailylimit.domain.ForecastEvent("salary", "Зарплата", date.plusDays(30), money("300000"), true))
+        1 -> listOf(com.firkat.fillin.feature.dailylimit.domain.ForecastEvent("salary", "Зарплата", date.plusDays(14), money("300000"), true))
+        2 -> listOf(com.firkat.fillin.feature.dailylimit.domain.ForecastEvent("payment", "Аренда", date.plusDays(4), money("100000"), false))
+        else -> emptyList()
+    }
+    val result = com.firkat.fillin.feature.dailylimit.domain.DailyLimitCalculator().calculate(
+        com.firkat.fillin.feature.dailylimit.domain.DailyLimitInput(money(if (kind == 4) "57000" else "60000"), money(if (kind == 4) "3000" else "0"), events, date))
+    return DailyLimitUiState.from(com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.DailyLimitSummary(
+        result.dailyTarget, result.spentToday, result.remainingToday, null, null, result))
+}
+
+@Preview(name = "OK", widthDp = 360)
+@Preview(name = "OK dark", widthDp = 360, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun OKForecastPreview() { FillinTheme { DailyLimitWidget(forecastPreviewState(0)) } }
+
+@Preview(name = "IncomeDependency", widthDp = 360)
+@Preview(name = "IncomeDependency dark", widthDp = 360, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun IncomeDependencyForecastPreview() { FillinTheme { DailyLimitWidget(forecastPreviewState(1)) } }
+
+@Preview(name = "Deficit", widthDp = 360)
+@Preview(name = "Deficit dark", widthDp = 360, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun DeficitForecastPreview() { FillinTheme { DailyLimitWidget(forecastPreviewState(2)) } }
+
+@Preview(name = "Incomplete", widthDp = 360)
+@Preview(name = "Incomplete dark", widthDp = 360, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun IncompleteForecastPreview() { FillinTheme { DailyLimitWidget(forecastPreviewState(3)) } }
+
+@Preview(name = "Overspending", widthDp = 360)
+@Preview(name = "Overspending dark", widthDp = 360, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun OverspendingForecastPreview() { FillinTheme { DailyLimitWidget(forecastPreviewState(4)) } }
+
+@Preview(name = "Forecast narrow large font", widthDp = 320, fontScale = 2f)
+@Preview(name = "Forecast tablet", widthDp = 840)
+@Composable
+private fun AdaptiveForecastPreview() { FillinTheme { DailyLimitWidget(forecastPreviewState(2)) } }

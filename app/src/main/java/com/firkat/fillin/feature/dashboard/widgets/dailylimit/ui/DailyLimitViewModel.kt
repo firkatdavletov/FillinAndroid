@@ -10,6 +10,7 @@ import java.math.RoundingMode
 import kotlinx.coroutines.flow.*
 
 data class DailyLimitUiState(
+    val forecast: com.firkat.fillin.feature.dailylimit.domain.DailyLimitResult? = null,
     val amount: Money? = null,
     val spentToday: Money? = null,
     val remainingToday: Money? = null,
@@ -20,6 +21,7 @@ data class DailyLimitUiState(
 ) {
     companion object {
         fun from(summary: DailyLimitSummary) = DailyLimitUiState(
+            forecast = summary.forecast,
             amount = summary.limit,
             spentToday = summary.spentToday,
             remainingToday = summary.remainingToday.copy(amount = summary.remainingToday.amount.abs()),
@@ -31,7 +33,7 @@ data class DailyLimitUiState(
                 summary.spentToday.amount.signum() > 0 -> 1f
                 else -> 0f
             },
-            isOverspent = summary.remainingToday.amount.signum() < 0,
+            isOverspent = summary.forecast?.overspentToday?.amount?.signum() == 1,
         )
     }
 }

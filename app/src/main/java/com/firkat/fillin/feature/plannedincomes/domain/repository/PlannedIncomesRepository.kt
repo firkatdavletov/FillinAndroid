@@ -6,6 +6,11 @@ import java.math.BigDecimal
 import java.time.LocalDate
 
 interface PlannedIncomesRepository {
+    suspend fun saveDetails(income: PlannedIncome?, categoryId: String, amount: BigDecimal, dueOn: LocalDate,
+        name: String, frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency, active: Boolean,
+        confirmRemainder: Boolean = false): PlannedIncome = if (income == null) createPlannedIncome(categoryId, amount, dueOn)
+        else updatePlannedIncome(income.id, income.version, categoryId, amount, dueOn)
+
     suspend fun getPlannedIncomes(): PlannedIncomes
 
     suspend fun createPlannedIncome(

@@ -50,6 +50,8 @@ class AppNavigationViewModel(
 
     val configuringBudget: Boolean get() = setupActive
 
+    fun openDailyLimit(scopeId: String) { if (entries.lastOrNull() == AppRoute.Main) entries.add(AppRoute.DailyLimitDetails(scopeId)) }
+
     fun authenticateForSetup(target: SetupAuthTarget) {
         if (!setupActive || auth.session.value is AuthSession.Authenticated) return
         setupAuth = target.name

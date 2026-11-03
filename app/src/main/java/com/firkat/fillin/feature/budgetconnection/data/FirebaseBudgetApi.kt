@@ -33,15 +33,15 @@ interface FirebaseBudgetApi {
     @GET("api/v4/budgets")
     suspend fun budgets(@Header("Authorization") authorization: String): Response<List<AvailableBudgetDto>>
 
-    @Headers("X-Fillin-Capabilities: confirmedPlanLinkingV1")
+    @Headers("X-Fillin-Capabilities: confirmedPlanLinkingV1,dailyLimitPlanningV1")
     @GET("api/v4/budgets/{budgetId}")
     suspend fun budget(@Header("Authorization") authorization: String, @Path("budgetId") budgetId: String): Response<CloudBudget>
 
-    @Headers("X-Fillin-Capabilities: confirmedPlanLinkingV1")
+    @Headers("X-Fillin-Capabilities: confirmedPlanLinkingV1,dailyLimitPlanningV1")
     @GET("api/v4/budgets/{budgetId}/sync/changes")
     suspend fun changes(@Header("Authorization") authorization: String, @Path("budgetId") budgetId: String, @Query("cursor") cursor: String?): Response<SyncPageDto>
 
-    @Headers("X-Fillin-Capabilities: confirmedPlanLinkingV1")
+    @Headers("X-Fillin-Capabilities: confirmedPlanLinkingV1,dailyLimitPlanningV1")
     @POST("api/v4/budgets/{budgetId}/sync/commands")
     suspend fun command(@Header("Authorization") authorization: String, @Path("budgetId") budgetId: String, @Body command: BudgetSyncCommand): Response<BudgetCommandReceipt>
 }

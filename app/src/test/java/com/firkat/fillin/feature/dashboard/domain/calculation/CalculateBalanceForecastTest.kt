@@ -156,7 +156,7 @@ class CalculateBalanceForecastTest {
             incomes = listOf(DashboardExpectedIncome(today.plusDays(11), amount("2000"))),
         ))
         assertEquals(before.forecast, after.forecast)
-        assertEquals(before.freeMoney, after.freeMoney)
+        assertEquals(before.freeMoney.copy(safeDailyLimit = after.freeMoney.safeDailyLimit), after.freeMoney)
         assertEquals(before.budgetExecution, after.budgetExecution)
         assertEquals(before.monthActuals, after.monthActuals)
         assertEquals(before.balanceForecast.balance(30) + amount("1000"), after.balanceForecast.balance(30))

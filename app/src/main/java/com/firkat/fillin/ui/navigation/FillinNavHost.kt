@@ -133,6 +133,14 @@ fun FillinNavHost(
             entry<AppRoute.Launch> {
                 LaunchScreen(launchFailed, navigation::onLaunchShown, navigation::retryLaunch)
             }
+            entry<AppRoute.DailyLimitDetails> { route ->
+                val models: MainBudgetViewModelStore = viewModel(key = "daily-limit-details")
+                models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                LaunchedEffect(runtime?.scope?.id) { if (runtime?.scope?.id != route.budgetScopeId) navigation.back() }
+                ActiveBudgetContent(viewModelStoreOwner = models) {
+                    com.firkat.fillin.feature.dailylimit.ui.DailyLimitDetailsRoute(onBack = navigation::back)
+                }
+            }
             entry<AppRoute.Main> {
                 ActiveBudgetContent(viewModelStoreOwner = mainModels) {
                     PendingPlanLinkRecovery(onPending = { id -> runtime?.scope?.id?.let { navigation.openOperationPlanLink(id, it) } }, isActive = navigation.backStack.lastOrNull() == AppRoute.Main)

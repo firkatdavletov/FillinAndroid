@@ -188,6 +188,7 @@ val budgetModule = module {
         factory { DeletePlannedIncome(repository = get()) }
         viewModel { parameters ->
             PlannedIncomesViewModel(
+                repository = get(),
                 getPlannedIncomes = get(),
                 getCategories = get(),
                 createPlannedIncome = get(),

@@ -86,7 +86,7 @@ class RoomOperationSyncStorage(
                         UUID.fromString(requireNotNull(change.variableSpendingExclusion).id)
                     }
 
-                    "RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH" -> {
+                    "INCOME_RULE", "RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH" -> {
                         val record = requireNotNull(change.record)
                         UUID.fromString(record.id)
                         record.categoryId?.let(UUID::fromString)
@@ -97,6 +97,12 @@ class RoomOperationSyncStorage(
                             require(record.createdAt != null && record.modifiedAt != null)
                         }
                         record.amount?.let { requireMoney(it.toBigDecimal()) }
+                        record.incomeFrequency?.let { require(it in setOf("ONCE", "WEEKLY", "BIWEEKLY", "MONTHLY")) }
+                        record.incomeName?.let { require(it.isNotBlank() && it.length <= 160) }
+                        record.scheduledOn?.let(LocalDate::parse)
+                        record.remainderDueOn?.let(LocalDate::parse)
+                        record.remainderAmount?.let { requireMoney(it.toBigDecimal()) }
+                        record.remainderReceived?.let { requireDecimal(it, nonNegative = true) }
                         record.startsOn?.let(LocalDate::parse)
                         record.dueOn?.let(LocalDate::parse)
                         record.createdAt?.let(Instant::parse)
@@ -111,6 +117,12 @@ class RoomOperationSyncStorage(
                                 require(record.scheduleValue in if (record.frequency == "MONTHLY") 1..31 else 1..7)
                             }
 
+                            "INCOME_RULE" -> {
+                                require(record.categoryId != null && record.amount != null && record.dueOn != null)
+                                require(!record.incomeName.isNullOrBlank() && record.incomeActive != null)
+                                require(record.incomeFrequency in setOf("ONCE", "WEEKLY", "BIWEEKLY", "MONTHLY"))
+                                require(record.status in setOf("SCHEDULED", "CANCELLED"))
+                            }
                             "EXPECTED_INCOME", "RECURRING_OCCURRENCE" -> {
                                 require(record.categoryId != null && record.amount != null && record.dueOn != null)
                                 require(

@@ -37,11 +37,11 @@ class DailyLimitSummaryTest {
 
     @Test fun `overspending has a signed domain remainder and positive display amounts`() {
         val summary = summary("12500")
-        assertEquals(decimal("-2500"), summary.remainingToday.amount)
-        assertEquals(BigDecimal("-25.0"), summary.remainingPercent)
+        assertEquals(decimal("0"), summary.remainingToday.amount)
+        assertEquals(BigDecimal("0.0"), summary.remainingPercent)
         val ui = DailyLimitUiState.from(summary)
-        assertEquals(decimal("2500"), ui.remainingToday!!.amount)
-        assertEquals(BigDecimal("25.0"), ui.remainingPercent)
+        assertEquals(decimal("0"), ui.remainingToday!!.amount)
+        assertEquals(BigDecimal("0.0"), ui.remainingPercent)
         assertEquals(BigDecimal("125.0"), ui.spentPercent)
         assertTrue(ui.isOverspent)
         assertEquals(1f, ui.progress, 0f)
@@ -58,7 +58,7 @@ class DailyLimitSummaryTest {
             assertEquals(decimal("0"), spent.amount!!.amount)
             assertNull(spent.spentPercent)
             assertNull(spent.remainingPercent)
-            assertEquals(decimal("10"), spent.remainingToday!!.amount)
+            assertEquals(decimal("0"), spent.remainingToday!!.amount)
             assertEquals(1f, spent.progress, 0f)
             assertTrue(spent.isOverspent)
         }
@@ -76,19 +76,19 @@ class DailyLimitSummaryTest {
     }
 
     @Test fun `percentages round half up while progress retains fractional precision`() {
-        val ui = DailyLimitUiState.from(summary("1", "75"))
+        val ui = DailyLimitUiState.from(summary("1", "180"))
         assertEquals(decimal("3"), ui.amount!!.amount)
         assertEquals(BigDecimal("33.3"), ui.spentPercent)
         assertEquals(BigDecimal("66.7"), ui.remainingPercent)
         assertEquals(1f / 3f, ui.progress, 0.000001f)
-        val half = summary("0.01", "200")
+        val half = summary("0.01", "480")
         assertEquals(BigDecimal("0.1"), half.spentPercent)
         assertEquals(BigDecimal("99.9"), half.remainingPercent)
     }
 
-    private fun summary(spent: String, opening: String = "250000") = DailyLimitSummary.from(dashboard(spent, opening))
+    private fun summary(spent: String, opening: String = "600000") = DailyLimitSummary.from(dashboard(spent, opening))
 
-    private fun dashboard(spent: String, opening: String = "250000") = CalculateDashboard.calculate(
+    private fun dashboard(spent: String, opening: String = "600000") = CalculateDashboard.calculate(
         DashboardCalculationInput(
             asOf = Instant.parse("2026-09-06T03:00:00Z"),
             accountingStartedAt = Instant.parse("2026-08-01T00:00:00Z"),

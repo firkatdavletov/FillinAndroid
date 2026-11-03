@@ -16,6 +16,12 @@ data class PlannedIncome(
     val version: Long,
     val createdAt: Instant,
     val modifiedAt: Instant,
+    val name: String = categoryName,
+    val frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.ONCE,
+    val active: Boolean = true,
+    val ruleId: String? = null,
+    val scheduledOn: LocalDate = dueOn,
+    val remainderConfirmed: Boolean = false,
     val receivedAmount: BigDecimal = BigDecimal.ZERO,
     val remainingAmount: BigDecimal = (plannedAmount - receivedAmount).max(BigDecimal.ZERO),
 )

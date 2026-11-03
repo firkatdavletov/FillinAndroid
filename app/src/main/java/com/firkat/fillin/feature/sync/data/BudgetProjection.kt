@@ -26,6 +26,7 @@ internal class BudgetProjection(
     val operations = content.operations.associateBy { it.id }.toMutableMap()
     val rules = linkedMapOf<String, SyncPlanRecord>()
     val occurrences = linkedMapOf<String, SyncPlanRecord>()
+    val incomeRules = linkedMapOf<String, SyncPlanRecord>()
     val incomes = linkedMapOf<String, SyncPlanRecord>()
     private val expenseLinks = mutableListOf<SyncPlanRecord>()
     private val incomeLinks = mutableListOf<SyncPlanRecord>()
@@ -44,13 +45,28 @@ internal class BudgetProjection(
             when (it.kind) {
                 "RECURRING_RULE" -> rules[record.id] = record
                 "RECURRING_OCCURRENCE" -> occurrences[record.id] = record
+                "INCOME_RULE" -> incomeRules[record.id] = record
                 "EXPECTED_INCOME" -> incomes[record.id] = record
                 "OCCURRENCE_PAYMENT" -> expenseLinks += record
                 "INCOME_MATCH" -> incomeLinks += record
             }
         }
         overlays.filter { it.kind == "CATEGORY" }.forEach { overlayCategory(json.decodeFromString(it.intent)) }
-        overlays.filter { it.kind == "EXPECTED_INCOME" }.forEach { overlayIncome(json.decodeFromString(it.intent)) }
+        overlays.filter { it.kind == "EXPECTED_INCOME" && json.decodeFromString<BudgetSyncCommand>(it.intent).type != "CONFIRM_REMAINDER_INCOME" }.forEach { overlayIncome(json.decodeFromString(it.intent)) }
+        overlays.filter { it.kind == "INCOME_RULE" }.forEach {
+            val command = json.decodeFromString<BudgetSyncCommand>(it.intent)
+            if (command.entityId !in incomeRules && command.type == "UPDATE_INCOME_RULE") {
+                incomes[command.entityId]?.let { legacy ->
+                    incomeRules[command.entityId] = legacy
+                    incomes[command.entityId] = legacy.copy(ruleId = command.entityId, scheduledOn = legacy.dueOn)
+                }
+            }
+            expandIncomes(today.plusYears(5))
+            overlayIncome(command, incomeRules)
+        }
+        expandIncomes(today.plusYears(5))
+        overlays.filter { it.kind == "EXPECTED_INCOME" && json.decodeFromString<BudgetSyncCommand>(it.intent).type == "CONFIRM_REMAINDER_INCOME" }
+            .forEach { overlayIncome(json.decodeFromString(it.intent)) }
         overlays.filter { it.kind == "LEDGER" }.forEach { item ->
             val command = json.decodeFromString<BudgetSyncCommand>(item.intent)
             val operation = operations[command.entityId]
@@ -165,15 +181,16 @@ internal class BudgetProjection(
         }
     }
 
-    private fun overlayIncome(c: BudgetSyncCommand) {
-        val old = incomes[c.entityId] ?: if (c.type == "UPDATE_INCOME" && c.categoryId != null && c.amount != null && c.dueOn != null) SyncPlanRecord(c.entityId, categoryId = c.categoryId, amount = c.amount, dueOn = c.dueOn, status = "SCHEDULED", version = 0) else null
+    private fun overlayIncome(c: BudgetSyncCommand, target: MutableMap<String, SyncPlanRecord> = incomes) {
+        val old = target[c.entityId] ?: if (c.type.removeSuffix("_RULE") == "UPDATE_INCOME" && c.categoryId != null && c.amount != null && c.dueOn != null) SyncPlanRecord(c.entityId, categoryId = c.categoryId, amount = c.amount, dueOn = c.dueOn, status = "SCHEDULED", version = 0) else null
         val at = "${c.authoredOn}T00:00:00Z"
-        when (c.type) {
+        when (c.type.removeSuffix("_RULE")) {
             "CREATE_INCOME" -> {
                 if (old == null) {
-                    incomes[c.entityId] =
+                    target[c.entityId] =
                         SyncPlanRecord(
                             c.entityId,
+                            incomeName = c.incomeName, incomeFrequency = c.incomeFrequency, incomeActive = c.incomeActive,
                             categoryId = c.categoryId,
                             amount = c.amount,
                             dueOn = c.dueOn,
@@ -189,8 +206,10 @@ internal class BudgetProjection(
                 if (old !=
                     null
                 ) {
-                    incomes[c.entityId] =
+                    target[c.entityId] =
                         old.copy(
+                            incomeName = c.incomeName ?: old.incomeName, incomeFrequency = c.incomeFrequency ?: old.incomeFrequency,
+                            incomeActive = c.incomeActive ?: old.incomeActive,
                             categoryId = c.categoryId ?: old.categoryId,
                             amount = c.amount ?: old.amount,
                             dueOn = c.dueOn ?: old.dueOn,
@@ -201,12 +220,49 @@ internal class BudgetProjection(
                 }
             }
 
+            "CONFIRM_REMAINDER_INCOME" -> if (old != null) {
+                target[c.entityId] = old.copy(remainderAmount = c.remainderAmount, remainderDueOn = c.remainderDueOn,
+                    remainderReceived = c.remainderReceived, version = (old.version ?: 0) + 1)
+            }
             "DELETE_INCOME" -> {
                 if (old !=
                     null
                 ) {
-                    incomes[c.entityId] = old.copy(status = "CANCELLED", version = (old.version ?: 0) + 1)
+                    target[c.entityId] = old.copy(status = "CANCELLED", version = (old.version ?: 0) + 1)
                 }
+            }
+        }
+    }
+
+    private fun expandIncomes(through: LocalDate) {
+        val pendingLinked = overlays.filter { it.kind == "LEDGER" && linkEligible(it) }.mapNotNull {
+            val command = json.decodeFromString<BudgetSyncCommand>(it.intent)
+            command.planTarget?.planId?.takeIf { command.type == "SET_OPERATION_PLAN_LINK" }
+        }.toSet()
+        incomeRules.values.forEach { rule ->
+            val anchor = LocalDate.parse(rule.dueOn)
+            val frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.valueOf(rule.incomeFrequency ?: "ONCE")
+            val dates = com.firkat.fillin.feature.dailylimit.domain.ForecastEventGenerator.dates(anchor, frequency, through).toSet()
+            // Materialized/linked history is immutable when a future schedule changes.
+            incomes.replaceAll { id, old ->
+                if (old.ruleId != rule.id || LocalDate.parse(old.scheduledOn ?: old.dueOn) < today || (received(id).signum() > 0 || id in pendingLinked)) old
+                else {
+                    val updated = old.copy(status = if (LocalDate.parse(old.scheduledOn ?: old.dueOn) in dates) rule.status else "CANCELLED",
+                        amount = rule.amount, categoryId = rule.categoryId, incomeName = rule.incomeName, incomeActive = rule.incomeActive,
+                        incomeFrequency = rule.incomeFrequency)
+                    if (updated != old && content.records.any { it.kind == "EXPECTED_INCOME" && it.id == id })
+                        updated.copy(version = (old.version ?: 0) + 1) else updated
+                }
+            }
+            dates.forEach { date ->
+                val id = incomes.values.firstOrNull { it.ruleId == rule.id && (it.scheduledOn ?: it.dueOn) == date.toString() }?.id
+                    ?: java.util.UUID.nameUUIDFromBytes("income:${rule.id}:$date".toByteArray(Charsets.UTF_8)).toString()
+                if (id !in incomes) incomes[id] = rule.copy(id = id, ruleId = rule.id, dueOn = date.toString(), version = 0,
+                    scheduledOn = date.toString(), remainderAmount = null, remainderDueOn = null, remainderReceived = null)
+            }
+            // Deactivation affects all unpaid forecasts but never deletes actual operations.
+            if (rule.incomeActive == false || rule.status == "CANCELLED") incomes.replaceAll { _, old ->
+                if (old.ruleId == rule.id) old.copy(incomeActive = false) else old
             }
         }
     }
@@ -328,7 +384,7 @@ internal class BudgetProjection(
                 val amount = requireNotNull(o.amount).toBigDecimal()
                 val paid = paid(o.id)
                 val remaining = (amount - paid).max(BigDecimal.ZERO)
-                if (o.status != "SCHEDULED" || remaining.signum() == 0 || due < from || due > to || categories[o.categoryId]?.archived == true) return@mapNotNull null
+                if (o.status != "SCHEDULED" || remaining.signum() == 0 || due < from || due > to) return@mapNotNull null
                 val rule = rules[o.ruleId] ?: return@mapNotNull null
                 PlannedOperation.Expense(
                     PlannedExpense(
@@ -369,6 +425,10 @@ internal class BudgetProjection(
                         i.version ?: 0,
                         instant(i.createdAt),
                         instant(i.modifiedAt),
+                        name = i.incomeName ?: categories[i.categoryId]?.name.orEmpty(),
+                        frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.valueOf(i.incomeFrequency ?: "ONCE"),
+                        active = i.incomeActive != false, ruleId = i.ruleId, scheduledOn = LocalDate.parse(i.scheduledOn ?: i.dueOn),
+                        remainderConfirmed = i.remainderReceived?.toBigDecimal()?.compareTo(received) == 0,
                         receivedAmount = received, remainingAmount = remaining,
                     ),
                 )
@@ -424,7 +484,7 @@ internal class BudgetProjection(
         plans(PlannedOperationsFilter(period = PlannedOperationPeriod.Custom, dateFrom = LocalDate.of(1, 1, 1), dateTo = today.plusYears(5)))
         val operation = operations[operationId] ?: return OperationPlanLinks()
         fun describe(record: SyncPlanRecord, type: String): SuggestedPlan = SuggestedPlan(
-            PlanLinkTarget(type, record.id.takeUnless { it.contains("@") }, record.ruleId, requireNotNull(record.dueOn)),
+            PlanLinkTarget(type, record.id.takeUnless { it.contains("@") }, record.ruleId, requireNotNull(record.dueOn), record.scheduledOn),
             requireNotNull(record.categoryId), categories[record.categoryId]?.name.orEmpty(), requireNotNull(record.amount),
             (record.amount.toBigDecimal() - if (type == "EXPENSE") paid(record.id) else received(record.id)).max(BigDecimal.ZERO).toPlainString(),
             record.version ?: 0,
@@ -542,18 +602,27 @@ internal class BudgetProjection(
             plans.items.filterIsInstance<PlannedOperation.Expense>().map {
                 DashboardPayment(it.id, it.expense.categoryName, it.dueOn, it.expense.remainingAmount)
             },
-            incomes.values.filter { it.status == "SCHEDULED" && categories[it.categoryId]?.archived != true }.map {
-                DashboardExpectedIncome(LocalDate.parse(it.dueOn), (requireNotNull(it.amount).toBigDecimal() - received(it.id)).max(BigDecimal.ZERO))
+            incomes.values.filter { it.status == "SCHEDULED" && it.incomeActive != false && categories[it.categoryId]?.archived != true }.mapNotNull {
+                val received = received(it.id)
+                val remaining = (requireNotNull(it.amount).toBigDecimal() - received).max(BigDecimal.ZERO)
+                if (remaining.signum() == 0) null
+                else if (received.signum() > 0 && it.remainderReceived?.toBigDecimal()?.compareTo(received) != 0) null
+                else DashboardExpectedIncome(LocalDate.parse(if (received.signum() > 0) it.remainderDueOn ?: it.dueOn else it.dueOn),
+                    if (received.signum() > 0) minOf(remaining, it.remainderAmount?.toBigDecimal() ?: BigDecimal.ZERO) else remaining,
+                    it.id, it.incomeName ?: categories[it.categoryId]?.name.orEmpty())
             },
             excluded,
             operations.values.filter { it.type == "EXPENSE" }.mapTo(hashSetOf()) { it.id },
+            if (incomes.values.any { it.status == "SCHEDULED" && it.incomeActive != false && received(it.id).signum() > 0 &&
+                received(it.id) < requireNotNull(it.amount).toBigDecimal() && it.remainderReceived?.toBigDecimal()?.compareTo(received(it.id)) != 0 })
+                setOf(com.firkat.fillin.feature.dailylimit.domain.ForecastWarning.UNCONFIRMED_REMAINDER) else emptySet(),
         )
     }
 
     companion object {
         val LINK_COMMANDS = setOf("SET_OPERATION_PLAN_LINK", "REMOVE_OPERATION_PLAN_LINK")
         private val PLAN_KINDS =
-            setOf("RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH")
+            setOf("INCOME_RULE", "RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH")
     }
 
     private fun instant(value: String?): Instant = value?.let(Instant::parse) ?: Instant.EPOCH

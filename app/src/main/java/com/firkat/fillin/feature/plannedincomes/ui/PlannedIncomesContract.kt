@@ -19,6 +19,10 @@ data class PlannedIncomesUiState(
 
 data class PlannedIncomeEditorUiState(
     val original: PlannedIncome? = null,
+    val name: String = original?.name.orEmpty(),
+    val frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.ONCE,
+    val active: Boolean = true,
+    val confirmRemainder: Boolean = false,
     val today: LocalDate,
     val categoryId: String = "",
     val amount: String = "",
@@ -42,11 +46,12 @@ data class PlannedIncomeEditorUiState(
 
     val isDueOnAllowed: Boolean
         get() = parsedDueOn?.let { date ->
-            date == original?.dueOn || !date.isBefore(today)
+            (!confirmRemainder && date == original?.dueOn) || !date.isBefore(today)
         } == true
 
     val hasChanges: Boolean
         get() = original?.let { income ->
+            name != income.name || frequency != income.frequency || active != income.active || confirmRemainder ||
             categoryId != income.categoryId ||
                 parsedAmount?.compareTo(income.plannedAmount) != 0 ||
                 parsedDueOn != income.dueOn
@@ -54,6 +59,7 @@ data class PlannedIncomeEditorUiState(
 
     val canSave: Boolean
         get() = !isSaving &&
+            name.isNotBlank() && name.length <= 160 &&
             categoryId.isNotBlank() &&
             parsedAmount != null &&
             isDueOnAllowed &&
@@ -84,6 +90,10 @@ sealed interface PlannedIncomesEvent {
     data class CategorySelected(val categoryId: String) : PlannedIncomesEvent
     data class AmountChanged(val amount: String) : PlannedIncomesEvent
     data class DueOnChanged(val dueOn: String) : PlannedIncomesEvent
+    data class NameChanged(val value: String) : PlannedIncomesEvent
+    data class FrequencyChanged(val value: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency) : PlannedIncomesEvent
+    data class ActiveChanged(val value: Boolean) : PlannedIncomesEvent
+    data class RemainderChanged(val value: Boolean) : PlannedIncomesEvent
     data object SaveRequested : PlannedIncomesEvent
     data object DeleteRequested : PlannedIncomesEvent
     data object DeleteDismissed : PlannedIncomesEvent

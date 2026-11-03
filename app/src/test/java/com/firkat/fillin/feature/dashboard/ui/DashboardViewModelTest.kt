@@ -139,7 +139,7 @@ class DashboardViewModelTest {
         val category = "00000000-0000-0000-0000-000000000001"
         val input = DashboardCalculationInput(
             Instant.parse("2026-09-06T03:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"),
-            "250000.00".toBigDecimal(), BigDecimal.ZERO, BigDecimal.ZERO, emptyList(),
+            "600000.00".toBigDecimal(), BigDecimal.ZERO, BigDecimal.ZERO, emptyList(),
             listOf(DashboardCategory(category, "Продукты", true)), emptyList(), emptyList(), emptySet(),
             knownExpenseIds = setOf("expense"),
         )

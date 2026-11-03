@@ -32,23 +32,27 @@ data class CreateCloudBudget(
 )
 
 interface CloudBudgetApi {
+    @Headers("X-Fillin-Capabilities: confirmedPlanLinkingV1,dailyLimitPlanningV1")
     @GET("api/v4/budget")
     suspend fun budget(
         @Header("Authorization") authorization: String,
     ): Response<CloudBudget>
 
+    @Headers("X-Fillin-Capabilities: confirmedPlanLinkingV1,dailyLimitPlanningV1")
     @POST("api/v4/legacy/budgets")
     suspend fun create(
         @Header("Authorization") authorization: String,
         @Body request: CreateCloudBudget,
     ): Response<CloudBudget>
 
+    @Headers("X-Fillin-Capabilities: confirmedPlanLinkingV1,dailyLimitPlanningV1")
     @GET("api/v4/sync/changes")
     suspend fun changes(
         @Header("Authorization") authorization: String,
         @Query("cursor") cursor: String?,
     ): SyncPageDto
 
+    @Headers("X-Fillin-Capabilities: confirmedPlanLinkingV1,dailyLimitPlanningV1")
     @POST("api/v4/sync/commands")
     suspend fun command(
         @Header("Authorization") authorization: String,

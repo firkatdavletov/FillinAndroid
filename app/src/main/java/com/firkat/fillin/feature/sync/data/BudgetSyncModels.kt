@@ -24,6 +24,14 @@ data class SyncPlanRecord(
     val version: Long? = null,
     val createdAt: String? = null,
     val modifiedAt: String? = null,
+    val incomeName: String? = null,
+    val incomeFrequency: String? = null,
+    val incomeActive: Boolean? = null,
+    val scheduledOn: String? = null,
+    val remainderAmount: String? = null,
+    val remainderDueOn: String? = null,
+    val remainderReceived: String? = null,
+
 )
 
 @Serializable
@@ -52,6 +60,14 @@ data class BudgetSyncCommand(
     val planMatchingMode: String? = null,
     val planTarget: PlanLinkTarget? = null,
     val expectedPlanVersion: Long? = null,
+    val incomeName: String? = null,
+    val incomeFrequency: String? = null,
+    val incomeActive: Boolean? = null,
+    val scheduledOn: String? = null,
+    val remainderAmount: String? = null,
+    val remainderDueOn: String? = null,
+    val remainderReceived: String? = null,
+
 )
 
 @Serializable
@@ -73,6 +89,7 @@ interface BudgetSyncApi {
 internal fun BudgetSyncCommand.entityKind(): String =
     when {
         type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION", "SET_OPERATION_PLAN_LINK", "REMOVE_OPERATION_PLAN_LINK") -> "LEDGER"
+        type.endsWith("INCOME_RULE") -> "INCOME_RULE"
         type.endsWith("CATEGORY") -> "CATEGORY"
         type.endsWith("RULE") -> "RECURRING_RULE"
         type.endsWith("INCOME") -> "EXPECTED_INCOME"

@@ -25,6 +25,7 @@ data class DashboardCalculationInput(
     val knownExpenseIds: Set<String> = operations.filter {
         it.kind == DashboardOperationKind.Expense
     }.mapTo(hashSetOf()) { it.id },
+    val incomeWarnings: Set<com.firkat.fillin.feature.dailylimit.domain.ForecastWarning> = emptySet(),
 )
 
 enum class DashboardOperationKind { Income, Expense, Refund }
@@ -41,7 +42,7 @@ data class DashboardOperation(
 
 data class DashboardCategory(val id: String, val name: String, val isExpense: Boolean)
 data class DashboardPayment(val id: String, val categoryName: String, val dueOn: LocalDate, val remaining: BigDecimal)
-data class DashboardExpectedIncome(val dueOn: LocalDate, val amount: BigDecimal)
+data class DashboardExpectedIncome(val dueOn: LocalDate, val amount: BigDecimal, val id: String = dueOn.toString(), val name: String = "")
 
 /** Mirrors DashboardCalculator, BudgetCalculator and the summary fields of BudgetForecastCalculator. */
 object CalculateDashboard {
@@ -124,6 +125,14 @@ object CalculateDashboard {
         ).take(5).map {
             ExpenseCategory(categories.getValue(it.key).name, money(it.value), percent(it.value, shareBasis))
         }
+        val dailyLimit = com.firkat.fillin.feature.dailylimit.domain.DailyLimitCalculator().calculate(
+                com.firkat.fillin.feature.dailylimit.domain.DailyLimitInput(
+                    money(balance), money(todayVariableNet),
+                    input.incomes.map { com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(it.id, it.name, it.dueOn, money(it.amount), true) } +
+                        input.payments.map { com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(it.id, it.categoryName, it.dueOn, money(it.remaining), false) },
+                    today, warnings = input.incomeWarnings,
+                ),
+            )
         return Dashboard(
             today,
             money(balance),
@@ -139,8 +148,7 @@ object CalculateDashboard {
                 money(input.goalReserve),
                 money(reserved),
                 days,
-                // Restore today's net variable spending before distributing the remaining funds.
-                money((free + todayVariableNet).max(BigDecimal.ZERO).divide(BigDecimal(days), 0, RoundingMode.FLOOR))
+                dailyLimit.dailyTarget
             ),
             MonthActuals(money(income), money(expenses), money(refunds), money(net)),
             CashFlow(money(income - net)),
@@ -156,6 +164,7 @@ object CalculateDashboard {
             },
             money(todayVariableNet),
             CalculateBalanceForecast.calculate(input, today, balance, daily, todayVariableNet, complete),
+            dailyLimit,
         )
     }
 

@@ -129,7 +129,8 @@ fun DashboardGrid(
             items(widgets, key = { it.id }, span = { GridItemSpan(it.size.columns) }) { widget ->
                 Box(
                     Modifier.fillMaxWidth()
-                        .height(rowHeight * widget.size.rows + 12.dp * (widget.size.rows - 1))
+                        .then(if (widget.kind == DashboardWidgetKind.DailyLimit) Modifier.heightIn(min = rowHeight * widget.size.rows + 12.dp * (widget.size.rows - 1))
+                            else Modifier.height(rowHeight * widget.size.rows + 12.dp * (widget.size.rows - 1)))
                         .testTag("dashboard-widget-${widget.id}"),
                     propagateMinConstraints = true,
                 ) { widgetContent(widget) }

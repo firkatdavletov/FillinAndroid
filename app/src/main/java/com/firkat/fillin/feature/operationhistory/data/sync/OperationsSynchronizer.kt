@@ -212,6 +212,13 @@ class OperationsSynchronizer(
                 ensureConfirmedLinkingSupport()
             }
             val command = store.prepare(item) ?: continue
+            if (command.type.endsWith("INCOME_RULE") || command.incomeName != null || command.incomeFrequency != null || command.incomeActive != null || command.type == "CONFIRM_REMAINDER_INCOME" || command.planTarget?.let { it.type == "INCOME" && it.ruleId != null } == true) {
+                val support = cloudApi?.budget("Bearer $apiToken") ?: throw SyncBlockedException("backend_update_required")
+                if (!support.isSuccessful) throw HttpException(support)
+                val remoteBudget = support.body() ?: throw IOException("Empty budget response")
+                if (remoteBudget.scope.key != storage.state().scopeKey) throw SyncBlockedException("scope_changed")
+                if ("dailyLimitPlanningV1" !in remoteBudget.capabilities) throw SyncBlockedException("backend_update_required")
+            }
             val state = storage.state()
             if (item.scopeKey != state.scopeKey || command.householdId != state.householdId ||
                 command.memberId != state.memberId

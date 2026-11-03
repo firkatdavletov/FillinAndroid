@@ -9,6 +9,7 @@ import java.util.UUID
 @Serializable
 sealed interface AppRoute : NavKey {
     @Serializable data object Launch : AppRoute
+    @Serializable data class DailyLimitDetails(val budgetScopeId: String) : AppRoute
     @Serializable data object Main : AppRoute
     @Serializable data object OperationCreate : AppRoute
     @Serializable data object Auth : AppRoute

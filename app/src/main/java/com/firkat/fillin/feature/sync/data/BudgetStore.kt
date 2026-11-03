@@ -26,6 +26,7 @@ class BudgetStore(
 ) : BudgetSyncControl, OperationPlanLinkStore {
     private val dao get() = database.budget()
 
+    internal fun currentDate() = today()
     private fun today() = LocalDate.now(clock.withZone(ZoneId.of("Asia/Almaty")))
 
     internal fun project(content: BudgetContent) = BudgetProjection(content, json, today())
@@ -184,9 +185,9 @@ class BudgetStore(
                 )
             if (content.sync.protocolVersion >= 4) {
                 val category = projection.categories[entityId]
-                val income = projection.incomes[entityId]
+                val income = projection.incomeRules[entityId] ?: projection.incomes[entityId]
                 if (type == "UPDATE_CATEGORY" && category != null) command = command.copy(name = command.name ?: category.name, icon = command.icon ?: category.iconCode, kind = category.kind)
-                if (type == "UPDATE_INCOME" && income != null) command = command.copy(categoryId = command.categoryId ?: income.categoryId, amount = command.amount ?: income.amount, dueOn = command.dueOn ?: income.dueOn)
+                if (type in setOf("UPDATE_INCOME", "UPDATE_INCOME_RULE") && income != null) command = command.copy(categoryId = command.categoryId ?: income.categoryId, amount = command.amount ?: income.amount, dueOn = command.dueOn ?: income.dueOn)
                 if (type == "UPDATE_RULE") {
                     projection.plans(PlannedOperationsFilter())
                     projection.rules[entityId]?.let { rule -> command = command.copy(categoryId = rule.categoryId, frequency = rule.frequency, scheduleValue = rule.scheduleValue, startsOn = rule.startsOn) }
@@ -226,6 +227,7 @@ class BudgetStore(
                             projection.rules[entityId]?.version
                         }
 
+                        "INCOME_RULE" -> (projection.incomeRules[entityId] ?: projection.incomes[entityId])?.version
                         "EXPECTED_INCOME" -> {
                             projection.incomes[entityId]?.version
                         }
@@ -245,6 +247,7 @@ class BudgetStore(
                 if (visible != expectedVersion) throw BudgetLocalFailure("conflict")
             }
             val canonicalToken = observedCategoryRevision ?: token(content, kind, entityId)
+                ?: if (type == "UPDATE_INCOME_RULE") token(content, "EXPECTED_INCOME", entityId) else null
             validate(command, projection, content)
             val dependency =
                 command.categoryId?.let { category ->
@@ -269,10 +272,9 @@ class BudgetStore(
                     prior?.requestId,
                     dependency,
                     protocolVersion = if (content.sync.protocolVersion >= 4) 4 else 2,
-                    dependencies = json.encodeToString(command.planTarget?.let { target ->
-                        content.commands.filter { it.entityId in setOfNotNull(target.ruleId, target.planId) && it.status != "CANCELLED" }
-                            .map { it.requestId }
-                    }.orEmpty()),
+                    dependencies = json.encodeToString(content.commands.filter {
+                        it.entityId in setOfNotNull(command.ruleId, command.planTarget?.ruleId, command.planTarget?.planId) && it.status != "CANCELLED"
+                    }.map { it.requestId }),
                 ),
             )
         }
@@ -332,7 +334,7 @@ class BudgetStore(
         c.amount?.let { requireMoney(it.toBigDecimal()) }
         c.categoryId?.let { id ->
             val category = p.categories[id] ?: throw BudgetLocalFailure("invalid")
-            val expected = if (c.type.endsWith("INCOME") || c.type in setOf("CREATE_OPERATION", "UPDATE_OPERATION") && c.kind == "INCOME") "INCOME" else "EXPENSE"
+            val expected = if (c.type.endsWith("INCOME") || c.type.endsWith("INCOME_RULE") || c.type in setOf("CREATE_OPERATION", "UPDATE_OPERATION") && c.kind == "INCOME") "INCOME" else "EXPENSE"
             if (category.archived || category.kind != expected) throw BudgetLocalFailure("invalid")
         }
         if (c.type.endsWith("CATEGORY")) {
@@ -379,7 +381,18 @@ class BudgetStore(
             if (c.type == "UPDATE_OPERATION" && refunds.isNotEmpty()) throw BudgetLocalFailure("invalid")
             if (c.type == "REFUND_OPERATION" && operation.originalAmount.toBigDecimal() <= refunds.sumOf { it.originalAmount.toBigDecimal() }) throw BudgetLocalFailure("invalid")
         }
-        c.dueOn?.let { if (LocalDate.parse(it) < LocalDate.parse(c.authoredOn) && !(c.type == "UPDATE_INCOME" && it == p.incomes[c.entityId]?.dueOn)) throw BudgetLocalFailure("invalid") }
+        c.incomeFrequency?.let { if (it !in com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.entries.map { f -> f.name }) throw BudgetLocalFailure("invalid") }
+        c.incomeName?.let { if (it.isBlank() || it.length > 160) throw BudgetLocalFailure("invalid") }
+        if (c.type == "CONFIRM_REMAINDER_INCOME") {
+            val item = p.plans(PlannedOperationsFilter(period = PlannedOperationPeriod.Custom,
+                dateFrom = LocalDate.of(1,1,1), dateTo = today().plusYears(5))).items
+                .filterIsInstance<PlannedOperation.Income>().firstOrNull { it.id == c.entityId }?.income ?: throw BudgetLocalFailure("not_found")
+            val amount = c.remainderAmount?.toBigDecimalOrNull() ?: throw BudgetLocalFailure("invalid")
+            if (amount.signum() <= 0 || amount.scale() > 2 || amount > item.remainingAmount ||
+                c.remainderReceived?.toBigDecimalOrNull()?.compareTo(item.receivedAmount) != 0 ||
+                LocalDate.parse(c.remainderDueOn) < today()) throw BudgetLocalFailure("invalid")
+        }
+        c.dueOn?.let { if (LocalDate.parse(it) < LocalDate.parse(c.authoredOn) && !(c.type in setOf("UPDATE_INCOME", "UPDATE_INCOME_RULE") && it == (p.incomeRules[c.entityId] ?: p.incomes[c.entityId])?.dueOn)) throw BudgetLocalFailure("invalid") }
         if (c.type == "CREATE_RULE") {
             val start = LocalDate.parse(c.startsOn)
             val accountingStart =
@@ -403,7 +416,8 @@ class BudgetStore(
                         dateTo = today().plusYears(5),
                     ),
                 )
-            val target = all.items.find { it.id == c.entityId } ?: throw BudgetLocalFailure("not_found")
+            val target = all.items.find { it.id == c.entityId }
+            if (target == null && (c.type == "CLOSE_EXPENSE" || p.incomes[c.entityId]?.status != "SCHEDULED")) throw BudgetLocalFailure("not_found")
             if (c.type == "CLOSE_EXPENSE" &&
                 (target !is PlannedOperation.Expense || !target.expense.canBeClosed)
             ) {
@@ -446,7 +460,7 @@ class BudgetStore(
                 val target = requireNotNull(intent.planTarget)
                 val targetParent = parents.filter { it.entityId == target.planId || it.entityId == target.ruleId }.maxByOrNull { it.createdOrder }
                 // Income versions come from their own receipt. A rule receipt is not an occurrence version.
-                if (target.type == "INCOME" && targetParent?.receiptToken != null) intent = intent.copy(expectedPlanVersion = targetParent.receiptToken)
+                if (target.type == "INCOME" && targetParent?.entityId == target.planId && targetParent?.receiptToken != null) intent = intent.copy(expectedPlanVersion = targetParent.receiptToken)
             }
             val wire = if (prior != null) intent.copy(expectedToken = prior.receiptToken) else intent
             dao.update(current.copy(wirePayload = json.encodeToString(wire)))

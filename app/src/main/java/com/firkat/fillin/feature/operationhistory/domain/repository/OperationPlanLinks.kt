@@ -9,6 +9,7 @@ data class PlanLinkTarget(
     val planId: String? = null,
     val ruleId: String? = null,
     val dueOn: String,
+    val scheduledOn: String? = null,
 ) {
     val stableKey: String get() = if (type == "EXPENSE") "$ruleId@$dueOn" else requireNotNull(planId)
 }

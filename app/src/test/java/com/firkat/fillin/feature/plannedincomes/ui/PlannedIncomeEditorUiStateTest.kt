@@ -16,6 +16,7 @@ class PlannedIncomeEditorUiStateTest {
     fun `create requires exact amount and today or future date`() {
         val valid = PlannedIncomeEditorUiState(
             today = today,
+            name = "Зарплата",
             categoryId = "category-id",
             amount = "1300000,00",
             dueOn = today.toString(),
@@ -32,6 +33,7 @@ class PlannedIncomeEditorUiStateTest {
         val editor = PlannedIncomeEditorUiState(
             original = original,
             today = today,
+            name = "Зарплата",
             categoryId = original.categoryId,
             amount = "1350000.00",
             dueOn = original.dueOn.toString(),
@@ -48,6 +50,7 @@ class PlannedIncomeEditorUiStateTest {
         val editor = PlannedIncomeEditorUiState(
             original = original,
             today = today,
+            name = "Зарплата",
             categoryId = original.categoryId,
             amount = original.plannedAmount.toPlainString(),
             dueOn = original.dueOn.toString(),

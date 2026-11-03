@@ -200,6 +200,30 @@ internal fun PlannedIncomeEditor(
             }
         }
 
+        OutlinedTextField(value = editor.name, onValueChange = { onEvent(PlannedIncomesEvent.NameChanged(it)) },
+            label = { Text(stringResource(R.string.income_name_label)) }, enabled = !editor.isSaving,
+            modifier = Modifier.fillMaxWidth(), singleLine = true)
+        com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.entries.forEach { frequency ->
+            FilterChip(selected = editor.frequency == frequency,
+                onClick = { onEvent(PlannedIncomesEvent.FrequencyChanged(frequency)) }, enabled = !editor.isSaving,
+                label = { Text(stringResource(when (frequency) {
+                    com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.ONCE -> R.string.income_frequency_once
+                    com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.WEEKLY -> R.string.income_frequency_weekly
+                    com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.BIWEEKLY -> R.string.income_frequency_biweekly
+                    com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.MONTHLY -> R.string.income_frequency_monthly
+                })) })
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Switch(checked = editor.active, onCheckedChange = { onEvent(PlannedIncomesEvent.ActiveChanged(it)) }, enabled = !editor.isSaving)
+            Text(stringResource(R.string.income_active_label))
+        }
+        if (editor.original?.receivedAmount?.signum() == 1 && editor.original.remainingAmount.signum() > 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Checkbox(checked = editor.confirmRemainder,
+                    onCheckedChange = { onEvent(PlannedIncomesEvent.RemainderChanged(it)) }, enabled = !editor.isSaving)
+                Text(stringResource(R.string.income_remainder_label))
+            }
+        }
         OutlinedTextField(
             value = editor.amount,
             onValueChange = { onEvent(PlannedIncomesEvent.AmountChanged(it)) },
@@ -469,7 +493,7 @@ internal fun PlannedIncomeItem(income: PlannedIncome, onEdit: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = income.categoryName,
+                    text = income.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -610,4 +634,28 @@ private fun PlannedIncomesPreview() {
             onEvent = {},
         )
     }
+}
+
+@Preview(name = "Income Recurring", widthDp = 360, heightDp = 900)
+@Preview(name = "Income Recurring dark", widthDp = 360, heightDp = 900, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun IncomeRecurringEditorPreview() {
+    FillinTheme { PlannedIncomeEditor(emptyList(), false,
+        PlannedIncomeEditorUiState(today = LocalDate.of(2026,11,1), name = "Зарплата", amount = "300000", dueOn = "2026-11-15", frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.MONTHLY), {}) }
+}
+
+@Preview(name = "Income Disabled", widthDp = 360, heightDp = 900)
+@Preview(name = "Income Disabled dark", widthDp = 360, heightDp = 900, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun IncomeDisabledEditorPreview() {
+    FillinTheme { PlannedIncomeEditor(emptyList(), false,
+        PlannedIncomeEditorUiState(today = LocalDate.of(2026,11,1), name = "Зарплата", amount = "300000", dueOn = "2026-11-15", active = false), {}) }
+}
+
+@Preview(name = "Income Saving", widthDp = 360, heightDp = 900)
+@Preview(name = "Income Saving dark", widthDp = 360, heightDp = 900, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun IncomeSavingEditorPreview() {
+    FillinTheme { PlannedIncomeEditor(emptyList(), false,
+        PlannedIncomeEditorUiState(today = LocalDate.of(2026,11,1), name = "Зарплата", amount = "300000", dueOn = "2026-11-15", isSaving = true), {}) }
 }
