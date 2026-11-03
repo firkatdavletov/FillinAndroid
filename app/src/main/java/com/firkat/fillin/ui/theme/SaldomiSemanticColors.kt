@@ -4,6 +4,8 @@ import androidx.compose.ui.graphics.Color
 
 @Immutable
 data class SaldomiSemanticColors(
+    val forecastPace: Color,
+    val forecastWarning: Color,
     val income: Color,
     val onIncome: Color,
     val incomeContainer: Color,
@@ -21,6 +23,7 @@ data class SaldomiSemanticColors(
 )
 
 val SaldomiLightSemanticColors = SaldomiSemanticColors(
+    forecastPace = Color(0xFF356C75), forecastWarning = Color(0xFF806000),
     income = Color(0xFF187347),
     onIncome = Color.White,
     incomeContainer = Color(0xFFDDF5E6),
@@ -38,6 +41,7 @@ val SaldomiLightSemanticColors = SaldomiSemanticColors(
 )
 
 val SaldomiDarkSemanticColors = SaldomiSemanticColors(
+    forecastPace = Color(0xFFAFD6DC), forecastWarning = Color(0xFFFFCB47),
     income = Color(0xFF7EE2AC),
     onIncome = Color(0xFF103D29),
     incomeContainer = Color(0xFF184B35),

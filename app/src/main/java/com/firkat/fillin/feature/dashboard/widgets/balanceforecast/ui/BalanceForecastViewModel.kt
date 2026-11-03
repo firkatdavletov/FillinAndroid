@@ -21,15 +21,21 @@ data class ForecastUiState(
     val reserve: Money = Money(BigDecimal.ZERO, "KZT"),
     val warnings: Set<ForecastWarning> = emptySet(),
     val dependsOnPlannedIncome: Boolean = false,
+    val projection: BalanceForecastProjection? = null,
+    val dataStatus: com.firkat.fillin.feature.dashboard.domain.model.DashboardStatus = com.firkat.fillin.feature.dashboard.domain.model.DashboardStatus.Loading,
 ) {
-    val byLimit = ForecastSeries.from(points, reserve)
-    val currentPace = currentPacePoints?.let { ForecastSeries.from(it, reserve) }
+    val byLimit = ForecastSeries.from(points, Money(BigDecimal.ZERO, reserve.currency))
+    val currentPace = currentPacePoints?.let { ForecastSeries.from(it, Money(BigDecimal.ZERO, reserve.currency)) }
     val minimum = byLimit.minimum
     val maximum = byLimit.maximum
+    val financialStatus = projection?.status ?: when {
+        byLimit.firstDeficitDate != null -> com.firkat.fillin.feature.dashboard.domain.model.BalanceForecastStatus.STRUCTURAL_DEFICIT
+        currentPace == null -> com.firkat.fillin.feature.dashboard.domain.model.BalanceForecastStatus.INSUFFICIENT_DATA
+        currentPace.firstDeficitDate != null -> com.firkat.fillin.feature.dashboard.domain.model.BalanceForecastStatus.CURRENT_PACE_RISK
+        else -> com.firkat.fillin.feature.dashboard.domain.model.BalanceForecastStatus.NORMAL
+    }
     val scaleMinimum = (points + currentPacePoints.orEmpty()).minOfOrNull { it.balance.amount } ?: BigDecimal.ZERO
     val scaleMaximum = (points + currentPacePoints.orEmpty()).maxOfOrNull { it.balance.amount } ?: BigDecimal.ZERO
-    internal val limitGeometry = ForecastChartGeometry(points, scaleMinimum, scaleMaximum)
-    internal val paceGeometry = currentPacePoints?.let { ForecastChartGeometry(it, scaleMinimum, scaleMaximum) }
 
     companion object {
         fun from(projection: BalanceForecastProjection) = ForecastUiStateMapper.map(projection)
@@ -39,11 +45,11 @@ data class ForecastUiState(
 object ForecastUiStateMapper {
     fun map(projection: BalanceForecastProjection) = ForecastUiState(
         projection.startDate, projection.endDate, projection.points, projection.insufficientHistory,
-        projection.currentPacePoints, projection.reserve, projection.warnings, projection.dependsOnPlannedIncome,
+        projection.currentPacePoints, projection.reserve, projection.warnings, projection.dependsOnPlannedIncome, projection, com.firkat.fillin.feature.dashboard.domain.model.DashboardStatus.Ready,
     )
 }
 
 class BalanceForecastViewModel(observe: ObserveBalanceForecast) : ViewModel() {
-    val uiState = observe().map { it?.let(ForecastUiState::from) ?: ForecastUiState() }
+    val uiState = observe.states().map { data -> data.dashboard?.balanceForecast?.let(ForecastUiState::from) ?: ForecastUiState(dataStatus = data.status) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0, 0), ForecastUiState())
 }

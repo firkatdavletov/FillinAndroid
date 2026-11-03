@@ -31,6 +31,17 @@ class AppNavigationViewModelTest {
     @Before fun setup() = Dispatchers.setMain(StandardTestDispatcher())
     @After fun cleanup() { models.clear(); Dispatchers.resetMain() }
 
+    @Test fun `forecast opens once from Main and Back restores Main`() = runTest {
+        val model = model(FakeAuth(AuthSession.Anonymous)) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openForecast("local-budget")
+        model.openForecast("local-budget")
+        assertEquals(listOf(AppRoute.Main, AppRoute.ForecastDetails("local-budget")), model.backStack)
+        model.back()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
+
     @Test fun `Launch is first and waits for Firebase restoration`() = runTest {
         val auth = FakeAuth(AuthSession.Loading)
         var reads = 0

@@ -85,6 +85,7 @@ val budgetModule = module {
         viewModel { DailyLimitViewModel(get()) }
         factory { ObserveBalanceForecast(get()) }
         viewModel { BalanceForecastViewModel(get()) }
+        viewModel { com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsViewModel(get(), androidx.lifecycle.SavedStateHandle()) }
         scoped<OperationHistoryRepository>(named("remoteOperations")) {
             com.firkat.fillin.feature.sync.data.RetiredOperationHistory
         }

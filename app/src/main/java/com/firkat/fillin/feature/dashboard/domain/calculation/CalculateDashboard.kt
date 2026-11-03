@@ -132,7 +132,7 @@ object CalculateDashboard {
                         input.payments.map { com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(it.id, it.categoryName, it.dueOn, money(it.remaining), false) },
                     today, warnings = input.incomeWarnings,
                 ),
-                averageDailySpending = if (complete) money(daily) else null,
+                averageDailySpending = if (historyDays >= 30) money(daily) else null,
             )
         val dailyLimit = cashFlowForecast.dailyLimit
         return Dashboard(

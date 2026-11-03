@@ -49,6 +49,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun DashboardRoute(
     viewModel: DashboardViewModel = koinViewModel(),
+    onForecastClick: () -> Unit = {},
     onPaymentsClick: (java.time.LocalDate, java.time.LocalDate) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,7 +61,7 @@ fun DashboardRoute(
                     DashboardWidgetKind.TotalBalance -> TotalBalanceRoute()
                     DashboardWidgetKind.AvailableToSpend -> AvailableToSpendRoute()
                     DashboardWidgetKind.DailyLimit -> DailyLimitRoute(onPaymentsClick = onPaymentsClick)
-                    DashboardWidgetKind.BalanceForecast -> BalanceForecastRoute()
+                    DashboardWidgetKind.BalanceForecast -> BalanceForecastRoute(onDetailsClick = onForecastClick)
                 }
             }
         }
@@ -130,7 +131,7 @@ fun DashboardGrid(
             items(widgets, key = { it.id }, span = { GridItemSpan(it.size.columns) }) { widget ->
                 Box(
                     Modifier.fillMaxWidth()
-                        .then(if (widget.kind == DashboardWidgetKind.DailyLimit) Modifier
+                        .then(if (widget.kind in setOf(DashboardWidgetKind.DailyLimit, DashboardWidgetKind.BalanceForecast)) Modifier
                             else Modifier.height(rowHeight * widget.size.rows + 12.dp * (widget.size.rows - 1)))
                         .testTag("dashboard-widget-${widget.id}"),
                     propagateMinConstraints = true,

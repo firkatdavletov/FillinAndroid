@@ -141,6 +141,14 @@ fun FillinNavHost(
                     com.firkat.fillin.feature.dailylimit.ui.DailyLimitDetailsRoute(onBack = navigation::back)
                 }
             }
+            entry<AppRoute.ForecastDetails> { route ->
+                val models: MainBudgetViewModelStore = viewModel(key = "forecast-details")
+                models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                LaunchedEffect(runtime?.scope?.id) { if (runtime?.scope?.id != route.budgetScopeId) navigation.back() }
+                ActiveBudgetContent(viewModelStoreOwner = models) {
+                    com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsRoute(onBack = navigation::back)
+                }
+            }
             entry<AppRoute.Main> {
                 ActiveBudgetContent(viewModelStoreOwner = mainModels) {
                     PendingPlanLinkRecovery(onPending = { id -> runtime?.scope?.id?.let { navigation.openOperationPlanLink(id, it) } }, isActive = navigation.backStack.lastOrNull() == AppRoute.Main)
@@ -155,6 +163,7 @@ fun FillinNavHost(
                     snackbarHostState = snackbar,
                     budgetViewModelStoreOwner = mainModels,
                     user = state.session.userOrNull,
+                    onForecastClick = { runtime?.scope?.id?.let(navigation::openForecast) },
                     onCategoriesClick = navigation::openCategories,
                     onFamilyAccessClick = navigation::openFamilyAccess,
                     onCloudSyncClick = navigation::openCloudSync,

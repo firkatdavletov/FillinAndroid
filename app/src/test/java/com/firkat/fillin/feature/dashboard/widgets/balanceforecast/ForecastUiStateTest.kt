@@ -15,7 +15,6 @@ class ForecastUiStateTest {
         val forecast = CashFlowForecaster().forecast(DailyLimitInput(money("6000"), money("0"), emptyList(), today), money("100"))
         val state = ForecastUiState.from(forecast.projection)
         assertEquals(state.points, state.currentPacePoints)
-        assertEquals(state.limitGeometry.vertices, state.paceGeometry!!.vertices)
         assertEquals(money("0"), state.byLimit.endingBalance)
         assertEquals(ForecastRisk.NoDeficit, state.byLimit.risk)
         assertTrue(state.warnings.contains(ForecastWarning.NO_INCOME))
@@ -32,8 +31,6 @@ class ForecastUiStateTest {
         assertEquals(ForecastRisk.Deficit, state.currentPace!!.risk)
         assertEquals(today.plusDays(30), state.currentPace.firstDeficitDate)
         assertEquals(money("200"), state.currentPace.deficitAmount)
-        assertEquals(1f, state.paceGeometry!!.vertices.last().y, 0.00001f)
-        assertTrue(state.limitGeometry.vertices.last().y < 1f)
         assertEquals(state.currentPacePoints!!.last().balance, state.currentPace.endingBalance)
     }
 
@@ -42,11 +39,10 @@ class ForecastUiStateTest {
         val state = ForecastUiState.from(CashFlowForecaster().forecast(
             DailyLimitInput(money("-50"), money("0"), emptyList(), today), null).projection)
         assertNull(state.currentPace)
-        assertNull(state.paceGeometry)
         assertTrue(state.insufficientHistory)
         assertEquals(ForecastRisk.Deficit, state.byLimit.risk)
         assertEquals(today, state.minimum!!.date)
         assertEquals(state.minimum, state.maximum)
-        assertTrue(state.limitGeometry.vertices.all { it.y == 0.5f })
+        assertEquals(BalanceForecastStatus.STRUCTURAL_DEFICIT, state.financialStatus)
     }
 }

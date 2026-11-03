@@ -50,6 +50,8 @@ class AppNavigationViewModel(
 
     val configuringBudget: Boolean get() = setupActive
 
+    fun openForecast(scopeId: String) = openMainDestination(AppRoute.ForecastDetails(scopeId))
+
     fun openDailyLimit(scopeId: String) { if (entries.lastOrNull() == AppRoute.Main) entries.add(AppRoute.DailyLimitDetails(scopeId)) }
 
     fun authenticateForSetup(target: SetupAuthTarget) {
@@ -116,7 +118,7 @@ class AppNavigationViewModel(
                             entries.last() == AppRoute.Launch -> {
                                 if (ready) openMain() else replaceWith(AppRoute.Auth)
                             }
-                            !ready && (entries.last() is AppRoute.EditOperationBottomSheet || entries.last() is AppRoute.OperationPlanLinkBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.EditCategoryBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
+                            !ready && (entries.last() is AppRoute.ForecastDetails || entries.last() is AppRoute.EditOperationBottomSheet || entries.last() is AppRoute.OperationPlanLinkBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.EditCategoryBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
                                 if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
                             )
                         }

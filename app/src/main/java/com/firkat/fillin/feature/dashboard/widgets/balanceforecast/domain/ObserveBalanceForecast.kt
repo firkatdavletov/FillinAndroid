@@ -5,5 +5,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 class ObserveBalanceForecast(private val source: DashboardDataSource) {
+    fun states() = source.state
+    fun resume() = source.resume()
     operator fun invoke() = source.state.map { it.dashboard?.balanceForecast }.distinctUntilChanged()
 }

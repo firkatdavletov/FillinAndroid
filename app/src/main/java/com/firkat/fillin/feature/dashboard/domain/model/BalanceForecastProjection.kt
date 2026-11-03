@@ -14,9 +14,29 @@ data class BalanceForecastProjection(
     val reserve: Money = Money(BigDecimal.ZERO, "KZT"),
     val warnings: Set<ForecastWarning> = emptySet(),
     val dependsOnPlannedIncome: Boolean = false,
+    val currentBalance: Money? = null,
+    val averageDailyExpenses: Money? = null,
+    val dailyLimit: Money? = null,
+    val remainingToday: Money? = null,
+    val nextDaysLimit: Money? = null,
+    val events: List<com.firkat.fillin.feature.dailylimit.domain.ForecastEvent> = emptyList(),
+    val structuralDeficitDate: LocalDate? = null,
 ) {
-    val byLimit = ForecastSeries.from(points, reserve)
-    val currentPace = currentPacePoints?.let { ForecastSeries.from(it, reserve) }
+    val byLimit = ForecastSeries.from(points, Money(BigDecimal.ZERO, reserve.currency))
+    val currentPace = currentPacePoints?.let { ForecastSeries.from(it, Money(BigDecimal.ZERO, reserve.currency)) }
+    val status: BalanceForecastStatus get() = when {
+        structuralDeficitDate != null -> BalanceForecastStatus.STRUCTURAL_DEFICIT
+        currentPace == null -> BalanceForecastStatus.INSUFFICIENT_DATA
+        currentPace.firstDeficitDate != null -> BalanceForecastStatus.CURRENT_PACE_RISK
+        else -> BalanceForecastStatus.NORMAL
+    }
+    val recommendedReduction: Money? get() {
+        val average = averageDailyExpenses ?: return null
+        val limit = dailyLimit ?: return null
+        return if (structuralDeficitDate == null && byLimit.firstDeficitDate == null &&
+            limit.amount.signum() > 0 && average.amount > limit.amount)
+            Money(average.amount - limit.amount, limit.currency) else null
+    }
     val minimum: ForecastPoint? get() = byLimit.minimum
     val maximum: ForecastPoint? get() = byLimit.maximum
 }
@@ -48,3 +68,5 @@ data class ForecastSeries(
 }
 
 data class ForecastPoint(val date: LocalDate, val balance: Money)
+
+enum class BalanceForecastStatus { NORMAL, CURRENT_PACE_RISK, STRUCTURAL_DEFICIT, INSUFFICIENT_DATA }

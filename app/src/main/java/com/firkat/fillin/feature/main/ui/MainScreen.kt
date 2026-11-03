@@ -56,6 +56,7 @@ fun MainScreen(
     onCloudSyncClick: () -> Unit = {},
     onCreateOperationClick: () -> Unit = {},
     onOperationClick: (String, String) -> Unit = { _, _ -> },
+    onForecastClick: () -> Unit = {},
     onPlannedOperationEditorClick: (PlannedOperationType) -> Unit = {},
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
@@ -79,6 +80,7 @@ fun MainScreen(
             onCloudSyncClick = onCloudSyncClick,
             onCreateOperationClick = onCreateOperationClick,
             onOperationClick = onOperationClick,
+            onForecastClick = onForecastClick,
             onPlannedOperationEditorClick = onPlannedOperationEditorClick,
         )
     }
@@ -98,6 +100,7 @@ private fun MainContent(
     onCloudSyncClick: () -> Unit,
     onCreateOperationClick: () -> Unit,
     onOperationClick: (String, String) -> Unit,
+    onForecastClick: () -> Unit,
     onPlannedOperationEditorClick: (PlannedOperationType) -> Unit,
 ) {
     val plansViewModel: com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsViewModel = org.koin.compose.viewmodel.koinViewModel()
@@ -135,7 +138,7 @@ private fun MainContent(
     ) { innerPadding ->
         val provider =
             entryProvider<NavKey> {
-                entry(AppDestination.Dashboard) { DashboardRoute(onPaymentsClick = { from, to ->
+                entry(AppDestination.Dashboard) { DashboardRoute(onForecastClick = onForecastClick, onPaymentsClick = { from, to ->
                     plansViewModel.onEvent(com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsEvent.FilterApplied(
                         com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter(
                             type = PlannedOperationType.Expense,

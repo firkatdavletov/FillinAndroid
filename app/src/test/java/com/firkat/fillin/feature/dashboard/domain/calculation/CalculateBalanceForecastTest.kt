@@ -50,14 +50,21 @@ class CalculateBalanceForecastTest {
         }
     }
 
-    @Test fun `thirteen days keep limit available and fourteen days unlock pace`() {
-        val fresh = forecast(input().copy(accountingStartedAt = today.minusDays(13).atStartOfDay(zone).toInstant()))
+    @Test fun `twenty nine days keep limit available and thirty days unlock pace`() {
+        val fresh = forecast(input().copy(accountingStartedAt = today.minusDays(29).atStartOfDay(zone).toInstant()))
         assertTrue(fresh.insufficientHistory)
         assertEquals(60, fresh.points.size)
         assertNull(fresh.currentPace)
-        val ready = forecast(input().copy(accountingStartedAt = today.minusDays(14).atStartOfDay(zone).toInstant()))
+        val ready = forecast(input().copy(accountingStartedAt = today.minusDays(30).atStartOfDay(zone).toInstant()))
         assertFalse(ready.insufficientHistory)
-        assertEquals(amount("9785.71"), ready.currentPacePoints!!.first().balance.amount)
+        assertEquals(amount("9900"), ready.currentPacePoints!!.first().balance.amount)
+    }
+
+    @Test fun `thirty tracked days without operations give a real zero average`() {
+        val result = forecast(input().copy(operations = emptyList(), accountingStartedAt = today.minusDays(30).atStartOfDay(zone).toInstant()))
+        assertFalse(result.insufficientHistory)
+        assertEquals(amount("0"), result.averageDailyExpenses!!.amount)
+        assertNotNull(result.currentPace)
     }
 
     @Test fun `today spending is not subtracted twice and excess refunds do not raise spending estimate`() {

@@ -24,6 +24,10 @@ class CashFlowForecaster {
         return CashFlowForecast(limit, BalanceForecastProjection(
             input.today, days.last().date, limitPoints, pacePoints == null, pacePoints,
             input.reserve, limit.warnings, limit.dependsOnPlannedIncome,
+            currentBalance = input.balance, averageDailyExpenses = averageDailySpending,
+            dailyLimit = limit.dailyTarget, remainingToday = limit.remainingToday,
+            nextDaysLimit = limit.nextDaysLimit, events = days.flatMap { it.events },
+            structuralDeficitDate = days.firstOrNull { it.withoutDailySpending.amount.signum() < 0 }?.date,
         ))
     }
 }

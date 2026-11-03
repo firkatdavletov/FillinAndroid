@@ -1,16 +1,15 @@
 package com.firkat.fillin.feature.dashboard
 
 import android.graphics.Bitmap
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
@@ -18,11 +17,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.firkat.fillin.feature.dashboard.domain.model.ForecastPoint
-import com.firkat.fillin.feature.dashboard.domain.model.Money
-import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastUiState
-import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastWidget
-import com.firkat.fillin.ui.format.formatMoney
+import com.firkat.fillin.feature.dashboard.domain.model.*
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.*
+import com.firkat.fillin.feature.dailylimit.domain.ForecastEvent
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.io.File
 import java.time.LocalDate
@@ -31,138 +28,118 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class BalanceForecastWidgetTest {
     @get:Rule val compose = createComposeRule()
-    private val start = LocalDate.of(2026, 10, 25)
-    private fun point(day: Long, amount: String) = ForecastPoint(start.plusDays(day), Money(amount.toBigDecimal().setScale(2), "KZT"))
-    private val state get() = ForecastUiState(start, start.plusDays(30), (0L..30L).map { day ->
-        val balance = when {
-            day <= 5 -> 100000 - day * 24000
-            day <= 12 -> -20000 + (day - 5) * 200000 / 7
-            else -> 180000 - (day - 12) * 130000 / 18
-        }
-        point(day, balance.toString())
-    })
-
-    @Test fun showsExtremaDatesAndAccessibleChartSummary() {
-        show(state)
-        compose.onNodeWithText("Прогноз").assertIsDisplayed()
-        amount("forecast-minimum", "-20000")
-        amount("forecast-maximum", "180000")
-        compose.onNode(hasText("30 окт.") and hasAnyAncestor(hasTestTag("forecast-minimum"))).performScrollTo().assertIsDisplayed()
-        compose.onNode(hasText("6 нояб.") and hasAnyAncestor(hasTestTag("forecast-maximum"))).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithContentDescription("Прогноз остатка на конец дня").performScrollTo().assertIsDisplayed().assert(
-            SemanticsMatcher("Both extrema are described") {
-                val text = it.config[SemanticsProperties.StateDescription]
-                text.contains("Минимум") && text.contains("Максимум") && text.contains("2026")
-            },
-        )
-        assertNoTextOverflow()
-        saveScreenshot("forecast-curve-light.png")
-    }
-
-    @Test fun insufficientHistoryKeepsLimitChart() {
-        show(state.copy(insufficientHistory = true))
-        compose.onNodeWithText("Текущий темп: недостаточно истории — нужно 14 полных дней").assertExists()
-        compose.onNodeWithTag("forecast-chart").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("По лимиту").assertExists()
-    }
-
-    @Test fun loadingShowsPlaceholdersInsteadOfInventedZeroAmounts() {
-        show(ForecastUiState())
-        compose.onNodeWithText(formatMoney("0".toBigDecimal(), "KZT")).assertDoesNotExist()
-    }
-
-    @Test fun showsBothScenarioLabelsAndDeficit() {
-        show(state.copy(currentPacePoints = state.points))
-        compose.onNodeWithText("По лимиту").assertExists()
-        compose.onNodeWithText("Текущий темп").assertExists()
-        compose.onNodeWithTag("forecast-chart").performScrollTo().assertIsDisplayed()
-    }
-
-    @Test fun warningsAndIncomeDependencyRemainVisibleAlongsideScenarioRisk() {
-        show(state.copy(dependsOnPlannedIncome = true,
-            warnings = setOf(com.firkat.fillin.feature.dailylimit.domain.ForecastWarning.OVERDUE_INCOME)))
-        compose.onNodeWithTag("forecast-chart").assertIsDisplayed()
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        compose.onNodeWithText(context.getString(com.firkat.fillin.R.string.daily_depends_income)).assertExists()
-        compose.onNodeWithText(context.getString(com.firkat.fillin.R.string.daily_incomplete)).assertExists()
-    }
-
-    @Test fun flatForecastShowsTheSameEarliestDateForBothExtrema() {
-        show(state.copy(points = (0L..30L).map { point(it, "0") }))
-        amount("forecast-minimum", "0")
-        amount("forecast-maximum", "0")
-        compose.onAllNodesWithText("25 окт.").assertCountEquals(2)
-        compose.onNodeWithTag("forecast-chart").performScrollTo().assertIsDisplayed()
-    }
-
-    @Test fun lightThemeFitsLargeNegativeAmounts() = checkAppearance(false, 1f, "forecast-light.png")
-    @Test fun darkThemeFitsLargeNegativeAmounts() = checkAppearance(true, 1f, "forecast-dark.png")
-    @Test fun lightThemeFitsLargeText() = checkAppearance(false, 2f, "forecast-large-font-light.png")
-    @Test fun darkThemeFitsLargeText() = checkAppearance(true, 2f, "forecast-large-font-dark.png")
-
-    @Test fun crossingYearShowsYearsInPeriodAndExtremaDates() {
-        val first = LocalDate.of(2026, 12, 25)
-        show(ForecastUiState(first, first.plusDays(30), listOf(
-            ForecastPoint(first, Money("100.00".toBigDecimal(), "KZT")),
-            ForecastPoint(first.plusDays(30), Money("200.00".toBigDecimal(), "KZT")),
-        )))
-        compose.onNodeWithText("25 дек. 2026 — 24 янв. 2027").assertIsDisplayed()
-        assertNoTextOverflow()
-    }
-
-    private fun checkAppearance(dark: Boolean, fontScale: Float, screenshot: String) {
-        show(state.copy(points = listOf(point(0, "12345678.90"), point(30, "-9876543.21"))), dark, fontScale)
-        amount("forecast-minimum", "-9876543.21")
-        amount("forecast-maximum", "12345678.90")
-        compose.onNodeWithTag("forecast-chart").performScrollTo().assertIsDisplayed()
-        assertNoTextOverflow()
-        saveScreenshot(screenshot)
-    }
-
-    private fun saveScreenshot(screenshot: String) {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val directory = requireNotNull(context.getExternalFilesDir("forecast-screenshots"))
-        File(directory, screenshot).outputStream().use { stream ->
-            compose.onNodeWithTag("forecast-widget").captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, stream)
-        }
-        // Gradle uninstalls the test APKs and removes app files after the run.
-        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(
-            "cp ${File(directory, screenshot).absolutePath} /data/local/tmp/$screenshot",
-        ).use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } }
-    }
-
-    private fun amount(tag: String, value: String) {
-        compose.onNode(hasText(formatMoney(value.toBigDecimal(), "KZT")) and hasAnyAncestor(hasTestTag(tag))).performScrollTo().assertIsDisplayed()
-    }
-
-    private fun show(state: ForecastUiState, dark: Boolean = false, fontScale: Float = 1f) {
+    private val start = LocalDate.of(2026, 11, 3)
+    private fun money(value: Int) = Money(value.toBigDecimal().setScale(2), "KZT")
+    private fun points(vararg amounts: Int) = amounts.mapIndexed { index, value -> ForecastPoint(start.plusDays(index.toLong()), money(value)) }
+    private val projection get() = BalanceForecastProjection(start, start.plusDays(2), points(100000, 50000, 45000), false, points(100000, -10000, -90000), averageDailyExpenses = money(8500), dailyLimit = money(5681))
+    private fun show(value: BalanceForecastProjection? = projection, dark: Boolean = true, scale: Float = 1f, onDetails: () -> Unit = {}) {
         compose.setContent {
             val density = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+            CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
                 FillinTheme(darkTheme = dark, dynamicColor = false) {
-                    Box(Modifier.width(288.dp).height(if (fontScale > 1.3f) 741.dp else 621.dp)) {
-                        BalanceForecastWidget(state, Modifier.testTag("forecast-widget"))
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                        BalanceForecastWidget(value?.let(ForecastUiState::from) ?: ForecastUiState(), Modifier.testTag("forecast-widget"), onDetails)
                     }
                 }
             }
         }
     }
-
+    @Test fun riskShowsTwoScenariosAndOpensDetails() {
+        var clicks = 0
+        show(onDetails = { clicks++ })
+        compose.onNodeWithText("Прогноз баланса").assertIsDisplayed()
+        compose.onAllNodesWithText("Текущий темп").assertCountEquals(2)
+        compose.onAllNodesWithText("По дневному лимиту").assertCountEquals(2)
+        compose.onNodeWithText("При текущем темпе возможен дефицит с 4 ноября").assertExists()
+        compose.onNodeWithText("Подробный прогноз").performScrollTo().performClick()
+        assertEquals(1, clicks)
+        compose.onNodeWithText("Максимум").assertDoesNotExist()
+        compose.onNodeWithText("Минимум").assertDoesNotExist()
+        assertNoTextOverflow()
+        screenshot("forecast-risk-dark.png")
+    }
+    @Test fun normalState() {
+        show(projection.copy(currentPacePoints = points(100000, 50000, 20000)))
+        compose.onNodeWithText("Дефицит не ожидается").assertExists()
+        screenshot("forecast-normal-dark.png")
+    }
+    @Test fun insufficientHistoryKeepsOnlyLimit() {
+        show(projection.copy(currentPacePoints = null, insufficientHistory = true))
+        compose.onNodeWithText("Недостаточно операций для прогноза привычных расходов").assertExists()
+        compose.onNodeWithText("Текущий темп").assertDoesNotExist()
+        compose.onNodeWithTag("forecast-chart").assertExists()
+        screenshot("forecast-insufficient-dark.png")
+    }
+    @Test fun structuralDeficitWinsWithoutHistory() {
+        show(projection.copy(currentPacePoints = null, insufficientHistory = true, points = points(10000, -40000, -10000), structuralDeficitDate = start.plusDays(1)))
+        compose.onNodeWithText("Не хватит денег на обязательные платежи").assertExists()
+        compose.onNodeWithText("Недостаточно операций для прогноза привычных расходов").assertExists()
+        screenshot("forecast-structural-dark.png")
+    }
+    @Test fun loadingDoesNotInventAmounts() {
+        show(null)
+        compose.onNodeWithText("Загружаем прогноз…").assertExists()
+        compose.onNodeWithTag("forecast-chart").assertDoesNotExist()
+    }
+    @Test fun selectionIsClearedAfterRelease() {
+        show()
+        compose.onNodeWithTag("forecast-chart").performScrollTo().performTouchInput { down(center); advanceEventTime(100) }
+        compose.onNodeWithTag("forecast-selection").assertExists()
+        compose.onNodeWithTag("forecast-chart").performTouchInput { up() }
+        compose.onNodeWithTag("forecast-selection").assertDoesNotExist()
+    }
+    @Test fun accessibilityCanSelectCalendarDay() {
+        show()
+        compose.onNodeWithTag("forecast-chart").performCustomAccessibilityActionWithLabel("Следующий день")
+        compose.onNodeWithTag("forecast-selection").assertExists()
+        compose.onNodeWithText("3 ноября 2026").assertExists()
+    }
+    @Test fun detailsTabsAndRecommendation() {
+        compose.setContent {
+            var tab by remember { mutableStateOf(ForecastDetailsTab.Forecast) }
+            FillinTheme(darkTheme = true, dynamicColor = false) {
+                ForecastDetailsScreen(ForecastDetailsUiState(ForecastUiState.from(projection.copy(events = listOf(ForecastEvent("salary", "Зарплата", start, money(100000), true)))), tab), { if (it is ForecastDetailsEvent.SelectTab) tab = it.tab }, Modifier.testTag("forecast-details"))
+            }
+        }
+        compose.onAllNodesWithText("Минимум").assertCountEquals(2)
+        compose.onNodeWithText("События").performClick()
+        compose.onNodeWithText("Зарплата").assertExists()
+        compose.onNodeWithText("Доступен в прогнозе: 4 ноября 2026").assertExists()
+        compose.onNodeWithText("Параметры").performClick()
+        compose.onNodeWithText("Средние расходы в день (30 дней)").assertExists()
+        compose.onNodeWithText("Прогноз").performClick()
+        compose.onNodeWithTag("forecast-details-list").performScrollToNode(hasText("Чтобы придерживаться финансового плана", substring = true))
+        compose.onNodeWithText("Чтобы придерживаться финансового плана", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag("forecast-details-list").performScrollToIndex(0)
+        screenshot("forecast-details-dark.png", "forecast-details")
+    }
+    @Test fun largeTextDark() { show(scale = 2f); compose.onNodeWithText("Подробный прогноз").performScrollTo().assertIsDisplayed(); assertNoTextOverflow(); screenshot("forecast-large-dark.png") }
+    @Test fun largeAmountsAndYears() {
+        show(projection.copy(startDate = LocalDate.of(2026, 12, 31), endDate = LocalDate.of(2027, 1, 2), points = points(12345678, -9876543, -1234567).mapIndexed { index, point -> point.copy(date = LocalDate.of(2026, 12, 31).plusDays(index.toLong())) }), scale = 2f)
+        compose.onNodeWithText("Подробный прогноз").performScrollTo().assertIsDisplayed()
+        assertNoTextOverflow()
+    }
+    @Test fun lightTheme() { show(dark = false); assertNoTextOverflow(); screenshot("forecast-risk-light.png") }
+    private fun screenshot(name: String, tag: String = "forecast-widget") {
+        val file = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("forecast-screenshots"), name)
+        file.outputStream().use { compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("cp ${file.absolutePath} /data/local/tmp/$name").close()
+    }
     private fun assertNoTextOverflow() {
-        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult), useUnmergedTree = true)
-            .fetchSemanticsNodes().forEach { node ->
-                val results = mutableListOf<TextLayoutResult>()
-                compose.runOnIdle { node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results) }
-                results.forEach { result ->
-                    assertFalse("Truncated text: ${result.layoutInput.text}", result.multiParagraph.didExceedMaxLines)
-                    for (line in 0 until result.lineCount) {
-                        assertTrue("Text exceeds width: ${result.layoutInput.text}", result.getLineRight(line) <= result.size.width + 1f)
-                        assertTrue("Text exceeds height: ${result.layoutInput.text}", result.getLineBottom(line) <= result.size.height + 1f)
-                    }
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult), useUnmergedTree = true).fetchSemanticsNodes().forEach { node ->
+            val results = mutableListOf<TextLayoutResult>()
+            compose.runOnIdle { node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results) }
+            results.forEach { result ->
+                assertFalse("Truncated: ${result.layoutInput.text}", result.multiParagraph.didExceedMaxLines)
+                for (line in 0 until result.lineCount) {
+                    assertTrue("Width overflow: ${result.layoutInput.text}", result.getLineRight(line) <= result.size.width + 1f)
+                    assertTrue("Height overflow: ${result.layoutInput.text}", result.getLineBottom(line) <= result.size.height + 1f)
                 }
             }
+        }
     }
 }

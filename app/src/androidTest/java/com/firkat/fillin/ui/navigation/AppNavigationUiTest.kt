@@ -597,6 +597,21 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("history-type-INCOME").assertIsSelected()
     }
 
+    @Test fun forecastDetailsOpenFromDashboardAndRetainTabAcrossRestoration() {
+        val restoration = StateRestorationTester(compose)
+        show(createdBudget = true, restoration = restoration)
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("dashboard-grid").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("dashboard-grid").performScrollToNode(hasTestTag("dashboard-widget-balance-forecast"))
+        compose.onNodeWithText("Подробный прогноз").performScrollTo().performClick()
+        compose.waitUntil(5000) { navigation.backStack.lastOrNull() is AppRoute.ForecastDetails }
+        compose.onNodeWithText("Параметры").performClick().assertIsSelected()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("Параметры").assertIsSelected()
+        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.waitUntil(5000) { navigation.backStack.toList() == listOf(AppRoute.Main) }
+        compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
+    }
+
     @Test fun dashboardScrollSurvivesTabSwitchAndSavedStateRestoration() {
         val restoration = StateRestorationTester(compose)
         show(createdBudget = true, restoration = restoration, fontScale = 2f)
