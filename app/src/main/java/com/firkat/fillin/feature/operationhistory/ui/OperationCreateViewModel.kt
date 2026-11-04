@@ -32,9 +32,14 @@ class OperationCreateViewModel(
     fun onEvent(event: OperationCreateEvent) {
         when (event) {
             OperationCreateEvent.CreateClosed -> if (_uiState.value.createEditor?.isSaving != true) _uiState.update { it.copy(createEditor = null) }
-            is OperationCreateEvent.CreateInputChanged -> updateCreator { if (isSaving) this else copy(input = event.value, inputError = null, error = null) }
+            is OperationCreateEvent.CreateInputChanged -> updateCreator { if (isSaving || !Regex("[0-9]*([.,][0-9]{0,2})?").matches(event.value)) this else copy(input = event.value, inputError = null, error = null) }
             is OperationCreateEvent.CreateTypeChanged -> updateCreator { if (isSaving) this else copy(type = event.type, error = null) }
-            is OperationCreateEvent.CreateCategoryClicked -> create(event.id)
+            OperationCreateEvent.CategoriesOpened -> updateCreator { if (isSaving) this else copy(categoriesOpen = true) }
+            OperationCreateEvent.CategoriesDismissed -> updateCreator { copy(categoriesOpen = false) }
+            is OperationCreateEvent.CreateCategoryClicked -> {
+                updateCreator { copy(categoriesOpen = false) }
+                create(event.id)
+            }
             is OperationCreateEvent.CreateFeedbackShown -> updateCreator { if (feedbackSequence == event.sequence) copy(feedback = null) else this }
         }
     }
@@ -74,7 +79,7 @@ class OperationCreateViewModel(
                         categoryId,
                         parsed.amount,
                         occurredOn,
-                        parsed.description,
+                        null,
                     ),
                 )
                 _uiState.update { it.copy(createEditor = null, created = result) }

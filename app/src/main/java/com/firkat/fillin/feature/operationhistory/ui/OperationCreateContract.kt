@@ -10,6 +10,7 @@ data class OperationCreateUiState(
     val input: String = "",
     val occurredOn: LocalDate,
     val isSaving: Boolean = false,
+    val categoriesOpen: Boolean = false,
     val error: OperationHistoryError? = null,
     val inputError: OperationInputError? = null,
     val feedback: OperationCreateFeedback? = null,
@@ -22,6 +23,8 @@ data class OperationCreateState(val createEditor: OperationCreateUiState?, val o
 
 sealed interface OperationCreateEvent {
     data object CreateClosed : OperationCreateEvent
+    data object CategoriesOpened : OperationCreateEvent
+    data object CategoriesDismissed : OperationCreateEvent
 
     data class CreateTypeChanged(
         val type: OperationType,

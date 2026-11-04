@@ -385,4 +385,6 @@
     <string name="plan_picker_payments">Выберите платёж</string>
     <string name="plan_picker_category">Категория операции: %1$s</string>
     <string name="operation_details_money">%1$s ₸</string>
+    <string name="operation_create_currency">₸</string>
+    <string name="operation_create_clear">Очистить сумму</string>
 </resources>

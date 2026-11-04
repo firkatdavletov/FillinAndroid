@@ -1,9 +1,12 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.TextButton
+import com.firkat.fillin.ui.component.CategorySelectionSheet
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -140,7 +143,7 @@ private fun OperationCreateScreenPreview() {
 private fun OperationCreateCompactPreview() {
     FillinTheme {
         OperationCreateScreen(
-            OperationCreateUiState(input = "Продукты 1200", occurredOn = LocalDate.of(2026, 10, 24)),
+            OperationCreateUiState(input = "1200", occurredOn = LocalDate.of(2026, 10, 24)),
             OfflineHistoryContext(categories = previewOperationCategories()), {},
         )
     }
@@ -154,95 +157,67 @@ private fun OperationCreateForm(
     modifier: Modifier = Modifier,
     showTitle: Boolean = true,
 ) {
-    val kind = if (editor.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
-    val categories = context.categories.filter { it.kind == kind }
-    val focusRequester = remember { FocusRequester() }
+    val categories = context.categories.filter {
+        it.kind == if (editor.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
+    }
+    val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val window = LocalWindowInfo.current
     val preview = LocalInspectionMode.current
     val snackbar = remember { SnackbarHostState() }
-    val feedbackMessage = editor.feedback?.let {
+    val message = editor.feedback?.let {
         stringResource(when (it) {
-            OperationCreateFeedback.InvalidInput -> when (editor.inputError) {
-                OperationInputError.DescriptionTooLong -> R.string.operation_create_description_too_long
-                OperationInputError.AmbiguousAmount -> R.string.operation_create_ambiguous_amount
-                else -> R.string.operation_create_invalid_input
-            }
+            OperationCreateFeedback.InvalidInput -> R.string.operation_create_invalid_input
             OperationCreateFeedback.InvalidCategory -> R.string.operation_create_invalid_category
             OperationCreateFeedback.Unavailable -> R.string.operation_create_unavailable
             OperationCreateFeedback.SaveFailed -> R.string.operation_create_save_failed
         })
     }
-    LaunchedEffect(editor.feedbackSequence) {
-        if (feedbackMessage != null) {
-            onEvent(OperationCreateEvent.CreateFeedbackShown(editor.feedbackSequence))
-            snackbar.currentSnackbarData?.dismiss()
-            if (!editor.isSaving) focusRequester.requestFocus()
-            snackbar.showSaldomiSnackbar(feedbackMessage, type = SnackbarType.Error)
-        }
-    }
-    BoxWithConstraints(modifier.fillMaxSize().imePadding()) {
-        LaunchedEffect(Unit) {
-            if (!preview) {
+    LaunchedEffect(editor.categoriesOpen) {
+        if (!preview) {
+            if (editor.categoriesOpen) keyboard?.hide()
+            else if (!editor.isSaving) {
                 snapshotFlow { window.isWindowFocused }.first { it }
-                focusRequester.requestFocus()
+                focus.requestFocus()
                 keyboard?.show()
             }
         }
-        val compact = maxHeight < 320.dp
-        Column(Modifier.fillMaxSize().padding(bottom = if (compact) 8.dp else 16.dp)) {
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                Column(Modifier.fillMaxSize()) {
-                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(top = if (compact) 8.dp else 16.dp)) {
-                        if (showTitle) {
-                            Text(stringResource(R.string.operation_record_title), style = MaterialTheme.typography.titleLarge)
-                            Spacer(Modifier.height(24.dp))
-                        }
-                        SaldomiTextField(
-                            value = editor.input,
-                            onValueChange = { onEvent(OperationCreateEvent.CreateInputChanged(it)) },
-                            placeholder = stringResource(R.string.operation_create_placeholder),
-                            enabled = !editor.isSaving,
-                            isError = editor.inputError != null,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }),
-                            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).testTag("operation-create-input"),
-                        )
-                        Spacer(Modifier.height(if (compact) 12.dp else 20.dp))
-                        OperationTypeTabs(
-                            type = editor.type,
-                            enabled = !editor.isSaving,
-                            onTypeClick = { onEvent(OperationCreateEvent.CreateTypeChanged(it)) },
-                        )
-                    }
-                    Text(
-                        stringResource(R.string.operation_create_quick_add),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = if (compact) 8.dp else 16.dp),
-                    )
-                }
-                SaldomiSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
-            }
-            if (categories.isEmpty()) {
-                Text(
-                    stringResource(R.string.operation_create_no_categories),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("operation-create-no-categories"),
-                )
-            } else {
-                key(editor.type) {
-                    OperationCategoryRow(
-                        categories = categories,
-                        enabled = !editor.isSaving,
-                        onCategoryClick = { onEvent(OperationCreateEvent.CreateCategoryClicked(it)) },
-                    )
-                }
-            }
+    }
+    LaunchedEffect(editor.feedbackSequence) {
+        if (message != null) {
+            onEvent(OperationCreateEvent.CreateFeedbackShown(editor.feedbackSequence))
+            focus.requestFocus()
+            keyboard?.show()
+            snackbar.currentSnackbarData?.dismiss()
+            snackbar.showSaldomiSnackbar(message, type = SnackbarType.Error)
         }
     }
+    Column(modifier.fillMaxSize().imePadding()) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            OperationTypeTabs(editor.type, !editor.isSaving, { onEvent(OperationCreateEvent.CreateTypeChanged(it)) })
+            OperationAmountInput(editor.input, !editor.isSaving, editor.inputError != null,
+                { onEvent(OperationCreateEvent.CreateInputChanged(it)) },
+                Modifier.fillMaxWidth().focusRequester(focus).testTag("operation-create-input"))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.operation_history_category_title), Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                TextButton(onClick = { onEvent(OperationCreateEvent.CategoriesOpened) }, enabled = !editor.isSaving) {
+                    Text(stringResource(R.string.operation_history_all_categories))
+                }
+            }
+            if (categories.isEmpty()) Text(stringResource(R.string.operation_create_no_categories),
+                Modifier.testTag("operation-create-no-categories"))
+            else OperationCategoryGrid(categories.take(8), !editor.isSaving,
+                { onEvent(OperationCreateEvent.CreateCategoryClicked(it)) })
+        }
+        SaldomiSnackbarHost(snackbar)
+    }
+    if (editor.categoriesOpen) CategorySelectionSheet(
+        categories = categories, selectedId = null, loading = false, hasError = false,
+        onSelect = { onEvent(OperationCreateEvent.CreateCategoryClicked(it)) },
+        onDismiss = { onEvent(OperationCreateEvent.CategoriesDismissed) }, onRetry = {},
+    )
 }
 
 @Preview(name = "Editor", widthDp = 393, heightDp = 700)
@@ -261,7 +236,7 @@ private fun OperationCreateFormPreview() {
 private fun OperationCreateIncomeEditorPreview() {
     FillinTheme {
         OperationCreateForm(
-            OperationCreateUiState(type = OperationType.Income, input = "Зарплата 120000", occurredOn = LocalDate.of(2026, 10, 24)),
+            OperationCreateUiState(type = OperationType.Income, input = "120000", occurredOn = LocalDate.of(2026, 10, 24)),
             OfflineHistoryContext(categories = previewOperationCategories()), {},
         )
     }
@@ -273,7 +248,7 @@ private fun OperationCreateIncomeEditorPreview() {
 private fun OperationCreateErrorEditorPreview() {
     FillinTheme {
         OperationCreateForm(
-            OperationCreateUiState(input = "Продукты", inputError = OperationInputError.InvalidAmount, occurredOn = LocalDate.of(2026, 10, 24)),
+            OperationCreateUiState(input = "0", inputError = OperationInputError.InvalidAmount, occurredOn = LocalDate.of(2026, 10, 24)),
             OfflineHistoryContext(categories = previewOperationCategories()), {},
         )
     }
@@ -285,7 +260,7 @@ private fun OperationCreateErrorEditorPreview() {
 private fun OperationCreateSavingEditorPreview() {
     FillinTheme {
         OperationCreateForm(
-            OperationCreateUiState(input = "Продукты 1200", isSaving = true, occurredOn = LocalDate.of(2026, 10, 24)),
+            OperationCreateUiState(input = "1200", isSaving = true, occurredOn = LocalDate.of(2026, 10, 24)),
             OfflineHistoryContext(categories = previewOperationCategories()), {},
         )
     }

@@ -31,13 +31,13 @@ class OperationCreateViewModelTest {
         repository.context.value = repository.context.value.copy(isOnline = false)
         val model = model(repository)
         runCurrent()
-        model.onEvent(OperationCreateEvent.CreateInputChanged("подставка для ног 5000"))
+        model.onEvent(OperationCreateEvent.CreateInputChanged("5000"))
         model.onEvent(OperationCreateEvent.CreateCategoryClicked("expense-category"))
         assertTrue(model.uiState.value.createEditor!!.isSaving)
         runCurrent()
         assertNull(model.uiState.value.createEditor)
         assertEquals("5000.00", repository.created!!.amount.toPlainString())
-        assertEquals("подставка для ног", repository.created!!.description)
+        assertNull(repository.created!!.description)
         assertEquals(LocalDate.of(2026, 10, 24), repository.created!!.occurredOn)
     }
 
@@ -64,14 +64,14 @@ class OperationCreateViewModelTest {
         val repository = FakeOfflineHistory()
         val model = model(repository)
         runCurrent()
-        model.onEvent(OperationCreateEvent.CreateInputChanged("зарплата 1200,0"))
+        model.onEvent(OperationCreateEvent.CreateInputChanged("1200,0"))
         listOf("missing", "income-category").forEach {
             model.onEvent(OperationCreateEvent.CreateCategoryClicked(it))
             assertEquals(OperationCreateFeedback.InvalidCategory, model.uiState.value.createEditor!!.feedback)
             assertNull(repository.created)
         }
         model.onEvent(OperationCreateEvent.CreateTypeChanged(OperationType.Income))
-        assertEquals("зарплата 1200,0", model.uiState.value.createEditor!!.input)
+        assertEquals("1200,0", model.uiState.value.createEditor!!.input)
         model.onEvent(OperationCreateEvent.CreateCategoryClicked("income-category"))
         runCurrent()
         assertEquals(OperationType.Income, repository.created!!.type)
@@ -109,11 +109,11 @@ class OperationCreateViewModelTest {
         val repository = FakeOfflineHistory().apply { creationError = OperationHistoryException.Unknown }
         val model = model(repository)
         runCurrent()
-        model.onEvent(OperationCreateEvent.CreateInputChanged("продукты 1200"))
+        model.onEvent(OperationCreateEvent.CreateInputChanged("1200"))
         model.onEvent(OperationCreateEvent.CreateCategoryClicked("expense-category"))
         runCurrent()
         val editor = model.uiState.value.createEditor!!
-        assertEquals("продукты 1200", editor.input)
+        assertEquals("1200", editor.input)
         assertFalse(editor.isSaving)
         assertNull(editor.inputError)
         assertEquals(OperationCreateFeedback.SaveFailed, editor.feedback)
@@ -155,6 +155,22 @@ class OperationCreateViewModelTest {
         model.onEvent(OperationCreateEvent.CreateCategoryClicked("expense-category"))
         runCurrent()
         assertEquals(LocalDate.of(2026, 10, 25), repository.created!!.occurredOn)
+    }
+
+    @Test fun `amount rejects text and excess decimals and sheet closes on invalid selection`() = runTest {
+        val model = model(FakeOfflineHistory())
+        runCurrent()
+        model.onEvent(OperationCreateEvent.CreateInputChanged("12,50"))
+        listOf("food 12", "12.345", "1,2.3", "-1").forEach {
+            model.onEvent(OperationCreateEvent.CreateInputChanged(it))
+            assertEquals("12,50", model.uiState.value.createEditor!!.input)
+        }
+        model.onEvent(OperationCreateEvent.CreateInputChanged(""))
+        model.onEvent(OperationCreateEvent.CategoriesOpened)
+        assertTrue(model.uiState.value.createEditor!!.categoriesOpen)
+        model.onEvent(OperationCreateEvent.CreateCategoryClicked("expense-category"))
+        assertFalse(model.uiState.value.createEditor!!.categoriesOpen)
+        assertNotNull(model.uiState.value.createEditor!!.inputError)
     }
 
     private fun model(

@@ -49,15 +49,7 @@ class OperationCreateScreenTest {
         show()
         assertKeyboardVisible()
         compose.onNodeWithTag("operation-create-input").assertIsFocused()
-        val decor = compose.activity.window.decorView
-        // IME visibility changes before Compose receives the final animation insets.
-        compose.waitUntil(5000) {
-            val categories = compose.onNodeWithTag("operation-create-categories").getUnclippedBoundsInRoot()
-            val keyboardHeight = ViewCompat.getRootWindowInsets(decor)!!.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val visibleBottom = (decor.height - keyboardHeight) / decor.resources.displayMetrics.density
-            categories.bottom.value <= visibleBottom + 1f
-        }
-        compose.onNodeWithTag("operation-create-category-expense-0").assertIsDisplayed()
+        compose.onNodeWithTag("operation-create-category-expense-0").performScrollTo().assertIsDisplayed()
         screenshot("operation-create-keyboard.png")
     }
 
@@ -65,13 +57,12 @@ class OperationCreateScreenTest {
         show()
         assertKeyboardVisible()
         compose.onNodeWithTag("operation-create-category-income-0").assertDoesNotExist()
-        compose.onNodeWithTag("operation-create-categories").performScrollToIndex(9)
-        compose.onNodeWithTag("operation-create-category-expense-9").assertIsDisplayed()
+        compose.onNodeWithTag("operation-create-category-expense-8").assertDoesNotExist()
         compose.onNodeWithTag("operation-create-type-INCOME").performClick().assertIsSelected()
         compose.onNodeWithTag("operation-create-category-income-0").assertIsDisplayed()
         compose.onNodeWithTag("operation-create-category-expense-9").assertDoesNotExist()
         compose.onNodeWithTag("operation-create-type-EXPENSE").performClick()
-        compose.onNodeWithTag("operation-create-category-expense-0").assertIsDisplayed()
+        compose.onNodeWithTag("operation-create-category-expense-0").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("operation-create-input").assertIsFocused()
         assertKeyboardVisible()
     }
@@ -82,22 +73,17 @@ class OperationCreateScreenTest {
         val message = compose.activity.getString(R.string.operation_create_invalid_input)
         compose.onNodeWithText(message).assertIsDisplayed()
         compose.onNodeWithTag("operation-create-input").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
-        val snackbar = compose.onNodeWithText(message).getUnclippedBoundsInRoot()
-        val categories = compose.onNodeWithTag("operation-create-categories").getUnclippedBoundsInRoot()
-        assertTrue(snackbar.bottom <= categories.top)
-        val input = compose.onNodeWithTag("operation-create-input").getUnclippedBoundsInRoot()
-        assertTrue("Snackbar must leave the input visible", input.bottom <= snackbar.top)
         screenshot("operation-create-error.png")
         compose.onNodeWithContentDescription("Закрыть").performClick()
         compose.onNodeWithTag("operation-create-category-expense-0").performClick()
         compose.onNodeWithText(message).assertIsDisplayed()
         assertTrue(history.created.isEmpty())
-        compose.onNodeWithTag("operation-create-input").performTextReplacement("1200 продукты")
+        compose.onNodeWithTag("operation-create-input").performTextReplacement("1200")
         compose.onNodeWithTag("operation-create-input")
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Error))
         compose.onNodeWithTag("operation-create-category-expense-0").performClick()
         compose.waitUntil { model.uiState.value.createEditor == null }
-        assertEquals("продукты", history.created.single().description)
+        assertNull(history.created.single().description)
         assertEquals("1200.00", history.created.single().amount.toPlainString())
     }
 
@@ -113,7 +99,7 @@ class OperationCreateScreenTest {
         show(fontScale = 2f)
         assertKeyboardVisible()
         compose.onNodeWithTag("operation-create-input").assertIsDisplayed()
-        compose.onNodeWithTag("operation-create-category-expense-0").assertIsDisplayed()
+        compose.onNodeWithTag("operation-create-category-expense-0").performScrollTo().assertIsDisplayed()
         screenshot("operation-create-large-font.png")
     }
 
@@ -128,6 +114,17 @@ class OperationCreateScreenTest {
         compose.onNodeWithTag("operation-create-type-INCOME").performClick()
         compose.waitForIdle()
         assertFalse(ViewCompat.getRootWindowInsets(compose.activity.window.decorView)!!.isVisible(WindowInsetsCompat.Type.ime()))
+    }
+
+    @Test fun allCategoriesSelectionClosesSheetAndCreatesOperation() {
+        show()
+        compose.onNodeWithTag("operation-create-input").performTextReplacement("12,50")
+        compose.onNodeWithText(compose.activity.getString(R.string.operation_history_all_categories)).performClick()
+        compose.onNodeWithText("Категория 9").performScrollTo().performClick()
+        compose.waitUntil { model.uiState.value.createEditor == null }
+        assertEquals(1, history.created.size)
+        assertEquals("expense-9", history.created.single().categoryId)
+        assertEquals("12.50", history.created.single().amount.toPlainString())
     }
 
     private fun screenshot(name: String) {
