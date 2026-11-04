@@ -4,5 +4,6 @@ import com.firkat.fillin.feature.plannedoperations.domain.repository.PlanningRul
 
 class ObservePlanningRules(private val repository: PlanningRulesRepository) {
     operator fun invoke() = repository.observeRules()
+    fun observeRule(id: String) = repository.observeRule(id)
     fun requestSync() = repository.requestSync()
 }

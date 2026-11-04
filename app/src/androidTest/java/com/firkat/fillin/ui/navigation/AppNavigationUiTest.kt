@@ -659,13 +659,11 @@ class AppNavigationUiTest {
         val dismissals: List<() -> Unit> = listOf(
             { compose.onNodeWithTag("edit_operation_close").performClick() },
             { androidx.test.espresso.Espresso.pressBack() },
-            { compose.onNode(isDialog()).performTouchInput { click(Offset(centerX, 1f)) } },
-            { compose.onNodeWithTag("edit_operation_bottom_sheet").performTouchInput { swipeDown() } },
         )
         dismissals.forEach { dismiss ->
             openSheet(operation)
             dismiss()
-            compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
             compose.onNodeWithTag("tab_History").assertIsSelected()
             compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
@@ -680,8 +678,8 @@ class AppNavigationUiTest {
             openSheet(operation)
             compose.onNodeWithTag("edit_operation_input").performTextReplacement("${50 + attempt}.00")
             closeSoftKeyboard()
-            compose.onNodeWithTag("edit_operation_save").performScrollTo().performClick()
-            compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithTag("edit_operation_save").performClick()
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
             compose.onNodeWithText("Изменения сохранены").assertIsDisplayed()
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
             compose.onNodeWithTag("operation-${operation.id}").assertExists()
@@ -700,10 +698,10 @@ class AppNavigationUiTest {
         openSheet(operation)
         val route = navigation.backStack.last()
         restoration.emulateSavedInstanceStateRestore()
-        compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("operation_details").assertIsDisplayed()
         assertEquals(route, navigation.backStack.last())
         compose.onNodeWithTag("edit_operation_close").performClick()
-        compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("tab_History").assertIsSelected()
         assertEquals(top, compose.onNodeWithTag("operation-${operation.id}").getUnclippedBoundsInRoot().top)
     }
@@ -718,8 +716,8 @@ class AppNavigationUiTest {
             val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
             session.createLocal("900.00".toBigDecimal(), session.today)
         }
-        compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
-        assertFalse(navigation.backStack.any { it is AppRoute.EditOperationBottomSheet })
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
+        assertFalse(navigation.backStack.any { it is AppRoute.OperationDetails })
         compose.onNodeWithText("Изменение расхода").assertDoesNotExist()
     }
 
@@ -735,12 +733,12 @@ class AppNavigationUiTest {
             activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         compose.setContent(hostContent)
-        compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
-        compose.onNodeWithTag("tab_History").assertIsSelected()
+        compose.onNodeWithTag("operation_details").assertIsDisplayed()
+        compose.onNodeWithTag("tab_History").assertDoesNotExist()
         assertEquals(route, navigation.backStack.last())
         compose.onNodeWithTag("edit_operation_input").performTextReplacement("55.00")
         compose.onNodeWithTag("edit_operation_save").performClick()
-        compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithText("Изменения сохранены").assertIsDisplayed()
         compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
     }
@@ -868,7 +866,7 @@ class AppNavigationUiTest {
     private fun openSheet(operation: Operation) {
         compose.waitUntil(5000) { compose.onAllNodesWithTag("operation-${operation.id}").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("operation-${operation.id}").performClick()
-        compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("operation_details").assertIsDisplayed()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_input").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(2, navigation.backStack.size)
     }

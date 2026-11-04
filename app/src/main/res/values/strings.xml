@@ -286,7 +286,7 @@
     <string name="navigation_cloud">Облако</string>
     <string name="sync_title">Синхронизация</string>
     <string name="navigation_profile">Профиль</string>
-    <string name="edit_operation_title">Редактирование операции</string>
+    <string name="edit_operation_title">Детали операции</string>
     <string name="edit_operation_close">Закрыть</string>
     <string name="edit_operation_read_only">Для этой операции редактирование и возврат недоступны</string>
     <string name="edit_operation_details_hint">Сумма в KZT. Тип и дата операции сохраняются.</string>
@@ -369,4 +369,13 @@
     <string name="daily_excess">Превышение на %1$s</string>
     <string name="daily_shortfall">Не хватит %1$s к %2$s</string>
     <string name="daily_view_payments">Посмотреть платежи</string>
+    <string name="operation_details_date">Дата операции</string>
+    <string name="operation_details_save">Сохранить изменения</string>
+    <string name="operation_details_description_hint">Добавьте описание</string>
+    <string name="operation_details_linked">Связана с планом</string>
+    <string name="operation_details_unlink">Отвязать от плана</string>
+    <string name="operation_details_unlink_question">Отвязать операцию от плана?</string>
+    <string name="operation_details_open_plan">Открыть план</string>
+    <string name="operation_details_plan_error">Не удалось выполнить действие. Проверьте доступность плана и повторите попытку.</string>
+    <string name="operation_details_refund_draft">Возврат будет выполнен для сохранённой операции. Несохранённые изменения будут потеряны. Вернуть оставшуюся сумму расхода?</string>
 </resources>

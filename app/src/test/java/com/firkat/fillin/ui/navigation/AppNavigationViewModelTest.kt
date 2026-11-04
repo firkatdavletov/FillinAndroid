@@ -371,16 +371,16 @@ class AppNavigationViewModelTest {
         val model = model(FakeAuth()) { true }
         model.onLaunchShown()
         runCurrent()
-        model.openEditOperationBottomSheet("operation", "history", "budget")
-        val first = model.backStack.last() as AppRoute.EditOperationBottomSheet
-        model.openEditOperationBottomSheet("other", "history", "budget")
+        model.openOperationDetails("operation", "history", "budget")
+        val first = model.backStack.last() as AppRoute.OperationDetails
+        model.openOperationDetails("other", "history", "budget")
         assertEquals(listOf(AppRoute.Main, first), model.backStack)
-        assertTrue(model.dismissEditOperationBottomSheet(first))
+        assertTrue(model.dismissOperationDetails(first))
         assertEquals(listOf(AppRoute.Main), model.backStack)
-        model.openEditOperationBottomSheet("operation", "history", "budget")
-        val second = model.backStack.last() as AppRoute.EditOperationBottomSheet
+        model.openOperationDetails("operation", "history", "budget")
+        val second = model.backStack.last() as AppRoute.OperationDetails
         assertNotEquals(first.requestId, second.requestId)
-        assertFalse(model.dismissEditOperationBottomSheet(first))
+        assertFalse(model.dismissOperationDetails(first))
         assertEquals(listOf(AppRoute.Main, second), model.backStack)
         model.back()
         assertEquals(listOf(AppRoute.Main), model.backStack)
@@ -391,14 +391,14 @@ class AppNavigationViewModelTest {
         val model = model(FakeAuth(), ready) { false }
         model.onLaunchShown()
         runCurrent()
-        model.openEditOperationBottomSheet("operation", "history", "budget")
+        model.openOperationDetails("operation", "history", "budget")
         assertEquals(listOf(AppRoute.Auth), model.backStack)
         model.continueAsGuest()
         ready.value = true
         runCurrent()
         model.finishSetup()
-        model.openEditOperationBottomSheet("operation", "history", "budget")
-        assertTrue(model.backStack.last() is AppRoute.EditOperationBottomSheet)
+        model.openOperationDetails("operation", "history", "budget")
+        assertTrue(model.backStack.last() is AppRoute.OperationDetails)
         ready.value = false
         runCurrent()
         assertEquals(listOf(AppRoute.Auth, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
@@ -409,12 +409,12 @@ class AppNavigationViewModelTest {
         val model = model(auth) { true }
         model.onLaunchShown()
         runCurrent()
-        model.openEditOperationBottomSheet("operation", "history", "budget")
-        val sheet = model.backStack.last() as AppRoute.EditOperationBottomSheet
+        model.openOperationDetails("operation", "history", "budget")
+        val sheet = model.backStack.last() as AppRoute.OperationDetails
         auth.signOut()
         runCurrent()
         assertEquals(listOf(AppRoute.Auth), model.backStack)
-        assertFalse(model.dismissEditOperationBottomSheet(sheet))
+        assertFalse(model.dismissOperationDetails(sheet))
     }
 
     @Test fun `planned editor is a single overlay and stale dismissal cannot close a reopened editor`() = runTest {
@@ -468,12 +468,12 @@ class AppNavigationViewModelTest {
         model.operationCreated(result, "budget")
         assertEquals(listOf(AppRoute.Main, sheet), model.backStack)
         model.chooseAnotherPlan(sheet)
-        val editor = model.backStack.last() as AppRoute.EditOperationBottomSheet
+        val editor = model.backStack.last() as AppRoute.OperationDetails
         assertEquals(listOf(AppRoute.Main, editor), model.backStack)
-        model.replaceEditorWithPlanLink(editor)
+        model.openDetailsPlanLink(editor)
         val next = model.backStack.last() as AppRoute.OperationPlanLinkBottomSheet
         model.dismissOperationPlanLink(sheet)
-        assertEquals(listOf(AppRoute.Main, next), model.backStack)
+        assertEquals(listOf(AppRoute.Main, editor, next), model.backStack)
     }
 
     @Test fun `setup login returns to the draft even when the account has a ready budget`() = runTest {

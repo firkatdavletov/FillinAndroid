@@ -32,7 +32,7 @@ import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.domain.userOrNull
 import com.firkat.fillin.feature.auth.ui.AuthScreen
 import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
-import com.firkat.fillin.feature.operationhistory.ui.EditOperationBottomSheet
+import com.firkat.fillin.feature.operationhistory.ui.OperationDetailsRoute
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationBottomSheet
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
@@ -79,7 +79,7 @@ fun FillinNavHost(
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val resources = androidx.compose.ui.platform.LocalResources.current
-    val sheet = navigation.backStack.lastOrNull() as? AppRoute.EditOperationBottomSheet
+    val sheet = navigation.backStack.lastOrNull() as? AppRoute.OperationDetails
     val linkSheet = navigation.backStack.lastOrNull() as? AppRoute.OperationPlanLinkBottomSheet
     LaunchedEffect(runtime?.scope?.id, linkSheet) {
         if (linkSheet != null && linkSheet.budgetScopeId != runtime?.scope?.id) navigation.dismissOperationPlanLink(linkSheet)
@@ -91,7 +91,7 @@ fun FillinNavHost(
     val plannedSheet = navigation.backStack.lastOrNull() as? AppRoute.PlannedOperationBottomSheet
     LaunchedEffect(runtime?.scope?.id, sheet) {
         if (sheet != null && sheet.budgetScopeId != runtime?.scope?.id) {
-            navigation.dismissEditOperationBottomSheet(sheet)
+            navigation.dismissOperationDetails(sheet)
         }
     }
     LaunchedEffect(runtime?.scope?.id, plannedSheet) {
@@ -126,7 +126,7 @@ fun FillinNavHost(
     NavDisplay(
         modifier = Modifier.fillMaxSize(),
         backStack = navigation.backStack,
-        onBack = { if (navigation.backStack.lastOrNull()?.isBudgetSetup() == true) setup.onAction(BudgetSetupAction.Back) else if ((sheet == null && plannedSheet == null && linkSheet == null) || sheetDismissController.canDismiss()) navigation.back() },
+        onBack = { if (navigation.backStack.lastOrNull()?.isBudgetSetup() == true) setup.onAction(BudgetSetupAction.Back) else if ((plannedSheet == null && linkSheet == null) || sheetDismissController.canDismiss()) navigation.back() },
         sceneStrategies = listOf(remember { BottomSheetSceneStrategy<AppRoute>(sheetDismissController) }),
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
@@ -174,7 +174,7 @@ fun FillinNavHost(
                     onCreateOperationClick = navigation::openOperationCreate,
                     onOperationClick = { operationId, resultKey ->
                         runtime?.scope?.id?.let { scopeId ->
-                            navigation.openEditOperationBottomSheet(operationId, resultKey, scopeId)
+                            navigation.openOperationDetails(operationId, resultKey, scopeId)
                         }
                     },
                     onPlannedOperationEditorClick = { type, ruleId ->
@@ -213,17 +213,18 @@ fun FillinNavHost(
                     }
                 }
             }
-            entry<AppRoute.EditOperationBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
+            entry<AppRoute.OperationDetails> { route ->
                 val resultBus = LocalResultEventBus.current
                 val sheetModels: MainBudgetViewModelStore = viewModel(key = "edit-operation-${route.requestId}")
                 sheetModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
                 ActiveBudgetContent(viewModelStoreOwner = sheetModels) {
-                    EditOperationBottomSheet(
+                    OperationDetailsRoute(
                         operationId = route.operationId,
-                        onLinkSelected = { navigation.replaceEditorWithPlanLink(route) },
-                        onClose = { navigation.dismissEditOperationBottomSheet(route) },
+                        onLinkSelected = { navigation.openDetailsPlanLink(route) },
+                        onOpenPlan = { type, id -> navigation.openDetailsPlanningRule(route, type, id) },
+                        onClose = { navigation.dismissOperationDetails(route) },
                         onResult = { result ->
-                            if (route.budgetScopeId == runtime?.scope?.id && navigation.dismissEditOperationBottomSheet(route)) {
+                            if (route.budgetScopeId == runtime?.scope?.id && navigation.dismissOperationDetails(route)) {
                                 resultBus.sendResult(route.resultKey, result)
                             }
                         },

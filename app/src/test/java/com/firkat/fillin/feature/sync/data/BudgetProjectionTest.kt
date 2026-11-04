@@ -31,6 +31,7 @@ class BudgetProjectionTest {
         assertEquals(BigDecimal("100.00"), BudgetProjection(source, json, today).planningRules().first { it.id == "r" }.amount)
         val paid = source.copy(operations = listOf(operation("payment", "100.00")))
         assertFalse(BudgetProjection(paid, json, today).planningRules().any { it.id == "r" })
+        assertEquals(BigDecimal("100.00"), BudgetProjection(paid, json, today).planningRules(includeSettled = true).first { it.id == "r" }.amount)
         val disabled = source.copy(records = source.records.map { if (it.kind == "RECURRING_RULE") record(it.kind, once.copy(active = false)) else it })
         assertFalse(BudgetProjection(disabled, json, today).planningRules().any { it.id == "r" })
     }

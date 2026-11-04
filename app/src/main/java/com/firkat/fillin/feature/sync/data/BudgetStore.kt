@@ -98,7 +98,7 @@ class BudgetStore(
                 project(content).plans(filter)
             }.flowOn(kotlinx.coroutines.Dispatchers.Default)
 
-    fun observePlanningRules() =
+    fun observePlanningRules(includeSettled: Boolean = false) =
         dao
             .observeContent()
             .filter {
@@ -111,7 +111,7 @@ class BudgetStore(
                 ) {
                     throw BudgetLocalFailure("forbidden")
                 }
-                project(content).planningRules()
+                project(content).planningRules(includeSettled)
             }.flowOn(kotlinx.coroutines.Dispatchers.Default)
 
     fun observeHistoryContent(): Flow<LocalHistoryContent?> =

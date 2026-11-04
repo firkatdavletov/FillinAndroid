@@ -38,7 +38,7 @@ internal class PlanningRuleEditorViewModel(private val rules: ObservePlanningRul
     fun load() { viewModelScope.launch {
         try {
             val accountingStart = expenses.accountingStart()
-            val rule = if (ruleId == null) null else rules().first().firstOrNull { it.id == ruleId && it.type == mutable.value.draft.type } ?: error("Missing rule")
+            val rule = if (ruleId == null) null else rules.observeRule(ruleId).first()?.takeIf { it.type == mutable.value.draft.type } ?: error("Missing rule")
             val draft = rule?.let { RuleDraft(it.type, it.name, it.categoryId, it.amount.toPlainString(), it.frequency, it.nextDate(it.startsOn)) } ?: mutable.value.draft
             mutable.update { it.copy(draft = draft, initial = draft, original = rule, accountingStart = accountingStart, loading = false, error = false) }
         } catch (e: CancellationException) { throw e } catch (e: Exception) { mutable.update { it.copy(loading = false, error = true) } }

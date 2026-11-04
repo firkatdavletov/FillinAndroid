@@ -534,7 +534,7 @@ internal class BudgetProjection(
         }
     }
 
-    fun planningRules(): List<PlanningRule> {
+    fun planningRules(includeSettled: Boolean = false): List<PlanningRule> {
         // Apply the same overlay as payment projections, without selecting a payment period.
         applyPlanCommands(today)
         val result = mutableListOf<PlanningRule>()
@@ -545,7 +545,7 @@ internal class BudgetProjection(
                 "MONTHLY" -> PlanningFrequency.Monthly
                 else -> return@forEach
             }
-            if (frequency == PlanningFrequency.Once) {
+            if (!includeSettled && frequency == PlanningFrequency.Once) {
                 val occurrence = occurrences.values.firstOrNull { it.ruleId == r.id }
                 if (occurrence != null && (occurrence.status != "SCHEDULED" || paid(occurrence.id) >= requireNotNull(occurrence.amount).toBigDecimal())) return@forEach
             }
@@ -556,7 +556,7 @@ internal class BudgetProjection(
                 startsOn = LocalDate.parse(r.startsOn), scheduleValue = r.scheduleValue)
         }
         fun addIncome(r: SyncPlanRecord, rule: Boolean) {
-            if (r.incomeActive == false || r.status != "SCHEDULED") return
+            if (r.incomeActive == false || !includeSettled && r.status != "SCHEDULED") return
             val frequency = when (r.incomeFrequency ?: "ONCE") {
                 "ONCE" -> PlanningFrequency.Once
                 "WEEKLY" -> PlanningFrequency.Weekly
@@ -564,7 +564,7 @@ internal class BudgetProjection(
                 "MONTHLY" -> PlanningFrequency.Monthly
                 else -> return
             }
-            if (frequency == PlanningFrequency.Once) {
+            if (!includeSettled && frequency == PlanningFrequency.Once) {
                 val item = if (rule) incomes.values.firstOrNull { it.ruleId == r.id } ?: r else r
                 if (item.status != "SCHEDULED" || received(item.id) >= requireNotNull(item.amount).toBigDecimal()) return
             }

@@ -23,7 +23,7 @@ sealed interface AppRoute : NavKey {
     @Serializable data class BudgetSetup(val mode: BudgetSetupMode) : AppRoute
     @Serializable data object BudgetSetupList : AppRoute
     @Serializable data object BudgetSetupJoin : AppRoute
-    @Serializable data class EditOperationBottomSheet(
+    @Serializable data class OperationDetails(
         val operationId: String,
         val resultKey: String,
         val budgetScopeId: String,

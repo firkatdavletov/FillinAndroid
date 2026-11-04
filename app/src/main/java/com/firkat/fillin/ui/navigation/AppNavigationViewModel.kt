@@ -118,7 +118,7 @@ class AppNavigationViewModel(
                             entries.last() == AppRoute.Launch -> {
                                 if (ready) openMain() else replaceWith(AppRoute.Auth)
                             }
-                            !ready && (entries.last() is AppRoute.ForecastDetails || entries.last() is AppRoute.EditOperationBottomSheet || entries.last() is AppRoute.OperationPlanLinkBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.PlanningRuleEditor || entries.last() is AppRoute.EditCategoryBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
+                            !ready && (entries.last() is AppRoute.ForecastDetails || entries.last() is AppRoute.OperationDetails || entries.last() is AppRoute.OperationPlanLinkBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.PlanningRuleEditor || entries.last() is AppRoute.EditCategoryBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
                                 if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
                             )
                         }
@@ -166,14 +166,14 @@ class AppNavigationViewModel(
 
     fun openOperationCreate() = openMainDestination(AppRoute.OperationCreate)
 
-    fun openEditOperationBottomSheet(
+    fun openOperationDetails(
         operationId: String,
         resultKey: String,
         budgetScopeId: String,
-    ) = openMainDestination(AppRoute.EditOperationBottomSheet(operationId, resultKey, budgetScopeId))
+    ) = openMainDestination(AppRoute.OperationDetails(operationId, resultKey, budgetScopeId))
 
     /** Ignores callbacks from a sheet that is already exiting or belongs to an old budget. */
-    fun dismissEditOperationBottomSheet(route: AppRoute.EditOperationBottomSheet): Boolean {
+    fun dismissOperationDetails(route: AppRoute.OperationDetails): Boolean {
         if (entries.lastOrNull() != route) return false
         back()
         return true
@@ -188,14 +188,22 @@ class AppNavigationViewModel(
     fun openOperationPlanLink(operationId: String, scopeId: String) =
         openMainDestination(AppRoute.OperationPlanLinkBottomSheet(operationId, scopeId))
 
-    fun replaceEditorWithPlanLink(route: AppRoute.EditOperationBottomSheet) {
+    fun openDetailsPlanLink(route: AppRoute.OperationDetails) {
         if (entries.lastOrNull() != route) return
-        entries[entries.lastIndex] = AppRoute.OperationPlanLinkBottomSheet(route.operationId, route.budgetScopeId)
+        entries.add(AppRoute.OperationPlanLinkBottomSheet(route.operationId, route.budgetScopeId))
+    }
+
+    fun openDetailsPlanningRule(route: AppRoute.OperationDetails, type: PlannedOperationType, ruleId: String) {
+        if (entries.lastOrNull() == route && budgetReady && !resolving.value) {
+            entries.add(AppRoute.PlanningRuleEditor(route.budgetScopeId, type, ruleId))
+        }
     }
 
     fun chooseAnotherPlan(route: AppRoute.OperationPlanLinkBottomSheet) {
         if (entries.lastOrNull() != route) return
-        entries[entries.lastIndex] = AppRoute.EditOperationBottomSheet(route.operationId, "plan-link-${route.requestId}", route.budgetScopeId)
+        val parent = entries.getOrNull(entries.lastIndex - 1) as? AppRoute.OperationDetails
+        if (parent?.operationId == route.operationId && parent.budgetScopeId == route.budgetScopeId) back()
+        else entries[entries.lastIndex] = AppRoute.OperationDetails(route.operationId, "plan-link-${route.requestId}", route.budgetScopeId)
     }
 
     fun dismissOperationPlanLink(route: AppRoute.OperationPlanLinkBottomSheet) {

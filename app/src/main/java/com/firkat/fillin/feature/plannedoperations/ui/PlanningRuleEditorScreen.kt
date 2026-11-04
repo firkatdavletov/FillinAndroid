@@ -94,24 +94,11 @@ internal fun PlanningRuleEditorScreen(state: RuleEditorState, canWrite: Boolean,
             }
         }
     }
-    if (state.window == RuleWindow.Category) SaldomiBottomSheet(onDismissRequest = { onWindow(null) }) {
-        Column(Modifier.fillMaxWidth().heightIn(max = 500.dp).verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.rule_category), style = MaterialTheme.typography.titleLarge)
-            when {
-                state.categoriesLoading -> CircularProgressIndicator()
-                state.categoriesError -> { Text(stringResource(R.string.rule_error)); TextButton(onRetryCategories) { Text(stringResource(R.string.planned_operations_retry)) } }
-                else -> {
-                    val categories = state.categories.filter { it.kind == if (draft.type == PlannedOperationType.Expense) CategoryKind.Expense else CategoryKind.Income }
-                    if (categories.isEmpty()) Text(stringResource(R.string.rule_no_categories))
-                    categories.forEach { category ->
-                        Surface(color = if (category.id == draft.categoryId) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background, shape = MaterialTheme.shapes.medium) {
-                            CategoryItem(category, { onCategory(category.id) }, Modifier.fillMaxWidth().padding(horizontal = 8.dp).semantics { selected = category.id == draft.categoryId })
-                        }
-                    }
-                }
-            }
-        }
-    }
+    if (state.window == RuleWindow.Category) CategorySelectionSheet(
+        categories = state.categories.filter { it.kind == if (draft.type == PlannedOperationType.Expense) CategoryKind.Expense else CategoryKind.Income },
+        selectedId = draft.categoryId, loading = state.categoriesLoading, hasError = state.categoriesError,
+        onSelect = onCategory, onDismiss = { onWindow(null) }, onRetry = onRetryCategories,
+    )
     if (state.window == RuleWindow.Date) {
         val minimumDate = maxOf(state.accountingStart, LocalDate.now(ZoneId.of("Asia/Almaty")))
         val picker = rememberDatePickerState(initialSelectedDateMillis = draft.date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
