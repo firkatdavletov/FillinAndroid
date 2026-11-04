@@ -80,6 +80,40 @@ class ProfileScreenTest {
         assertEquals(1, cloud)
     }
 
+    @Test fun switchingBudgetKeepsCardAndCreateButtonPositions() {
+        val state = mutableStateOf(profileState())
+        compose.setContent { FillinTheme {
+            ProfileScreen(state.value, null, false, {}, { state.value = state.value.copy(busy = true) },
+                {}, {}, {}, {}, {})
+        } }
+        val old = compose.onNodeWithText("Основной бюджет")
+        val next = compose.onNodeWithText("Накопления")
+        val create = compose.onNodeWithText("Создать новый")
+        val oldBounds = old.fetchSemanticsNode().boundsInRoot
+        val nextBounds = next.fetchSemanticsNode().boundsInRoot
+        val createBounds = create.fetchSemanticsNode().boundsInRoot
+        val progress = SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo)
+
+        next.performClick()
+        old.assertIsSelected()
+        next.assertIsNotSelected()
+        create.assertIsNotEnabled()
+        compose.onNode(progress).assertDoesNotExist()
+        assertEquals(createBounds, create.fetchSemanticsNode().boundsInRoot)
+
+        compose.runOnIdle {
+            state.value = state.value.copy(
+                busy = false,
+                budgets = state.value.budgets.map { it.copy(selected = it.id == "local") },
+            )
+        }
+        old.assertIsNotSelected()
+        next.assertIsSelected()
+        assertEquals(oldBounds, old.fetchSemanticsNode().boundsInRoot)
+        assertEquals(nextBounds, next.fetchSemanticsNode().boundsInRoot)
+        assertEquals(createBounds, create.fetchSemanticsNode().boundsInRoot)
+    }
+
     @Test fun profileMethodsAndAccountActionsDispatch() {
         var methods = 0
         var signOut = 0

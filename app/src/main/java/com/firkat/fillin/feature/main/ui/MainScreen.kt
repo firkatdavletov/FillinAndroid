@@ -38,8 +38,13 @@ import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
+import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsEvent
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsRoute
+import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import kotlinx.serialization.Serializable
 
@@ -50,7 +55,7 @@ fun MainScreen(
     onAccountClick: () -> Unit,
     onMethodsClick: () -> Unit = onAccountClick,
     snackbarHostState: SnackbarHostState,
-    budgetViewModelStoreOwner: MainBudgetViewModelStore? = null,
+    budgetViewModelStoreOwner: MainBudgetViewModelStore,
     onCategoriesClick: () -> Unit = {},
     onFamilyAccessClick: () -> Unit = {},
     onCloudSyncClick: () -> Unit = {},
@@ -60,30 +65,29 @@ fun MainScreen(
     onPlannedOperationEditorClick: (PlannedOperationType) -> Unit = {},
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
-    ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
-        MainContent(
-            selectedDestination = selectedDestination,
-            onSelectDestination = {
-                if (it == AppDestination.AddOperation) {
-                    onCreateOperationClick()
-                } else {
-                    selectedDestination = it
-                }
-            },
-            authBusy = authBusy,
-            onAccountClick = onAccountClick,
-            onMethodsClick = onMethodsClick,
-            snackbarHostState = snackbarHostState,
-            user = user,
-            onCategoriesClick = onCategoriesClick,
-            onFamilyAccessClick = onFamilyAccessClick,
-            onCloudSyncClick = onCloudSyncClick,
-            onCreateOperationClick = onCreateOperationClick,
-            onOperationClick = onOperationClick,
-            onForecastClick = onForecastClick,
-            onPlannedOperationEditorClick = onPlannedOperationEditorClick,
-        )
-    }
+    MainContent(
+        selectedDestination = selectedDestination,
+        onSelectDestination = {
+            if (it == AppDestination.AddOperation) {
+                onCreateOperationClick()
+            } else {
+                selectedDestination = it
+            }
+        },
+        authBusy = authBusy,
+        onAccountClick = onAccountClick,
+        onMethodsClick = onMethodsClick,
+        snackbarHostState = snackbarHostState,
+        user = user,
+        budgetViewModelStoreOwner = budgetViewModelStoreOwner,
+        onCategoriesClick = onCategoriesClick,
+        onFamilyAccessClick = onFamilyAccessClick,
+        onCloudSyncClick = onCloudSyncClick,
+        onCreateOperationClick = onCreateOperationClick,
+        onOperationClick = onOperationClick,
+        onForecastClick = onForecastClick,
+        onPlannedOperationEditorClick = onPlannedOperationEditorClick,
+    )
 }
 
 @Composable
@@ -95,6 +99,7 @@ private fun MainContent(
     onMethodsClick: () -> Unit = onAccountClick,
     snackbarHostState: SnackbarHostState,
     user: AuthUser?,
+    budgetViewModelStoreOwner: MainBudgetViewModelStore,
     onCategoriesClick: () -> Unit,
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
@@ -103,7 +108,6 @@ private fun MainContent(
     onForecastClick: () -> Unit,
     onPlannedOperationEditorClick: (PlannedOperationType) -> Unit,
 ) {
-    val plansViewModel: com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsViewModel = org.koin.compose.viewmodel.koinViewModel()
     Scaffold(
         modifier = Modifier.testTag("main_screen"),
         snackbarHost = {
@@ -138,19 +142,33 @@ private fun MainContent(
     ) { innerPadding ->
         val provider =
             entryProvider<NavKey> {
-                entry(AppDestination.Dashboard) { DashboardRoute(onForecastClick = onForecastClick, onPaymentsClick = { from, to ->
-                    plansViewModel.onEvent(com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsEvent.FilterApplied(
-                        com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter(
-                            type = PlannedOperationType.Expense,
-                            period = com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod.Custom,
-                            dateFrom = from, dateTo = to)))
-                    onSelectDestination(AppDestination.Planned)
-                }) }
-                entry(
-                    AppDestination.History,
-                ) { OperationHistoryRoute(snackbarHostState = snackbarHostState, onOperationClick = onOperationClick) }
+                entry(AppDestination.Dashboard) {
+                    ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
+                        val plansViewModel: PlannedOperationsViewModel = koinViewModel()
+                        DashboardRoute(onForecastClick = onForecastClick, onPaymentsClick = { from, to ->
+                            plansViewModel.onEvent(
+                                PlannedOperationsEvent.FilterApplied(
+                                    PlannedOperationsFilter(
+                                        type = PlannedOperationType.Expense,
+                                        period = PlannedOperationPeriod.Custom,
+                                        dateFrom = from,
+                                        dateTo = to,
+                                    )
+                                )
+                            )
+                            onSelectDestination(AppDestination.Planned)
+                        })
+                    }
+                }
+                entry(AppDestination.History) {
+                    ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
+                        OperationHistoryRoute(snackbarHostState = snackbarHostState, onOperationClick = onOperationClick)
+                    }
+                }
                 entry(AppDestination.Planned) {
-                    PlannedOperationsRoute(onOpenEditor = onPlannedOperationEditorClick, viewModel = plansViewModel)
+                    ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
+                        PlannedOperationsRoute(onOpenEditor = onPlannedOperationEditorClick)
+                    }
                 }
                 entry(AppDestination.Profile) {
                     ProfileRoute(

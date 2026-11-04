@@ -6,7 +6,13 @@ import com.firkat.fillin.feature.profile.domain.DeletionPhase
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import androidx.compose.ui.platform.LocalContext
 import org.koin.compose.koinInject
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.runtime.key
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -160,19 +166,54 @@ fun ProfileScreen(
         contentColor = MaterialTheme.colorScheme.onBackground,
     ) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-                .verticalScroll(rememberScrollState()).padding(horizontal = 18.dp).padding(top = 16.dp, bottom = 32.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .consumeWindowInsets(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp)
+                .padding(top = 16.dp, bottom = 32.dp),
         ) {
-            Text(stringResource(R.string.navigation_profile), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+            Text(
+                text = stringResource(R.string.navigation_profile),
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold
+            )
             Spacer(Modifier.height(20.dp))
             if (user != null) {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp)) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
                     ProfileAccount(user.displayName, user.email, Modifier.padding(16.dp))
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    Surface(onClick = onMethodsClick, enabled = !authBusy, color = MaterialTheme.colorScheme.surface) {
-                        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(if (user.emailVerified) R.string.email_methods else R.string.email_verify), Modifier.weight(1f), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
-                            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
+                    Surface(
+                        onClick = onMethodsClick,
+                        enabled = !authBusy,
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 52.dp)
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    if (user.emailVerified)
+                                        R.string.email_methods
+                                    else
+                                        R.string.email_verify
+                                ),
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                                contentDescription = null
+                            )
                         }
                     }
                 }
@@ -186,26 +227,25 @@ fun ProfileScreen(
             if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("profile_loading"))
             state.budgets.forEachIndexed { index, budget ->
                 val displayName = budget.name ?: if (budget.family) stringResource(R.string.profile_family_budget_name) else stringResource(R.string.profile_local_budget_name, state.budgets.take(index + 1).count { !it.family })
-                ProfileBudgetCard(
-                    name = displayName,
-                    expanded = state.expandedBudgetId == budget.id,
-                    onActionsClick = { onBudgetActionsClick(budget.id) },
-                    canManage = budget.canManage,
-                    pendingRename = budget.pendingRename,
-                    onRename = { onManageBudget(budget.id, displayName, false) },
-                    onRemove = { onManageBudget(budget.id, displayName, true) },
-                    family = budget.family,
-                    selected = budget.selected,
-                    enabled = !state.busy,
-                    onClick = { onBudgetClick(budget.id) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                )
+                key(budget.id) {
+                    ProfileBudgetCard(
+                        name = displayName,
+                        expanded = state.expandedBudgetId == budget.id,
+                        onActionsClick = { onBudgetActionsClick(budget.id) },
+                        canManage = budget.canManage,
+                        pendingRename = budget.pendingRename,
+                        onRename = { onManageBudget(budget.id, displayName, false) },
+                        onRemove = { onManageBudget(budget.id, displayName, true) },
+                        family = budget.family,
+                        selected = budget.selected,
+                        enabled = !state.busy,
+                        onClick = { onBudgetClick(budget.id) },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    )
+                }
             }
             managementContent()
             PrimaryButton(stringResource(R.string.profile_create_budget), onCreateBudgetClick, Modifier.fillMaxWidth(), enabled = !state.busy)
-            if (state.busy && state.creation == null) {
-                LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
-            }
             if (state.error != null && state.creation == null) {
                 Text(state.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
                 TextButton(onClick = onRetry, enabled = !state.busy) { Text(stringResource(R.string.budget_profile_retry)) }
@@ -264,14 +304,27 @@ private fun ProfileBudgetCard(
     expanded: Boolean = false,
     onActionsClick: () -> Unit = {},
 ) {
+    val colors = MaterialTheme.colorScheme
+    val container by animateColorAsState(
+        if (selected) colors.surfaceVariant else colors.surface, tween(200), label = "Budget background",
+    )
+    val outline by animateColorAsState(
+        if (selected) colors.primary else colors.outlineVariant, tween(200), label = "Budget outline",
+    )
+    val outlineWidth by animateDpAsState(
+        if (selected) 1.5.dp else 1.dp, tween(200), label = "Budget outline width",
+    )
+    val checkAlpha by animateFloatAsState(
+        if (selected) 1f else 0f, tween(200), label = "Budget checkmark",
+    )
     OutlinedCard(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.semantics { this.selected = selected; role = Role.RadioButton },
         shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(outlineWidth, outline),
         colors = CardDefaults.outlinedCardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
+            containerColor = container,
             contentColor = MaterialTheme.colorScheme.onSurface,
         ),
     ) {
@@ -279,15 +332,15 @@ private fun ProfileBudgetCard(
             Icon(if (family) FillinIcons.FamilyAccess else FillinIcons.Wallet, null, tint = MaterialTheme.colorScheme.primary)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
-                if (selected) Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small) {
-                    Text(stringResource(R.string.budget_manage_current), Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall)
-                }
                 if (pendingRename) Text(stringResource(R.string.budget_manage_pending_rename), style = MaterialTheme.typography.bodySmall)
                 Text(stringResource(if (family) R.string.profile_family_budget else R.string.profile_personal_budget), style = MaterialTheme.typography.bodySmall)
             }
-            if (selected) {
-                Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
-            }
+            Icon(
+                Icons.Filled.CheckCircle,
+                contentDescription = null,
+                modifier = Modifier.graphicsLayer { alpha = checkAlpha },
+                tint = colors.primary,
+            )
             if (canManage) IconButton(onClick = onActionsClick, enabled = enabled) {
                 Icon(Icons.Filled.MoreVert, stringResource(R.string.budget_manage_actions))
             }
@@ -389,6 +442,7 @@ private fun ProfileAccountLongPreview() { FillinTheme { ProfileAccount("Анна
 private fun ProfileBudgetSelectedPreview() { FillinTheme { ProfileBudgetCard("Основной бюджет", true, true, true, {}) } }
 
 @Preview(name = "Personal budget")
+@Preview(name = "Personal budget dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ProfileBudgetPersonalPreview() { FillinTheme { ProfileBudgetCard("Накопления", false, false, true, {}) } }
 
@@ -405,6 +459,7 @@ private fun ProfileBudgetPersonalSelectedPreview() { FillinTheme { ProfileBudget
 private fun ProfileBudgetDisabledPreview() { FillinTheme { ProfileBudgetCard("Накопления", false, false, false, {}) } }
 
 @Preview(name = "Long budget", widthDp = 320, fontScale = 2f)
+@Preview(name = "Long budget dark", widthDp = 320, fontScale = 2f, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ProfileBudgetLongPreview() { FillinTheme { ProfileBudgetCard("Накопления на большую семейную поездку", false, true, true, {}) } }
 

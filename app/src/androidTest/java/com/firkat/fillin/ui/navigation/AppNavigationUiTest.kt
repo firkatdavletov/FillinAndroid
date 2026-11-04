@@ -178,6 +178,30 @@ class AppNavigationUiTest {
                 com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, get(), env.uploads)
             }
             viewModel { com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, env.creation) }
+            viewModel {
+                val store = object : com.firkat.fillin.feature.profile.domain.DeletionStore {
+                    override fun operations() = emptyList<com.firkat.fillin.feature.profile.domain.DeletionOperation>()
+                    override fun save(operation: com.firkat.fillin.feature.profile.domain.DeletionOperation) = Unit
+                    override fun blocked(uid: String) = false
+                    override fun block(uid: String) = Unit
+                    override fun finish(uid: String) = Unit
+                }
+                com.firkat.fillin.feature.profile.ui.ProfileDeletionViewModel(
+                    com.firkat.fillin.feature.profile.data.ProfileDeletionCoordinator(
+                        store, null, auth, token = { error("Unused") }, pause = {}, erase = {},
+                    ),
+                    auth,
+                )
+            }
+            viewModel {
+                com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel(
+                    com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement(
+                        env.context, env.registryDb, env.registry, env.manager, auth,
+                        env.requests, env.uploads, get(), enqueue = {},
+                    ),
+                    auth,
+                )
+            }
             single<GoogleSignInLauncher> { launcher }
             viewModel { parameters -> BudgetConnectionViewModel(auth, env.connection, env.creation, parameters.getOrNull<Boolean>() ?: false) }
         }))
@@ -845,6 +869,34 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_input").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(2, navigation.backStack.size)
+    }
+
+    @Test fun switchingBudgetKeepsProfileScrollPosition() {
+        show(createdBudget = true)
+        val other = runBlocking {
+            val originalId = env.manager.active.value!!.profile.id
+            val profile = env.registry.createLocal("Резервный бюджет")
+            env.manager.select(profile.id)
+            val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
+            session.createLocal("900.00".toBigDecimal(), session.today)
+            env.manager.select(originalId)
+            profile
+        }
+        compose.onNodeWithTag("tab_Profile").performClick()
+        val card = compose.onNodeWithText("Резервный бюджет")
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("Резервный бюджет").fetchSemanticsNodes().isNotEmpty()
+        }
+        val sync = compose.onNodeWithText("Облачная синхронизация").performScrollTo()
+        val position = sync.fetchSemanticsNode().boundsInRoot
+        runBlocking { env.manager.select(other.id) }
+        compose.waitUntil(5000) {
+            compose.onAllNodes(hasText("Резервный бюджет") and isSelected()).fetchSemanticsNodes().isNotEmpty()
+        }
+        card.assertIsSelected()
+        compose.onNodeWithTag("tab_Profile").assertIsSelected()
+        sync.assertIsDisplayed()
+        assertEquals(position, sync.fetchSemanticsNode().boundsInRoot)
     }
 
     @Test fun switchingBudgetClearsMainModelsWithoutLeakingThePreviousFilter() {

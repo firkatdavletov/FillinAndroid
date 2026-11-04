@@ -44,6 +44,34 @@ class ProfileViewModelTest {
         assertTrue(model.state.value.busy)
     }
 
+    @Test fun `budget selection waits for the active budget and keeps the catalog on failure`() = runTest {
+        val budgets = Budgets().apply { selectionResult = CompletableDeferred() }
+        val original = budgets.rows.value
+        val model = model(budgets)
+        runCurrent()
+
+        model.selectBudget("other")
+        runCurrent()
+        assertEquals(original, model.state.value.budgets)
+        assertFalse(model.state.value.loading)
+        budgets.selectionResult!!.completeExceptionally(IllegalStateException("Switch failed"))
+        runCurrent()
+        assertEquals(original, model.state.value.budgets)
+        assertNotNull(model.state.value.error)
+        assertFalse(model.state.value.busy)
+
+        budgets.selectionResult = CompletableDeferred()
+        model.selectBudget("other")
+        runCurrent()
+        val confirmed = original.map { it.copy(selected = it.id == "other") }
+        budgets.rows.value = confirmed
+        budgets.selectionResult!!.complete(Unit)
+        runCurrent()
+        assertEquals(confirmed, model.state.value.budgets)
+        assertNull(model.state.value.error)
+        assertFalse(model.state.value.busy)
+    }
+
     @Test fun `guest creates a local budget using the entered balance and date`() = runTest {
         val budgets = Budgets()
         val creation = Creation()
