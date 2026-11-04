@@ -84,6 +84,10 @@ fun FillinNavHost(
     LaunchedEffect(runtime?.scope?.id, linkSheet) {
         if (linkSheet != null && linkSheet.budgetScopeId != runtime?.scope?.id) navigation.dismissOperationPlanLink(linkSheet)
     }
+    val editorRoute = navigation.backStack.lastOrNull() as? AppRoute.PlanningRuleEditor
+    LaunchedEffect(runtime?.scope?.id, editorRoute) {
+        if (editorRoute != null && editorRoute.budgetScopeId != runtime?.scope?.id) navigation.dismissPlanningRuleEditor(editorRoute)
+    }
     val plannedSheet = navigation.backStack.lastOrNull() as? AppRoute.PlannedOperationBottomSheet
     LaunchedEffect(runtime?.scope?.id, sheet) {
         if (sheet != null && sheet.budgetScopeId != runtime?.scope?.id) {
@@ -173,12 +177,21 @@ fun FillinNavHost(
                             navigation.openEditOperationBottomSheet(operationId, resultKey, scopeId)
                         }
                     },
-                    onPlannedOperationEditorClick = { type ->
+                    onPlannedOperationEditorClick = { type, ruleId ->
                         runtime?.scope?.id?.let { scopeId ->
-                            navigation.openPlannedOperationBottomSheet(type, scopeId)
+                            navigation.openPlanningRuleEditor(type, scopeId, ruleId)
                         }
                     },
                 )
+            }
+            entry<AppRoute.PlanningRuleEditor> { route ->
+                val editorModels: MainBudgetViewModelStore = viewModel(key = "rule-editor-${route.requestId}")
+                editorModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                ActiveBudgetContent(viewModelStoreOwner = editorModels) {
+                    if (route.budgetScopeId == runtime?.scope?.id) {
+                        com.firkat.fillin.feature.plannedoperations.ui.PlanningRuleEditorRoute(route.type, route.ruleId, route.requestId, onClose = { navigation.dismissPlanningRuleEditor(route) })
+                    }
+                }
             }
             entry<AppRoute.PlannedOperationBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
                 // The selected editor is initialized by the Plans tab and retained across rotation.

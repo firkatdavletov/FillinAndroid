@@ -38,8 +38,10 @@
 {"scope": {"householdId":"…", "memberId":"…", "role":"OWNER", "accountingStartedAt":"…", "timeZone":"Asia/Almaty", "currency":"KZT"}, "capabilities":["confirmedPlanLinkingV1"]}
 ```
 
-Новый Android передаёт `X-Fillin-Capabilities: confirmedPlanLinkingV1` в запросах бюджета,
+Android передаёт `X-Fillin-Capabilities: confirmedPlanLinkingV1,incomeRuleEditingV1,dailyLimitPlanningV1` в запросах бюджета,
 changes и commands. Отсутствие/пустой capabilities в ответе означает отсутствие поддержки.
+Для связей требуется `confirmedPlanLinkingV1`, в том числе для доходов с ruleId/scheduledOn;
+поддержка редактора доходов и подтверждения остатков проверяется отдельно (backend-rule-editor.md).
 До отправки каждой новой команды создания или изменения связи Android проверяет capability
 (один раз за обмен), сохраняет очередь и показывает `backend_update_required`, если его нет.
 Нельзя молча игнорировать `planMatchingMode` и продолжать автоматическое сопоставление.

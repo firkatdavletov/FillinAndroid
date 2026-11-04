@@ -36,6 +36,8 @@ internal class BudgetProjection(
                 !(it.status == "ACKNOWLEDGED" && (it.receiptRevision ?: Long.MAX_VALUE) <= content.sync.lastRevision)
         }
     private val scope = content.sync.scopeKey
+    private val ruleEffectiveDates = mutableMapOf<String, LocalDate>()
+    private val changedIncomeRules = mutableSetOf<String>()
     private var rulesApplied = false
     private var linksApplied = false
 
@@ -63,6 +65,7 @@ internal class BudgetProjection(
             }
             expandIncomes(today.plusYears(5))
             overlayIncome(command, incomeRules)
+            changedIncomeRules += command.entityId
         }
         expandIncomes(today.plusYears(5))
         overlays.filter { it.kind == "EXPECTED_INCOME" && json.decodeFromString<BudgetSyncCommand>(it.intent).type == "CONFIRM_REMAINDER_INCOME" }
@@ -254,7 +257,7 @@ internal class BudgetProjection(
                         updated.copy(version = (old.version ?: 0) + 1) else updated
                 }
             }
-            dates.forEach { date ->
+            dates.filter { rule.id !in changedIncomeRules || it >= today }.forEach { date ->
                 val id = incomes.values.firstOrNull { it.ruleId == rule.id && (it.scheduledOn ?: it.dueOn) == date.toString() }?.id
                     ?: java.util.UUID.nameUUIDFromBytes("income:${rule.id}:$date".toByteArray(Charsets.UTF_8)).toString()
                 if (id !in incomes) incomes[id] = rule.copy(id = id, ruleId = rule.id, dueOn = date.toString(), version = 0,
@@ -279,105 +282,7 @@ internal class BudgetProjection(
                     YearMonth.from(today).atEndOfMonth()
                 }
         require(from <= to && to <= today.plusYears(5))
-        // Explicit links must be projected even when their target lies outside the visible period.
-        val linkedThrough = overlays.filter { linkEligible(it) }.map { json.decodeFromString<BudgetSyncCommand>(it.intent) }
-            .filter { it.type == "SET_OPERATION_PLAN_LINK" && it.planTarget?.type == "EXPENSE" }
-            .map { LocalDate.parse(requireNotNull(it.planTarget).dueOn) }.maxOrNull()
-        val materializationThrough = maxOf(to, linkedThrough ?: to)
-        // Preserve old periods before changing a rule, just as the server's materialized occurrences do.
-        if (!rulesApplied) {
-            overlays.filter { it.kind == "RECURRING_RULE" }.forEach { item ->
-                val c = json.decodeFromString<BudgetSyncCommand>(item.intent)
-                val old = rules[c.entityId] ?: if (c.type == "UPDATE_RULE" && c.categoryId != null && c.amount != null && c.startsOn != null) SyncPlanRecord(c.entityId, categoryId = c.categoryId, amount = c.amount, frequency = c.frequency, scheduleValue = c.scheduleValue, startsOn = c.startsOn, active = true, version = 0, createdAt = "${c.authoredOn}T00:00:00Z", modifiedAt = "${c.authoredOn}T00:00:00Z") else null
-                val effective = LocalDate.parse(c.authoredOn)
-                when (c.type) {
-                    "CREATE_RULE" -> {
-                        if (old == null) {
-                            rules[c.entityId] =
-                                SyncPlanRecord(
-                                    c.entityId,
-                                    categoryId = c.categoryId,
-                                    amount = c.amount,
-                                    frequency = c.frequency,
-                                    scheduleValue = c.scheduleValue,
-                                    startsOn = c.startsOn,
-                                    active = true,
-                                    version = 0,
-                                    createdAt = "${c.authoredOn}T00:00:00Z",
-                                    modifiedAt = "${c.authoredOn}T00:00:00Z",
-                                )
-                        }
-                    }
-
-                    "UPDATE_RULE", "DELETE_RULE" -> {
-                        if (old != null) {
-                            val restoring = c.type == "UPDATE_RULE" && content.sync.protocolVersion >= 4 && old.active == false
-                            val baseRule = if (restoring) old.copy(active = true) else old
-                            if (restoring) {
-                                occurrences.replaceAll { _, occurrence ->
-                                    if (occurrence.ruleId == c.entityId && occurrence.status == "CANCELLED" && LocalDate.parse(occurrence.dueOn) >= effective) occurrence.copy(status = "SCHEDULED") else occurrence
-                                }
-                            }
-                            rules[c.entityId] = baseRule
-                            materialize(baseRule, materializationThrough)
-                            if (c.type == "UPDATE_RULE") {
-                                occurrences.replaceAll { _, o ->
-                                    if (o.ruleId == c.entityId && LocalDate.parse(o.dueOn) >= effective &&
-                                        o.status == "SCHEDULED" &&
-                                        paidBefore(o.id, item.createdOrder).signum() == 0
-                                    ) {
-                                        o.copy(amount = c.amount, version = (o.version ?: 0) + 1)
-                                    } else {
-                                        o
-                                    }
-                                }
-                                rules[c.entityId] = baseRule.copy(amount = c.amount, version = (old.version ?: 0) + 1)
-                            } else {
-                                occurrences.replaceAll { _, o ->
-                                    if (o.ruleId == c.entityId &&
-                                        LocalDate.parse(o.dueOn) >= effective &&
-                                        o.status == "SCHEDULED"
-                                    ) {
-                                        o.copy(status = "CANCELLED", version = (o.version ?: 0) + 1)
-                                    } else {
-                                        o
-                                    }
-                                }
-                                rules[c.entityId] = old.copy(active = false, version = (old.version ?: 0) + 1)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        rules.values.forEach { materialize(it, materializationThrough) }
-        overlays.filter { it.kind == "RECURRING_OCCURRENCE" }.forEach { item ->
-            val c = json.decodeFromString<BudgetSyncCommand>(item.intent)
-            occurrences[c.entityId]?.let {
-                occurrences[c.entityId] =
-                    it.copy(status = "PAID", version = (it.version ?: 0) + 1)
-            }
-        }
-        rulesApplied = true
-        if (!linksApplied) {
-            overlays.filter { linkEligible(it) }.forEach { item ->
-                val c = json.decodeFromString<BudgetSyncCommand>(item.intent)
-                if (c.type in LINK_COMMANDS) {
-                    expenseLinks.removeAll { it.ledgerId == c.entityId }
-                    incomeLinks.removeAll { it.ledgerId == c.entityId }
-                    c.planTarget?.takeIf { c.type == "SET_OPERATION_PLAN_LINK" }?.let { target ->
-                        val id = if (target.type == "EXPENSE") occurrences.values.firstOrNull {
-                            it.ruleId == target.ruleId && it.dueOn == target.dueOn
-                        }?.id else target.planId
-                        if (id != null) {
-                            val link = SyncPlanRecord(id, ledgerId = c.entityId)
-                            if (target.type == "EXPENSE") expenseLinks += link else incomeLinks += link
-                        }
-                    }
-                }
-            }
-            linksApplied = true
-        }
+        applyPlanCommands(to)
         val expenseItems =
             occurrences.values.mapNotNull { o ->
                 val due = LocalDate.parse(o.dueOn)
@@ -507,14 +412,183 @@ internal class BudgetProjection(
         return OperationPlanLinks(candidates, current)
     }
 
+    private fun applyPlanCommands(through: LocalDate) {
+        // Explicit links must be projected even when their target lies outside the visible period.
+        val linkedThrough = overlays.filter { linkEligible(it) }.map { json.decodeFromString<BudgetSyncCommand>(it.intent) }
+            .filter { it.type == "SET_OPERATION_PLAN_LINK" && it.planTarget?.type == "EXPENSE" }
+            .map { LocalDate.parse(requireNotNull(it.planTarget).dueOn) }.maxOrNull()
+        val materializationThrough = maxOf(through, linkedThrough ?: through)
+        // Preserve old periods before changing a rule, just as the server's materialized occurrences do.
+        if (!rulesApplied) {
+            overlays.filter { it.kind == "RECURRING_RULE" }.forEach { item ->
+                val c = json.decodeFromString<BudgetSyncCommand>(item.intent)
+                val old = rules[c.entityId] ?: if (c.type == "UPDATE_RULE" && c.categoryId != null && c.amount != null && c.startsOn != null) SyncPlanRecord(c.entityId, categoryId = c.categoryId, amount = c.amount, frequency = c.frequency, scheduleValue = c.scheduleValue, startsOn = c.startsOn, active = true, version = 0, createdAt = "${c.authoredOn}T00:00:00Z", modifiedAt = "${c.authoredOn}T00:00:00Z") else null
+                val effective = LocalDate.parse(c.authoredOn)
+                when (c.type) {
+                    "CREATE_RULE" -> {
+                        if (old == null) {
+                            rules[c.entityId] =
+                                SyncPlanRecord(
+                                    c.entityId,
+                                    categoryId = c.categoryId,
+                                    ruleName = c.ruleName,
+                                    amount = c.amount,
+                                    frequency = c.frequency,
+                                    scheduleValue = c.scheduleValue,
+                                    startsOn = c.startsOn,
+                                    active = true,
+                                    version = 0,
+                                    createdAt = "${c.authoredOn}T00:00:00Z",
+                                    modifiedAt = "${c.authoredOn}T00:00:00Z",
+                                )
+                        }
+                    }
+
+                    "UPDATE_RULE", "DELETE_RULE" -> {
+                        if (old != null) {
+                            val restoring = c.type == "UPDATE_RULE" && content.sync.protocolVersion >= 4 && old.active == false
+                            val baseRule = if (restoring) old.copy(active = true) else old
+                            if (restoring) {
+                                occurrences.replaceAll { _, occurrence ->
+                                    if (occurrence.ruleId == c.entityId && occurrence.status == "CANCELLED" && LocalDate.parse(occurrence.dueOn) >= effective) occurrence.copy(status = "SCHEDULED") else occurrence
+                                }
+                            }
+                            rules[c.entityId] = baseRule
+                            materialize(baseRule, materializationThrough)
+                            if (c.type == "UPDATE_RULE") {
+                                val updated = baseRule.copy(amount = c.amount, ruleName = c.ruleName ?: baseRule.ruleName,
+                                    categoryId = c.categoryId ?: baseRule.categoryId,
+                                    frequency = c.frequency ?: baseRule.frequency,
+                                    startsOn = c.startsOn ?: baseRule.startsOn,
+                                    scheduleValue = if (c.frequency == "ONCE") null else c.scheduleValue ?: baseRule.scheduleValue,
+                                    version = (old.version ?: 0) + 1)
+                                fun matches(date: LocalDate): Boolean {
+                                    val start = LocalDate.parse(updated.startsOn)
+                                    if (date < start) return false
+                                    return when (updated.frequency) {
+                                        "ONCE" -> date == start
+                                        "WEEKLY" -> date.dayOfWeek.value == updated.scheduleValue
+                                        else -> date.dayOfMonth == minOf(requireNotNull(updated.scheduleValue), date.lengthOfMonth())
+                                    }
+                                }
+                                occurrences.replaceAll { _, o ->
+                                    if (o.ruleId == c.entityId && LocalDate.parse(o.dueOn) >= effective &&
+                                        (o.status == "SCHEDULED" || c.replaceDetails && o.status == "CANCELLED") &&
+                                        paidBefore(o.id, item.createdOrder).signum() == 0
+                                    ) {
+                                        o.copy(amount = c.amount, categoryId = updated.categoryId, status = if (matches(LocalDate.parse(o.dueOn))) "SCHEDULED" else "CANCELLED", version = (o.version ?: 0) + 1)
+                                    } else {
+                                        o
+                                    }
+                                }
+                                                                rules[c.entityId] = updated
+                                if (c.replaceDetails) ruleEffectiveDates[c.entityId] = effective
+                                // Generate only future dates; old and settled occurrences remain untouched.
+                                val generationStart = maxOf(effective, LocalDate.parse(updated.startsOn))
+                                materialize(updated.copy(startsOn = if (updated.frequency == "ONCE") updated.startsOn else generationStart.toString()), materializationThrough)
+                            } else {
+                                occurrences.replaceAll { _, o ->
+                                    if (o.ruleId == c.entityId &&
+                                        LocalDate.parse(o.dueOn) >= effective &&
+                                        o.status == "SCHEDULED"
+                                    ) {
+                                        o.copy(status = "CANCELLED", version = (o.version ?: 0) + 1)
+                                    } else {
+                                        o
+                                    }
+                                }
+                                rules[c.entityId] = old.copy(active = false, version = (old.version ?: 0) + 1)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        rules.values.forEach { materialize(it, materializationThrough) }
+        overlays.filter { it.kind == "RECURRING_OCCURRENCE" }.forEach { item ->
+            val c = json.decodeFromString<BudgetSyncCommand>(item.intent)
+            occurrences[c.entityId]?.let {
+                occurrences[c.entityId] =
+                    it.copy(status = "PAID", version = (it.version ?: 0) + 1)
+            }
+        }
+        rulesApplied = true
+        if (!linksApplied) {
+            overlays.filter { linkEligible(it) }.forEach { item ->
+                val c = json.decodeFromString<BudgetSyncCommand>(item.intent)
+                if (c.type in LINK_COMMANDS) {
+                    expenseLinks.removeAll { it.ledgerId == c.entityId }
+                    incomeLinks.removeAll { it.ledgerId == c.entityId }
+                    c.planTarget?.takeIf { c.type == "SET_OPERATION_PLAN_LINK" }?.let { target ->
+                        val id = if (target.type == "EXPENSE") occurrences.values.firstOrNull {
+                            it.ruleId == target.ruleId && it.dueOn == target.dueOn
+                        }?.id else target.planId
+                        if (id != null) {
+                            val link = SyncPlanRecord(id, ledgerId = c.entityId)
+                            if (target.type == "EXPENSE") expenseLinks += link else incomeLinks += link
+                        }
+                    }
+                }
+            }
+            linksApplied = true
+        }
+    }
+
+    fun planningRules(): List<PlanningRule> {
+        // Apply the same overlay as payment projections, without selecting a payment period.
+        applyPlanCommands(today)
+        val result = mutableListOf<PlanningRule>()
+        rules.values.filter { it.active == true }.forEach { r ->
+            val frequency = when (r.frequency) {
+                "ONCE" -> PlanningFrequency.Once
+                "WEEKLY" -> PlanningFrequency.Weekly
+                "MONTHLY" -> PlanningFrequency.Monthly
+                else -> return@forEach
+            }
+            if (frequency == PlanningFrequency.Once) {
+                val occurrence = occurrences.values.firstOrNull { it.ruleId == r.id }
+                if (occurrence != null && (occurrence.status != "SCHEDULED" || paid(occurrence.id) >= requireNotNull(occurrence.amount).toBigDecimal())) return@forEach
+            }
+            val category = categories[r.categoryId]
+            result += PlanningRule(r.id, r.version ?: 0, PlannedOperationType.Expense,
+                requireNotNull(r.categoryId), category?.name.orEmpty(), category?.iconCode.orEmpty(),
+                r.ruleName ?: category?.name.orEmpty(), requireNotNull(r.amount).toBigDecimal(), frequency = frequency,
+                startsOn = LocalDate.parse(r.startsOn), scheduleValue = r.scheduleValue)
+        }
+        fun addIncome(r: SyncPlanRecord, rule: Boolean) {
+            if (r.incomeActive == false || r.status != "SCHEDULED") return
+            val frequency = when (r.incomeFrequency ?: "ONCE") {
+                "ONCE" -> PlanningFrequency.Once
+                "WEEKLY" -> PlanningFrequency.Weekly
+                "BIWEEKLY" -> PlanningFrequency.Biweekly
+                "MONTHLY" -> PlanningFrequency.Monthly
+                else -> return
+            }
+            if (frequency == PlanningFrequency.Once) {
+                val item = if (rule) incomes.values.firstOrNull { it.ruleId == r.id } ?: r else r
+                if (item.status != "SCHEDULED" || received(item.id) >= requireNotNull(item.amount).toBigDecimal()) return
+            }
+            val category = categories[r.categoryId]
+            result += PlanningRule(r.id, r.version ?: 0, PlannedOperationType.Income,
+                requireNotNull(r.categoryId), category?.name.orEmpty(), category?.iconCode.orEmpty(),
+                r.incomeName?.takeIf { it.isNotBlank() } ?: category?.name.orEmpty(),
+                requireNotNull(r.amount).toBigDecimal(), frequency = frequency,
+                startsOn = LocalDate.parse(r.dueOn), isIncomeRule = rule)
+        }
+        incomeRules.values.forEach { addIncome(it, true) }
+        incomes.values.filter { it.ruleId == null && it.id !in incomeRules }.forEach { addIncome(it, false) }
+        return result
+    }
+
     private fun materialize(
         rule: SyncPlanRecord,
         through: LocalDate,
     ) {
         if (rule.active != true) return
-        val start = LocalDate.parse(rule.startsOn)
+        val originalStart = LocalDate.parse(rule.startsOn)
+        val start = maxOf(originalStart, ruleEffectiveDates[rule.id] ?: originalStart)
         if (rule.frequency == "ONCE") {
-            if (start <= through && occurrences.values.none { it.ruleId == rule.id && it.dueOn == start.toString() }) {
+            if (originalStart >= start && start <= through && occurrences.values.none { it.ruleId == rule.id && it.dueOn == start.toString() }) {
                 val id = "${rule.id}@$start"
                 occurrences[id] = SyncPlanRecord(
                     id, rule.categoryId, rule.id, amount = rule.amount,

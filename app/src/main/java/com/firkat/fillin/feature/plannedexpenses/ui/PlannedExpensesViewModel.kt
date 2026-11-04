@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.plannedexpenses.ui
 
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
@@ -150,6 +151,11 @@ class PlannedExpensesViewModel(
         edit(expense)
     }
 
+    fun edit(rule: PlanningRule) {
+        _uiState.update { it.copy(editor = PlannedExpenseRuleEditorUiState(originalRule = rule,
+            categoryId = rule.categoryId, amount = rule.amount.toPlainString())) }
+    }
+
     fun edit(expense: PlannedExpense) {
         if (_uiState.value.isRefreshing) return
         _uiState.update {
@@ -203,7 +209,7 @@ class PlannedExpensesViewModel(
         updateEditor { copy(isSaving = true, error = null) }
         viewModelScope.launch {
             try {
-                editor.original?.let { expense ->
+                if (editor.originalRule != null) updateRule(editor.originalRule, amount) else editor.original?.let { expense ->
                     updateRule(expense = expense, amount = amount)
                 } ?: createRule(
                     categoryId = editor.categoryId,
@@ -226,7 +232,9 @@ class PlannedExpensesViewModel(
 
     private fun delete() {
         val editor = _uiState.value.editor ?: return
-        val expense = editor.original ?: return
+        val expense = editor.original
+        val rule = editor.originalRule
+        if (expense == null && rule == null) return
         if (!editor.canDelete || !editor.isDeleteConfirmationVisible) return
 
         updateEditor {
@@ -238,7 +246,7 @@ class PlannedExpensesViewModel(
         }
         viewModelScope.launch {
             try {
-                deleteRule(expense)
+                if (rule != null) deleteRule(rule) else deleteRule(requireNotNull(expense))
                 _uiState.update { it.copy(editor = null) }
                 load()
             } catch (exception: CancellationException) {

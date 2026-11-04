@@ -101,6 +101,31 @@ class BudgetOfflinePersistenceTest {
         }
     }
 
+    @Test fun fullExpenseRuleEditSurvivesRestart() = runBlocking {
+        val api = SyntheticSyncApi()
+        var store = store()
+        assertEquals(SyncResult.Completed, sync(api, store, Mutations(api)).synchronize())
+        val category = OfflineCategoriesRepository(store).createCategory("Правило", CategoryKind.Expense, "HOME")
+        val day = java.time.LocalDate.now(OfflineTestEnvironment.CLOCK)
+        val repository = com.firkat.fillin.feature.plannedexpenses.data.repository.OfflinePlannedExpensesRepository(store)
+        repository.saveDetails(null, "Покупка", category.id, "100".toBigDecimal(),
+            com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency.Once, null, day)
+        val original = store.observePlanningRules().first().single { it.name == "Покупка" }
+        repository.saveDetails(original, "Еженедельная покупка", category.id, "250".toBigDecimal(),
+            com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency.Weekly,
+            day.plusDays(1).dayOfWeek.value, day.plusDays(1))
+        database.close(); database = open(); store = store()
+        val restored = store.observePlanningRules().first().single { it.id == original.id }
+        assertEquals("Еженедельная покупка", restored.name)
+        assertEquals(PlanningFrequency.Weekly, restored.frequency)
+        assertEquals(day.plusDays(1), restored.startsOn)
+        assertEquals("250".toBigDecimal(), restored.amount)
+        val filter = PlannedOperationsFilter(period = PlannedOperationPeriod.Custom, dateFrom = day, dateTo = day.plusDays(8))
+        val expenses = store.observePlans(filter).first().items.filterIsInstance<PlannedOperation.Expense>().filter { it.expense.ruleId == original.id }
+        assertEquals(2, expenses.size)
+        assertTrue(expenses.all { it.expense.dueOn != day })
+    }
+
     @Test fun onceExpenseSurvivesRestartAndValidatesDateAtCreation() = runBlocking {
         val api = SyntheticSyncApi()
         var store = store()

@@ -118,7 +118,7 @@ class AppNavigationViewModel(
                             entries.last() == AppRoute.Launch -> {
                                 if (ready) openMain() else replaceWith(AppRoute.Auth)
                             }
-                            !ready && (entries.last() is AppRoute.ForecastDetails || entries.last() is AppRoute.EditOperationBottomSheet || entries.last() is AppRoute.OperationPlanLinkBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.EditCategoryBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
+                            !ready && (entries.last() is AppRoute.ForecastDetails || entries.last() is AppRoute.EditOperationBottomSheet || entries.last() is AppRoute.OperationPlanLinkBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.PlanningRuleEditor || entries.last() is AppRoute.EditCategoryBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
                                 if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
                             )
                         }
@@ -201,6 +201,13 @@ class AppNavigationViewModel(
     fun dismissOperationPlanLink(route: AppRoute.OperationPlanLinkBottomSheet) {
         if (entries.lastOrNull() == route) back()
     }
+
+    fun dismissPlanningRuleEditor(route: AppRoute.PlanningRuleEditor) {
+        if (entries.lastOrNull() == route) back()
+    }
+
+    fun openPlanningRuleEditor(type: PlannedOperationType, budgetScopeId: String, ruleId: String?) =
+        openMainDestination(AppRoute.PlanningRuleEditor(budgetScopeId, type, ruleId))
 
     fun openPlannedOperationBottomSheet(type: PlannedOperationType, budgetScopeId: String) =
         openMainDestination(AppRoute.PlannedOperationBottomSheet(type, budgetScopeId))

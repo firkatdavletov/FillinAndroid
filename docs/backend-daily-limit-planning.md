@@ -7,15 +7,24 @@ requestId, revisions, пагинация и атомарная публикац�
 
 ## Согласование возможностей
 
-Ответ чтения бюджета должен включать `dailyLimitPlanningV1` в capabilities. Android передаёт
-`X-Fillin-Capabilities: confirmedPlanLinkingV1,dailyLimitPlanningV1` и проверяет возможность
-перед отправкой новых команд. Без неё команды сохраняются в outbox и обмен останавливается
-с `backend_update_required`. Это также относится к ссылкам на регулярные доходы.
+Для полного контракта ответ чтения бюджета должен включать `dailyLimitPlanningV1` в capabilities.
+Android передаёт `X-Fillin-Capabilities: confirmedPlanLinkingV1,incomeRuleEditingV1,dailyLimitPlanningV1`.
+Для метаданных доходов и CREATE/UPDATE/DELETE_INCOME_RULE достаточно отдельной возможности
+`incomeRuleEditingV1` (см. backend-rule-editor.md); полный `dailyLimitPlanningV1` также разрешает их.
+CONFIRM_REMAINDER_INCOME и любые поля remainderAmount/remainderDueOn/remainderReceived
+требуют именно `dailyLimitPlanningV1`. Ссылки на регулярные доходы требуют
+`confirmedPlanLinkingV1` и не зависят от поддержки остатков.
+Без нужной возможности команды сохраняются в outbox и обмен останавливается
+с `backend_update_required`. Результат проверки используется только в пределах одного обмена.
 Сохранённые UUID, wirePayload и receipts прежних команд не переписываются.
 
-Первое принятие новой команды атомарно активирует новую модель бюджета. После активации
-сервер требует обе возможности от всех участников (426 `client_upgrade_required` при
-отсутствии), чтобы старый клиент не возобновил автоматическое ожидание частичного остатка.
+Следующее требование активации относится к серверу с полным `dailyLimitPlanningV1`.
+Поддержка только `incomeRuleEditingV1` не активирует контракт подтверждения остатков
+и не должна заставлять сервер объявлять полную возможность.
+Первое принятие новой команды полного контракта атомарно активирует новую модель бюджета. После активации
+сервер требует `confirmedPlanLinkingV1` и `dailyLimitPlanningV1` от всех участников
+(426 `client_upgrade_required` при отсутствии), чтобы старый клиент не возобновил
+автоматическое ожидание частичного остатка.
 Уже принятый requestId возвращает сохранённый receipt после проверки доступа, до проверки
 новых требований к клиенту. Отсутствие capability не означает разрешение игнорировать поля.
 

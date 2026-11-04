@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.plannedincomes.ui
 
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningFrequency
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import java.math.BigDecimal
@@ -19,6 +21,7 @@ data class PlannedIncomesUiState(
 
 data class PlannedIncomeEditorUiState(
     val original: PlannedIncome? = null,
+    val originalRule: PlanningRule? = null,
     val name: String = original?.name.orEmpty(),
     val frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.ONCE,
     val active: Boolean = true,
@@ -32,7 +35,7 @@ data class PlannedIncomeEditorUiState(
     val isDeleteConfirmationVisible: Boolean = false,
 ) {
     val isCreating: Boolean
-        get() = original == null
+        get() = original == null && originalRule == null
 
     val parsedAmount: BigDecimal?
         get() {
@@ -46,11 +49,19 @@ data class PlannedIncomeEditorUiState(
 
     val isDueOnAllowed: Boolean
         get() = parsedDueOn?.let { date ->
-            (!confirmRemainder && date == original?.dueOn) || !date.isBefore(today)
+            (!confirmRemainder && date == (originalRule?.startsOn ?: original?.dueOn)) || !date.isBefore(today)
         } == true
 
     val hasChanges: Boolean
-        get() = original?.let { income ->
+        get() = originalRule?.let { rule ->
+            name != rule.name || categoryId != rule.categoryId || parsedAmount?.compareTo(rule.amount) != 0 ||
+                parsedDueOn != rule.startsOn || frequency.name != when (rule.frequency) {
+                    PlanningFrequency.Once -> "ONCE"
+                    PlanningFrequency.Weekly -> "WEEKLY"
+                    PlanningFrequency.Biweekly -> "BIWEEKLY"
+                    PlanningFrequency.Monthly -> "MONTHLY"
+                } || !active
+        } ?: original?.let { income ->
             name != income.name || frequency != income.frequency || active != income.active || confirmRemainder ||
             categoryId != income.categoryId ||
                 parsedAmount?.compareTo(income.plannedAmount) != 0 ||
@@ -66,7 +77,7 @@ data class PlannedIncomeEditorUiState(
             hasChanges
 
     val canDelete: Boolean
-        get() = !isSaving && original != null
+        get() = !isSaving && (original != null || originalRule != null)
 }
 
 enum class PlannedIncomesError {

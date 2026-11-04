@@ -11,6 +11,7 @@ sealed interface AppRoute : NavKey {
     @Serializable data object Launch : AppRoute
     @Serializable data class DailyLimitDetails(val budgetScopeId: String) : AppRoute
     @Serializable data class ForecastDetails(val budgetScopeId: String) : AppRoute
+    @Serializable data class PlanningRuleEditor(val budgetScopeId: String, val type: PlannedOperationType = PlannedOperationType.Expense, val ruleId: String? = null, val requestId: String = UUID.randomUUID().toString()) : AppRoute
     @Serializable data object Main : AppRoute
     @Serializable data object OperationCreate : AppRoute
     @Serializable data object Auth : AppRoute

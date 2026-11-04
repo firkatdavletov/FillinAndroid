@@ -64,7 +64,7 @@ class OperationsSynchronizer(
     private val canSynchronize: () -> Boolean = { true },
 ) {
     private val mutex = Mutex()
-    private var confirmedLinkingSupported = false
+    private val commandSupport = BudgetCommandSupport(::readCapabilities)
     private val _running = MutableStateFlow(false)
     val running: StateFlow<Boolean> = _running.asStateFlow()
 
@@ -76,7 +76,7 @@ class OperationsSynchronizer(
                 storage.finish("sign_in_required")
                 return@withLock SyncResult.Blocked
             }
-            confirmedLinkingSupported = false
+            commandSupport.reset()
             _running.value = true
             try {
                 if (cloud?.firebase == true && (storage.state().protocolVersion != 4 || storage.pending().isNotEmpty() || budget?.pending().orEmpty().any { it.protocolVersion != 4 })) {
@@ -184,15 +184,13 @@ class OperationsSynchronizer(
             }
         }
 
-    private suspend fun ensureConfirmedLinkingSupport() {
-        if (confirmedLinkingSupported) return
+    private suspend fun readCapabilities(): Set<String> {
         cloud?.checkEnabled()
         val response = cloudApi?.budget("Bearer $apiToken") ?: throw SyncBlockedException("backend_update_required")
         if (!response.isSuccessful) throw HttpException(response)
         val remote = response.body() ?: throw IOException("Empty budget response")
         if (remote.scope.key != storage.state().scopeKey) throw SyncBlockedException("scope_changed")
-        if ("confirmedPlanLinkingV1" !in remote.capabilities) throw SyncBlockedException("backend_update_required")
-        confirmedLinkingSupported = true
+        return remote.capabilities
     }
 
     private suspend fun pushBudget(
@@ -208,17 +206,8 @@ class OperationsSynchronizer(
                 continue
             }
             val intent = json.decodeFromString<BudgetSyncCommand>(item.wirePayload ?: item.intent)
-            if (intent.planMatchingMode == "CONFIRM_REQUIRED" || intent.type in BudgetProjection.LINK_COMMANDS) {
-                ensureConfirmedLinkingSupport()
-            }
+            commandSupport.ensure(intent)
             val command = store.prepare(item) ?: continue
-            if (command.type.endsWith("INCOME_RULE") || command.incomeName != null || command.incomeFrequency != null || command.incomeActive != null || command.type == "CONFIRM_REMAINDER_INCOME" || command.planTarget?.let { it.type == "INCOME" && it.ruleId != null } == true) {
-                val support = cloudApi?.budget("Bearer $apiToken") ?: throw SyncBlockedException("backend_update_required")
-                if (!support.isSuccessful) throw HttpException(support)
-                val remoteBudget = support.body() ?: throw IOException("Empty budget response")
-                if (remoteBudget.scope.key != storage.state().scopeKey) throw SyncBlockedException("scope_changed")
-                if ("dailyLimitPlanningV1" !in remoteBudget.capabilities) throw SyncBlockedException("backend_update_required")
-            }
             val state = storage.state()
             if (item.scopeKey != state.scopeKey || command.householdId != state.householdId ||
                 command.memberId != state.memberId

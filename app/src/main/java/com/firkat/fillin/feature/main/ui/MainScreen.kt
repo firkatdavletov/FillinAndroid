@@ -39,11 +39,10 @@ import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsEvent
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsRoute
-import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsViewModel
+import com.firkat.fillin.feature.plannedoperations.ui.planningRulesViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import kotlinx.serialization.Serializable
@@ -62,7 +61,7 @@ fun MainScreen(
     onCreateOperationClick: () -> Unit = {},
     onOperationClick: (String, String) -> Unit = { _, _ -> },
     onForecastClick: () -> Unit = {},
-    onPlannedOperationEditorClick: (PlannedOperationType) -> Unit = {},
+    onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit = { _, _ -> },
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
     MainContent(
@@ -106,7 +105,7 @@ private fun MainContent(
     onCreateOperationClick: () -> Unit,
     onOperationClick: (String, String) -> Unit,
     onForecastClick: () -> Unit,
-    onPlannedOperationEditorClick: (PlannedOperationType) -> Unit,
+    onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.testTag("main_screen"),
@@ -144,17 +143,10 @@ private fun MainContent(
             entryProvider<NavKey> {
                 entry(AppDestination.Dashboard) {
                     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
-                        val plansViewModel: PlannedOperationsViewModel = koinViewModel()
-                        DashboardRoute(onForecastClick = onForecastClick, onPaymentsClick = { from, to ->
+                        val plansViewModel = planningRulesViewModel()
+                        DashboardRoute(onForecastClick = onForecastClick, onPaymentsClick = { _, _ ->
                             plansViewModel.onEvent(
-                                PlannedOperationsEvent.FilterApplied(
-                                    PlannedOperationsFilter(
-                                        type = PlannedOperationType.Expense,
-                                        period = PlannedOperationPeriod.Custom,
-                                        dateFrom = from,
-                                        dateTo = to,
-                                    )
-                                )
+                                PlannedOperationsEvent.TypeSelected(PlannedOperationType.Expense)
                             )
                             onSelectDestination(AppDestination.Planned)
                         })
@@ -167,7 +159,7 @@ private fun MainContent(
                 }
                 entry(AppDestination.Planned) {
                     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
-                        PlannedOperationsRoute(onOpenEditor = onPlannedOperationEditorClick)
+                        PlannedOperationsRoute(onOpenEditor = { onPlannedOperationEditorClick(it, null) }, onEditRule = { onPlannedOperationEditorClick(it.type, it.id) })
                     }
                 }
                 entry(AppDestination.Profile) {

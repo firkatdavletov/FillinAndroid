@@ -750,15 +750,15 @@ class AppNavigationUiTest {
         val operations = seedPlannedOperations()
         compose.onNodeWithTag("tab_Planned").performClick()
         for (operation in operations) {
-            compose.onNodeWithTag("planned-type-${operation.type.apiValue}").performClick()
+            compose.onNodeWithTag("planning-filter-${operation.type.name}").performClick()
             compose.onNodeWithText(plannedCategoryName(operation)).performClick()
-            compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
-            assertEquals(operation.type, (navigation.backStack.last() as AppRoute.PlannedOperationBottomSheet).type)
+            compose.onNodeWithTag("planning-rule-editor").assertIsDisplayed()
+            assertEquals(operation.type, (navigation.backStack.last() as AppRoute.PlanningRuleEditor).type)
             compose.onNodeWithTag("planned-editor-amount").performTextReplacement("450.00")
             closeSoftKeyboard()
-            compose.onNodeWithTag("planned-editor-save").performScrollTo().performClick()
+            compose.onNodeWithTag("planned-editor-save").performClick()
             waitForPlannedSheetToClose()
-            compose.onNodeWithTag("planned-type-${operation.type.apiValue}").assertIsSelected()
+            compose.onNodeWithTag("planning-filter-${operation.type.name}").assertIsSelected()
             compose.onNodeWithText(plannedCategoryName(operation)).assertIsDisplayed()
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
             val saved = runBlocking {
@@ -771,7 +771,7 @@ class AppNavigationUiTest {
                 is PlannedOperation.Income -> saved.income.plannedAmount
             }
             assertEquals(0, "450.00".toBigDecimal().compareTo(amount))
-            compose.onNodeWithTag("planned-type-reset").performClick()
+            compose.onNodeWithTag("planning-filter-All").performClick()
         }
     }
 
@@ -779,7 +779,7 @@ class AppNavigationUiTest {
         show(createdBudget = true)
         val operation = seedPlannedOperations().first { it.type == PlannedOperationType.Income }
         compose.onNodeWithTag("tab_Planned").performClick()
-        compose.onNodeWithTag("planned-type-INCOME").performClick()
+        compose.onNodeWithTag("planning-filter-Income").performClick()
         compose.onNodeWithText(plannedCategoryName(operation)).performClick()
         compose.onNodeWithTag("planned-editor-amount").performTextReplacement("999.00")
         closeSoftKeyboard()
@@ -789,17 +789,18 @@ class AppNavigationUiTest {
             activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         compose.setContent(hostContent)
-        compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("planning-rule-editor").assertIsDisplayed()
         compose.onNodeWithTag("planned-editor-amount").assertTextContains("999.00")
         assertEquals(route, navigation.backStack.last())
-        compose.onNodeWithTag("planned-editor-close").performScrollTo().performClick()
+        compose.onNodeWithTag("planned-editor-close").performClick()
+        compose.onNodeWithText("Подтвердить").performClick()
         waitForPlannedSheetToClose()
-        compose.onNodeWithTag("planned-type-INCOME").assertIsSelected()
+        compose.onNodeWithTag("planning-filter-Income").assertIsSelected()
         compose.onNodeWithText(plannedCategoryName(operation)).performClick()
         compose.onNodeWithTag("planned-editor-amount").assertTextContains("200.00")
         androidx.test.espresso.Espresso.pressBack()
         waitForPlannedSheetToClose()
-        compose.onNodeWithTag("planned-type-INCOME").assertIsSelected()
+        compose.onNodeWithTag("planning-filter-Income").assertIsSelected()
     }
 
     @Test fun plannedCreationUsesSheetsAndBudgetSwitchDismissesTheEditor() {
@@ -807,27 +808,28 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("tab_Planned").performClick()
         for (type in listOf("expense", "income")) {
             compose.onNodeWithTag("planned-create").performClick()
-            compose.onNodeWithTag("planned-create-$type").performClick()
-            compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
-            assertTrue(navigation.backStack.last() is AppRoute.PlannedOperationBottomSheet)
-            compose.onNodeWithTag("planned-editor-close").performScrollTo().performClick()
+            if (type == "income") compose.onNodeWithText("Доход").performClick()
+            compose.onNodeWithTag("planning-rule-editor").assertIsDisplayed()
+            assertTrue(navigation.backStack.last() is AppRoute.PlanningRuleEditor)
+            compose.onNodeWithTag("planned-editor-close").performClick()
+            if (type == "income") compose.onNodeWithText("Подтвердить").performClick()
             waitForPlannedSheetToClose()
         }
         val operation = seedPlannedOperations().first { it.type == PlannedOperationType.Expense }
         compose.onNodeWithText(plannedCategoryName(operation)).performClick()
-        compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("planning-rule-editor").assertIsDisplayed()
         runBlocking {
             env.manager.select(env.registry.createLocal().id)
             val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
             session.createLocal("900.00".toBigDecimal(), session.today)
         }
         waitForPlannedSheetToClose()
-        assertFalse(navigation.backStack.any { it is AppRoute.PlannedOperationBottomSheet })
+        assertFalse(navigation.backStack.any { it is AppRoute.PlanningRuleEditor })
     }
 
     private fun waitForPlannedSheetToClose() {
         compose.waitUntil(5000) {
-            compose.onAllNodesWithTag("planned-operation-bottom-sheet").fetchSemanticsNodes().isEmpty()
+            compose.onAllNodesWithTag("planning-rule-editor").fetchSemanticsNodes().isEmpty()
         }
     }
 

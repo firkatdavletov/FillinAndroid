@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.plannedexpenses.ui
 
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
@@ -30,6 +31,7 @@ enum class PlannedExpensesPeriod {
 
 data class PlannedExpenseRuleEditorUiState(
     val original: PlannedExpense? = null,
+    val originalRule: PlanningRule? = null,
     val today: LocalDate = LocalDate.now(java.time.ZoneId.of("Asia/Almaty")),
     val categoryId: String = "",
     val amount: String = "",
@@ -41,7 +43,7 @@ data class PlannedExpenseRuleEditorUiState(
     val isDeleteConfirmationVisible: Boolean = false,
 ) {
     val isCreating: Boolean
-        get() = original == null
+        get() = original == null && originalRule == null
 
     val parsedAmount: BigDecimal?
         get() = amount.trim()
@@ -70,12 +72,12 @@ data class PlannedExpenseRuleEditorUiState(
                     (frequency == PlannedExpenseFrequency.Once || parsedScheduleValue != null) &&
                     parsedStartsOn != null
             } else {
-                validAmount.compareTo(requireNotNull(original).plannedAmount) != 0
+                validAmount.compareTo((originalRule?.amount ?: requireNotNull(original).plannedAmount)) != 0
             }
         }
 
     val canDelete: Boolean
-        get() = !isSaving && original != null
+        get() = !isSaving && (original != null || originalRule != null)
 }
 
 enum class PlannedExpensesError {

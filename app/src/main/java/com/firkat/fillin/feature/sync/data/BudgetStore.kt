@@ -26,6 +26,8 @@ class BudgetStore(
 ) : BudgetSyncControl, OperationPlanLinkStore {
     private val dao get() = database.budget()
 
+    internal suspend fun accountingStart() = java.time.Instant.parse(requireNotNull(dao.content()).sync.accountingStartedAt).atZone(ZoneId.of("Asia/Almaty")).toLocalDate()
+
     internal fun currentDate() = today()
     private fun today() = LocalDate.now(clock.withZone(ZoneId.of("Asia/Almaty")))
 
@@ -94,6 +96,22 @@ class BudgetStore(
                     throw BudgetLocalFailure("forbidden")
                 }
                 project(content).plans(filter)
+            }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+
+    fun observePlanningRules() =
+        dao
+            .observeContent()
+            .filter {
+                (it?.sync?.localReady == true || it?.sync?.initialSyncComplete == true) ||
+                    it?.sync?.errorCode in setOf("unauthorized", "access_denied", "scope_changed")
+            }.map { content ->
+                if (content == null || !(content.sync.localReady || content.sync.initialSyncComplete)) throw BudgetLocalFailure("not_initialized")
+                if (content.sync.protocolVersion < 4 && content.sync.errorCode in
+                    setOf("unauthorized", "access_denied", "scope_changed")
+                ) {
+                    throw BudgetLocalFailure("forbidden")
+                }
+                project(content).planningRules()
             }.flowOn(kotlinx.coroutines.Dispatchers.Default)
 
     fun observeHistoryContent(): Flow<LocalHistoryContent?> =
@@ -190,7 +208,7 @@ class BudgetStore(
                 if (type in setOf("UPDATE_INCOME", "UPDATE_INCOME_RULE") && income != null) command = command.copy(categoryId = command.categoryId ?: income.categoryId, amount = command.amount ?: income.amount, dueOn = command.dueOn ?: income.dueOn)
                 if (type == "UPDATE_RULE") {
                     projection.plans(PlannedOperationsFilter())
-                    projection.rules[entityId]?.let { rule -> command = command.copy(categoryId = rule.categoryId, frequency = rule.frequency, scheduleValue = rule.scheduleValue, startsOn = rule.startsOn) }
+                    projection.rules[entityId]?.let { rule -> command = command.copy(categoryId = command.categoryId ?: rule.categoryId, frequency = command.frequency ?: rule.frequency, scheduleValue = if (command.frequency == "ONCE") null else command.scheduleValue ?: rule.scheduleValue, startsOn = command.startsOn ?: rule.startsOn) }
                 }
                 if (type in setOf("UPDATE_OPERATION", "REFUND_OPERATION")) {
                     projection.operations[entityId]?.let { operation ->
@@ -370,7 +388,7 @@ class BudgetStore(
                 throw BudgetLocalFailure("invalid")
             }
         }
-        if (c.replaceDetails && (c.type != "UPDATE_OPERATION" || c.categoryId == null || c.description.orEmpty().length > 160)) {
+        if (c.replaceDetails && (c.type !in setOf("UPDATE_OPERATION", "CREATE_RULE", "UPDATE_RULE") || c.categoryId == null || c.description.orEmpty().length > 160)) {
             throw BudgetLocalFailure("invalid")
         }
         if (c.type in setOf("UPDATE_OPERATION", "REFUND_OPERATION")) {
@@ -382,6 +400,7 @@ class BudgetStore(
             if (c.type == "REFUND_OPERATION" && operation.originalAmount.toBigDecimal() <= refunds.sumOf { it.originalAmount.toBigDecimal() }) throw BudgetLocalFailure("invalid")
         }
         c.incomeFrequency?.let { if (it !in com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.entries.map { f -> f.name }) throw BudgetLocalFailure("invalid") }
+        c.ruleName?.let { if (it.isBlank() || it.length > 160) throw BudgetLocalFailure("invalid") }
         c.incomeName?.let { if (it.isBlank() || it.length > 160) throw BudgetLocalFailure("invalid") }
         if (c.type == "CONFIRM_REMAINDER_INCOME") {
             val item = p.plans(PlannedOperationsFilter(period = PlannedOperationPeriod.Custom,
@@ -393,7 +412,7 @@ class BudgetStore(
                 LocalDate.parse(c.remainderDueOn) < today()) throw BudgetLocalFailure("invalid")
         }
         c.dueOn?.let { if (LocalDate.parse(it) < LocalDate.parse(c.authoredOn) && !(c.type in setOf("UPDATE_INCOME", "UPDATE_INCOME_RULE") && it == (p.incomeRules[c.entityId] ?: p.incomes[c.entityId])?.dueOn)) throw BudgetLocalFailure("invalid") }
-        if (c.type == "CREATE_RULE") {
+        if (c.type == "CREATE_RULE" || c.type == "UPDATE_RULE" && c.replaceDetails) {
             val start = LocalDate.parse(c.startsOn)
             val accountingStart =
                 java.time.Instant
@@ -401,8 +420,8 @@ class BudgetStore(
                         content.sync.accountingStartedAt,
                     ).atZone(ZoneId.of("Asia/Almaty"))
                     .toLocalDate()
-            if (start < accountingStart || !when (c.frequency) {
-                    "ONCE" -> c.scheduleValue == null && start >= LocalDate.parse(c.authoredOn)
+            if (start < accountingStart && !(c.type == "UPDATE_RULE" && c.startsOn == p.rules[c.entityId]?.startsOn) || !when (c.frequency) {
+                    "ONCE" -> c.scheduleValue == null && (start >= LocalDate.parse(c.authoredOn) || c.type == "UPDATE_RULE" && start.toString() == p.rules[c.entityId]?.startsOn)
                     "MONTHLY" -> c.scheduleValue in 1..31
                     "WEEKLY" -> c.scheduleValue in 1..7
                     else -> false

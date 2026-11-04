@@ -221,7 +221,7 @@ internal fun PlannedExpenseRuleEditor(
             }
         } else {
             Text(
-                text = editor.original?.categoryName.orEmpty(),
+                text = editor.originalRule?.categoryName ?: editor.original?.categoryName.orEmpty(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )

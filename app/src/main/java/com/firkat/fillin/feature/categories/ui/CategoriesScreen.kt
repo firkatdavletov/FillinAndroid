@@ -215,7 +215,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.categorySection(
 }
 
 @Composable
-private fun CategoryItem(
+internal fun CategoryItem(
     category: Category,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,

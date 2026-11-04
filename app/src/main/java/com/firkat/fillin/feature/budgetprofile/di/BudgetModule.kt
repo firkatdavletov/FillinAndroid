@@ -1,5 +1,8 @@
 package com.firkat.fillin.feature.budgetprofile.di
 
+import com.firkat.fillin.feature.plannedoperations.data.repository.OfflinePlanningRulesRepository
+import com.firkat.fillin.feature.plannedoperations.domain.usecase.ObservePlanningRules
+import com.firkat.fillin.feature.plannedoperations.domain.repository.PlanningRulesRepository
 import com.firkat.fillin.feature.budgetconnection.data.FirebaseCloudBudgetApi
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory
@@ -202,7 +205,12 @@ val budgetModule = module {
             OfflinePlannedOperationsRepository(get())
         }
         factory { GetPlannedOperations(repository = get()) }
-        viewModel { PlannedOperationsViewModel(getPlannedOperations = get()) }
+        scoped<PlanningRulesRepository> {
+            OfflinePlanningRulesRepository(get())
+        }
+        factory { ObservePlanningRules(get()) }
+        viewModel { (type: com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType, ruleId: String?) -> com.firkat.fillin.feature.plannedoperations.ui.PlanningRuleEditorViewModel(get(), get(), get(), get(), type, ruleId) }
+        viewModel { PlannedOperationsViewModel(observeRules = get(), savedStateHandle = get()) }
         scoped<CategoriesRepository> {
             OfflineCategoriesRepository(get())
         }

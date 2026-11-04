@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.HasDefaultViewModelProviderFactory
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,6 +55,7 @@ fun ActiveBudgetContent(
     viewModelStoreOwner: MainBudgetViewModelStore? = null,
     content: @Composable () -> Unit,
 ) {
+    val parentOwner = LocalViewModelStoreOwner.current as? HasDefaultViewModelProviderFactory
     val runtime by manager.active.collectAsStateWithLifecycle()
     val session by auth.session.collectAsStateWithLifecycle()
     val failed by manager.failed.collectAsStateWithLifecycle()
@@ -79,8 +81,16 @@ fun ActiveBudgetContent(
                     lease.close()
                 }
             }
+            // Budget models keep their own store while using the enclosing Android saved-state registry.
+            val stateOwner = remember(owner, parentOwner) {
+                if (parentOwner == null) owner else object : ViewModelStoreOwner, HasDefaultViewModelProviderFactory {
+                    override val viewModelStore get() = owner.viewModelStore
+                    override val defaultViewModelProviderFactory get() = parentOwner.defaultViewModelProviderFactory
+                    override val defaultViewModelCreationExtras get() = parentOwner.defaultViewModelCreationExtras
+                }
+            }
             UnboundKoinScope(lease.scope) {
-                CompositionLocalProvider(LocalViewModelStoreOwner provides owner, content = content)
+                CompositionLocalProvider(LocalViewModelStoreOwner provides stateOwner, content = content)
             }
         }
     }

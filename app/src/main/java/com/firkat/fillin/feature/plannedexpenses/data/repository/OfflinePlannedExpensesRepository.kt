@@ -13,6 +13,18 @@ import java.time.ZoneId
 class OfflinePlannedExpensesRepository(
     private val store: BudgetStore,
 ) : PlannedExpensesRepository {
+    override suspend fun accountingStart(): LocalDate = store.accountingStart()
+    override suspend fun saveDetails(rule: PlanningRule?, name: String, categoryId: String, amount: BigDecimal,
+        frequency: PlannedExpenseFrequency, scheduleValue: Int?, startsOn: LocalDate) {
+        execute {
+            require(name.isNotBlank() && name.length <= 160)
+            store.enqueue(if (rule == null) "CREATE_RULE" else "UPDATE_RULE", rule?.id ?: java.util.UUID.randomUUID().toString(), rule?.version) {
+                it.copy(ruleName = name.trim(), categoryId = categoryId, amount = amount.toPlainString(),
+                    frequency = frequency.name.uppercase(), scheduleValue = scheduleValue, startsOn = startsOn.toString(), replaceDetails = true)
+            }
+        }
+    }
+
     override suspend fun getPlannedExpenses(): PlannedExpenses =
         execute {
             val today = LocalDate.now(ZoneId.of("Asia/Almaty"))

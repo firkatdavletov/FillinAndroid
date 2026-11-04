@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.plannedincomes.data.repository
 
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomes
@@ -41,6 +42,19 @@ class OfflinePlannedIncomesRepository(
             dateFrom = LocalDate.of(1,1,1), dateTo = currentDate().plusYears(5)))
         p.items.filterIsInstance<com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation.Income>()
             .firstOrNull { it.id == id || it.income.ruleId == id }?.income ?: income ?: error("Missing income")
+    }
+
+    override suspend fun saveRuleDetails(rule: PlanningRule, categoryId: String, amount: BigDecimal,
+        dueOn: LocalDate, name: String, frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency,
+        active: Boolean) {
+        execute {
+            require(name.isNotBlank() && name.length <= 160 && amount.signum() > 0 && amount.scale() <= 2)
+            // Separate the rule from its occurrence so settled or past payments remain immutable.
+            store.enqueue("UPDATE_INCOME_RULE", rule.id, rule.version) {
+                it.copy(categoryId = categoryId, amount = amount.toPlainString(), dueOn = dueOn.toString(),
+                    incomeName = name.trim(), incomeFrequency = frequency.name, incomeActive = active)
+            }
+        }
     }
 
     override suspend fun getPlannedIncomes(): PlannedIncomes =

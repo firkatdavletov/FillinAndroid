@@ -173,17 +173,16 @@ internal fun PlannedIncomeEditor(
             )
             else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val original = editor.original
-                if (
-                    original != null &&
-                    categories.none { it.id == original.categoryId }
-                ) {
+                val originalCategoryId = editor.originalRule?.categoryId ?: original?.categoryId
+                val originalCategoryName = editor.originalRule?.categoryName ?: original?.categoryName.orEmpty()
+                if (originalCategoryId != null && categories.none { it.id == originalCategoryId }) {
                     FilterChip(
-                        selected = editor.categoryId == original.categoryId,
+                        selected = editor.categoryId == originalCategoryId,
                         onClick = {
-                            onEvent(PlannedIncomesEvent.CategorySelected(original.categoryId))
+                            onEvent(PlannedIncomesEvent.CategorySelected(originalCategoryId))
                         },
                         enabled = !editor.isSaving,
-                        label = { Text(original.categoryName) },
+                        label = { Text(originalCategoryName) },
                     )
                 }
                 categories.forEach { category ->
