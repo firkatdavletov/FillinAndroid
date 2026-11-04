@@ -42,7 +42,7 @@ class OfflinePlannedExpensesRepository(
         categoryId: String,
         amount: BigDecimal,
         frequency: PlannedExpenseFrequency,
-        scheduleValue: Int,
+        scheduleValue: Int?,
         startsOn: LocalDate,
     ): PlannedExpenseRule =
         execute {
@@ -51,14 +51,11 @@ class OfflinePlannedExpensesRepository(
                     it.copy(
                         categoryId = categoryId,
                         amount = amount.toPlainString(),
-                        frequency =
-                            if (frequency ==
-                                PlannedExpenseFrequency.Monthly
-                            ) {
-                                "MONTHLY"
-                            } else {
-                                "WEEKLY"
-                            },
+                        frequency = when (frequency) {
+                            PlannedExpenseFrequency.Once -> "ONCE"
+                            PlannedExpenseFrequency.Monthly -> "MONTHLY"
+                            PlannedExpenseFrequency.Weekly -> "WEEKLY"
+                        },
                         scheduleValue = scheduleValue,
                         startsOn = startsOn.toString(),
                     )

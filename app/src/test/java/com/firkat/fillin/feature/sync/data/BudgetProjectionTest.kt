@@ -283,6 +283,37 @@ class BudgetProjectionTest {
         assertEquals(plans, projection.plans(filter))
     }
 
+    @Test fun `once restored from sync stays singular overdue and keeps canonical payment`() {
+        val once = rule.copy(frequency = "ONCE", scheduleValue = null, startsOn = "2026-02-01")
+        val canonical = occurrence.copy(dueOn = "2026-02-01")
+        val source = content().copy(records = listOf(
+            record("RECURRING_RULE", once),
+            record("RECURRING_OCCURRENCE", canonical),
+            record("OCCURRENCE_PAYMENT", SyncPlanRecord("occurrence", ledgerId = "payment")),
+        ))
+        val projection = BudgetProjection(source, json, today)
+        val extended = filter.copy(dateTo = today.plusYears(2))
+        val first = projection.plans(extended).items.filterIsInstance<PlannedOperation.Expense>().single().expense
+        assertEquals("occurrence", first.id)
+        assertTrue(first.overdue)
+        assertEquals(BigDecimal("20.00"), first.paidAmount)
+        assertEquals(first, projection.plans(extended).items.filterIsInstance<PlannedOperation.Expense>().single().expense)
+        val paid = source.copy(operations = listOf(operation("payment", "100.00")))
+        assertEquals(BigDecimal.ZERO, BudgetProjection(paid, json, today).plans(extended).totals.expenses.stripTrailingZeros())
+    }
+
+    @Test fun `once without canonical occurrence materializes only within horizon and survives reconstruction`() {
+        val source = content().copy(records = listOf(record("RECURRING_RULE", rule.copy(
+            frequency = "ONCE", scheduleValue = null, startsOn = "2026-02-20",
+        ))))
+        val projection = BudgetProjection(source, json, today)
+        assertTrue(projection.plans(filter.copy(dateTo = today)).items.isEmpty())
+        val first = projection.plans(filter).items.single()
+        assertEquals("r@2026-02-20", first.id)
+        assertEquals(listOf(first), projection.plans(filter.copy(dateTo = today.plusYears(2))).items)
+        assertEquals(listOf(first), BudgetProjection(source, json, today).plans(filter).items)
+    }
+
     companion object {
         private const val AT = "2026-01-01T00:00:00Z"
     }

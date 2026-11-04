@@ -209,7 +209,7 @@ class PlannedExpensesViewModel(
                     categoryId = editor.categoryId,
                     amount = amount,
                     frequency = editor.frequency,
-                    scheduleValue = requireNotNull(editor.parsedScheduleValue),
+                    scheduleValue = editor.parsedScheduleValue,
                     startsOn = requireNotNull(editor.parsedStartsOn),
                 )
                 _uiState.update { it.copy(editor = null) }

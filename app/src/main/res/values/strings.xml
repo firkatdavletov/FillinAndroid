@@ -115,6 +115,9 @@
     <string name="planned_expenses_amount_label">Сумма</string>
     <string name="planned_expenses_amount_hint">Положительная сумма, не более двух знаков после запятой</string>
     <string name="planned_expenses_frequency_label">Частота</string>
+    <string name="planned_expenses_frequency_once">Одноразовая</string>
+    <string name="planned_expenses_due_on_label">Дата расхода</string>
+    <string name="planned_expenses_once_date_hint">Дата в формате ГГГГ-ММ-ДД, не раньше сегодня и начала учёта бюджета</string>
     <string name="planned_expenses_frequency_monthly">Ежемесячно</string>
     <string name="planned_expenses_frequency_weekly">Еженедельно</string>
     <string name="planned_expenses_month_day_label">День месяца</string>

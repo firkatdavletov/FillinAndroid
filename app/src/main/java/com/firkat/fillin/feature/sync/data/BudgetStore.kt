@@ -401,8 +401,12 @@ class BudgetStore(
                         content.sync.accountingStartedAt,
                     ).atZone(ZoneId.of("Asia/Almaty"))
                     .toLocalDate()
-            if (start < accountingStart || c.scheduleValue !in (if (c.frequency == "MONTHLY") 1..31 else 1..7) ||
-                c.frequency !in setOf("MONTHLY", "WEEKLY")
+            if (start < accountingStart || !when (c.frequency) {
+                    "ONCE" -> c.scheduleValue == null && start >= LocalDate.parse(c.authoredOn)
+                    "MONTHLY" -> c.scheduleValue in 1..31
+                    "WEEKLY" -> c.scheduleValue in 1..7
+                    else -> false
+                }
             ) {
                 throw BudgetLocalFailure("invalid")
             }

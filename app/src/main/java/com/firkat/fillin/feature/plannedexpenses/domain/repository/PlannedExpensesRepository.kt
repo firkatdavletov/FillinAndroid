@@ -13,7 +13,7 @@ interface PlannedExpensesRepository {
         categoryId: String,
         amount: BigDecimal,
         frequency: PlannedExpenseFrequency,
-        scheduleValue: Int,
+        scheduleValue: Int?,
         startsOn: LocalDate,
     ): PlannedExpenseRule
 

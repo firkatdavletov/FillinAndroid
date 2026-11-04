@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -251,7 +252,7 @@ internal fun PlannedExpenseRuleEditor(
                 text = stringResource(R.string.planned_expenses_frequency_label),
                 style = MaterialTheme.typography.labelLarge,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PlannedExpenseFrequency.entries.forEach { frequency ->
                     FilterChip(
                         selected = editor.frequency == frequency,
@@ -262,28 +263,30 @@ internal fun PlannedExpenseRuleEditor(
                 }
             }
 
-            OutlinedTextField(
-                value = editor.scheduleValue,
-                onValueChange = { onEvent(PlannedExpensesEvent.ScheduleValueChanged(it)) },
-                modifier = Modifier.fillMaxWidth().testTag("planned-editor-schedule"),
-                enabled = !editor.isSaving,
-                label = { Text(stringResource(editor.frequency.scheduleLabelResource)) },
-                supportingText = {
-                    Text(stringResource(editor.frequency.scheduleHintResource))
-                },
-                isError = editor.scheduleValue.isNotBlank() && editor.parsedScheduleValue == null,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-            )
+            if (editor.frequency != PlannedExpenseFrequency.Once) {
+                OutlinedTextField(
+                    value = editor.scheduleValue,
+                    onValueChange = { onEvent(PlannedExpensesEvent.ScheduleValueChanged(it)) },
+                    modifier = Modifier.fillMaxWidth().testTag("planned-editor-schedule"),
+                    enabled = !editor.isSaving,
+                    label = { Text(stringResource(editor.frequency.scheduleLabelResource)) },
+                    supportingText = {
+                        Text(stringResource(editor.frequency.scheduleHintResource))
+                    },
+                    isError = editor.scheduleValue.isNotBlank() && editor.parsedScheduleValue == null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                )
+            }
 
             OutlinedTextField(
                 value = editor.startsOn,
                 onValueChange = { onEvent(PlannedExpensesEvent.StartsOnChanged(it)) },
                 modifier = Modifier.fillMaxWidth().testTag("planned-editor-starts-on"),
                 enabled = !editor.isSaving,
-                label = { Text(stringResource(R.string.planned_expenses_starts_on_label)) },
+                label = { Text(stringResource(if (editor.frequency == PlannedExpenseFrequency.Once) R.string.planned_expenses_due_on_label else R.string.planned_expenses_starts_on_label)) },
                 supportingText = {
-                    Text(stringResource(R.string.planned_expenses_starts_on_hint))
+                    Text(stringResource(if (editor.frequency == PlannedExpenseFrequency.Once) R.string.planned_expenses_once_date_hint else R.string.planned_expenses_starts_on_hint))
                 },
                 isError = editor.startsOn.isNotBlank() && editor.parsedStartsOn == null,
                 singleLine = true,
@@ -872,6 +875,7 @@ private val PlannedExpensesError.closeMessageResource: Int
 
 private val PlannedExpenseFrequency.labelResource: Int
     @StringRes get() = when (this) {
+        PlannedExpenseFrequency.Once -> R.string.planned_expenses_frequency_once
         PlannedExpenseFrequency.Monthly -> R.string.planned_expenses_frequency_monthly
         PlannedExpenseFrequency.Weekly -> R.string.planned_expenses_frequency_weekly
     }
@@ -884,12 +888,14 @@ private val PlannedExpensesPeriod.labelResource: Int
 
 private val PlannedExpenseFrequency.scheduleLabelResource: Int
     @StringRes get() = when (this) {
+        PlannedExpenseFrequency.Once -> R.string.planned_expenses_due_on_label
         PlannedExpenseFrequency.Monthly -> R.string.planned_expenses_month_day_label
         PlannedExpenseFrequency.Weekly -> R.string.planned_expenses_week_day_label
     }
 
 private val PlannedExpenseFrequency.scheduleHintResource: Int
     @StringRes get() = when (this) {
+        PlannedExpenseFrequency.Once -> R.string.planned_expenses_once_date_hint
         PlannedExpenseFrequency.Monthly -> R.string.planned_expenses_month_day_hint
         PlannedExpenseFrequency.Weekly -> R.string.planned_expenses_week_day_hint
     }

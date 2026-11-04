@@ -113,8 +113,12 @@ class RoomOperationSyncStorage(
                                     record.categoryId != null && record.amount != null && record.startsOn != null &&
                                         record.active != null,
                                 )
-                                require(record.frequency in setOf("MONTHLY", "WEEKLY"))
-                                require(record.scheduleValue in if (record.frequency == "MONTHLY") 1..31 else 1..7)
+                                require(when (record.frequency) {
+                                    "ONCE" -> record.scheduleValue == null
+                                    "MONTHLY" -> record.scheduleValue in 1..31
+                                    "WEEKLY" -> record.scheduleValue in 1..7
+                                    else -> false
+                                })
                             }
 
                             "INCOME_RULE" -> {

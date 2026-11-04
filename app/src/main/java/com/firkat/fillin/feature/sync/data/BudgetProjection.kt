@@ -513,6 +513,17 @@ internal class BudgetProjection(
     ) {
         if (rule.active != true) return
         val start = LocalDate.parse(rule.startsOn)
+        if (rule.frequency == "ONCE") {
+            if (start <= through && occurrences.values.none { it.ruleId == rule.id && it.dueOn == start.toString() }) {
+                val id = "${rule.id}@$start"
+                occurrences[id] = SyncPlanRecord(
+                    id, rule.categoryId, rule.id, amount = rule.amount,
+                    dueOn = start.toString(), status = "SCHEDULED", version = 0,
+                    createdAt = rule.createdAt, modifiedAt = rule.modifiedAt,
+                )
+            }
+            return
+        }
         val value = requireNotNull(rule.scheduleValue)
         var due =
             if (rule.frequency ==

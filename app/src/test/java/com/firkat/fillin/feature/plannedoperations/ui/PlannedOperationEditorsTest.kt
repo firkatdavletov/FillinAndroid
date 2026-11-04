@@ -45,6 +45,22 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlannedOperationEditorsTest {
+    @Test fun `once is default and date and schedule validation follow selected frequency`() {
+        val day = LocalDate.parse("2026-11-04")
+        val editor = com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpenseRuleEditorUiState(
+            today = day, categoryId = "home", amount = "100", startsOn = day.toString(),
+        )
+        assertEquals(PlannedExpenseFrequency.Once, editor.frequency)
+        org.junit.Assert.assertTrue(editor.canSave)
+        org.junit.Assert.assertFalse(editor.copy(startsOn = day.minusDays(1).toString()).canSave)
+        org.junit.Assert.assertFalse(editor.copy(categoryId = "").canSave)
+        org.junit.Assert.assertFalse(editor.copy(amount = "0").canSave)
+        org.junit.Assert.assertFalse(editor.copy(frequency = PlannedExpenseFrequency.Monthly).canSave)
+        org.junit.Assert.assertTrue(editor.copy(frequency = PlannedExpenseFrequency.Monthly, scheduleValue = "31").canSave)
+        org.junit.Assert.assertTrue(editor.copy(frequency = PlannedExpenseFrequency.Weekly, scheduleValue = "7").canSave)
+        org.junit.Assert.assertFalse(editor.copy(frequency = PlannedExpenseFrequency.Weekly, scheduleValue = "8").canSave)
+    }
+
     @Before fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
     @After fun tearDown() = Dispatchers.resetMain()
 
@@ -121,7 +137,7 @@ private class ExpenseCommands : PlannedExpensesRepository {
         categoryId: String,
         amount: BigDecimal,
         frequency: PlannedExpenseFrequency,
-        scheduleValue: Int,
+        scheduleValue: Int?,
         startsOn: LocalDate,
     ): PlannedExpenseRule = error("Unused")
     override suspend fun updateRule(id: String, version: Long, amount: BigDecimal): PlannedExpenseRule {

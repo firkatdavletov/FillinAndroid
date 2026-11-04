@@ -30,9 +30,10 @@ enum class PlannedExpensesPeriod {
 
 data class PlannedExpenseRuleEditorUiState(
     val original: PlannedExpense? = null,
+    val today: LocalDate = LocalDate.now(java.time.ZoneId.of("Asia/Almaty")),
     val categoryId: String = "",
     val amount: String = "",
-    val frequency: PlannedExpenseFrequency = PlannedExpenseFrequency.Monthly,
+    val frequency: PlannedExpenseFrequency = PlannedExpenseFrequency.Once,
     val scheduleValue: String = "",
     val startsOn: String = "",
     val isSaving: Boolean = false,
@@ -51,6 +52,7 @@ data class PlannedExpenseRuleEditorUiState(
     val parsedScheduleValue: Int?
         get() = scheduleValue.toIntOrNull()?.takeIf {
             when (frequency) {
+                PlannedExpenseFrequency.Once -> false
                 PlannedExpenseFrequency.Monthly -> it in 1..31
                 PlannedExpenseFrequency.Weekly -> it in 1..7
             }
@@ -58,12 +60,15 @@ data class PlannedExpenseRuleEditorUiState(
 
     val parsedStartsOn: LocalDate?
         get() = runCatching { LocalDate.parse(startsOn) }.getOrNull()
+            ?.takeIf { frequency != PlannedExpenseFrequency.Once || it >= today }
 
     val canSave: Boolean
         get() {
             val validAmount = parsedAmount ?: return false
             return !isSaving && if (isCreating) {
-                categoryId.isNotBlank() && parsedScheduleValue != null && parsedStartsOn != null
+                categoryId.isNotBlank() &&
+                    (frequency == PlannedExpenseFrequency.Once || parsedScheduleValue != null) &&
+                    parsedStartsOn != null
             } else {
                 validAmount.compareTo(requireNotNull(original).plannedAmount) != 0
             }
