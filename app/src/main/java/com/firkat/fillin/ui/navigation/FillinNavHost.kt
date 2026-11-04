@@ -213,6 +213,14 @@ fun FillinNavHost(
                     }
                 }
             }
+            entry<AppRoute.OperationPlanPicker> { route ->
+                val models: MainBudgetViewModelStore = viewModel(key = "plan-picker-${route.operationId}")
+                models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                LaunchedEffect(runtime?.scope?.id) { if (runtime?.scope?.id != route.budgetScopeId) navigation.back() }
+                ActiveBudgetContent(viewModelStoreOwner = models) {
+                    com.firkat.fillin.feature.operationhistory.ui.OperationPlanPickerRoute(route.operationId, navigation::back)
+                }
+            }
             entry<AppRoute.OperationDetails> { route ->
                 val resultBus = LocalResultEventBus.current
                 val sheetModels: MainBudgetViewModelStore = viewModel(key = "edit-operation-${route.requestId}")
@@ -220,7 +228,7 @@ fun FillinNavHost(
                 ActiveBudgetContent(viewModelStoreOwner = sheetModels) {
                     OperationDetailsRoute(
                         operationId = route.operationId,
-                        onLinkSelected = { navigation.openDetailsPlanLink(route) },
+                        onLinkSelected = { navigation.openOperationPlanPicker(route) },
                         onOpenPlan = { type, id -> navigation.openDetailsPlanningRule(route, type, id) },
                         onClose = { navigation.dismissOperationDetails(route) },
                         onResult = { result ->

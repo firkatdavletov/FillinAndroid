@@ -154,6 +154,7 @@ val budgetModule = module {
         }
         scoped<com.firkat.fillin.feature.operationhistory.domain.repository.OperationPlanLinkStore> { get<com.firkat.fillin.feature.sync.data.BudgetStore>() }
         viewModel { parameters -> com.firkat.fillin.feature.operationhistory.ui.OperationPlanLinkViewModel(parameters.get(), get(), get()) }
+        viewModel { parameters -> com.firkat.fillin.feature.operationhistory.ui.OperationPlanPickerViewModel(parameters.get(), get(), get(), get()) }
         scoped<OperationHistoryStore> { get<OfflineOperationHistoryRepository>() }
         scoped<OperationHistoryRepository> { get<OfflineOperationHistoryRepository>() }
         factory { UpdateOperationAmount(repository = get()) }

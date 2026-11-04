@@ -2,6 +2,9 @@ package com.firkat.fillin.feature.operationhistory.ui
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.outlined.EventAvailable
+import androidx.compose.material.icons.outlined.LinkOff
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.ui.res.painterResource
@@ -74,10 +77,10 @@ internal fun OperationDetailsRoute(
                 OperationLinkedPlanCard(plan, !state.isSaving && state.mode == EditOperationMode.Edit,
                     { event(EditOperationEvent.WindowChanged(OperationDetailsWindow.Unlink)) }, { event(EditOperationEvent.OpenPlan(plan)) })
             }
-            if (state.mode == EditOperationMode.Edit) state.links.candidates.forEach { plan ->
-                TextButton(onClick = { event(EditOperationEvent.PlanSelected(plan)) }, enabled = !state.isSaving) {
-                    Text(stringResource(R.string.plan_link_choice, plan.categoryName, plan.target.dueOn, plan.remainingAmount))
-                }
+            if (state.links.current.isEmpty()) OutlinedButton(onClick = onLinkSelected,
+                enabled = !state.isSaving && state.mode == EditOperationMode.Edit && state.operation?.let { it.amount > it.refundedAmount } == true,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary), modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.operation_details_bind))
             }
             if (state.planError) Text(stringResource(R.string.operation_details_plan_error), color = MaterialTheme.colorScheme.error)
         },
@@ -178,14 +181,34 @@ internal fun EditOperationContent(
 @Composable
 private fun OperationLinkedPlanCard(plan: SuggestedPlan, enabled: Boolean, onUnlink: () -> Unit, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val locale = LocalConfiguration.current.locales[0]
-    Card(modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+    Card(modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.operation_details_linked), style = MaterialTheme.typography.titleLarge)
-            Text(plan.categoryName, style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.plan_link_planned, plan.plannedAmount))
-            Text(LocalDate.parse(plan.target.dueOn).format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)))
-            OutlinedButton(onUnlink, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.operation_details_unlink)) }
-            OutlinedButton(onOpen, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.operation_details_open_plan)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
+                    Icon(androidx.compose.material.icons.Icons.Outlined.EventAvailable, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(12.dp).size(28.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.operation_details_linked), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.operation_details_paid), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(plan.categoryName, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.operation_details_money, plan.plannedAmount), style = MaterialTheme.typography.titleMedium)
+            }
+            Text(stringResource(R.string.operation_details_payment_date, LocalDate.parse(plan.target.dueOn).format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onUnlink, enabled = enabled, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)) {
+                    Icon(androidx.compose.material.icons.Icons.Outlined.LinkOff, null, Modifier.size(20.dp)); Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.operation_details_unlink), style = MaterialTheme.typography.labelMedium)
+                }
+                OutlinedButton(onOpen, enabled = enabled, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)) {
+                    Icon(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.OpenInNew, null, Modifier.size(20.dp)); Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.operation_details_open_plan), style = MaterialTheme.typography.labelMedium)
+                }
+            }
         }
     }
 }

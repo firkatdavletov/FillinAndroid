@@ -193,6 +193,10 @@ class AppNavigationViewModel(
         entries.add(AppRoute.OperationPlanLinkBottomSheet(route.operationId, route.budgetScopeId))
     }
 
+    fun openOperationPlanPicker(route: AppRoute.OperationDetails) {
+        if (entries.lastOrNull() == route) entries.add(AppRoute.OperationPlanPicker(route.operationId, route.budgetScopeId))
+    }
+
     fun openDetailsPlanningRule(route: AppRoute.OperationDetails, type: PlannedOperationType, ruleId: String) {
         if (entries.lastOrNull() == route && budgetReady && !resolving.value) {
             entries.add(AppRoute.PlanningRuleEditor(route.budgetScopeId, type, ruleId))

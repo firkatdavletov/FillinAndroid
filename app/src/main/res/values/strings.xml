@@ -378,4 +378,11 @@
     <string name="operation_details_open_plan">Открыть план</string>
     <string name="operation_details_plan_error">Не удалось выполнить действие. Проверьте доступность плана и повторите попытку.</string>
     <string name="operation_details_refund_draft">Возврат будет выполнен для сохранённой операции. Несохранённые изменения будут потеряны. Вернуть оставшуюся сумму расхода?</string>
+    <string name="operation_details_bind">Связать с планом</string>
+    <string name="operation_details_paid">Оплата по плану учтена</string>
+    <string name="operation_details_payment_date">Плановый платёж · %1$s</string>
+    <string name="plan_picker_rules">Выберите правило</string>
+    <string name="plan_picker_payments">Выберите платёж</string>
+    <string name="plan_picker_category">Категория операции: %1$s</string>
+    <string name="operation_details_money">%1$s ₸</string>
 </resources>
