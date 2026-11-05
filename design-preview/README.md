@@ -12,6 +12,16 @@
 
 Цвета: `tokens/colors.json`. Сгенерированные CSS-переменные: `assets/theme.css`. Контраст: `contrast-report.md`. Соответствие исходникам и ограничения проверки: `traceability.md`.
 
-Проверены 5 страниц, локальные ссылки и 78 цветовых пар. Проверка синтаксиса JavaScript пройдена. Визуальная проверка не выполнена: браузерный хост недоступен. Проверка токенов не является полной проверкой доступности.
+Проверены 5 страниц, локальные ссылки и 120 цветовых пар. Проверка синтаксиса JavaScript пройдена. Визуальная проверка не выполнена: браузерный хост недоступен. Проверка токенов не является полной проверкой доступности.
 
-Изменения ограничены папкой `design-preview/`; исходники, ресурсы и конфигурация Android-приложения не менялись.
+## Обновление темы Android
+
+`tokens/colors.json` служит источником цветов HTML и Android. После изменения JSON из корня проекта запустите:
+
+```bash
+python3 scripts/generate-material-colors.py
+```
+
+Генератор создаёт `app/src/main/java/com/firkat/fillin/ui/theme/GeneratedMaterialColors.kt`. `Theme.kt` передаёт сгенерированные светлую и тёмную `ColorScheme` в `MaterialTheme`. Например, `textPrimary` становится `onBackground` и `onSurface`, `surfaceAlt` становится `surfaceVariant`, `danger` становится `error`, `borderStrong` становится `outline`. Все исходные роли доступны из Compose через `MaterialTheme.saldomiDesignColors`. Уже существующий `MaterialTheme.saldomiColors` для финансовых состояний остаётся отдельной семантической палитрой.
+
+Для проверки актуальности сгенерированного Kotlin без записи файла используйте `python3 scripts/generate-material-colors.py --check`.

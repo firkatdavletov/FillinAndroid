@@ -82,7 +82,49 @@ This is an automated check of opaque semantic token pairs, **not** a complete WC
 | dark | focusRing / surfaceAlt | nonText | 8.085:1 | 3:1 | PASS |
 | light | focusRing / primaryContainer | nonText | 5.555:1 | 3:1 | PASS |
 | dark | focusRing / primaryContainer | nonText | 6.338:1 | 3:1 | PASS |
+| light | Android onSecondary / secondary | text | 6.036:1 | 4.5:1 | PASS |
+| dark | Android onSecondary / secondary | text | 7.730:1 | 4.5:1 | PASS |
+| light | Android onSecondaryContainer / secondaryContainer | text | 8.769:1 | 4.5:1 | PASS |
+| dark | Android onSecondaryContainer / secondaryContainer | text | 6.475:1 | 4.5:1 | PASS |
+| light | Android onTertiary / tertiary | text | 5.910:1 | 4.5:1 | PASS |
+| dark | Android onTertiary / tertiary | text | 7.663:1 | 4.5:1 | PASS |
+| light | Android onTertiaryContainer / tertiaryContainer | text | 8.863:1 | 4.5:1 | PASS |
+| dark | Android onTertiaryContainer / tertiaryContainer | text | 6.537:1 | 4.5:1 | PASS |
+| light | Android inverseOnSurface / inverseSurface | text | 11.007:1 | 4.5:1 | PASS |
+| dark | Android inverseOnSurface / inverseSurface | text | 11.226:1 | 4.5:1 | PASS |
+| light | Android onPrimaryFixed / primaryFixed | text | 12.544:1 | 4.5:1 | PASS |
+| dark | Android onPrimaryFixed / primaryFixed | text | 12.544:1 | 4.5:1 | PASS |
+| light | Android onPrimaryFixedVariant / primaryFixed | text | 6.534:1 | 4.5:1 | PASS |
+| dark | Android onPrimaryFixedVariant / primaryFixed | text | 6.534:1 | 4.5:1 | PASS |
+| light | Android onSecondaryFixed / secondaryFixed | text | 11.936:1 | 4.5:1 | PASS |
+| dark | Android onSecondaryFixed / secondaryFixed | text | 11.936:1 | 4.5:1 | PASS |
+| light | Android onSecondaryFixedVariant / secondaryFixed | text | 6.433:1 | 4.5:1 | PASS |
+| dark | Android onSecondaryFixedVariant / secondaryFixed | text | 6.433:1 | 4.5:1 | PASS |
+| light | Android onTertiaryFixed / tertiaryFixed | text | 11.934:1 | 4.5:1 | PASS |
+| dark | Android onTertiaryFixed / tertiaryFixed | text | 11.934:1 | 4.5:1 | PASS |
+| light | Android onTertiaryFixedVariant / tertiaryFixed | text | 6.277:1 | 4.5:1 | PASS |
+| dark | Android onTertiaryFixedVariant / tertiaryFixed | text | 6.277:1 | 4.5:1 | PASS |
+| light | Android textPrimary / surfaceContainerLowest | text | 15.088:1 | 4.5:1 | PASS |
+| dark | Android textPrimary / surfaceContainerLowest | text | 14.112:1 | 4.5:1 | PASS |
+| light | Android textPrimary / surfaceContainerLow | text | 14.076:1 | 4.5:1 | PASS |
+| dark | Android textPrimary / surfaceContainerLow | text | 11.489:1 | 4.5:1 | PASS |
+| light | Android textPrimary / surfaceContainer | text | 13.498:1 | 4.5:1 | PASS |
+| dark | Android textPrimary / surfaceContainer | text | 10.364:1 | 4.5:1 | PASS |
+| light | Android textPrimary / surfaceContainerHigh | text | 12.960:1 | 4.5:1 | PASS |
+| dark | Android textPrimary / surfaceContainerHigh | text | 8.949:1 | 4.5:1 | PASS |
+| light | Android textPrimary / surfaceContainerHighest | text | 12.217:1 | 4.5:1 | PASS |
+| dark | Android textPrimary / surfaceContainerHighest | text | 7.599:1 | 4.5:1 | PASS |
+| light | Android textPrimary / surfaceBright | text | 15.088:1 | 4.5:1 | PASS |
+| dark | Android textPrimary / surfaceBright | text | 6.722:1 | 4.5:1 | PASS |
+| light | Android textPrimary / surfaceDim | text | 11.584:1 | 4.5:1 | PASS |
+| dark | Android textPrimary / surfaceDim | text | 14.214:1 | 4.5:1 | PASS |
+| light | Android borderStrong / surfaceContainer | nonText | 4.662:1 | 3:1 | PASS |
+| dark | Android borderStrong / surfaceContainer | nonText | 6.280:1 | 3:1 | PASS |
+| light | Android borderStrong / surfaceContainerHigh | nonText | 4.476:1 | 3:1 | PASS |
+| dark | Android borderStrong / surfaceContainerHigh | nonText | 5.423:1 | 3:1 | PASS |
+| light | Android borderStrong / surfaceContainerHighest | nonText | 4.220:1 | 3:1 | PASS |
+| dark | Android borderStrong / surfaceContainerHighest | nonText | 4.605:1 | 3:1 | PASS |
 
-**Result:** 78/78 declared comparisons passed; 0 failed.
+**Result:** 120/120 declared comparisons passed; 0 failed.
 
 Check actual rendered backgrounds (especially alpha, gradients, overlay, disabled and sheet states) separately.
