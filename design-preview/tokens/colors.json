@@ -1,0 +1,305 @@
+{
+  "meta": {
+    "name": "Saldomi · Спокойный ритм",
+    "version": "1.0.0",
+    "usage": "Brand primary retained from Theme.kt. Usage neutrals tuned for contrast; reference colors retained. Synthetic preview only."
+  },
+  "light": {
+    "background": "#F6F9F6",
+    "surface": "#FFFFFF",
+    "surfaceAlt": "#ECF4EF",
+    "textPrimary": "#102B23",
+    "textSecondary": "#455A51",
+    "textDisabled": "#697A71",
+    "primary": "#064A37",
+    "onPrimary": "#FFFFFF",
+    "primaryContainer": "#D4EFE1",
+    "onPrimaryContainer": "#083D2D",
+    "border": "#D7E4DC",
+    "borderStrong": "#5E7166",
+    "focusRing": "#0F684B",
+    "danger": "#B63B46",
+    "onDanger": "#FFFFFF",
+    "dangerContainer": "#FCE8E5",
+    "onDangerContainer": "#7B1715",
+    "success": "#187347",
+    "onSuccess": "#FFFFFF",
+    "successContainer": "#DFF4E7",
+    "onSuccessContainer": "#174C30",
+    "warning": "#784700",
+    "onWarning": "#FFFFFF",
+    "warningContainer": "#FFF0CD",
+    "onWarningContainer": "#683A00",
+    "brandReference": "#064A37",
+    "outlineReference": "#708B7C",
+    "transfer": "#326BA8",
+    "scrim": "#102B23"
+  },
+  "dark": {
+    "background": "#12251E",
+    "surface": "#203630",
+    "surfaceAlt": "#294237",
+    "textPrimary": "#F4FBF7",
+    "textSecondary": "#C6DACC",
+    "textDisabled": "#A1B5A8",
+    "primary": "#4FD18F",
+    "onPrimary": "#06271D",
+    "primaryContainer": "#13573E",
+    "onPrimaryContainer": "#C5F4D6",
+    "border": "#3D5748",
+    "borderStrong": "#B1CBB9",
+    "focusRing": "#8EF2BE",
+    "danger": "#FFB3B9",
+    "onDanger": "#4C1310",
+    "dangerContainer": "#522521",
+    "onDangerContainer": "#FFD9D4",
+    "success": "#7EE2AC",
+    "onSuccess": "#0A3020",
+    "successContainer": "#204D34",
+    "onSuccessContainer": "#D7FBE3",
+    "warning": "#FFD181",
+    "onWarning": "#432400",
+    "warningContainer": "#4A370F",
+    "onWarningContainer": "#FFEBC2",
+    "brandReference": "#4FD18F",
+    "outlineReference": "#8BA89A",
+    "transfer": "#A7CAFF",
+    "scrim": "#06130D"
+  },
+  "contrastPairs": [
+    {
+      "name": "Primary body text / surface",
+      "foreground": "textPrimary",
+      "background": "surface",
+      "kind": "text"
+    },
+    {
+      "name": "Primary body text / background",
+      "foreground": "textPrimary",
+      "background": "background",
+      "kind": "text"
+    },
+    {
+      "name": "Secondary text / surface",
+      "foreground": "textSecondary",
+      "background": "surface",
+      "kind": "text"
+    },
+    {
+      "name": "Secondary text / surface alt",
+      "foreground": "textSecondary",
+      "background": "surfaceAlt",
+      "kind": "text"
+    },
+    {
+      "name": "Primary text / surface alt",
+      "foreground": "textPrimary",
+      "background": "surfaceAlt",
+      "kind": "text"
+    },
+    {
+      "name": "Primary button",
+      "foreground": "onPrimary",
+      "background": "primary",
+      "kind": "text"
+    },
+    {
+      "name": "Toned primary container",
+      "foreground": "onPrimaryContainer",
+      "background": "primaryContainer",
+      "kind": "text"
+    },
+    {
+      "name": "Destructive button",
+      "foreground": "onDanger",
+      "background": "danger",
+      "kind": "text"
+    },
+    {
+      "name": "Error container",
+      "foreground": "onDangerContainer",
+      "background": "dangerContainer",
+      "kind": "text"
+    },
+    {
+      "name": "Success label",
+      "foreground": "onSuccess",
+      "background": "success",
+      "kind": "text"
+    },
+    {
+      "name": "Success container",
+      "foreground": "onSuccessContainer",
+      "background": "successContainer",
+      "kind": "text"
+    },
+    {
+      "name": "Warning label",
+      "foreground": "onWarning",
+      "background": "warning",
+      "kind": "text"
+    },
+    {
+      "name": "Warning container",
+      "foreground": "onWarningContainer",
+      "background": "warningContainer",
+      "kind": "text"
+    },
+    {
+      "name": "Field outline / surface",
+      "foreground": "borderStrong",
+      "background": "surface",
+      "kind": "nonText"
+    },
+    {
+      "name": "Focus outline / surface",
+      "foreground": "focusRing",
+      "background": "surface",
+      "kind": "nonText"
+    },
+    {
+      "name": "textPrimary / background",
+      "foreground": "textPrimary",
+      "background": "background",
+      "kind": "text"
+    },
+    {
+      "name": "textPrimary / surface",
+      "foreground": "textPrimary",
+      "background": "surface",
+      "kind": "text"
+    },
+    {
+      "name": "textPrimary / surfaceAlt",
+      "foreground": "textPrimary",
+      "background": "surfaceAlt",
+      "kind": "text"
+    },
+    {
+      "name": "textSecondary / background",
+      "foreground": "textSecondary",
+      "background": "background",
+      "kind": "text"
+    },
+    {
+      "name": "textSecondary / surface",
+      "foreground": "textSecondary",
+      "background": "surface",
+      "kind": "text"
+    },
+    {
+      "name": "textSecondary / surfaceAlt",
+      "foreground": "textSecondary",
+      "background": "surfaceAlt",
+      "kind": "text"
+    },
+    {
+      "name": "primary / background",
+      "foreground": "primary",
+      "background": "background",
+      "kind": "text"
+    },
+    {
+      "name": "primary / surface",
+      "foreground": "primary",
+      "background": "surface",
+      "kind": "text"
+    },
+    {
+      "name": "primary / surfaceAlt",
+      "foreground": "primary",
+      "background": "surfaceAlt",
+      "kind": "text"
+    },
+    {
+      "name": "danger / background",
+      "foreground": "danger",
+      "background": "background",
+      "kind": "text"
+    },
+    {
+      "name": "danger / surface",
+      "foreground": "danger",
+      "background": "surface",
+      "kind": "text"
+    },
+    {
+      "name": "danger / surfaceAlt",
+      "foreground": "danger",
+      "background": "surfaceAlt",
+      "kind": "text"
+    },
+    {
+      "name": "success / background",
+      "foreground": "success",
+      "background": "background",
+      "kind": "text"
+    },
+    {
+      "name": "success / surface",
+      "foreground": "success",
+      "background": "surface",
+      "kind": "text"
+    },
+    {
+      "name": "success / surfaceAlt",
+      "foreground": "success",
+      "background": "surfaceAlt",
+      "kind": "text"
+    },
+    {
+      "name": "transfer / background",
+      "foreground": "transfer",
+      "background": "background",
+      "kind": "text"
+    },
+    {
+      "name": "transfer / surface",
+      "foreground": "transfer",
+      "background": "surface",
+      "kind": "text"
+    },
+    {
+      "name": "transfer / surfaceAlt",
+      "foreground": "transfer",
+      "background": "surfaceAlt",
+      "kind": "text"
+    },
+    {
+      "name": "borderStrong / background",
+      "foreground": "borderStrong",
+      "background": "background",
+      "kind": "nonText"
+    },
+    {
+      "name": "borderStrong / surfaceAlt",
+      "foreground": "borderStrong",
+      "background": "surfaceAlt",
+      "kind": "nonText"
+    },
+    {
+      "name": "borderStrong / primaryContainer",
+      "foreground": "borderStrong",
+      "background": "primaryContainer",
+      "kind": "nonText"
+    },
+    {
+      "name": "focusRing / background",
+      "foreground": "focusRing",
+      "background": "background",
+      "kind": "nonText"
+    },
+    {
+      "name": "focusRing / surfaceAlt",
+      "foreground": "focusRing",
+      "background": "surfaceAlt",
+      "kind": "nonText"
+    },
+    {
+      "name": "focusRing / primaryContainer",
+      "foreground": "focusRing",
+      "background": "primaryContainer",
+      "kind": "nonText"
+    }
+  ]
+}
