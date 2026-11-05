@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.profile.ui
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.auth.domain.AuthRepository
@@ -30,6 +32,7 @@ data class ProfileUiState(
     val creation: BudgetCreationDraft? = null,
     val pendingCreation: Boolean = false,
     val cloudAllowed: Boolean = false,
+    val currencyPickerOpen: Boolean = false,
 )
 
 class ProfileViewModel(
@@ -54,7 +57,7 @@ class ProfileViewModel(
         viewModelScope.launch {
             auth.session.collectLatest { session ->
                 action?.cancel()
-                mutableState.update { it.copy(expandedBudgetId = null, budgets = emptyList(), loading = true, creation = null, pendingCreation = false, busy = false, error = null, cloudAllowed = session is AuthSession.Authenticated) }
+                mutableState.update { it.copy(expandedBudgetId = null, budgets = emptyList(), loading = true, creation = null, pendingCreation = false, currencyPickerOpen = false, busy = false, error = null, cloudAllowed = session is AuthSession.Authenticated) }
                 if (session != AuthSession.Loading) refresh()
             }
         }
@@ -92,14 +95,30 @@ class ProfileViewModel(
         perform {
             val pending = uid?.let { creation.pending(it) }
             mutableState.update { it.copy(
-                creation = pending?.draft ?: BudgetCreationDraft("", "0", LocalDate.now(ZoneId.of("Asia/Almaty")).toString()),
+                creation = pending?.draft ?: BudgetCreationDraft("", "0", LocalDate.now(ZoneId.of("Asia/Almaty")).toString(), BudgetCurrency.RUB),
                 pendingCreation = pending != null,
             ) }
         }
     }
 
     fun closeCreation() {
-        if (!state.value.busy) mutableState.update { it.copy(creation = null, pendingCreation = false, error = null) }
+        if (!state.value.busy) mutableState.update { it.copy(creation = null, pendingCreation = false, currencyPickerOpen = false, error = null) }
+    }
+
+    fun openCurrencyPicker() {
+        mutableState.update { if (it.creation != null && !it.busy && !it.pendingCreation) it.copy(currencyPickerOpen = true) else it }
+    }
+
+    fun closeCurrencyPicker() {
+        mutableState.update { it.copy(currencyPickerOpen = false) }
+    }
+
+    fun selectCurrency(currency: BudgetCurrency) {
+        mutableState.update {
+            if (it.currencyPickerOpen && it.creation != null && !it.busy && !it.pendingCreation) {
+                it.copy(creation = it.creation.copy(currency = currency), currencyPickerOpen = false)
+            } else it
+        }
     }
 
     fun editCreation(draft: BudgetCreationDraft) {
@@ -109,7 +128,7 @@ class ProfileViewModel(
     fun createLocal() {
         val draft = state.value.creation ?: return
         perform {
-            budgets.createLocal(draft.openingBalance.trim().replace(',', '.').toBigDecimal(), LocalDate.parse(draft.accountingStartedOn.trim()))
+            budgets.createLocal(draft.openingBalance.trim().replace(',', '.').toBigDecimal(), LocalDate.parse(draft.accountingStartedOn.trim()), draft.currency)
             mutableState.update { it.copy(creation = null) }
         }
     }

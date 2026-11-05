@@ -36,7 +36,12 @@ data class LocalOperation(
     val syncStatus: String = "SYNCED",
     val syncError: String? = null,
     val occurredAt: String? = null,
-)
+    val rubKztRate: String? = null,
+) {
+    // Older databases and sync payloads use amountKzt for the accounting value.
+    val accountingAmount: String get() = amountKzt
+    val hasOriginalValuation: Boolean get() = originalCurrency != "KZT"
+}
 
 @Entity(tableName = "local_categories", primaryKeys = ["scopeKey", "id"])
 data class LocalCategory(
@@ -79,6 +84,8 @@ data class OperationSyncState(
     @ColumnInfo(defaultValue = "0") val cloudEnabled: Boolean = false,
     @ColumnInfo(defaultValue = "0") val cloudBound: Boolean = false,
     val bootstrapPayload: String? = null,
+    @ColumnInfo(defaultValue = "'KZT'") val currency: String = "KZT",
+    @ColumnInfo(defaultValue = "0") val currencyVersion: Long = 0,
 )
 
 data class LocalHistoryContent(
@@ -153,7 +160,7 @@ interface OperationDao {
         LocalOperation::class, LocalCategory::class, OperationOutbox::class, OperationSyncState::class,
         LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class, OperationPlanProposal::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class OperationDatabase : RoomDatabase() {

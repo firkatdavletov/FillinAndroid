@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.data.local
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import androidx.room.withTransaction
 import com.firkat.fillin.core.database.LocalSyncRecord
 import com.firkat.fillin.core.database.SyncStagingPage
@@ -41,7 +43,8 @@ class RoomOperationSyncStorage(
             val scope = page.scope
             UUID.fromString(scope.householdId)
             UUID.fromString(scope.memberId)
-            require(scope.currency == "KZT" && scope.timeZone == "Asia/Almaty" && scope.role in setOf("OWNER", "MEMBER"))
+            require(BudgetCurrency.entries.any { it.name == scope.currency } && scope.timeZone == "Asia/Almaty" && scope.role in setOf("OWNER", "MEMBER"))
+            require(scope.currencyVersion >= 0)
             Instant.parse(scope.accountingStartedAt)
             if (previous.scopeKey.isNotEmpty() &&
                 previous.scopeKey != scope.key
@@ -246,6 +249,8 @@ class RoomOperationSyncStorage(
             if (!page.hasMore && previous.protocolVersion >= 4) require(database.budget().record(scope.key, "BUDGET_SETTINGS", scope.householdId) != null)
             dao.putState(
                 previous.copy(
+                    currency = if (!page.hasMore && scope.currencyVersion >= previous.currencyVersion) scope.currency else previous.currency,
+                    currencyVersion = if (page.hasMore) previous.currencyVersion else maxOf(previous.currencyVersion, scope.currencyVersion),
                     scopeKey = scope.key,
                     householdId = scope.householdId,
                     memberId = scope.memberId,
@@ -329,6 +334,7 @@ internal fun SyncOperationDto.toLocal(scope: String): LocalOperation {
     LocalDate.parse(occurredOn)
     Instant.parse(createdAt)
     occurredAt?.let(Instant::parse)
+    rubKztRate?.let { require(originalCurrency == "RUB" && it.toBigDecimal().signum() > 0) }
     return LocalOperation(
         id,
         scope,
@@ -346,6 +352,7 @@ internal fun SyncOperationDto.toLocal(scope: String): LocalOperation {
         refundOf,
         requestId,
         occurredAt = occurredAt,
+        rubKztRate = rubKztRate,
     )
 }
 

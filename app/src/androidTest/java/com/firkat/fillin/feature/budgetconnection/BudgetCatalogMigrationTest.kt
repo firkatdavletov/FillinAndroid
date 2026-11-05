@@ -38,7 +38,7 @@ class BudgetCatalogMigrationTest {
                 old.execSQL("INSERT INTO local_budget_upload VALUES ('first','owner','Из офлайна','original-bootstrap')")
                 old.version = 3
             }
-            val database = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, name).addMigrations(PROFILE_MIGRATION_3_4, PROFILE_MIGRATION_4_5).build()
+            val database = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, name).addMigrations(*PROFILE_MIGRATIONS).build()
             try {
                 val registry = RoomBudgetProfileRegistry(database, "https://migration.invalid/")
                 assertEquals("second", registry.selected("owner").id)

@@ -65,7 +65,7 @@ internal fun PlanningRuleEditorScreen(state: RuleEditorState, canWrite: Boolean,
                 if (state.loading) CircularProgressIndicator()
                 SaldomiTextField(draft.name, { value -> onChange { it.copy(name = value) } }, label = stringResource(R.string.rule_name), enabled = enabled, isError = draft.name.length > 160, modifier = Modifier.fillMaxWidth().testTag("rule-name"))
                 RuleValue(stringResource(R.string.rule_category), state.categories.firstOrNull { it.id == draft.categoryId }?.name ?: state.original?.takeIf { it.categoryId == draft.categoryId }?.categoryName ?: stringResource(R.string.rule_select), enabled, { onWindow(RuleWindow.Category) })
-                SaldomiTextField(draft.amount, { value -> onChange { it.copy(amount = value) } }, label = stringResource(R.string.rule_amount), enabled = enabled, isError = draft.amount.isNotEmpty() && state.amount == null,
+                SaldomiTextField(draft.amount, { value -> onChange { it.copy(amount = value) } }, label = stringResource(R.string.rule_amount, com.firkat.fillin.feature.budgetprofile.ui.LocalBudgetCurrency.current.symbol), enabled = enabled, isError = draft.amount.isNotEmpty() && state.amount == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth().testTag("planned-editor-amount"))
                 Box {
                     RuleValue(stringResource(R.string.rule_frequency), stringResource(draft.frequency.editorTitleResource), enabled, { onWindow(RuleWindow.Frequency) })

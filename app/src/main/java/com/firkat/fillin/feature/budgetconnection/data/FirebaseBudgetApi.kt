@@ -7,7 +7,7 @@ import retrofit2.Response
 import retrofit2.http.*
 
 @Serializable
-data class AvailableBudgetDto(val id: String, val name: String, val memberId: String, val role: String)
+data class AvailableBudgetDto(val id: String, val name: String, val memberId: String, val role: String, val currency: String = "KZT", val currencyVersion: Long = 0)
 
 @Serializable
 data class CreateFirebaseBudgetDto(val requestId: String, val name: String, val openingBalance: String, val accountingStartedOn: String, val currency: String = "KZT")
@@ -16,7 +16,7 @@ data class CreateFirebaseBudgetDto(val requestId: String, val name: String, val 
 data class ImportFirebaseBudgetDto(val name: String, val budget: CreateCloudBudget)
 
 @Serializable
-data class RenameBudgetDto(val requestId: String, val name: String)
+data class RenameBudgetDto(val requestId: String, val name: String?, val currency: String? = null)
 
 interface FirebaseBudgetApi {
     @PATCH("api/v4/budgets/{budgetId}")

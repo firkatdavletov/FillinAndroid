@@ -30,6 +30,22 @@ class BudgetProfileMigrationTest {
         }
     }
 
+    @Test fun pendingCreationAndCatalogDefaultToTengeOnUpgrade() {
+        val name = "profile-migration-7-8"
+        migration.createDatabase(name, 7).use { db ->
+            db.execSQL("INSERT INTO pending_budget_creation VALUES ('owner', 'request', 'Дом', '10.00', '2026-10-01')")
+            db.execSQL("INSERT INTO cloud_budget_catalog VALUES ('owner', 'budget', 'Дом', 'member', 'OWNER')")
+        }
+        migration.runMigrationsAndValidate(name, 8, true, com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATION_7_8).use { db ->
+            listOf("pending_budget_creation", "cloud_budget_catalog").forEach { table ->
+                db.query("SELECT currency FROM $table").use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals("KZT", cursor.getString(0))
+                }
+            }
+        }
+    }
+
     @Test fun versionFiveProfilesKeepTheirDataAndHaveNoName() {
         val database = "profile-migration-5-6"
         migration.createDatabase(database, 5).use { db ->

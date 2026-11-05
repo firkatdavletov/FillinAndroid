@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.budgetsetup.ui.interactor
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import com.firkat.fillin.core.mvi.*
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetconnection.domain.*
@@ -11,6 +13,8 @@ enum class SetupAuthTarget { Create, Join }
 data class BudgetSetupState(
     val name: String = "Личный бюджет",
     val balance: String = "0",
+    val currency: BudgetCurrency = BudgetCurrency.RUB,
+    val currencyPickerOpen: Boolean = false,
     val mode: BudgetSetupMode = BudgetSetupMode.Local,
     val page: SetupPage = SetupPage.Create,
     val session: AuthSession = AuthSession.Loading,
@@ -43,6 +47,9 @@ sealed interface BudgetSetupAction : Action {
     data object Start : BudgetSetupAction
     data class NameChanged(val value: String) : BudgetSetupAction
     data class BalanceChanged(val value: String) : BudgetSetupAction
+    data object OpenCurrencyPicker : BudgetSetupAction
+    data object CloseCurrencyPicker : BudgetSetupAction
+    data class CurrencyChanged(val currency: BudgetCurrency) : BudgetSetupAction
     data class StorageChanged(val mode: BudgetSetupMode) : BudgetSetupAction
     data class CodeChanged(val value: String) : BudgetSetupAction
     data object Create : BudgetSetupAction

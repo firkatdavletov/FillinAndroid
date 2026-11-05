@@ -165,3 +165,19 @@ val BUDGET_MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL("CREATE TABLE IF NOT EXISTS operation_plan_proposals (scopeKey TEXT NOT NULL, operationId TEXT NOT NULL, payload TEXT, decision TEXT NOT NULL, PRIMARY KEY(scopeKey, operationId))")
     }
 }
+
+val BUDGET_MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE operation_sync_state ADD COLUMN currency TEXT NOT NULL DEFAULT 'KZT'")
+        db.execSQL("ALTER TABLE operation_sync_state ADD COLUMN currencyVersion INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE local_operations ADD COLUMN rubKztRate TEXT")
+    }
+}
+
+internal val BUDGET_MIGRATIONS = arrayOf(
+    BUDGET_MIGRATION_1_2,
+    BUDGET_MIGRATION_2_3,
+    BUDGET_MIGRATION_3_4,
+    BUDGET_MIGRATION_4_5,
+    BUDGET_MIGRATION_5_6,
+)

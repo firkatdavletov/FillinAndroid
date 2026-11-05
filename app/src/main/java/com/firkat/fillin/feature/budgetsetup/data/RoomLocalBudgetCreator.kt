@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.budgetsetup.data
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
@@ -24,7 +26,10 @@ class RoomLocalBudgetCreator(
     private val databases: BudgetDatabaseFactory,
     private val json: Json,
 ) : LocalBudgetCreator {
-    override suspend fun createLocal(name: String?, balance: BigDecimal, startedOn: LocalDate) {
+    override suspend fun createLocal(name: String?, balance: BigDecimal, startedOn: LocalDate) =
+        createLocal(name, balance, startedOn, BudgetCurrency.KZT)
+
+    override suspend fun createLocal(name: String?, balance: BigDecimal, startedOn: LocalDate, currency: BudgetCurrency) {
         require(balance.scale() <= 2 && balance.abs() <= BigDecimal("99999999999999999.99"))
         require(startedOn.year >= 1 && startedOn <= LocalDate.now(ZoneId.of("Asia/Almaty")))
         val title = name?.trim()
@@ -34,7 +39,7 @@ class RoomLocalBudgetCreator(
         val database = databases.open(profile)
         try {
             CloudBudgetSession(database, LocalOnlyCloudApi, "", json, OperationSyncScheduler {})
-                .createLocal(balance, startedOn)
+                .createLocal(balance, startedOn, currency)
         } finally { database.close() }
         currentCoroutineContext().ensureActive()
         if (uid != currentUid()) throw BudgetConnectionFailure("account_changed")

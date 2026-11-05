@@ -45,7 +45,7 @@ class ProfileBudgetLifecycleTest {
     private val scheduler = OperationSyncScheduler {}
     private val token = "synthetic-cloud-token"
 
-    private fun open() = Room.databaseBuilder(context, OperationDatabase::class.java, name).addMigrations(BUDGET_MIGRATION_1_2, BUDGET_MIGRATION_2_3, BUDGET_MIGRATION_3_4, BUDGET_MIGRATION_4_5).build()
+    private fun open() = Room.databaseBuilder(context, OperationDatabase::class.java, name).addMigrations(*BUDGET_MIGRATIONS).build()
 
     private fun session(value: String = token) = CloudBudgetSession(database, api, value, json, scheduler, clock)
 
@@ -179,7 +179,7 @@ class ProfileBudgetLifecycleTest {
             )
             assertEquals(
                 BigDecimal("100.00"),
-                OfflineDashboardRepository(database, store(), json, clock)
+                OfflineDashboardRepository(store(), json, clock)
                     .observeDashboard()
                     .first()
                     .availableMoney.amount,
@@ -200,7 +200,7 @@ class ProfileBudgetLifecycleTest {
         val edited = repository.observeOperation(original.id).first()!!
         assertEquals(original.copy(amount = BigDecimal("150.25"), originalAmount = BigDecimal("150.25"), version = 2), edited)
         assertEquals(BigDecimal("150.25"), repository.observeHistory(filter, 100).first().totals.incomes)
-        assertEquals(BigDecimal("150.25"), OfflineDashboardRepository(database, store(), json, clock).observeDashboard().first().availableMoney.amount)
+        assertEquals(BigDecimal("150.25"), OfflineDashboardRepository(store(), json, clock).observeDashboard().first().availableMoney.amount)
         try {
             repository.refundPurchase(edited.id, edited.version)
             fail("Income cannot be refunded")
@@ -226,7 +226,7 @@ class ProfileBudgetLifecycleTest {
         val synced = history().observeOperation(original.id).first()!!
         assertEquals(edited.copy(syncStatus = OperationSyncStatus.Synced), synced)
         assertEquals(BigDecimal("150.25"), history().observeHistory(filter, 100).first().totals.incomes)
-        assertEquals(BigDecimal("150.25"), OfflineDashboardRepository(database, store(), json, clock).observeDashboard().first().availableMoney.amount)
+        assertEquals(BigDecimal("150.25"), OfflineDashboardRepository(store(), json, clock).observeDashboard().first().availableMoney.amount)
         assertEquals(0, store().context.first().pending)
     }
 
@@ -464,6 +464,25 @@ class ProfileBudgetLifecycleTest {
                 .totals.expenses,
         )
         assertTrue(database.operations().pending(state.scopeKey).isEmpty())
+    }
+
+    @Test fun currencyMigrationPreservesExistingBudgetState() {
+        val migrationName = "$name-migration"
+        migration.createDatabase(migrationName, 5).use { db ->
+            db.execSQL("""
+                INSERT INTO operation_sync_state (
+                    id, scopeKey, householdId, memberId, accountingStartedAt, lastRevision,
+                    initialSyncComplete, isSyncing, role, protocolVersion, localReady, cloudEnabled, cloudBound
+                ) VALUES (1, 'scope', 'budget', 'member', '2026-10-01T00:00:00Z', 42, 1, 0, 'OWNER', 4, 1, 0, 0)
+            """.trimIndent())
+        }
+        migration.runMigrationsAndValidate(migrationName, 6, true, BUDGET_MIGRATION_5_6).use { db ->
+            db.query("SELECT currency, lastRevision FROM operation_sync_state WHERE id = 1").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("KZT", it.getString(0))
+                assertEquals(42, it.getInt(1))
+            }
+        }
     }
 
     @Test fun migrationPreservesPayloadsReceiptsAndLocalReadiness() {

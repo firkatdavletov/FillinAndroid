@@ -12,7 +12,7 @@ class UpdateOperationAmount(
     suspend operator fun invoke(operation: Operation, amount: BigDecimal): Operation {
         if (
             operation.status != OperationStatus.Posted ||
-            operation.originalCurrency != "KZT" ||
+            operation.hasOriginalValuation ||
             operation.refundedAmount.signum() != 0 ||
             amount <= BigDecimal.ZERO ||
             amount > MAX_AMOUNT ||

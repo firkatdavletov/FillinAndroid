@@ -60,7 +60,6 @@ class DashboardOfflineTest {
         context.deleteDatabase("$name-migration")
     }
     private fun repository() = OfflineDashboardRepository(
-        database,
         BudgetStore(
             database,
             OperationSyncScheduler {

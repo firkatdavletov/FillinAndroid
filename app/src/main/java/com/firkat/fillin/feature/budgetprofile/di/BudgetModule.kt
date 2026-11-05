@@ -64,6 +64,9 @@ import com.firkat.fillin.feature.sync.data.CloudBudgetApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.flowOf
+import com.firkat.fillin.feature.budgetprofile.data.BudgetProfileDatabase
+import com.firkat.fillin.feature.sync.data.BudgetCurrencyOverride
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.qualifier.named
@@ -75,7 +78,7 @@ val BUDGET_SCOPE = named("budget")
 val budgetModule = module {
     scope(BUDGET_SCOPE) {
         scoped { getSource<BudgetProfile>() }
-        scoped<DashboardRepository> { OfflineDashboardRepository(get(), get(), get()) }
+        scoped<DashboardRepository> { OfflineDashboardRepository(get(), get()) }
         scoped {
             DashboardDataSource(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default))
         } onClose { it?.close() }
@@ -115,12 +118,21 @@ val budgetModule = module {
         }
         scoped<OperationSyncStorage> { RoomOperationSyncStorage(get(), get()) }
         scoped {
+            val profile = get<BudgetProfile>()
+            val uid = profile.firebaseUid
+            val budgetId = profile.budgetId
+            val currencyOverride = if (uid == null || budgetId == null) {
+                flowOf(BudgetCurrencyOverride())
+            } else {
+                get<BudgetProfileDatabase>().management().observeCurrency(uid, budgetId)
+            }
             com.firkat.fillin.feature.sync.data.BudgetStore(
                 get(),
                 OperationSyncScheduler {
                     get<OperationSyncScheduler>().schedule()
                 },
                 get(),
+                currencyOverride = currencyOverride,
             )
         }
         scoped<com.firkat.fillin.feature.sync.domain.BudgetSyncControl> {

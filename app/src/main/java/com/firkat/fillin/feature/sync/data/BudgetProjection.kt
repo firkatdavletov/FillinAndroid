@@ -299,7 +299,7 @@ internal class BudgetProjection(
                         amount,
                         paid,
                         remaining,
-                        "KZT",
+                        currency,
                         due,
                         due < today,
                         PlannedExpenseStatus.Scheduled,
@@ -323,7 +323,7 @@ internal class BudgetProjection(
                         requireNotNull(i.categoryId),
                         categories[i.categoryId]?.name.orEmpty(),
                         requireNotNull(i.amount).toBigDecimal(),
-                        "KZT",
+                        currency,
                         due,
                         due < today,
                         PlannedIncomeStatus.Scheduled,
@@ -360,8 +360,8 @@ internal class BudgetProjection(
 
     private fun contribution(ledgerId: String?): BigDecimal {
         val operation = operations[ledgerId]?.takeIf { it.status == "POSTED" && it.syncStatus != "REJECTED" } ?: return BigDecimal.ZERO
-        val refunds = operations.values.filter { it.refundOf == ledgerId && it.status == "POSTED" && it.syncStatus != "REJECTED" }.sumOf { it.amountKzt.toBigDecimal() }
-        return (operation.amountKzt.toBigDecimal() - refunds).max(BigDecimal.ZERO)
+        val refunds = operations.values.filter { it.refundOf == ledgerId && it.status == "POSTED" && it.syncStatus != "REJECTED" }.sumOf { it.accountingAmount.toBigDecimal() }
+        return (operation.accountingAmount.toBigDecimal() - refunds).max(BigDecimal.ZERO)
     }
 
     private fun paidBefore(id: String, order: Long): BigDecimal {
@@ -396,7 +396,7 @@ internal class BudgetProjection(
         )
         val current = expenseLinks.filter { it.ledgerId == operationId }.mapNotNull { occurrences[it.id]?.let { record -> describe(record, "EXPENSE") } } +
             incomeLinks.filter { it.ledgerId == operationId }.mapNotNull { incomes[it.id]?.let { record -> describe(record, "INCOME") } }
-        if (operation.status != "POSTED" || operation.syncStatus == "REJECTED" || operation.originalCurrency != "KZT" || operation.type !in setOf("EXPENSE", "INCOME") || contribution(operationId).signum() == 0) return OperationPlanLinks(current = current)
+        if (operation.status != "POSTED" || operation.syncStatus == "REJECTED" || operation.hasOriginalValuation || operation.type !in setOf("EXPENSE", "INCOME") || contribution(operationId).signum() == 0) return OperationPlanLinks(current = current)
         val records = if (operation.type == "EXPENSE") occurrences.values else incomes.values
         val candidates = records.filter {
             it.status == "SCHEDULED" && it.categoryId == operation.categoryId && categories[it.categoryId]?.archived == false
@@ -552,7 +552,7 @@ internal class BudgetProjection(
             val category = categories[r.categoryId]
             result += PlanningRule(r.id, r.version ?: 0, PlannedOperationType.Expense,
                 requireNotNull(r.categoryId), category?.name.orEmpty(), category?.iconCode.orEmpty(),
-                r.ruleName ?: category?.name.orEmpty(), requireNotNull(r.amount).toBigDecimal(), frequency = frequency,
+                r.ruleName ?: category?.name.orEmpty(), requireNotNull(r.amount).toBigDecimal(), currency = currency, frequency = frequency,
                 startsOn = LocalDate.parse(r.startsOn), scheduleValue = r.scheduleValue)
         }
         fun addIncome(r: SyncPlanRecord, rule: Boolean) {
@@ -572,7 +572,7 @@ internal class BudgetProjection(
             result += PlanningRule(r.id, r.version ?: 0, PlannedOperationType.Income,
                 requireNotNull(r.categoryId), category?.name.orEmpty(), category?.iconCode.orEmpty(),
                 r.incomeName?.takeIf { it.isNotBlank() } ?: category?.name.orEmpty(),
-                requireNotNull(r.amount).toBigDecimal(), frequency = frequency,
+                requireNotNull(r.amount).toBigDecimal(), currency = currency, frequency = frequency,
                 startsOn = LocalDate.parse(r.dueOn), isIncomeRule = rule)
         }
         incomeRules.values.forEach { addIncome(it, true) }
@@ -639,6 +639,8 @@ internal class BudgetProjection(
         }
     }
 
+    val currency: String get() = content.sync.currency
+
     fun dashboardInput(asOf: Instant): DashboardCalculationInput {
         val settings =
             content.records
@@ -676,7 +678,7 @@ internal class BudgetProjection(
                         "EXPENSE_REFUND" -> DashboardOperationKind.Refund
                         else -> error("Unknown operation type")
                     },
-                    it.amountKzt.toBigDecimal(),
+                    it.accountingAmount.toBigDecimal(),
                     LocalDate.parse(it.occurredOn),
                     it.occurredAt?.let(Instant::parse)
                         ?: LocalDate.parse(it.occurredOn).atStartOfDay(ZoneId.of("Asia/Almaty")).toInstant(),
@@ -701,6 +703,7 @@ internal class BudgetProjection(
             if (incomes.values.any { it.status == "SCHEDULED" && it.incomeActive != false && received(it.id).signum() > 0 &&
                 received(it.id) < requireNotNull(it.amount).toBigDecimal() && it.remainderReceived?.toBigDecimal()?.compareTo(received(it.id)) != 0 })
                 setOf(com.firkat.fillin.feature.dailylimit.domain.ForecastWarning.UNCONFIRMED_REMAINDER) else emptySet(),
+            currency = currency,
         )
     }
 

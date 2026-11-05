@@ -220,7 +220,7 @@ class EditOperationViewModel(
         val operation = next.operation
         val mode = when {
             operation?.syncStatus == OperationSyncStatus.Rejected -> EditOperationMode.Correct
-            operation?.status == OperationStatus.Posted && operation.originalCurrency == "KZT" -> EditOperationMode.Edit
+            operation?.status == OperationStatus.Posted && !operation.hasOriginalValuation -> EditOperationMode.Edit
             else -> EditOperationMode.ReadOnly
         }
         val categories = context.categories.filter { it.kind == if (next.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income }

@@ -2,7 +2,6 @@ package com.firkat.fillin.feature.dashboard.data.repository
 
 import com.firkat.fillin.feature.dashboard.domain.calculation.CalculateDashboard
 import com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository
-import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
 import com.firkat.fillin.feature.sync.data.BudgetProjection
 import com.firkat.fillin.feature.sync.data.BudgetStore
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +17,6 @@ import java.time.Duration
 import java.time.ZoneId
 
 class OfflineDashboardRepository(
-    private val database: OperationDatabase,
     private val store: BudgetStore,
     private val json: Json,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
@@ -26,7 +24,7 @@ class OfflineDashboardRepository(
     override fun requestSync() = store.requestSync()
 
     override fun observeDashboard() =
-        combine(database.budget().observeContent(), dashboardDayChanges(clock)) {
+        combine(store.observeContent(), dashboardDayChanges(clock)) {
             content,
             _,
             ->

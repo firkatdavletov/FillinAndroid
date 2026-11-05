@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.budgetconnection.data
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import androidx.room.*
 import androidx.room.withTransaction
 import com.firkat.fillin.feature.budgetconnection.domain.*
@@ -12,6 +14,7 @@ data class PendingBudgetCreationEntity(
     val name: String,
     val openingBalance: String,
     val accountingStartedOn: String,
+    @ColumnInfo(defaultValue = "'KZT'") val currency: String = "KZT",
 )
 
 @Dao
@@ -30,9 +33,9 @@ class RoomBudgetCreationStore(private val database: BudgetProfileDatabase) : Bud
     override suspend fun pending(uid: String) = database.creation().pending(uid)?.domain()
     override suspend fun save(uid: String, request: PendingBudgetCreation): PendingBudgetCreation = database.withTransaction {
         val draft = request.draft
-        database.creation().insert(PendingBudgetCreationEntity(uid, request.requestId, draft.name, draft.openingBalance, draft.accountingStartedOn))
+        database.creation().insert(PendingBudgetCreationEntity(uid, request.requestId, draft.name, draft.openingBalance, draft.accountingStartedOn, draft.currency.name))
         requireNotNull(pending(uid))
     }
     override suspend fun complete(uid: String, requestId: String) = database.creation().complete(uid, requestId)
-    private fun PendingBudgetCreationEntity.domain() = PendingBudgetCreation(requestId, BudgetCreationDraft(name, openingBalance, accountingStartedOn))
+    private fun PendingBudgetCreationEntity.domain() = PendingBudgetCreation(requestId, BudgetCreationDraft(name, openingBalance, accountingStartedOn, BudgetCurrency.valueOf(currency)))
 }

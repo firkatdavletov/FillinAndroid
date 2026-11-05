@@ -60,7 +60,7 @@ class BudgetManagement(
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build())
     }
 
-    suspend fun submit(id: String, name: String, deleting: Boolean) = mutex.withLock {
+    suspend fun submit(id: String, name: String, deleting: Boolean, currency: BudgetCurrency? = null, rename: Boolean = true) = mutex.withLock {
         val title = name.trim()
         require(title.length in 1..80 && title.none(Char::isISOControl))
         val currentUid = uid()
@@ -74,14 +74,29 @@ class BudgetManagement(
         require(db.management().all().none { it.profileId == profileId && it.deleting })
         val cloud = catalog != null || profile?.kind == BudgetProfileKind.CLOUD
         val budgetId = catalog?.budgetId ?: profile?.budgetId
-        val original = db.management().all().lastOrNull { it.profileId == profileId && !it.deleting && it.error != "access_denied" }?.name ?: catalog?.name ?: profile?.name
-        if (!deleting && title == original) return@withLock
+        val original = db.management().all().lastOrNull { it.profileId == profileId && !it.deleting && it.rename && it.error != "access_denied" }?.name ?: catalog?.name ?: profile?.name
+        val changeName = rename && title != original
+        if (!deleting && !changeName && currency == null) return@withLock
+        if (!cloud && !deleting && currency != null) {
+            active.withLocalDatabase(profileId) { database ->
+                database.withTransaction {
+                    val state = requireNotNull(database.operations().state())
+                    val bootstrap = state.bootstrapPayload?.let {
+                        json.decodeFromString<CreateCloudBudget>(it).copy(currency = currency.name)
+                    }
+                    database.operations().putState(state.copy(
+                        currency = currency.name,
+                        bootstrapPayload = bootstrap?.let { json.encodeToString(it) },
+                    ))
+                }
+            }
+        }
         db.withTransaction {
             if (deleting) db.profiles().markSelectionRequired(profileId)
             if (deleting) db.management().all().filter { it.profileId == profileId }.forEach { db.management().remove(it.requestId) }
             db.management().insert(BudgetManagementEntry(UUID.randomUUID().toString(), profileId,
-                if (cloud) currentUid else null, budgetId, title, deleting, maxOf(System.currentTimeMillis(), (db.management().all().maxOfOrNull { it.createdAt } ?: 0L) + 1)))
-            if (!deleting && !cloud && profile != null) db.profiles().find(profile.id)?.let { db.profiles().update(it.copy(name = title)) }
+                if (cloud) currentUid else null, budgetId, title, deleting, maxOf(System.currentTimeMillis(), (db.management().all().maxOfOrNull { it.createdAt } ?: 0L) + 1), currency = currency?.name, rename = changeName))
+            if (!deleting && !cloud && profile != null && changeName) db.profiles().find(profile.id)?.let { db.profiles().update(it.copy(name = title)) }
             if (deleting && active.active.value?.profile?.id == profileId) {
                 (registry as RoomBudgetProfileRegistry).deselect(currentUid)
                 if (!cloud) registry.deselect(null)
@@ -113,7 +128,8 @@ class BudgetManagement(
         var successful = true
         val failedBudgets = mutableSetOf<String>()
         for (entry in db.management().all()) {
-            if (entry.profileId in failedBudgets) continue
+            val budgetKey = entry.budgetId ?: entry.profileId
+            if (budgetKey in failedBudgets) continue
             if (entry.error == "access_denied" || (entry.uid != null && entry.uid in paused) || entry.uid != null && entry.uid != uid()) continue
             try {
                 if (entry.uid == null) { if (entry.deleting) cleanup(entry.profileId) else db.management().remove(entry.requestId); continue }
@@ -125,7 +141,7 @@ class BudgetManagement(
                     if (entry.deleting && imported.code() == 409) imported.errorBody()?.close() else imported.budgetBody()
                 }
                 val response = if (entry.deleting) requests.delete(entry.uid, requireNotNull(entry.budgetId), entry.requestId)
-                    else requests.rename(entry.uid, requireNotNull(entry.budgetId), RenameBudgetDto(entry.requestId, entry.name))
+                    else requests.rename(entry.uid, requireNotNull(entry.budgetId), RenameBudgetDto(entry.requestId, entry.name.takeIf { entry.rename }, entry.currency))
                 requests.ensureCurrent(entry.uid)
                 if (!response.isSuccessful) {
                     val code = response.code()
@@ -135,8 +151,10 @@ class BudgetManagement(
                         val remote = rows.firstOrNull { it.id == entry.budgetId }
                         if (remote == null) { db.catalog().remove(entry.uid, requireNotNull(entry.budgetId)); cleanup(entry.profileId); continue }
                         if (remote.role != "OWNER") {
-                            db.management().update(entry.copy(deleting = false, name = remote.name, error = "access_denied"))
-                            db.catalog().remember(CachedCloudBudget(entry.uid, remote.id, remote.name, remote.memberId, remote.role))
+                            db.withTransaction {
+                                db.management().update(entry.copy(deleting = false, name = remote.name, error = "access_denied"))
+                                db.catalog().remember(CachedCloudBudget(entry.uid, remote.id, remote.name, remote.memberId, remote.role, remote.currency, remote.currencyVersion))
+                            }
                             active.revive(entry.profileId)
                             continue
                         }
@@ -149,14 +167,16 @@ class BudgetManagement(
                 } else {
                     val rows = requests.budgets(entry.uid).budgetBody()
                     requests.ensureCurrent(entry.uid)
-                    rows.forEach { db.catalog().remember(CachedCloudBudget(entry.uid, it.id, it.name, it.memberId, it.role)) }
-                    db.management().remove(entry.requestId)
+                    db.withTransaction {
+                        rows.forEach { db.catalog().remember(CachedCloudBudget(entry.uid, it.id, it.name, it.memberId, it.role, it.currency, it.currencyVersion)) }
+                        db.management().remove(entry.requestId)
+                    }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
                 db.management().update(entry.copy(error = "retry"))
                 successful = false
-                failedBudgets.add(entry.profileId) // Other budgets can proceed; this budget retains request order.
+                failedBudgets.add(budgetKey) // Other budgets can proceed; this budget retains request order.
             }
         }
         uid()?.let { account ->

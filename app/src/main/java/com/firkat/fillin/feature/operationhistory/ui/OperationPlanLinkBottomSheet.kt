@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.feature.budgetprofile.ui.LocalBudgetCurrency
+
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -64,13 +66,13 @@ internal fun OperationPlanLinkContent(
         Text(stringResource(R.string.plan_link_title), style = MaterialTheme.typography.titleLarge)
         if (!loaded) CircularProgressIndicator()
         if (plan != null && operationAmount != null) {
-            Text(stringResource(if (plan.target.type == "INCOME") R.string.plan_link_income else R.string.plan_link_expense, operationAmount))
+            Text(stringResource(if (plan.target.type == "INCOME") R.string.plan_link_income else R.string.plan_link_expense, operationAmount, LocalBudgetCurrency.current.symbol))
             Text(plan.categoryName, style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.plan_link_due, plan.target.dueOn))
-            Text(stringResource(R.string.plan_link_planned, plan.plannedAmount))
-            Text(stringResource(R.string.plan_link_remaining, plan.remainingAmount))
+            Text(stringResource(R.string.plan_link_planned, plan.plannedAmount, LocalBudgetCurrency.current.symbol))
+            Text(stringResource(R.string.plan_link_remaining, plan.remainingAmount, LocalBudgetCurrency.current.symbol))
             val remaining = (plan.remainingAmount.toBigDecimal() - operationAmount.toBigDecimal()).max(BigDecimal.ZERO)
-            Text(stringResource(R.string.plan_link_after, remaining.toPlainString()))
+            Text(stringResource(R.string.plan_link_after, remaining.toPlainString(), LocalBudgetCurrency.current.symbol))
         } else if (loaded) Text(stringResource(R.string.plan_link_unavailable))
         if (error != null) Text(stringResource(R.string.plan_link_error), color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("plan_link_error"))
         Button(onClick = onConfirm, enabled = !saving && loaded && plan != null && operationAmount != null && error !in setOf("plan_changed", "plan_unavailable"), modifier = Modifier.fillMaxWidth()) {
@@ -106,7 +108,7 @@ internal fun OperationPlanLinkChoices(
         if (links.candidates.isEmpty()) Text(stringResource(R.string.plan_link_empty))
         links.candidates.forEach { plan ->
             TextButton(onClick = { onSelect(plan) }, enabled = enabled) {
-                Text(stringResource(R.string.plan_link_choice, plan.categoryName, plan.target.dueOn, plan.remainingAmount))
+                Text(stringResource(R.string.plan_link_choice, plan.categoryName, plan.target.dueOn, plan.remainingAmount, LocalBudgetCurrency.current.symbol))
             }
         }
         if (hasError) Text(stringResource(R.string.plan_link_error), color = MaterialTheme.colorScheme.error)

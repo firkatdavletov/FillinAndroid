@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.sync.data
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import androidx.room.withTransaction
 import com.firkat.fillin.feature.operationhistory.domain.repository.*
 import com.firkat.fillin.core.database.*
@@ -23,6 +25,7 @@ class BudgetStore(
     private val scheduler: OperationSyncScheduler,
     private val json: Json,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
+    private val currencyOverride: Flow<BudgetCurrencyOverride> = flowOf(BudgetCurrencyOverride()),
 ) : BudgetSyncControl, OperationPlanLinkStore {
     private val dao get() = database.budget()
 
@@ -31,12 +34,32 @@ class BudgetStore(
     internal fun currentDate() = today()
     private fun today() = LocalDate.now(clock.withZone(ZoneId.of("Asia/Almaty")))
 
+    internal fun observeContent(): Flow<BudgetContent?> =
+        combine(dao.observeContent(), currencyOverride) { content, override ->
+            content?.withCurrency(override)
+        }
+
+    val currency: Flow<BudgetCurrency> =
+        combine(database.operations().observeState(), currencyOverride) { state, override ->
+            BudgetCurrency.valueOf(override.resolve(state))
+        }.distinctUntilChanged()
+
+    private fun BudgetContent.withCurrency(override: BudgetCurrencyOverride): BudgetContent {
+        val currency = override.resolve(sync)
+        return if (currency == sync.currency) this else copy(sync = sync.copy(currency = currency))
+    }
+
+    private fun BudgetCurrencyOverride.resolve(state: OperationSyncState?): String =
+        pending ?: confirmed?.takeIf { version > (state?.currencyVersion ?: -1) } ?: state?.currency ?: BudgetCurrency.KZT.name
+
+    private suspend fun currentContent() = dao.content()?.withCurrency(currencyOverride.first())
+
     internal fun project(content: BudgetContent) = BudgetProjection(content, json, today())
 
-    internal suspend fun snapshot(): BudgetProjection = project(requireNotNull(dao.content()))
+    internal suspend fun snapshot(): BudgetProjection = project(requireNotNull(currentContent()))
 
     override val context: Flow<BudgetSyncContext> =
-        dao.observeContent().map { content ->
+        observeContent().map { content ->
             if (content == null) {
                 BudgetSyncContext()
             } else {
@@ -83,8 +106,7 @@ class BudgetStore(
         }
 
     fun observePlans(filter: PlannedOperationsFilter) =
-        dao
-            .observeContent()
+        observeContent()
             .filter {
                 (it?.sync?.localReady == true || it?.sync?.initialSyncComplete == true) ||
                     it?.sync?.errorCode in setOf("unauthorized", "access_denied", "scope_changed")
@@ -99,8 +121,7 @@ class BudgetStore(
             }.flowOn(kotlinx.coroutines.Dispatchers.Default)
 
     fun observePlanningRules(includeSettled: Boolean = false) =
-        dao
-            .observeContent()
+        observeContent()
             .filter {
                 (it?.sync?.localReady == true || it?.sync?.initialSyncComplete == true) ||
                     it?.sync?.errorCode in setOf("unauthorized", "access_denied", "scope_changed")
@@ -115,7 +136,7 @@ class BudgetStore(
             }.flowOn(kotlinx.coroutines.Dispatchers.Default)
 
     fun observeHistoryContent(): Flow<LocalHistoryContent?> =
-        dao.observeContent().map { c ->
+        observeContent().map { c ->
             c?.let {
                 project(it).let { p ->
                     LocalHistoryContent(it.sync, p.operations.values.toList(), p.categories.values.toList())
@@ -124,7 +145,7 @@ class BudgetStore(
         }
 
     suspend fun historySnapshot(): LocalHistoryContent? =
-        dao.content()?.let { c ->
+        currentContent()?.let { c ->
             project(c).let { LocalHistoryContent(c.sync, it.operations.values.toList(), it.categories.values.toList()) }
         }
 
@@ -337,7 +358,7 @@ class BudgetStore(
     ) {
         if (c.type in BudgetProjection.LINK_COMMANDS) {
             val operation = p.operations[c.entityId] ?: throw BudgetLocalFailure("not_found")
-            if (operation.status != "POSTED" || operation.syncStatus == "REJECTED" || operation.originalCurrency != "KZT") throw BudgetLocalFailure("invalid")
+            if (operation.status != "POSTED" || operation.syncStatus == "REJECTED" || operation.hasOriginalValuation) throw BudgetLocalFailure("invalid")
             if (c.type == "SET_OPERATION_PLAN_LINK") {
                 val target = requireNotNull(c.planTarget)
                 val plan = p.links(c.entityId).candidates.firstOrNull { it.target.stableKey == target.stableKey && it.target.type == target.type }
@@ -394,7 +415,7 @@ class BudgetStore(
         if (c.type in setOf("UPDATE_OPERATION", "REFUND_OPERATION")) {
             val operation = p.operations[c.entityId] ?: throw BudgetLocalFailure("not_found")
             val allowedTypes = if (c.type == "UPDATE_OPERATION") setOf("EXPENSE", "INCOME") else setOf("EXPENSE")
-            if (operation.type !in allowedTypes || operation.originalCurrency != "KZT" || operation.status != "POSTED") throw BudgetLocalFailure("invalid")
+            if (operation.type !in allowedTypes || operation.hasOriginalValuation || operation.status != "POSTED") throw BudgetLocalFailure("invalid")
             val refunds = p.operations.values.filter { it.refundOf == c.entityId && it.status == "POSTED" && it.syncStatus != "REJECTED" }
             if (c.type == "UPDATE_OPERATION" && refunds.isNotEmpty()) throw BudgetLocalFailure("invalid")
             if (c.type == "REFUND_OPERATION" && operation.originalAmount.toBigDecimal() <= refunds.sumOf { it.originalAmount.toBigDecimal() }) throw BudgetLocalFailure("invalid")
@@ -695,12 +716,13 @@ class BudgetStore(
 
                 else -> "Изменение"
             }
+        val symbol = BudgetCurrency.valueOf(c.sync.currency).symbol
         val local =
             listOfNotNull(
                 action,
                 intent.name,
                 intent.amount?.let {
-                    "$it ₸"
+                    "$it $symbol"
                 },
                 intent.dueOn,
                 intent.startsOn,
@@ -713,7 +735,7 @@ class BudgetStore(
                             .find { category ->
                                 category.id == it.categoryId
                             }?.name,
-                        it.amount?.let { value -> "$value ₸" },
+                        it.amount?.let { value -> "$value $symbol" },
                         it.dueOn,
                         when (it.status) {
                             "SCHEDULED" -> "Запланировано"

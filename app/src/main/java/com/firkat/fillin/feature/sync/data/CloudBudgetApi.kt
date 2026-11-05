@@ -36,6 +36,7 @@ data class CreateCloudBudget(
     val openingBalance: String,
     val accountingStartedOn: String,
     val categories: List<CloudSeedCategory>,
+    val currency: String? = null,
 )
 
 interface CloudBudgetApi {

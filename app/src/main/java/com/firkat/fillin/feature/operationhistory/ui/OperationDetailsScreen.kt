@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.feature.budgetprofile.ui.LocalBudgetCurrency
+
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.outlined.EventAvailable
@@ -143,7 +145,11 @@ internal fun EditOperationContent(
                         }
                     }
                     if (mode == EditOperationMode.ReadOnly) {
-                        Text(formatOperationAmount(op.originalAmount, op.originalCurrency, op.type))
+                        Text(formatOperationAmount(op.amount, op.currency, op.type))
+                        if (op.hasOriginalValuation) {
+                            Text(stringResource(R.string.operation_original_amount, formatOperationAmount(op.originalAmount, op.originalCurrency, op.type)))
+                            op.rubKztRate?.let { Text(stringResource(R.string.operation_original_rub_rate, it.toPlainString())) }
+                        }
                         op.description?.let { Text(it) }
                         Text(stringResource(R.string.edit_operation_read_only))
                     } else {
@@ -195,7 +201,7 @@ private fun OperationLinkedPlanCard(plan: SuggestedPlan, enabled: Boolean, onUnl
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(plan.categoryName, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.operation_details_money, plan.plannedAmount), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.operation_details_money, plan.plannedAmount, LocalBudgetCurrency.current.symbol), style = MaterialTheme.typography.titleMedium)
             }
             Text(stringResource(R.string.operation_details_payment_date, LocalDate.parse(plan.target.dueOn).format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))), color = MaterialTheme.colorScheme.onSurfaceVariant)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

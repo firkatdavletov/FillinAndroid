@@ -130,6 +130,22 @@ class ActiveBudgetManager(
 
     fun isCurrent(profile: BudgetProfile): Boolean = _active.value?.profile == profile && profile.id !in retiredProfiles && profile.accessibleTo(currentUid())
 
+    internal suspend fun <T> withLocalDatabase(
+        profileId: String,
+        block: suspend (OperationDatabase) -> T,
+    ): T = mutex.withLock {
+        val profile = requireNotNull(registry.find(profileId))
+        require(profile.kind != BudgetProfileKind.CLOUD && profile.accessibleTo(currentUid()))
+        val runtime = _active.value?.takeIf { it.profile.id == profileId }
+            ?: runtimes.values.firstOrNull { it.profile.id == profileId }
+        val lease = runtime?.retain()
+        if (lease != null) lease.use { block(it.scope.get()) }
+        else {
+            val database = koin.get<BudgetDatabaseFactory>().open(profile)
+            try { block(database) } finally { database.close() }
+        }
+    }
+
     /** Publish ownership only after the old exchange has stopped; never move the database file. */
     suspend fun attachLegacy(uid: String, budgetId: String, memberId: String, role: String) = mutex.withLock {
         val previous = requireNotNull(_active.value)

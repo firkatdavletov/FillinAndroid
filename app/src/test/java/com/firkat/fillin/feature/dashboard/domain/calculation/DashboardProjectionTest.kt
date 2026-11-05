@@ -83,6 +83,20 @@ class DashboardProjectionTest {
         ).dashboardInput(Instant.parse("2026-10-19T00:00:00Z"))
     )
 
+    @Test fun `changing budget currency preserves balances obligations and forecasts`() {
+        val content = input()
+        val tenge = calculate(content)
+        for (currency in listOf("RUB", "USD", "EUR")) {
+            val dashboard = calculate(content.copy(sync = content.sync.copy(currency = currency)))
+            assertEquals(tenge.availableMoney.copy(currency = currency), dashboard.availableMoney)
+            assertEquals(tenge.freeMoney.remainingObligations.copy(currency = currency), dashboard.freeMoney.remainingObligations)
+            assertEquals(
+                tenge.balanceForecast.currentPacePoints.orEmpty().map { it.balance.copy(currency = currency) },
+                dashboard.balanceForecast.currentPacePoints.orEmpty().map { it.balance },
+            )
+        }
+    }
+
     @Test fun `overdue partial payments reserve only their remainder and closing creates no expense`() {
         val content = input()
         val dashboard = calculate(content)

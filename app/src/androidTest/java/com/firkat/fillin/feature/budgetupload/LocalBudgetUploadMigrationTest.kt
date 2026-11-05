@@ -37,7 +37,7 @@ class LocalBudgetUploadMigrationTest {
                 old.execSQL("INSERT INTO pending_budget_creation VALUES ('owner','original-request','Незавершённый','123.45','2026-10-20')")
                 old.version = 2
             }
-            val db = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, name).addMigrations(PROFILE_MIGRATION_2_3, PROFILE_MIGRATION_3_4, PROFILE_MIGRATION_4_5).build()
+            val db = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, name).addMigrations(*PROFILE_MIGRATIONS).build()
             try {
                 val registry = RoomBudgetProfileRegistry(db, "https://migration.invalid/")
                 assertEquals("cloud", registry.selected("owner").id)

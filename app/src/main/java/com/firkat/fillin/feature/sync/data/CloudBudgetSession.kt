@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.sync.data
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import androidx.room.withTransaction
 import com.firkat.fillin.core.database.LocalSyncRecord
 import com.firkat.fillin.feature.operationhistory.data.local.*
@@ -44,7 +46,9 @@ class CloudBudgetSession(
     override suspend fun createLocal(
         openingBalance: BigDecimal,
         startedOn: LocalDate,
-    ) = mutex.withLock {
+    ) = createLocal(openingBalance, startedOn, BudgetCurrency.KZT)
+
+    suspend fun createLocal(openingBalance: BigDecimal, startedOn: LocalDate, currency: BudgetCurrency) = mutex.withLock {
         require(openingBalance.scale() <= 2 && openingBalance.abs() <= BigDecimal("99999999999999999.99"))
         require(startedOn <= today && startedOn.year >= 1)
         database.withTransaction {
@@ -59,7 +63,7 @@ class CloudBudgetSession(
                     seed("Зарплата", "INCOME", "INCOME", "SALARY"),
                     seed("Другое", "EXPENSE", "OTHER", "OTHER"),
                 )
-            val request = CreateCloudBudget(UUID.randomUUID().toString(), household, member, openingBalance.setScale(2).toPlainString(), startedOn.toString(), seeds)
+            val request = CreateCloudBudget(UUID.randomUUID().toString(), household, member, openingBalance.setScale(2).toPlainString(), startedOn.toString(), seeds, currency.name.takeUnless { currency == BudgetCurrency.KZT })
             seeds.forEach { c ->
                 dao.putCategory(
                     LocalCategory(
@@ -87,6 +91,7 @@ class CloudBudgetSession(
                     protocolVersion = 4,
                     localReady = true,
                     bootstrapPayload = json.encodeToString(request),
+                    currency = currency.name,
                 ),
             )
         }
@@ -121,7 +126,7 @@ class CloudBudgetSession(
                     checkAccess()
                     val previous = storage.state()
                     val page = api.changes(authorization(), previous.cursor)
-                    require(page.scope == remote.scope && page.nextCursor.isNotBlank() && (!page.hasMore || page.nextCursor != previous.cursor))
+                    require(page.scope.copy(currency = remote.scope.currency, currencyVersion = remote.scope.currencyVersion) == remote.scope && page.nextCursor.isNotBlank() && (!page.hasMore || page.nextCursor != previous.cursor))
                     storage.apply(page)
                 } while (page.hasMore)
                 withContext(NonCancellable) {
@@ -190,7 +195,7 @@ class CloudBudgetSession(
     private fun validate(budget: CloudBudget) {
         UUID.fromString(budget.scope.householdId)
         UUID.fromString(budget.scope.memberId)
-        require(budget.scope.currency == "KZT" && budget.scope.timeZone == "Asia/Almaty")
+        require(BudgetCurrency.entries.any { it.name == budget.scope.currency } && budget.scope.timeZone == "Asia/Almaty")
     }
 
     private fun requireToken() {

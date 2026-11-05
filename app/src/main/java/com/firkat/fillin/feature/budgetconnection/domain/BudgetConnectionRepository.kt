@@ -1,9 +1,11 @@
 package com.firkat.fillin.feature.budgetconnection.domain
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
-data class AvailableBudget(val id: String, val name: String, val memberId: String, val role: String)
+data class AvailableBudget(val id: String, val name: String, val memberId: String, val role: String, val currency: String = BudgetCurrency.KZT.name, val currencyVersion: Long = 0)
 
 interface BudgetConnectionRepository {
     val activeBudgetId: Flow<String?> get() = flowOf(null)

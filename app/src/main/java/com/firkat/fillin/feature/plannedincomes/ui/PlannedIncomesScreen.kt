@@ -55,11 +55,10 @@ import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
-import java.text.NumberFormat
+import com.firkat.fillin.ui.format.formatMoney
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Currency
 import java.util.Locale
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -576,16 +575,6 @@ private val PlannedIncomesError.messageResource: Int
         PlannedIncomesError.InvalidResponse -> R.string.planned_incomes_error_invalid_response
         PlannedIncomesError.Unknown -> R.string.planned_incomes_error_generic
     }
-
-private fun formatMoney(amount: BigDecimal, currencyCode: String): String = runCatching {
-    NumberFormat.getCurrencyInstance(Locale.forLanguageTag("ru-KZ")).apply {
-        currency = Currency.getInstance(currencyCode)
-        minimumFractionDigits = 2
-        maximumFractionDigits = 2
-    }.format(amount)
-}.getOrElse {
-    "${amount.setScale(2).toPlainString()} $currencyCode"
-}
 
 private val shortDateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("ru"))
 private val longDateFormatter = DateTimeFormatter.ofPattern("d MMMM", Locale.forLanguageTag("ru"))

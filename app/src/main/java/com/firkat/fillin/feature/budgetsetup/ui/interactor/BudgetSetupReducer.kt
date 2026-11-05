@@ -12,6 +12,11 @@ class BudgetSetupReducer : Reducer<BudgetSetupState, BudgetSetupAction, BudgetSe
             BudgetSetupAction.Start -> this
             is BudgetSetupAction.NameChanged -> if (editable) copy(name = action.value, nameInvalid = false, formOpened = true) else this
             is BudgetSetupAction.BalanceChanged -> if (editable) copy(balance = action.value, balanceInvalid = false, formOpened = true) else this
+            BudgetSetupAction.OpenCurrencyPicker -> if (editable) copy(currencyPickerOpen = true) else this
+            BudgetSetupAction.CloseCurrencyPicker -> copy(currencyPickerOpen = false)
+            is BudgetSetupAction.CurrencyChanged -> if (editable && currencyPickerOpen) {
+                copy(currency = action.currency, currencyPickerOpen = false, formOpened = true)
+            } else this
             is BudgetSetupAction.StorageChanged -> if (editable) copy(mode = action.mode, formOpened = true) else this
             is BudgetSetupAction.CodeChanged -> if (!busy && action.value.length <= 80) copy(code = action.value, codeInvalid = false) else this
             BudgetSetupAction.Create -> if (busy || completed || session == AuthSession.Loading) this else {
@@ -68,13 +73,15 @@ class BudgetSetupReducer : Reducer<BudgetSetupState, BudgetSetupAction, BudgetSe
                 val request = event.pending
                 copy(budgets = event.budgets, pending = request, showingSaved = event.cached,
                     name = request?.draft?.name ?: name, balance = request?.draft?.openingBalance ?: balance,
+                    currency = request?.draft?.currency ?: currency, currencyPickerOpen = currencyPickerOpen && request == null,
                     mode = if (request != null) BudgetSetupMode.Cloud else mode,
                     page = when { request != null -> SetupPage.Create; !formOpened && event.budgets.isNotEmpty() -> SetupPage.List; else -> page })
             }
             is BudgetSetupEvent.LoadFinished -> if (event.generation == generation) copy(loading = false, loaded = event.error == null, error = event.error) else this
             is BudgetSetupEvent.Finished -> if (generation != event.generation || operationId != event.operationId || !busy) this else copy(
                 busy = false, completed = event.error == null, error = event.error, pending = event.pending,
-                name = event.pending?.draft?.name ?: name, balance = event.pending?.draft?.openingBalance ?: balance)
+                name = event.pending?.draft?.name ?: name, balance = event.pending?.draft?.openingBalance ?: balance,
+                currency = event.pending?.draft?.currency ?: currency)
         }
     }
 }

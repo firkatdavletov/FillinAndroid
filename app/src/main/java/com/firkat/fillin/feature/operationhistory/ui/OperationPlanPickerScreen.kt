@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.feature.budgetprofile.ui.LocalBudgetCurrency
+
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -58,7 +60,7 @@ internal fun OperationPlanPickerScreen(state: PlanPickerState, onGroup: (String)
                                 PlanningFrequency.Biweekly -> R.string.income_frequency_biweekly
                                 PlanningFrequency.Monthly -> R.string.income_frequency_monthly
                             }))
-                            Text(stringResource(R.string.plan_link_planned, group.payments.first().plannedAmount))
+                            Text(stringResource(R.string.plan_link_planned, group.payments.first().plannedAmount, LocalBudgetCurrency.current.symbol))
                         }
                     }
                 } else {
@@ -72,8 +74,8 @@ internal fun OperationPlanPickerScreen(state: PlanPickerState, onGroup: (String)
                                 RadioButton(selected = state.selected == plan, onClick = null)
                                 Column(Modifier.padding(start = 8.dp)) {
                                     Text(LocalDate.parse(plan.target.dueOn).format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)))
-                                    Text(stringResource(R.string.plan_link_planned, plan.plannedAmount))
-                                    Text(stringResource(R.string.plan_link_remaining, plan.remainingAmount))
+                                    Text(stringResource(R.string.plan_link_planned, plan.plannedAmount, LocalBudgetCurrency.current.symbol))
+                                    Text(stringResource(R.string.plan_link_remaining, plan.remainingAmount, LocalBudgetCurrency.current.symbol))
                                 }
                             }
                         }

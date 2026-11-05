@@ -44,6 +44,7 @@ internal fun OperationHistoryFilters(
         )
         OperationTotalsRow(
             expenses = state.periodTotals?.expenses,
+            currency = state.periodTotals?.currency ?: "KZT",
             incomes = state.periodTotals?.incomes,
             selectedType = when (state.filters.type) {
                 OperationType.Expense -> OperationTotalsType.Expense

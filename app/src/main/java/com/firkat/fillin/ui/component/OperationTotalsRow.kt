@@ -46,6 +46,7 @@ fun OperationTotalsRow(
     onTypeSelected: (OperationTotalsType?) -> Unit,
     modifier: Modifier = Modifier,
     testTagPrefix: String = "operation",
+    currency: String = "KZT",
 ) {
     Row(
         modifier = modifier.fillMaxWidth().height(IntrinsicSize.Min).testTag("$testTagPrefix-type-totals"),
@@ -55,6 +56,7 @@ fun OperationTotalsRow(
             OperationTotalBlock(
                 type = type,
                 amount = if (type == OperationTotalsType.Expense) expenses else incomes,
+                currency = currency,
                 selected = selectedType == type,
                 isLoading = isLoading,
                 onSelect = { onTypeSelected(type) },
@@ -70,6 +72,7 @@ fun OperationTotalsRow(
 private fun OperationTotalBlock(
     type: OperationTotalsType,
     amount: BigDecimal?,
+    currency: String,
     selected: Boolean,
     isLoading: Boolean,
     onSelect: () -> Unit,
@@ -115,7 +118,7 @@ private fun OperationTotalBlock(
                         strokeWidth = 2.dp,
                     )
                     else -> Text(
-                        text = amount?.let { formatMoney(it, "KZT") } ?: "—",
+                        text = amount?.let { formatMoney(it, currency) } ?: "—",
                         modifier = Modifier.testTag("$testTagPrefix-total-${type.tagValue}"),
                         style = if (selected) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,

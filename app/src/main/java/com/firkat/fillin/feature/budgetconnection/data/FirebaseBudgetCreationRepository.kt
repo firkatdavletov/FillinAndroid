@@ -38,12 +38,12 @@ class FirebaseBudgetCreationRepository(
     private suspend fun send(uid: String, saved: PendingBudgetCreation) {
         try {
             val draft = saved.draft
-            val result = requests.create(uid, CreateFirebaseBudgetDto(saved.requestId, draft.name, draft.openingBalance, draft.accountingStartedOn)).budgetBody()
+            val result = requests.create(uid, CreateFirebaseBudgetDto(saved.requestId, draft.name, draft.openingBalance, draft.accountingStartedOn, draft.currency.name)).budgetBody()
             try {
                 UUID.fromString(result.id); UUID.fromString(result.memberId)
                 require(result.name == draft.name && result.role == "OWNER")
             } catch (_: IllegalArgumentException) { throw BudgetConnectionFailure("invalid_response") }
-            connection.connect(uid, AvailableBudget(result.id, result.name, result.memberId, result.role))
+            connection.connect(uid, AvailableBudget(result.id, result.name, result.memberId, result.role, result.currency, result.currencyVersion))
             // Selection replaces the budget ViewModelStore and can cancel the caller at this point.
             withContext(NonCancellable) { store.complete(uid, saved.requestId) }
         } catch (error: HttpException) {

@@ -62,11 +62,10 @@ import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.math.MathContext
-import java.text.NumberFormat
+import com.firkat.fillin.ui.format.formatMoney
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Currency
 import java.util.Locale
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -906,16 +905,6 @@ private fun paidFraction(expense: PlannedExpense): Float {
         .divide(expense.plannedAmount, MathContext.DECIMAL64)
         .toFloat()
         .coerceIn(0f, 1f)
-}
-
-private fun formatMoney(amount: BigDecimal, currencyCode: String): String = runCatching {
-    NumberFormat.getCurrencyInstance(Locale.forLanguageTag("ru-KZ")).apply {
-        currency = Currency.getInstance(currencyCode)
-        minimumFractionDigits = 2
-        maximumFractionDigits = 2
-    }.format(amount)
-}.getOrElse {
-    "${amount.setScale(2).toPlainString()} $currencyCode"
 }
 
 private val shortDateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("ru"))

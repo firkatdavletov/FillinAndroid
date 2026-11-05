@@ -19,6 +19,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyPicker
+import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyRow
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
 import com.firkat.fillin.ui.component.*
@@ -31,6 +34,12 @@ internal fun BudgetSetupContent(
     snackbar: SnackbarHostState,
     modifier: Modifier = Modifier,
 ) {
+    if (state.currencyPickerOpen && state.editable && state.page == SetupPage.Create) {
+        BudgetCurrencyPicker(state.currency,
+            { onAction(BudgetSetupAction.CurrencyChanged(it)) },
+            { onAction(BudgetSetupAction.CloseCurrencyPicker) },
+        )
+    }
     Box(modifier.fillMaxSize()) {
         Image(painterResource(R.drawable.saldomi_auth_background), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Column(
@@ -49,12 +58,13 @@ internal fun BudgetSetupContent(
                 style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             when (state.page) {
                 SetupPage.Create -> BudgetCreationForm(
-                    name = state.name, balance = state.balance, mode = state.mode, enabled = state.editable,
+                    name = state.name, balance = state.balance, currency = state.currency, mode = state.mode, enabled = state.editable,
                     nameInvalid = state.nameInvalid, balanceInvalid = state.balanceInvalid,
                     pending = state.pending != null, busy = state.busy,
                     canCreate = state.canCreate,
                     onNameChange = { onAction(BudgetSetupAction.NameChanged(it)) },
                     onBalanceChange = { onAction(BudgetSetupAction.BalanceChanged(it)) },
+                    onCurrencyClick = { onAction(BudgetSetupAction.OpenCurrencyPicker) },
                     onStorageChange = { onAction(BudgetSetupAction.StorageChanged(it)) },
                     onCreateClick = { onAction(BudgetSetupAction.Create) },
                     onJoinClick = { onAction(BudgetSetupAction.OpenJoin) },
@@ -83,10 +93,10 @@ internal fun BudgetSetupContent(
 
 @Composable
 private fun BudgetCreationForm(
-    name: String, balance: String, mode: BudgetSetupMode, enabled: Boolean,
+    name: String, balance: String, currency: BudgetCurrency, mode: BudgetSetupMode, enabled: Boolean,
     nameInvalid: Boolean, balanceInvalid: Boolean, pending: Boolean, busy: Boolean, canCreate: Boolean,
     onNameChange: (String) -> Unit, onBalanceChange: (String) -> Unit,
-    onStorageChange: (BudgetSetupMode) -> Unit, onCreateClick: () -> Unit, onJoinClick: () -> Unit,
+    onCurrencyClick: () -> Unit, onStorageChange: (BudgetSetupMode) -> Unit, onCreateClick: () -> Unit, onJoinClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -95,7 +105,7 @@ private fun BudgetCreationForm(
         SaldomiFormTextField(name, onNameChange, stringResource(R.string.setup_name), FillinIcons.Folder,
             Modifier.fillMaxWidth().testTag("budget_setup_name"), enabled, if (nameInvalid) stringResource(R.string.setup_name_error) else null,
             KeyboardOptions(imeAction = ImeAction.Next))
-        SaldomiFormValue(stringResource(R.string.setup_currency), stringResource(R.string.setup_currency_value), FillinIcons.Currency, Modifier.fillMaxWidth())
+        BudgetCurrencyRow(currency, enabled, onCurrencyClick, Modifier.fillMaxWidth().testTag("budget_setup_currency"))
         SaldomiFormTextField(balance, onBalanceChange, stringResource(R.string.setup_balance), FillinIcons.Wallet,
             Modifier.fillMaxWidth().testTag("budget_setup_balance"), enabled, if (balanceInvalid) stringResource(R.string.setup_balance_error) else null,
             KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done))

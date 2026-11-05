@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyRow
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement
@@ -30,7 +32,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-data class BudgetManagementState(val id: String, val name: String, val deleting: Boolean, val value: String, val busy: Boolean = false, val error: Boolean = false, val family: Boolean = false)
+data class BudgetManagementState(val id: String, val name: String, val deleting: Boolean, val value: String, val busy: Boolean = false, val error: Boolean = false, val family: Boolean = false,
+    val originalCurrency: BudgetCurrency = BudgetCurrency.KZT,
+    val currency: BudgetCurrency = originalCurrency,
+    val pickerOpen: Boolean = false,
+    val confirmCurrency: Boolean = false,
+)
 class BudgetManagementViewModel(private val management: BudgetManagement, auth: AuthRepository) : ViewModel() {
     private val mutableState = MutableStateFlow<BudgetManagementState?>(null)
     val state = mutableState.asStateFlow()
@@ -39,24 +46,42 @@ class BudgetManagementViewModel(private val management: BudgetManagement, auth: 
         entries.filter { (it.deleting || it.error == "access_denied") && (it.uid == null || it.uid == uid) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     init { viewModelScope.launch { auth.session.collect { mutableState.value = null } } }
-    fun open(id: String, name: String, deleting: Boolean, family: Boolean = false) { mutableState.value = BudgetManagementState(id, name, deleting, if (deleting) "" else name, family = family) }
+    fun open(id: String, name: String, deleting: Boolean, family: Boolean = false, currency: BudgetCurrency = BudgetCurrency.KZT) {
+        mutableState.value = BudgetManagementState(id, name, deleting, if (deleting) "" else name, family = family, originalCurrency = currency)
+    }
+    fun openCurrencyPicker() = mutableState.update { it?.let { state -> if (state.busy || state.deleting) state else state.copy(pickerOpen = true) } }
+    fun closeCurrencyPicker() = mutableState.update { it?.copy(pickerOpen = false) }
+    fun selectCurrency(currency: BudgetCurrency) = mutableState.update { it?.copy(currency = currency, pickerOpen = false, error = false) }
+    fun dismissCurrencyConfirmation() = mutableState.update { it?.copy(confirmCurrency = false) }
+    fun confirmCurrencyChange() = confirm(allowCurrencyChange = true)
     fun change(value: String) { mutableState.value?.takeUnless { it.busy }?.let { mutableState.value = it.copy(value = value, error = false) } }
     fun close() { if (mutableState.value?.busy != true) mutableState.value = null }
     fun retry() = management.retry()
-    fun confirm() {
+    fun confirm() = confirm(allowCurrencyChange = false)
+
+    private fun confirm(allowCurrencyChange: Boolean) {
         val current = mutableState.value?.takeUnless { it.busy } ?: return
         if (current.deleting && current.value.trim() != current.name.trim() || !current.deleting && !validBudgetName(current.value)) return
-        mutableState.value = current.copy(busy = true)
+        val newCurrency = current.currency.takeUnless { current.deleting || it == current.originalCurrency }
+        if (newCurrency != null && !allowCurrencyChange) {
+            mutableState.value = current.copy(confirmCurrency = true)
+            return
+        }
+        mutableState.value = current.copy(busy = true, confirmCurrency = false)
         viewModelScope.launch {
-            try { management.submit(current.id, if (current.deleting) current.name else current.value, current.deleting); mutableState.value = null }
+            try {
+                management.submit(current.id, if (current.deleting) current.name else current.value,
+                    current.deleting, newCurrency, rename = current.value.trim() != current.name)
+                if (mutableState.value?.id == current.id) mutableState.value = null
+            }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { if (mutableState.value?.id == current.id) mutableState.value = current.copy(error = true) }
+            catch (_: Exception) { if (mutableState.value?.id == current.id) mutableState.value = current.copy(error = true, confirmCurrency = false) }
         }
     }
 }
 
 @Composable
-internal fun BudgetManagementSheet(state: BudgetManagementState, onChange: (String) -> Unit, onConfirm: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+internal fun BudgetManagementSheet(state: BudgetManagementState, onChange: (String) -> Unit, onConfirm: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier, onCurrencyClick: () -> Unit = {}) {
     SaldomiBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
             if (state.deleting) {
@@ -71,7 +96,7 @@ internal fun BudgetManagementSheet(state: BudgetManagementState, onChange: (Stri
                     Icon(if (state.family) FillinIcons.FamilyAccess else FillinIcons.Wallet, null, tint = MaterialTheme.colorScheme.primary)
                     Column {
                         Text(state.name, style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(if (state.family) R.string.profile_family_budget else R.string.profile_personal_budget), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(if (state.family) R.string.profile_family_budget else R.string.profile_personal_budget, state.originalCurrency.name), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
@@ -82,7 +107,7 @@ internal fun BudgetManagementSheet(state: BudgetManagementState, onChange: (Stri
                 label = stringResource(if (state.deleting) R.string.budget_manage_confirm_name else R.string.cloud_budget_name), modifier = Modifier.fillMaxWidth().testTag("budget_management_input"))
             if (!state.deleting) {
                 ListItem(headlineContent = { Text(stringResource(R.string.budget_manage_type)) }, trailingContent = { Text(stringResource(if (state.family) R.string.budget_manage_family else R.string.budget_manage_personal)) })
-                ListItem(headlineContent = { Text(stringResource(R.string.budget_manage_currency)) }, trailingContent = { Text(stringResource(R.string.budget_manage_kzt)) }, leadingContent = { Icon(FillinIcons.Currency, null) })
+                BudgetCurrencyRow(state.currency, !state.busy, onCurrencyClick, Modifier.testTag("budget_management_currency"))
             }
             if (state.error) Text(stringResource(R.string.budget_manage_error), color = MaterialTheme.colorScheme.error)
             SaldomiButton(onClick = onConfirm, modifier = Modifier.fillMaxWidth().testTag("budget_management_confirm"), large = true, isLoading = state.busy, destructive = state.deleting,
@@ -92,6 +117,28 @@ internal fun BudgetManagementSheet(state: BudgetManagementState, onChange: (Stri
             SaldomiOutlinedButton(onClick = onDismiss, enabled = !state.busy, large = true, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.profile_delete_cancel)) }
         }
     }
+}
+
+@Composable
+internal fun BudgetCurrencyConfirmation(
+    from: BudgetCurrency,
+    to: BudgetCurrency,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.budget_currency_change_title)) },
+        text = { Text(stringResource(R.string.budget_currency_change_message, from.symbol, to.symbol)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.budget_manage_save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.profile_delete_cancel)) } },
+    )
+}
+
+@Preview(name = "Confirm currency")
+@Preview(name = "Confirm currency dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun CurrencyConfirmationPreview() {
+    FillinTheme { BudgetCurrencyConfirmation(BudgetCurrency.KZT, BudgetCurrency.RUB, {}, {}) }
 }
 
 @Composable

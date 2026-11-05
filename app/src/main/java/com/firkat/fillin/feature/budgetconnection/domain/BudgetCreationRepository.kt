@@ -1,9 +1,11 @@
 package com.firkat.fillin.feature.budgetconnection.domain
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import java.math.BigDecimal
 import java.time.LocalDate
 
-data class BudgetCreationDraft(val name: String, val openingBalance: String, val accountingStartedOn: String) {
+data class BudgetCreationDraft(val name: String, val openingBalance: String, val accountingStartedOn: String, val currency: BudgetCurrency = BudgetCurrency.KZT) {
     fun validated(today: LocalDate): BudgetCreationDraft {
         val title = name.trim()
         require(title.length in 1..80 && title.none(Char::isISOControl))
@@ -12,7 +14,7 @@ data class BudgetCreationDraft(val name: String, val openingBalance: String, val
         require(balance.scale() <= 2 && balance.abs() <= BigDecimal("99999999999999999.99"))
         val date = LocalDate.parse(accountingStartedOn.trim())
         require(date.year >= 1 && date <= today)
-        return BudgetCreationDraft(title, balance.setScale(2).toPlainString(), date.toString())
+        return BudgetCreationDraft(title, balance.setScale(2).toPlainString(), date.toString(), currency)
     }
 }
 

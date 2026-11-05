@@ -34,7 +34,7 @@ class OperationPlanLinkPersistenceTest {
     private val clock = Clock.fixed(Instant.parse("2026-10-30T06:00:00Z"), ZoneId.of("Asia/Almaty"))
     private val today = LocalDate.parse("2026-10-30")
     @get:Rule val migrations = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), OperationDatabase::class.java)
-    private fun open() = Room.databaseBuilder(context, OperationDatabase::class.java, name).addMigrations(BUDGET_MIGRATION_4_5).build()
+    private fun open() = Room.databaseBuilder(context, OperationDatabase::class.java, name).addMigrations(*BUDGET_MIGRATIONS).build()
     private fun store() = BudgetStore(database, scheduler, json, clock)
     private fun history(store: BudgetStore) = OfflineOperationHistoryRepository(database, RetiredOperationHistory,
         OperationsSynchronizer(RetiredOperationSyncApi, RoomOperationSyncStorage(database, json), "", json), scheduler,

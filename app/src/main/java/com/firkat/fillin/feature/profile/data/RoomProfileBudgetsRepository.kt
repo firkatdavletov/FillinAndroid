@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.profile.data
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetconnection.domain.BudgetConnectionRepository
@@ -11,6 +13,7 @@ import com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore
 import com.firkat.fillin.feature.profile.domain.ProfileBudget
 import com.firkat.fillin.feature.profile.domain.ProfileBudgetsRepository
 import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
+import com.firkat.fillin.feature.sync.data.CreateCloudBudget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -40,24 +43,32 @@ class RoomProfileBudgetsRepository(
         val cloud = uid?.let { connection.cachedBudgets(it) }.orEmpty()
         val localRows = available.filter { it.kind != BudgetProfileKind.CLOUD }.mapNotNull { profile ->
             val database = databases.open(profile)
-            val ready = try {
-                database.operations().state()?.let { it.localReady || it.initialSyncComplete } == true
-            } finally { database.close() }
-            if (ready) ProfileBudget(profile.id, profile.name, false, runtime?.profile?.id == profile.id) else null
+            val state = try { database.operations().state() } finally { database.close() }
+            if (state != null && (state.localReady || state.initialSyncComplete)) {
+                ProfileBudget(profile.id, profile.name, false, runtime?.profile?.id == profile.id,
+                    currency = BudgetCurrency.valueOf(state.currency))
+            } else null
         }
         val cloudRows = cloud.map { budget ->
-            ProfileBudget("cloud:${budget.id}", budget.name, true, runtime?.profile?.budgetId == budget.id, budget.role == "OWNER")
+            ProfileBudget("cloud:${budget.id}", budget.name, true, runtime?.profile?.budgetId == budget.id, budget.role == "OWNER", currency = BudgetCurrency.valueOf(budget.currency))
         }
         // An uploaded local budget is selectable before its first successful server exchange.
         val uploadedRows = available.filter { profile ->
             profile.kind == BudgetProfileKind.CLOUD && cloud.none { it.id == profile.budgetId }
         }.map { profile ->
-            ProfileBudget(profile.id, uploads.find(profile.id)?.name, true, runtime?.profile?.id == profile.id, profile.role == "OWNER")
+            val upload = uploads.find(profile.id)
+            val currency = upload?.let { json.decodeFromString<CreateCloudBudget>(it.bootstrapPayload).currency }
+            ProfileBudget(profile.id, upload?.name, true, runtime?.profile?.id == profile.id, profile.role == "OWNER",
+                currency = currency?.let(BudgetCurrency::valueOf) ?: BudgetCurrency.KZT)
         }
         // A suspended read from a previous account must never publish that account's catalog.
         if (uid == currentUid()) (cloudRows + uploadedRows + localRows).mapNotNull { row ->
             val changes = pending.filter { it.error != "access_denied" && (it.uid == null || it.uid == uid) && (it.profileId == row.id || "cloud:${it.budgetId}" == row.id) }
-            if (changes.any { it.deleting }) null else row.copy(name = changes.lastOrNull()?.name ?: row.name, pendingRename = changes.isNotEmpty())
+            if (changes.any { it.deleting }) null else row.copy(
+                name = changes.lastOrNull { it.rename }?.name ?: row.name,
+                pendingRename = changes.isNotEmpty(),
+                currency = changes.asReversed().firstNotNullOfOrNull { it.currency }?.let(BudgetCurrency::valueOf) ?: row.currency,
+            )
         } else emptyList()
     }.flowOn(Dispatchers.IO)
 
@@ -78,6 +89,10 @@ class RoomProfileBudgetsRepository(
 
     override suspend fun createLocal(balance: BigDecimal, startedOn: LocalDate) {
         createLocalInternal(null, balance, startedOn)
+    }
+
+    override suspend fun createLocal(balance: BigDecimal, startedOn: LocalDate, currency: BudgetCurrency) {
+        localCreator.createLocal(null, balance, startedOn, currency)
     }
 
     override suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate) {

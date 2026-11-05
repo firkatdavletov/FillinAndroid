@@ -63,7 +63,7 @@ interface BudgetProfileDao {
     suspend fun select(selection: BudgetProfileSelection)
 }
 
-@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class, com.firkat.fillin.feature.budgetmanagement.data.BudgetManagementEntry::class], version = 7, exportSchema = true)
+@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class, com.firkat.fillin.feature.budgetmanagement.data.BudgetManagementEntry::class], version = 8, exportSchema = true)
 abstract class BudgetProfileDatabase : RoomDatabase() {
     abstract fun management(): com.firkat.fillin.feature.budgetmanagement.data.BudgetManagementDao
     abstract fun profiles(): BudgetProfileDao
@@ -110,3 +110,23 @@ val PROFILE_MIGRATION_6_7 = object : Migration(6, 7) {
         db.execSQL("CREATE TABLE IF NOT EXISTS budget_management (requestId TEXT NOT NULL PRIMARY KEY, profileId TEXT NOT NULL, uid TEXT, budgetId TEXT, name TEXT NOT NULL, deleting INTEGER NOT NULL, createdAt INTEGER NOT NULL, error TEXT)")
     }
 }
+
+val PROFILE_MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE pending_budget_creation ADD COLUMN currency TEXT NOT NULL DEFAULT 'KZT'")
+        db.execSQL("ALTER TABLE cloud_budget_catalog ADD COLUMN currency TEXT NOT NULL DEFAULT 'KZT'")
+        db.execSQL("ALTER TABLE cloud_budget_catalog ADD COLUMN currencyVersion INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE budget_management ADD COLUMN currency TEXT")
+        db.execSQL("ALTER TABLE budget_management ADD COLUMN rename INTEGER NOT NULL DEFAULT 1")
+    }
+}
+
+internal val PROFILE_MIGRATIONS = arrayOf(
+    PROFILE_MIGRATION_1_2,
+    PROFILE_MIGRATION_2_3,
+    PROFILE_MIGRATION_3_4,
+    PROFILE_MIGRATION_4_5,
+    PROFILE_MIGRATION_5_6,
+    PROFILE_MIGRATION_6_7,
+    PROFILE_MIGRATION_7_8,
+)

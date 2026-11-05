@@ -49,6 +49,8 @@ internal fun BudgetSetupScreen(
         }
     }
     LaunchedEffect(state.page, state.initialized) { if (state.initialized) onPageChange(state.page) }
-    BackHandler { viewModel.onAction(BudgetSetupAction.Back) }
+    BackHandler {
+        viewModel.onAction(if (state.currencyPickerOpen) BudgetSetupAction.CloseCurrencyPicker else BudgetSetupAction.Back)
+    }
     BudgetSetupContent(state, viewModel::onAction, snackbar)
 }

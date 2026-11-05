@@ -51,11 +51,11 @@ class BudgetSetupInteractor(
                     val today = LocalDate.now(clock.withZone(ZoneId.of("Asia/Almaty")))
                     when (command.kind) {
                         SubmitKind.Local -> {
-                            val draft = BudgetCreationDraft(state.name, state.balance, today.toString()).validated(today)
-                            local.createLocal(draft.name, draft.openingBalance.toBigDecimal(), today)
+                            val draft = BudgetCreationDraft(state.name, state.balance, today.toString(), state.currency).validated(today)
+                            local.createLocal(draft.name, draft.openingBalance.toBigDecimal(), today, draft.currency)
                         }
                         SubmitKind.Cloud -> if (pending != null) creation.resume(requireNotNull(state.uid)) else {
-                            creation.create(requireNotNull(state.uid), BudgetCreationDraft(state.name, state.balance, today.toString()))
+                            creation.create(requireNotNull(state.uid), BudgetCreationDraft(state.name, state.balance, today.toString(), state.currency))
                         }
                         SubmitKind.Connect -> connection.connect(requireNotNull(state.uid), requireNotNull(command.budget))
                         SubmitKind.Join -> family.join(requireNotNull(state.uid), FamilyInvitationCode.normalize(state.code))

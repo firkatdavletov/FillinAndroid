@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.budgetconnection.data
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import androidx.room.withTransaction
 import com.firkat.fillin.feature.budgetconnection.domain.*
 import com.firkat.fillin.feature.budgetprofile.data.*
@@ -43,7 +45,7 @@ class RoomBudgetConnectionRepository(
         requests.budgets(uid).budgetBody().map {
             UUID.fromString(it.id); UUID.fromString(it.memberId)
             require(it.name.isNotBlank() && it.role in setOf("OWNER", "MEMBER"))
-            AvailableBudget(it.id, it.name, it.memberId, it.role)
+            AvailableBudget(it.id, it.name, it.memberId, it.role, it.currency, it.currencyVersion)
         }.also { rows ->
             require(rows.map { it.id }.distinct().size == rows.size)
             requests.ensureCurrent(uid)
@@ -72,7 +74,7 @@ class RoomBudgetConnectionRepository(
                     val state = lease.scope.get<OperationDatabase>().operations().state()
                     if (state?.householdId == budget.id && state.memberId == remote.memberId) {
                         active.attachLegacy(uid, budget.id, remote.memberId, remote.role)
-                        catalog.remember(uid, budget.copy(role = remote.role))
+                        catalog.remember(uid, budget.copy(role = remote.role, currency = remote.currency, currencyVersion = remote.currencyVersion))
                         scheduler.schedule()
                         return@mapped
                     }
@@ -107,7 +109,7 @@ class RoomBudgetConnectionRepository(
                         do {
                             val cursor = storage.state().cursor
                             val page = requests.changes(uid, budget.id, cursor).budgetBody()
-                            require(page.scope == remote && page.nextCursor.isNotBlank() && (!page.hasMore || page.nextCursor != cursor))
+                            require(page.scope.copy(currency = remote.currency, currencyVersion = remote.currencyVersion) == remote && page.nextCursor.isNotBlank() && (!page.hasMore || page.nextCursor != cursor))
                             storage.apply(page)
                         } while (page.hasMore)
                         requests.ensureCurrent(uid)
@@ -144,7 +146,7 @@ class RoomBudgetConnectionRepository(
                 withContext(NonCancellable) {
                     requests.ensureCurrent(uid)
                     if (originalProfile != null) profiles.replaceCloudMembership(originalProfile.id, profile)
-                    catalog.remember(uid, budget.copy(role = remote.role))
+                    catalog.remember(uid, budget.copy(role = remote.role, currency = remote.currency, currencyVersion = remote.currencyVersion))
                     active.select(profile.id, expectedUid = uid)
                     scheduler.schedule()
                 }
@@ -178,7 +180,7 @@ class RoomBudgetConnectionRepository(
     private fun validate(scope: SyncScopeDto, budget: AvailableBudget) {
         UUID.fromString(scope.householdId); UUID.fromString(scope.memberId)
         require(scope.householdId == budget.id && scope.memberId == budget.memberId && scope.role in setOf("OWNER", "MEMBER"))
-        require(scope.currency == "KZT" && scope.timeZone == "Asia/Almaty")
+        require(BudgetCurrency.entries.any { it.name == scope.currency } && scope.timeZone == "Asia/Almaty")
         Instant.parse(scope.accountingStartedAt)
     }
 

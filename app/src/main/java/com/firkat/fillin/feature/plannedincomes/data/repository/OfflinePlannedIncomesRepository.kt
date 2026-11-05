@@ -119,7 +119,7 @@ class OfflinePlannedIncomesRepository(
             requireNotNull(i.categoryId),
             p.categories[i.categoryId]?.name.orEmpty(),
             requireNotNull(i.amount).toBigDecimal(),
-            "KZT",
+            p.currency,
             due,
             due < currentDate(),
             PlannedIncomeStatus.Scheduled,

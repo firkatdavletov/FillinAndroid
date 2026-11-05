@@ -14,6 +14,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+import com.firkat.fillin.feature.sync.data.BudgetStore
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
@@ -24,6 +26,8 @@ import org.koin.compose.koinInject
 import org.koin.compose.scope.UnboundKoinScope
 import org.koin.core.annotation.KoinDelicateAPI
 import org.koin.core.annotation.KoinExperimentalAPI
+
+internal val LocalBudgetCurrency = staticCompositionLocalOf { BudgetCurrency.KZT }
 
 /** Keeps Main's budget models alive while an Auth entry covers it, and across rotation. */
 class MainBudgetViewModelStore : ViewModel(), ViewModelStoreOwner {
@@ -90,7 +94,13 @@ fun ActiveBudgetContent(
                 }
             }
             UnboundKoinScope(lease.scope) {
-                CompositionLocalProvider(LocalViewModelStoreOwner provides stateOwner, content = content)
+                val store = remember(lease) { lease.scope.get<BudgetStore>() }
+                val currency by store.currency.collectAsStateWithLifecycle(initialValue = BudgetCurrency.KZT)
+                CompositionLocalProvider(
+                    LocalViewModelStoreOwner provides stateOwner,
+                    LocalBudgetCurrency provides currency,
+                    content = content,
+                )
             }
         }
     }

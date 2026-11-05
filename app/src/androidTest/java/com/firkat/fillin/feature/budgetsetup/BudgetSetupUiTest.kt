@@ -74,9 +74,15 @@ class BudgetSetupUiTest {
         compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
         compose.onNodeWithTag("budget_setup_balance").performScrollTo().performTextReplacement("123,45")
         closeSoftKeyboard()
+        compose.onNodeWithText("Российский рубль · RUB").assertExists()
+        compose.onNodeWithTag("budget_setup_currency").performScrollTo().performClick()
+        compose.onNodeWithText("Евро · EUR").performClick()
         compose.onNodeWithTag("setup_create").performScrollTo().performClick()
         waitForCompletion()
         assertEquals("Поездка", env.manager.active.value!!.profile.name)
+        runBlocking {
+            env.database(env.manager.active.value!!.profile) { assertEquals("EUR", it.operations().state()?.currency) }
+        }
         assertTrue(server.creations.isEmpty())
     }
     @Test fun invalidAmountShowsFieldErrorAndCanBeCorrected() {
@@ -104,6 +110,7 @@ class BudgetSetupUiTest {
         waitForCompletion()
         assertEquals(BudgetProfileKind.CLOUD, env.manager.active.value!!.profile.kind)
         assertEquals(1, server.creations.size); assertEquals("125.50", server.openingBalance)
+        assertEquals("RUB", server.creations.values.single().first.currency)
     }
     @Test fun existingBudgetRequiresExplicitSelection() {
         server.budgetExists = true; show(signedIn = true)

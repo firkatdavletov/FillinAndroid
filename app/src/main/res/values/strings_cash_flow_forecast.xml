@@ -20,7 +20,7 @@
     <string name="forecast_loading">Загружаем прогноз…</string>
     <string name="forecast_previous_day">Предыдущий день</string>
     <string name="forecast_next_day">Следующий день</string>
-    <string name="forecast_zero">0 ₸</string>
+    <string name="forecast_zero">0 %1$s</string>
     <string name="forecast_tab">Прогноз</string>
     <string name="forecast_events_tab">События</string>
     <string name="forecast_parameters_tab">Параметры</string>

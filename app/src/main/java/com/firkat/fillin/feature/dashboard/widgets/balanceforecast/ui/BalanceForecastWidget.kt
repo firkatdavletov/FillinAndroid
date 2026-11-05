@@ -191,7 +191,9 @@ internal fun ForecastChart(state: ForecastUiState, modifier: Modifier = Modifier
     val previous = stringResource(R.string.forecast_previous_day)
     val next = stringResource(R.string.forecast_next_day)
     val chartLabel = stringResource(R.string.dashboard_forecast_chart)
-    val zero = stringResource(R.string.forecast_zero)
+    val currency = all.firstOrNull()?.balance?.currency ?: state.reserve.currency
+    val symbol = com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency.valueOf(currency).symbol
+    val zero = stringResource(R.string.forecast_zero, symbol)
     val textMeasurer = rememberTextMeasurer()
     val zeroLayout = textMeasurer.measure(zero, MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface))
     val paceLabel = stringResource(R.string.forecast_current_pace)

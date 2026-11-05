@@ -53,6 +53,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.DeleteOutline
 import org.koin.compose.viewmodel.koinViewModel
+import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyPicker
+import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyRow
+import com.firkat.fillin.feature.budgetmanagement.ui.BudgetCurrencyConfirmation
 
 @Composable
 fun ProfileRoute(
@@ -69,7 +72,21 @@ fun ProfileRoute(
     val management: BudgetManagementViewModel = koinViewModel()
     val managementState by management.state.collectAsStateWithLifecycle()
     val pendingDeletions by management.pending.collectAsStateWithLifecycle()
-    managementState?.let { BudgetManagementSheet(it, management::change, management::confirm, management::close) }
+    managementState?.let {
+        if (it.pickerOpen) {
+            BudgetCurrencyPicker(
+                it.currency, management::selectCurrency, management::closeCurrencyPicker,
+            )
+        } else {
+            BudgetManagementSheet(it, management::change, management::confirm, management::close,
+                onCurrencyClick = management::openCurrencyPicker)
+        }
+        if (it.confirmCurrency) {
+            BudgetCurrencyConfirmation(
+                it.originalCurrency, it.currency, management::confirmCurrencyChange, management::dismissCurrencyConfirmation,
+            )
+        }
+    }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val deletionState by deletionViewModel.deletion.state.collectAsStateWithLifecycle()
     val confirmation by deletionViewModel.confirmation.collectAsStateWithLifecycle()
@@ -98,7 +115,9 @@ fun ProfileRoute(
     ProfileScreen(
         onManageBudget = { id, name, deleting ->
             viewModel.closeBudgetActions()
-            management.open(id, name, deleting, state.budgets.firstOrNull { it.id == id }?.family == true)
+            state.budgets.firstOrNull { it.id == id && it.canManage }?.let { budget ->
+                management.open(id, name, deleting, budget.family, budget.currency)
+            }
         },
         onBudgetActionsClick = viewModel::toggleBudgetActions,
         managementContent = { pendingDeletions.forEach { PendingBudgetDeletion(it.name, it.error != null && it.error != "sending", management::retry, sending = it.error == "sending", denied = it.error == "access_denied") } },
@@ -125,12 +144,15 @@ fun ProfileRoute(
         onRetry = viewModel::refresh,
     )
     state.creation?.let { draft ->
-        ProfileBudgetCreationDialog(
+        if (state.currencyPickerOpen) {
+            BudgetCurrencyPicker(draft.currency, viewModel::selectCurrency, viewModel::closeCurrencyPicker)
+        } else ProfileBudgetCreationDialog(
             draft = draft,
             busy = state.busy,
             pending = state.pendingCreation,
             error = state.error,
             onDraftChange = viewModel::editCreation,
+            onCurrencyClick = viewModel::openCurrencyPicker,
             onCreateCloudClick = viewModel::createCloud,
             onCreateLocalClick = viewModel::createLocal,
             onDismiss = viewModel::closeCreation,
@@ -237,6 +259,7 @@ fun ProfileScreen(
                         onRename = { onManageBudget(budget.id, displayName, false) },
                         onRemove = { onManageBudget(budget.id, displayName, true) },
                         family = budget.family,
+                        currency = budget.currency.name,
                         selected = budget.selected,
                         enabled = !state.busy,
                         onClick = { onBudgetClick(budget.id) },
@@ -303,6 +326,7 @@ private fun ProfileBudgetCard(
     onRemove: () -> Unit = {},
     expanded: Boolean = false,
     onActionsClick: () -> Unit = {},
+    currency: String = "KZT",
 ) {
     val colors = MaterialTheme.colorScheme
     val container by animateColorAsState(
@@ -333,7 +357,7 @@ private fun ProfileBudgetCard(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
                 if (pendingRename) Text(stringResource(R.string.budget_manage_pending_rename), style = MaterialTheme.typography.bodySmall)
-                Text(stringResource(if (family) R.string.profile_family_budget else R.string.profile_personal_budget), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(if (family) R.string.profile_family_budget else R.string.profile_personal_budget, currency), style = MaterialTheme.typography.bodySmall)
             }
             Icon(
                 Icons.Filled.CheckCircle,
@@ -402,6 +426,7 @@ private fun ProfileBudgetCreationDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     signedIn: Boolean = true,
+    onCurrencyClick: () -> Unit = {},
 ) {
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -412,6 +437,7 @@ private fun ProfileBudgetCreationDialog(
                 if (signedIn) OutlinedTextField(draft.name, { onDraftChange(draft.copy(name = it)) }, label = { Text(stringResource(R.string.cloud_budget_name)) }, enabled = !busy && !pending, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(draft.openingBalance, { onDraftChange(draft.copy(openingBalance = it)) }, label = { Text(stringResource(R.string.cloud_budget_opening_balance)) }, enabled = !busy && !pending, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(draft.accountingStartedOn, { onDraftChange(draft.copy(accountingStartedOn = it)) }, label = { Text(stringResource(R.string.cloud_budget_start_date)) }, enabled = !busy && !pending, singleLine = true, modifier = Modifier.fillMaxWidth())
+                BudgetCurrencyRow(draft.currency, !busy && !pending, onCurrencyClick, Modifier.testTag("profile_creation_currency"))
                 if (pending) Text(stringResource(R.string.cloud_budget_create_pending))
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -543,7 +569,7 @@ internal fun BudgetPickerRoute(onSignIn: () -> Unit = {}, viewModel: ProfileView
         Text(stringResource(R.string.budget_manage_pick), style = MaterialTheme.typography.headlineSmall)
         state.budgets.forEach { budget ->
             OutlinedButton(onClick = { viewModel.selectBudget(budget.id) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
-                Text(budget.name ?: stringResource(R.string.profile_personal_budget))
+                Text(budget.name ?: stringResource(R.string.profile_personal_budget, budget.currency.name))
             }
         }
         pending.forEach { PendingBudgetDeletion(it.name, it.error != null && it.error != "sending", management::retry, sending = it.error == "sending", denied = it.error == "access_denied") }

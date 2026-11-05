@@ -3,7 +3,7 @@
     <string name="rule_edit_title">Редактирование правила</string>
     <string name="rule_name">Название</string>
     <string name="rule_category">Категория</string>
-    <string name="rule_amount">Сумма, ₸</string>
+    <string name="rule_amount">Сумма, %1$s</string>
     <string name="rule_frequency">Периодичность</string>
     <string name="rule_date">Дата первого выполнения</string>
     <string name="rule_select">Выбрать</string>

@@ -40,7 +40,7 @@ internal fun OperationAmountInput(value: String, enabled: Boolean, isError: Bool
         },
         textStyle = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        suffix = { Text(stringResource(R.string.operation_create_currency), fontSize = 28.sp) },
+        suffix = { Text(com.firkat.fillin.feature.budgetprofile.ui.LocalBudgetCurrency.current.symbol, fontSize = 28.sp) },
         trailingIcon = { IconButton(onClick = { onValueChange("") }, enabled = enabled && value.isNotEmpty()) {
             Icon(Icons.Outlined.Backspace, stringResource(R.string.operation_create_clear))
         } },
