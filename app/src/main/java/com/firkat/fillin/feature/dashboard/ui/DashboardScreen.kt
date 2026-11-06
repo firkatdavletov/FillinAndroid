@@ -1,13 +1,24 @@
 package com.firkat.fillin.feature.dashboard.ui
 
 import android.content.res.Configuration
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -37,20 +48,18 @@ import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitWidge
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceRoute
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceUiState
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceWidget
-import com.firkat.fillin.feature.sync.ui.BudgetSyncPanel
-import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.theme.FillinTheme
+import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun DashboardRoute(
     viewModel: DashboardViewModel = koinViewModel(),
     onForecastClick: () -> Unit = {},
-    onPaymentsClick: (java.time.LocalDate, java.time.LocalDate) -> Unit = { _, _ -> },
+    onPaymentsClick: (LocalDate, LocalDate) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onEvent(DashboardEvent.Resume) }
@@ -80,27 +89,39 @@ fun DashboardScreen(
         hasScrollableContent = state.status == DashboardStatus.Ready,
     ) {
         when (state.status) {
-            DashboardStatus.Ready -> DashboardGrid(
-                header = { DashboardHeader(state.date) }, widgetContent = widgetContent,
-            )
-            DashboardStatus.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            else -> Column(
-                Modifier.fillMaxSize().padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(
-                    stringResource(when (state.status) {
-                        DashboardStatus.Forbidden -> R.string.dashboard_error_forbidden
-                        DashboardStatus.LocalError -> R.string.dashboard_error_local_data
-                        else -> R.string.dashboard_initial_sync
-                    }), textAlign = TextAlign.Center,
+            DashboardStatus.Ready -> {
+                DashboardGrid(
+                    header = { DashboardHeader(state.date) },
+                    widgetContent = widgetContent,
                 )
-                if (state.status != DashboardStatus.WaitingForBudget) {
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = { onEvent(DashboardEvent.Retry) }) { Text(stringResource(R.string.dashboard_retry)) }
+            }
+
+            DashboardStatus.Loading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            else -> {
+                Column(
+                    Modifier.fillMaxSize().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        stringResource(
+                            when (state.status) {
+                                DashboardStatus.Forbidden -> R.string.dashboard_error_forbidden
+                                DashboardStatus.LocalError -> R.string.dashboard_error_local_data
+                                else -> R.string.dashboard_initial_sync
+                            },
+                        ),
+                        textAlign = TextAlign.Center,
+                    )
+                    if (state.status != DashboardStatus.WaitingForBudget) {
+                        Spacer(Modifier.height(16.dp))
+                        Button(onClick = { onEvent(DashboardEvent.Retry) }) { Text(stringResource(R.string.dashboard_retry)) }
+                    }
                 }
             }
         }
@@ -115,7 +136,9 @@ fun DashboardGrid(
     widgetContent: @Composable (DashboardWidget) -> Unit,
 ) {
     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
-    BoxWithConstraints(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    BoxWithConstraints(
+        modifier = modifier.fillMaxSize(),
+    ) {
         val cellWidth = (maxWidth - 32.dp - 12.dp) / 2
         val cellHeight = cellWidth * 0.5f
         // Keep two columns while allowing enlarged labels to wrap above the values.
@@ -123,17 +146,22 @@ fun DashboardGrid(
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize().testTag("dashboard-grid"),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (header != null) item(key = "dashboard-header", span = { GridItemSpan(2) }) { header() }
             items(widgets, key = { it.id }, span = { GridItemSpan(it.size.columns) }) { widget ->
                 Box(
-                    Modifier.fillMaxWidth()
-                        .then(if (widget.kind in setOf(DashboardWidgetKind.DailyLimit, DashboardWidgetKind.BalanceForecast)) Modifier
-                            else Modifier.height(rowHeight * widget.size.rows + 12.dp * (widget.size.rows - 1)))
-                        .testTag("dashboard-widget-${widget.id}"),
+                    Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (widget.kind in setOf(DashboardWidgetKind.DailyLimit, DashboardWidgetKind.BalanceForecast)) {
+                                Modifier
+                            } else {
+                                Modifier.height(rowHeight * widget.size.rows + 12.dp * (widget.size.rows - 1))
+                            },
+                        ).testTag("dashboard-widget-${widget.id}"),
                     propagateMinConstraints = true,
                 ) { widgetContent(widget) }
             }
@@ -142,7 +170,9 @@ fun DashboardGrid(
 }
 
 @Composable
-private fun DashboardHeader(date: LocalDate?) {
+private fun DashboardHeader(
+    date: LocalDate?,
+) {
     Column(Modifier.padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             text = stringResource(R.string.app_name),
@@ -154,7 +184,8 @@ private fun DashboardHeader(date: LocalDate?) {
             val locale = Locale.forLanguageTag("ru-KZ")
             Text(
                 it.format(DateTimeFormatter.ofPattern("dd LLLL yyyy", locale)),
-                style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -169,32 +200,45 @@ private fun DashboardHeader(date: LocalDate?) {
 private fun DashboardGridPreview() {
     FillinTheme {
         DashboardGrid(
-            widgets = DefaultDashboardWidgets + listOf(
-                DashboardWidget("wide", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
-                DashboardWidget("large", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByTwo),
-            ),
+            widgets =
+                DefaultDashboardWidgets +
+                    listOf(
+                        DashboardWidget("wide", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
+                        DashboardWidget("large", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByTwo),
+                    ),
             header = { DashboardHeader(LocalDate.of(2026, 10, 25)) },
         ) { widget ->
             when (widget.kind) {
-                DashboardWidgetKind.TotalBalance -> TotalBalanceWidget(
-                    TotalBalanceUiState(Money("12345678.90".toBigDecimal(), "KZT")),
-                )
-                DashboardWidgetKind.AvailableToSpend -> AvailableToSpendWidget(
-                    AvailableToSpendUiState(Money("-12345.67".toBigDecimal(), "KZT")),
-                )
-                DashboardWidgetKind.DailyLimit -> DailyLimitWidget(
-                    DailyLimitUiState(
-                        amount = Money("123456.00".toBigDecimal(), "KZT"),
-                        spentToday = Money("30864.00".toBigDecimal(), "KZT"),
-                        remainingToday = Money("92592.00".toBigDecimal(), "KZT"),
-                        spentPercent = "25.0".toBigDecimal(),
-                        remainingPercent = "75.0".toBigDecimal(),
-                        progress = 0.25f,
-                    ),
-                )
-                DashboardWidgetKind.BalanceForecast -> BalanceForecastWidget(
-                    forecastPreviewState,
-                )
+                DashboardWidgetKind.TotalBalance -> {
+                    TotalBalanceWidget(
+                        TotalBalanceUiState(Money("12345678.90".toBigDecimal(), "KZT")),
+                    )
+                }
+
+                DashboardWidgetKind.AvailableToSpend -> {
+                    AvailableToSpendWidget(
+                        AvailableToSpendUiState(Money("-12345.67".toBigDecimal(), "KZT")),
+                    )
+                }
+
+                DashboardWidgetKind.DailyLimit -> {
+                    DailyLimitWidget(
+                        DailyLimitUiState(
+                            amount = Money("123456.00".toBigDecimal(), "KZT"),
+                            spentToday = Money("30864.00".toBigDecimal(), "KZT"),
+                            remainingToday = Money("92592.00".toBigDecimal(), "KZT"),
+                            spentPercent = "25.0".toBigDecimal(),
+                            remainingPercent = "75.0".toBigDecimal(),
+                            progress = 0.25f,
+                        ),
+                    )
+                }
+
+                DashboardWidgetKind.BalanceForecast -> {
+                    BalanceForecastWidget(
+                        forecastPreviewState,
+                    )
+                }
             }
         }
     }
