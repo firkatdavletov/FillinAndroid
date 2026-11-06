@@ -51,10 +51,10 @@ fun MainScreen(
     user: AuthUser?,
     authBusy: Boolean,
     onAccountClick: () -> Unit,
-    onMethodsClick: () -> Unit = onAccountClick,
     snackbarHostState: SnackbarHostState,
     budgetViewModelStoreOwner: MainBudgetViewModelStore,
     modifier: Modifier = Modifier,
+    onMethodsClick: () -> Unit = onAccountClick,
     onCategoriesClick: () -> Unit = {},
     onFamilyAccessClick: () -> Unit = {},
     onCloudSyncClick: () -> Unit = {},
@@ -64,6 +64,7 @@ fun MainScreen(
     onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit = { _, _ -> },
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
+
     MainContent(
         modifier = modifier,
         selectedDestination = selectedDestination,
@@ -87,139 +88,4 @@ fun MainScreen(
         onForecastClick = onForecastClick,
         onPlannedOperationEditorClick = onPlannedOperationEditorClick,
     )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MainContent(
-    modifier: Modifier = Modifier,
-    selectedDestination: AppDestination,
-    onSelectDestination: (AppDestination) -> Unit,
-    authBusy: Boolean,
-    onAccountClick: () -> Unit,
-    onMethodsClick: () -> Unit = onAccountClick,
-    snackbarHostState: SnackbarHostState,
-    user: AuthUser?,
-    budgetViewModelStoreOwner: MainBudgetViewModelStore,
-    onCategoriesClick: () -> Unit,
-    onFamilyAccessClick: () -> Unit,
-    onCloudSyncClick: () -> Unit,
-    onOperationClick: (String, String) -> Unit,
-    onForecastClick: () -> Unit,
-    onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit,
-) {
-    Scaffold(
-        modifier = modifier.testTag("main_screen"),
-        snackbarHost = {
-            SaldomiSnackbarHost(snackbarHostState)
-        },
-        bottomBar = {
-            MainBottomNavigation(
-                selectedDestination = selectedDestination,
-                onSelectDestination = onSelectDestination,
-            )
-        },
-    ) { innerPadding ->
-        val bottomBarOverlap = innerPadding.calculateBottomPadding()
-        val provider =
-            entryProvider<NavKey> {
-                entry(AppDestination.Dashboard) {
-                    ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
-                        val plansViewModel = planningRulesViewModel()
-                        DashboardRoute(
-                            modifier = Modifier
-                                .fillMaxSize(),
-                            bottomBarOverlap = bottomBarOverlap,
-                            onForecastClick = onForecastClick,
-                            onPaymentsClick = { _, _ ->
-                                plansViewModel.onEvent(
-                                    PlannedOperationsEvent.TypeSelected(PlannedOperationType.Expense),
-                                )
-                                onSelectDestination(AppDestination.Planned)
-                            },
-                        )
-                    }
-                }
-                entry(AppDestination.History) {
-                    ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
-                        OperationHistoryRoute(
-                            snackbarHostState = snackbarHostState,
-                            onOperationClick = onOperationClick,
-                            bottomBarOverlap = bottomBarOverlap,
-                        )
-                    }
-                }
-                entry(AppDestination.Planned) {
-                    ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
-                        PlannedOperationsRoute(
-                            onOpenEditor = { onPlannedOperationEditorClick(it, null) },
-                            onEditRule = { onPlannedOperationEditorClick(it.type, it.id) },
-                            bottomBarOverlap = bottomBarOverlap,
-                        )
-                    }
-                }
-                entry(AppDestination.Profile) {
-                    ProfileRoute(
-                        user = user,
-                        authBusy = authBusy,
-                        onAccountClick = onAccountClick,
-                        onMethodsClick = onMethodsClick,
-                        onCategoriesClick = onCategoriesClick,
-                        onFamilyAccessClick = onFamilyAccessClick,
-                        onCloudSyncClick = onCloudSyncClick,
-                        bottomBarOverlap = bottomBarOverlap,
-                    )
-                }
-            }
-        // Keep each tab's decorators alive even while that tab is absent from NavDisplay.
-        val tabEntries =
-            AppDestination.entries.filter { it != AppDestination.AddOperation }.associateWith { destination ->
-                key(destination) {
-                    val stack = rememberNavBackStack(destination)
-                    rememberDecoratedNavEntries(
-                        backStack = stack,
-                        entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
-                        entryProvider = provider,
-                    )
-                }
-            }
-        val visibleTabs =
-            if (selectedDestination == AppDestination.Dashboard) {
-                listOf(AppDestination.Dashboard)
-            } else {
-                listOf(AppDestination.Dashboard, selectedDestination)
-            }
-        NavDisplay(
-            entries = visibleTabs.flatMap { tabEntries.getValue(it) },
-            onBack = { onSelectDestination(AppDestination.Dashboard) },
-            modifier = Modifier.fillMaxSize(),
-        )
-    }
-}
-
-@Serializable
-internal enum class AppDestination(
-    @StringRes val labelResource: Int,
-    @DrawableRes val iconResource: Int,
-) : NavKey {
-    Dashboard(
-        labelResource = R.string.navigation_dashboard,
-        iconResource = R.drawable.ic_home,
-    ),
-    History(
-        labelResource = R.string.navigation_history,
-        iconResource = R.drawable.ic_receipt,
-    ),
-    AddOperation(
-        labelResource = R.string.notice,
-        iconResource = R.drawable.ic_add_24,
-    ),
-    Planned(
-        labelResource = R.string.navigation_planned,
-        iconResource = R.drawable.ic_calendar,
-    ),
-    Profile(
-        labelResource = R.string.navigation_profile,
-        iconResource = R.drawable.ic_account_box,
-    ),
 }

@@ -1,15 +1,13 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material3.TextButton
-import com.firkat.fillin.ui.component.CategorySelectionSheet
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -58,17 +57,18 @@ import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
+import com.firkat.fillin.ui.component.CategorySelectionSheet
 import com.firkat.fillin.ui.component.SaldomiSnackbarHost
 import com.firkat.fillin.ui.component.SaldomiTextField
 import com.firkat.fillin.ui.component.SnackbarType
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.theme.saldomiDesignColors
+import kotlinx.coroutines.flow.first
+import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.flow.first
-import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 internal fun OperationCreateRoute(
@@ -145,7 +145,8 @@ private fun OperationCreateCompactPreview() {
     FillinTheme {
         OperationCreateScreen(
             OperationCreateUiState(input = "1200", occurredOn = LocalDate.of(2026, 10, 24)),
-            OfflineHistoryContext(categories = previewOperationCategories()), {},
+            OfflineHistoryContext(categories = previewOperationCategories()),
+            {},
         )
     }
 }
@@ -158,26 +159,31 @@ private fun OperationCreateForm(
     modifier: Modifier = Modifier,
     showTitle: Boolean = true,
 ) {
-    val categories = context.categories.filter {
-        it.kind == if (editor.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
-    }
+    val categories =
+        context.categories.filter {
+            it.kind == if (editor.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
+        }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val window = LocalWindowInfo.current
     val preview = LocalInspectionMode.current
     val snackbar = remember { SnackbarHostState() }
-    val message = editor.feedback?.let {
-        stringResource(when (it) {
-            OperationCreateFeedback.InvalidInput -> R.string.operation_create_invalid_input
-            OperationCreateFeedback.InvalidCategory -> R.string.operation_create_invalid_category
-            OperationCreateFeedback.Unavailable -> R.string.operation_create_unavailable
-            OperationCreateFeedback.SaveFailed -> R.string.operation_create_save_failed
-        })
-    }
+    val message =
+        editor.feedback?.let {
+            stringResource(
+                when (it) {
+                    OperationCreateFeedback.InvalidInput -> R.string.operation_create_invalid_input
+                    OperationCreateFeedback.InvalidCategory -> R.string.operation_create_invalid_category
+                    OperationCreateFeedback.Unavailable -> R.string.operation_create_unavailable
+                    OperationCreateFeedback.SaveFailed -> R.string.operation_create_save_failed
+                },
+            )
+        }
     LaunchedEffect(editor.categoriesOpen) {
         if (!preview) {
-            if (editor.categoriesOpen) keyboard?.hide()
-            else if (!editor.isSaving) {
+            if (editor.categoriesOpen) {
+                keyboard?.hide()
+            } else if (!editor.isSaving) {
                 snapshotFlow { window.isWindowFocused }.first { it }
                 focus.requestFocus()
                 keyboard?.show()
@@ -194,31 +200,55 @@ private fun OperationCreateForm(
         }
     }
     Column(modifier.fillMaxSize().imePadding()) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
             OperationTypeTabs(editor.type, !editor.isSaving, { onEvent(OperationCreateEvent.CreateTypeChanged(it)) })
-            OperationAmountInput(editor.input, !editor.isSaving, editor.inputError != null,
+            OperationAmountInput(
+                editor.input,
+                !editor.isSaving,
+                editor.inputError != null,
                 { onEvent(OperationCreateEvent.CreateInputChanged(it)) },
-                Modifier.fillMaxWidth().focusRequester(focus).testTag("operation-create-input"))
+                Modifier.fillMaxWidth().focusRequester(focus).testTag("operation-create-input"),
+            )
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.operation_history_category_title), Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.operation_history_category_title),
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
                 TextButton(onClick = { onEvent(OperationCreateEvent.CategoriesOpened) }, enabled = !editor.isSaving) {
                     Text(stringResource(R.string.operation_history_all_categories))
                 }
             }
-            if (categories.isEmpty()) Text(stringResource(R.string.operation_create_no_categories),
-                Modifier.testTag("operation-create-no-categories"))
-            else OperationCategoryGrid(categories.take(8), !editor.isSaving,
-                { onEvent(OperationCreateEvent.CreateCategoryClicked(it)) })
+            if (categories.isEmpty()) {
+                Text(
+                    stringResource(R.string.operation_create_no_categories),
+                    Modifier.testTag("operation-create-no-categories"),
+                )
+            } else {
+                OperationCategoryGrid(
+                    categories.take(8),
+                    !editor.isSaving,
+                    { onEvent(OperationCreateEvent.CreateCategoryClicked(it)) },
+                )
+            }
         }
         SaldomiSnackbarHost(snackbar)
     }
-    if (editor.categoriesOpen) CategorySelectionSheet(
-        categories = categories, selectedId = null, loading = false, hasError = false,
-        onSelect = { onEvent(OperationCreateEvent.CreateCategoryClicked(it)) },
-        onDismiss = { onEvent(OperationCreateEvent.CategoriesDismissed) }, onRetry = {},
-    )
+    if (editor.categoriesOpen) {
+        CategorySelectionSheet(
+            categories = categories,
+            selectedId = null,
+            loading = false,
+            hasError = false,
+            onSelect = { onEvent(OperationCreateEvent.CreateCategoryClicked(it)) },
+            onDismiss = { onEvent(OperationCreateEvent.CategoriesDismissed) },
+            onRetry = {},
+        )
+    }
 }
 
 @Preview(name = "Editor", widthDp = 393, heightDp = 700)
@@ -226,8 +256,11 @@ private fun OperationCreateForm(
 @Composable
 private fun OperationCreateFormPreview() {
     FillinTheme {
-        OperationCreateForm(OperationCreateUiState(occurredOn = LocalDate.of(2026, 10, 24)),
-            OfflineHistoryContext(categories = previewOperationCategories()), {})
+        OperationCreateForm(
+            OperationCreateUiState(occurredOn = LocalDate.of(2026, 10, 24)),
+            OfflineHistoryContext(categories = previewOperationCategories()),
+            {},
+        )
     }
 }
 
@@ -238,7 +271,8 @@ private fun OperationCreateIncomeEditorPreview() {
     FillinTheme {
         OperationCreateForm(
             OperationCreateUiState(type = OperationType.Income, input = "120000", occurredOn = LocalDate.of(2026, 10, 24)),
-            OfflineHistoryContext(categories = previewOperationCategories()), {},
+            OfflineHistoryContext(categories = previewOperationCategories()),
+            {},
         )
     }
 }
@@ -250,7 +284,8 @@ private fun OperationCreateErrorEditorPreview() {
     FillinTheme {
         OperationCreateForm(
             OperationCreateUiState(input = "0", inputError = OperationInputError.InvalidAmount, occurredOn = LocalDate.of(2026, 10, 24)),
-            OfflineHistoryContext(categories = previewOperationCategories()), {},
+            OfflineHistoryContext(categories = previewOperationCategories()),
+            {},
         )
     }
 }
@@ -262,7 +297,8 @@ private fun OperationCreateSavingEditorPreview() {
     FillinTheme {
         OperationCreateForm(
             OperationCreateUiState(input = "1200", isSaving = true, occurredOn = LocalDate.of(2026, 10, 24)),
-            OfflineHistoryContext(categories = previewOperationCategories()), {},
+            OfflineHistoryContext(categories = previewOperationCategories()),
+            {},
         )
     }
 }
