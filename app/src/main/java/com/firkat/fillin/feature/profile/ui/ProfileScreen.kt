@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
@@ -68,6 +69,7 @@ fun ProfileRoute(
     viewModel: ProfileViewModel = koinViewModel(),
     onMethodsClick: () -> Unit = onAccountClick,
     deletionViewModel: ProfileDeletionViewModel = koinViewModel(),
+    bottomBarOverlap: Dp = 0.dp,
 ) {
     val management: BudgetManagementViewModel = koinViewModel()
     val managementState by management.state.collectAsStateWithLifecycle()
@@ -142,6 +144,7 @@ fun ProfileRoute(
         onFamilyAccessClick = onFamilyAccessClick,
         onCloudSyncClick = onCloudSyncClick,
         onRetry = viewModel::refresh,
+        bottomBarOverlap = bottomBarOverlap,
     )
     state.creation?.let { draft ->
         if (state.currencyPickerOpen) {
@@ -181,6 +184,7 @@ fun ProfileScreen(
     onManageBudget: (String, String, Boolean) -> Unit = { _, _, _ -> },
     managementContent: @Composable () -> Unit = {},
     onBudgetActionsClick: (String) -> Unit = {},
+    bottomBarOverlap: Dp = 0.dp,
 ) {
     Scaffold(
         modifier = modifier.testTag("profile_screen"),
@@ -194,7 +198,7 @@ fun ProfileScreen(
                 .consumeWindowInsets(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp)
-                .padding(top = 16.dp, bottom = 32.dp),
+                .padding(top = 16.dp, bottom = 32.dp + bottomBarOverlap),
         ) {
             Text(
                 text = stringResource(R.string.navigation_profile),

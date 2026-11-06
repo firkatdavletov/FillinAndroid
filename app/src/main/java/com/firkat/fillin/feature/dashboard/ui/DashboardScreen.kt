@@ -1,6 +1,7 @@
 package com.firkat.fillin.feature.dashboard.ui
 
 import android.content.res.Configuration
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -23,12 +26,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -50,6 +55,7 @@ import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceU
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceWidget
 import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.theme.FillinTheme
+import com.firkat.fillin.ui.theme.saldomiDesignColors
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -60,12 +66,19 @@ fun DashboardRoute(
     viewModel: DashboardViewModel = koinViewModel(),
     onForecastClick: () -> Unit = {},
     onPaymentsClick: (LocalDate, LocalDate) -> Unit = { _, _ -> },
+    bottomBarOverlap: Dp = 0.dp,
+    topBarPadding: Dp = 0.dp,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onEvent(DashboardEvent.Resume) }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
-            DashboardScreen(state, viewModel::onEvent) { widget ->
+            DashboardScreen(
+                state = state,
+                onEvent = viewModel::onEvent,
+                bottomBarOverlap = bottomBarOverlap,
+                topBarPadding = topBarPadding,
+            ) { widget ->
                 when (widget.kind) {
                     DashboardWidgetKind.TotalBalance -> TotalBalanceRoute()
                     DashboardWidgetKind.AvailableToSpend -> AvailableToSpendRoute()
@@ -81,51 +94,20 @@ fun DashboardRoute(
 fun DashboardScreen(
     state: DashboardUiState,
     onEvent: (DashboardEvent) -> Unit,
+    bottomBarOverlap: Dp = 0.dp,
+    topBarPadding: Dp = 0.dp,
     widgetContent: @Composable (DashboardWidget) -> Unit,
 ) {
-    RefreshableContent(
-        isRefreshing = state.isRefreshing,
-        onRefresh = { onEvent(DashboardEvent.Refresh) },
-        hasScrollableContent = state.status == DashboardStatus.Ready,
-    ) {
-        when (state.status) {
-            DashboardStatus.Ready -> {
-                DashboardGrid(
-                    header = { DashboardHeader(state.date) },
-                    widgetContent = widgetContent,
-                )
-            }
-
-            DashboardStatus.Loading -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            else -> {
-                Column(
-                    Modifier.fillMaxSize().padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        stringResource(
-                            when (state.status) {
-                                DashboardStatus.Forbidden -> R.string.dashboard_error_forbidden
-                                DashboardStatus.LocalError -> R.string.dashboard_error_local_data
-                                else -> R.string.dashboard_initial_sync
-                            },
-                        ),
-                        textAlign = TextAlign.Center,
-                    )
-                    if (state.status != DashboardStatus.WaitingForBudget) {
-                        Spacer(Modifier.height(16.dp))
-                        Button(onClick = { onEvent(DashboardEvent.Retry) }) { Text(stringResource(R.string.dashboard_retry)) }
-                    }
-                }
-            }
-        }
-    }
+    val isReady = state.status == DashboardStatus.Ready
+    DashboardGrid(
+        header = {
+            DashboardHeader(
+                topBarPadding = topBarPadding,
+            )
+        },
+        widgetContent = widgetContent,
+        bottomBarOverlap = bottomBarOverlap,
+    )
 }
 
 @Composable
@@ -133,6 +115,7 @@ fun DashboardGrid(
     modifier: Modifier = Modifier,
     widgets: List<DashboardWidget> = DefaultDashboardWidgets,
     header: (@Composable () -> Unit)? = null,
+    bottomBarOverlap: Dp = 0.dp,
     widgetContent: @Composable (DashboardWidget) -> Unit,
 ) {
     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
@@ -146,11 +129,16 @@ fun DashboardGrid(
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize().testTag("dashboard-grid"),
-            contentPadding = PaddingValues(horizontal = 16.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomBarOverlap),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (header != null) item(key = "dashboard-header", span = { GridItemSpan(2) }) { header() }
+            if (header != null) {
+                stickyHeader {
+                    header()
+                }
+//                item(key = "dashboard-header", span = { GridItemSpan(2) }) { header() }
+            }
             items(widgets, key = { it.id }, span = { GridItemSpan(it.size.columns) }) { widget ->
                 Box(
                     Modifier
@@ -165,15 +153,30 @@ fun DashboardGrid(
                     propagateMinConstraints = true,
                 ) { widgetContent(widget) }
             }
+            item {
+                Spacer(Modifier.height(54.dp))
+            }
         }
     }
 }
 
 @Composable
 private fun DashboardHeader(
-    date: LocalDate?,
+    date: LocalDate? = null,
+    topBarPadding: Dp = 0.dp,
 ) {
-    Column(Modifier.padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        modifier = Modifier
+            .background(
+            brush = Brush.verticalGradient(
+                0f to MaterialTheme.saldomiDesignColors.background,
+                0.7f to MaterialTheme.saldomiDesignColors.background,
+                1f to MaterialTheme.saldomiDesignColors.background.copy(alpha = 0f)
+            )
+        )
+            .padding(bottom = 16.dp, top = topBarPadding),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         Text(
             text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.headlineMedium,

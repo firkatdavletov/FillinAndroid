@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.firkat.fillin.ui.theme.FillinTheme
+import com.firkat.fillin.ui.theme.saldomiDesignColors
 
 @Composable
 internal fun MainBottomNavigation(
@@ -69,9 +70,7 @@ internal fun MainBottomNavigation(
                 )
                 .border(
                     width = 1.dp,
-                    brush = Brush.verticalGradient(
-                        listOf(colors.primary.copy(alpha = 0.65f), colors.outlineVariant.copy(alpha = 0.15f)),
-                    ),
+                    color = MaterialTheme.saldomiDesignColors.border,
                     shape = MainNavigationShape,
                 ),
             containerColor = Color.Transparent,

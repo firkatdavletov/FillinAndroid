@@ -4,7 +4,9 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -626,7 +628,9 @@ class AppNavigationUiTest {
         show(createdBudget = true, restoration = restoration)
         compose.waitUntil(5000) { compose.onAllNodesWithTag("dashboard-grid").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("dashboard-grid").performScrollToNode(hasTestTag("dashboard-widget-balance-forecast"))
-        compose.onNodeWithText("Подробный прогноз").performScrollTo().performClick()
+        val details = compose.onNodeWithText("Подробный прогноз").performScrollTo()
+        scrollAboveMainNavigation("dashboard-grid", details)
+        details.performClick()
         compose.waitUntil(5000) { navigation.backStack.lastOrNull() is AppRoute.ForecastDetails }
         compose.onNodeWithText("Параметры").performClick().assertIsSelected()
         restoration.emulateSavedInstanceStateRestore()
@@ -694,7 +698,9 @@ class AppNavigationUiTest {
         val operation = operations[12]
         compose.onNodeWithTag("tab_History").performClick()
         compose.onNodeWithTag("operation_history_list").performScrollToNode(hasTestTag("operation-${operation.id}"))
-        val top = compose.onNodeWithTag("operation-${operation.id}").getUnclippedBoundsInRoot().top
+        val row = compose.onNodeWithTag("operation-${operation.id}")
+        scrollAboveMainNavigation("operation_history_list", row)
+        val top = row.getUnclippedBoundsInRoot().top
         openSheet(operation)
         val route = navigation.backStack.last()
         restoration.emulateSavedInstanceStateRestore()
@@ -703,7 +709,7 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("edit_operation_close").performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("tab_History").assertIsSelected()
-        assertEquals(top, compose.onNodeWithTag("operation-${operation.id}").getUnclippedBoundsInRoot().top)
+        assertEquals(top, row.getUnclippedBoundsInRoot().top)
     }
 
     @Test fun switchingBudgetDismissesAnOpenSheetWithoutOpeningAnEditorInTheNewBudget() {
@@ -861,6 +867,19 @@ class AppNavigationUiTest {
         store.observeHistory(OperationHistoryFilter.currentMonth(today), 100).first { page ->
             page.items.any { it.description == description }
         }.items.first { it.description == description }
+    }
+
+    private fun scrollAboveMainNavigation(scrollTag: String, item: SemanticsNodeInteraction) {
+        val barTop = compose.onNodeWithTag("tab_AddOperation").getUnclippedBoundsInRoot().top
+        // Compose's scroll helpers use the full viewport, including the area under the bar.
+        val coveredHeight = item.getUnclippedBoundsInRoot().bottom - barTop
+        if (coveredHeight >= 0.dp) {
+            val distance = with(compose.density) { (coveredHeight + 1.dp).toPx() }
+            compose.onNodeWithTag(scrollTag).performSemanticsAction(SemanticsActions.ScrollBy) {
+                it(0f, distance)
+            }
+        }
+        assertTrue(item.getUnclippedBoundsInRoot().bottom <= barTop)
     }
 
     private fun openSheet(operation: Operation) {

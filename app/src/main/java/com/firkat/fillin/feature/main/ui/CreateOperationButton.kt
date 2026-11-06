@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -30,14 +31,16 @@ internal fun CreateOperationButton(
         onClick = onClick,
         modifier = modifier
             .size(64.dp)
-            .shadow(
-                elevation = 12.dp,
-                shape = CircleShape,
-                ambientColor = colors.primary,
-                spotColor = colors.primary,
-            )
+//            .shadow(
+//                elevation = 12.dp,
+//                shape = CircleShape,
+//                ambientColor = colors.primary,
+//                spotColor = colors.primary,
+//            )
             .background(
-                brush = Brush.linearGradient(listOf(colors.primary, colors.primary.copy(alpha = 0.8f))),
+                brush = Brush.linearGradient(
+                    listOf(colors.primary, colors.primary.copy(alpha = 0.8f).compositeOver(colors.background)),
+                ),
                 shape = CircleShape,
             ),
         shape = CircleShape,

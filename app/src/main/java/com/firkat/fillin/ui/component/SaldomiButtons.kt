@@ -29,7 +29,7 @@ fun SaldomiButton(
         onClick = onClick,
         modifier = if (large) modifier.heightIn(min = 56.dp) else modifier,
         enabled = enabled && !isLoading,
-        shape = if (large) RoundedCornerShape(16.dp) else ButtonDefaults.shape,
+        shape = if (large) RoundedCornerShape(14.dp) else ButtonDefaults.shape,
         contentPadding = if (large) PaddingValues(horizontal = 20.dp, vertical = 16.dp) else ButtonDefaults.ContentPadding,
     ) {
         if (isLoading) {

@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.LocalResultEventBus
@@ -60,6 +61,7 @@ fun OperationHistoryRoute(
     viewModel: OperationHistoryViewModel = koinViewModel(),
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
     onOperationClick: (String, String) -> Unit,
+    bottomBarOverlap: Dp = 0.dp,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val resultKey = rememberSaveable { "operation-history-${UUID.randomUUID()}" }
@@ -80,8 +82,12 @@ fun OperationHistoryRoute(
         onDispose { resultBus.removeResult(resultKey) }
     }
     FeatureScaffold(titleResource = R.string.operation_history_title) {
-        OperationHistoryScreen(state = state, onEvent = viewModel::onEvent,
-            onOperationClick = { id -> onOperationClick(id, resultKey) })
+        OperationHistoryScreen(
+            state = state,
+            onEvent = viewModel::onEvent,
+            onOperationClick = { id -> onOperationClick(id, resultKey) },
+            bottomBarOverlap = bottomBarOverlap,
+        )
     }
 }
 
@@ -90,16 +96,19 @@ fun OperationHistoryScreen(
     state: OperationHistoryUiState,
     onEvent: (OperationHistoryEvent) -> Unit,
     onOperationClick: (String) -> Unit = {},
+    bottomBarOverlap: Dp = 0.dp,
 ) {
     Column(Modifier.fillMaxSize()) {
         OperationHistoryFilters(state = state, onEvent = onEvent)
 
         Box(Modifier.weight(1f)) {
             key(state.filters) {
+                val hasOperations = state.operations.isNotEmpty() && !state.isInitialLoading
                 RefreshableContent(
                     isRefreshing = state.isRefreshing,
                     onRefresh = { onEvent(OperationHistoryEvent.Refresh) },
-                    hasScrollableContent = state.operations.isNotEmpty() && !state.isInitialLoading,
+                    hasScrollableContent = hasOperations,
+                    modifier = Modifier.padding(bottom = if (hasOperations) 0.dp else bottomBarOverlap),
                 ) {
                     when {
                         state.isInitialLoading -> {
@@ -125,6 +134,7 @@ fun OperationHistoryScreen(
                                 onCorrectClick = onOperationClick,
                                 onLoadNextPage = { onEvent(OperationHistoryEvent.LoadNextPage) },
                                 onRetry = { onEvent(OperationHistoryEvent.Retry) },
+                                bottomBarOverlap = bottomBarOverlap,
                             )
                         }
                     }
@@ -144,6 +154,7 @@ private fun OperationList(
     onCorrectClick: (String) -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
+    bottomBarOverlap: Dp,
 ) {
     val listState = rememberLazyListState()
     val operationDayGroups =
@@ -185,7 +196,7 @@ private fun OperationList(
         contentPadding =
             PaddingValues(
                 top = 4.dp,
-                bottom = 12.dp,
+                bottom = 12.dp + bottomBarOverlap,
             ),
     ) {
         operationDayGroups.forEach { group ->

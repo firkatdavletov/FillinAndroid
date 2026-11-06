@@ -2,6 +2,9 @@ package com.firkat.fillin.feature.main.ui
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -14,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -105,12 +109,16 @@ private fun MainContent(
             )
         },
     ) { innerPadding ->
+        val layoutDirection = LocalLayoutDirection.current
+        val bottomBarOverlap = innerPadding.calculateBottomPadding()
         val provider =
             entryProvider<NavKey> {
                 entry(AppDestination.Dashboard) {
                     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
                         val plansViewModel = planningRulesViewModel()
                         DashboardRoute(
+                            bottomBarOverlap = bottomBarOverlap,
+                            topBarPadding = innerPadding.calculateTopPadding(),
                             onForecastClick = onForecastClick,
                             onPaymentsClick = { _, _ ->
                                 plansViewModel.onEvent(
@@ -123,12 +131,20 @@ private fun MainContent(
                 }
                 entry(AppDestination.History) {
                     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
-                        OperationHistoryRoute(snackbarHostState = snackbarHostState, onOperationClick = onOperationClick)
+                        OperationHistoryRoute(
+                            snackbarHostState = snackbarHostState,
+                            onOperationClick = onOperationClick,
+                            bottomBarOverlap = bottomBarOverlap,
+                        )
                     }
                 }
                 entry(AppDestination.Planned) {
                     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
-                        PlannedOperationsRoute(onOpenEditor = { onPlannedOperationEditorClick(it, null) }, onEditRule = { onPlannedOperationEditorClick(it.type, it.id) })
+                        PlannedOperationsRoute(
+                            onOpenEditor = { onPlannedOperationEditorClick(it, null) },
+                            onEditRule = { onPlannedOperationEditorClick(it.type, it.id) },
+                            bottomBarOverlap = bottomBarOverlap,
+                        )
                     }
                 }
                 entry(AppDestination.Profile) {
@@ -140,6 +156,7 @@ private fun MainContent(
                         onCategoriesClick = onCategoriesClick,
                         onFamilyAccessClick = onFamilyAccessClick,
                         onCloudSyncClick = onCloudSyncClick,
+                        bottomBarOverlap = bottomBarOverlap,
                     )
                 }
             }
@@ -166,7 +183,13 @@ private fun MainContent(
             onBack = { onSelectDestination(AppDestination.Dashboard) },
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(
+                    PaddingValues(
+                        start = innerPadding.calculateStartPadding(layoutDirection),
+//                        top = innerPadding.calculateTopPadding(),
+                        end = innerPadding.calculateEndPadding(layoutDirection),
+                    ),
+                )
                 .consumeWindowInsets(innerPadding),
         )
     }
