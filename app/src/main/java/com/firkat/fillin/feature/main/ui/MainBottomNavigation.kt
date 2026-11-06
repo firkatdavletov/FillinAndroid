@@ -52,7 +52,9 @@ internal fun MainBottomNavigation(
     selectedDestination: AppDestination,
     onSelectDestination: (AppDestination) -> Unit,
     modifier: Modifier = Modifier,
+    canCreateOperation: Boolean = true,
 ) {
+    val shape = if (canCreateOperation) MainNavigationShape else androidx.compose.foundation.shape.RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     val colors = MaterialTheme.colorScheme
     Box(
         modifier = modifier
@@ -63,7 +65,7 @@ internal fun MainBottomNavigation(
         NavigationBar(
             modifier = Modifier
                 .padding(top = 24.dp)
-                .clip(MainNavigationShape)
+                .clip(shape)
                 .background(
                     Brush.verticalGradient(listOf(colors.surfaceContainer.copy(alpha = 0.8f), colors.surfaceContainerLowest)),
                 )
@@ -81,7 +83,7 @@ internal fun MainBottomNavigation(
                 AppDestination.entries.forEach { destination ->
                     if (destination == AppDestination.AddOperation) {
                         // Reserve the cradle; creation is an action, not a selectable destination.
-                        Spacer(Modifier.width(80.dp))
+                        if (canCreateOperation) Spacer(Modifier.width(80.dp))
                     } else {
                         val selected = selectedDestination == destination
                         NavigationBarItem(
@@ -129,7 +131,7 @@ internal fun MainBottomNavigation(
                 }
             }
         }
-        CreateOperationButton(
+        if (canCreateOperation) CreateOperationButton(
             onClick = { onSelectDestination(AppDestination.AddOperation) },
             modifier = Modifier.testTag("tab_AddOperation"),
         )
@@ -213,4 +215,10 @@ private fun MainBottomNavigationPreview(destination: AppDestination) {
             )
         }
     }
+}
+
+@Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun MainBottomNavigationReadOnlyPreview() {
+    FillinTheme { MainBottomNavigation(AppDestination.Dashboard, {}, canCreateOperation = false) }
 }

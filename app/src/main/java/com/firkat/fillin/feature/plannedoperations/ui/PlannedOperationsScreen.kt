@@ -81,6 +81,7 @@ fun PlannedOperationsRoute(
     viewModel: PlannedOperationsViewModel = planningRulesViewModel(),
     syncViewModel: BudgetSyncViewModel = koinViewModel(),
     bottomBarOverlap: Dp = 0.dp,
+    readOnly: Boolean = false,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val sync by syncViewModel.context.collectAsStateWithLifecycle()
@@ -90,7 +91,7 @@ fun PlannedOperationsRoute(
         onCreateExpense = { onOpenEditor(PlannedOperationType.Expense) },
         onCreateIncome = { onOpenEditor(PlannedOperationType.Income) },
         onEditRule = onEditRule,
-        canWrite = sync.canWrite,
+        canWrite = sync.canWrite && !readOnly,
         bottomBarOverlap = bottomBarOverlap,
     )
 }
@@ -118,13 +119,11 @@ fun PlannedOperationsScreen(
             title = stringResource(R.string.planning_title),
         )
         PlanningTypeFilters(state.selectedType, { onEvent(PlannedOperationsEvent.TypeSelected(it)) })
-        SaldomiOutlinedButton(
-            modifier = Modifier.padding(start = 16.dp),
-            onClick = onCreateExpense
-        ) {
-            Text(
-                text = "Добавить план"
-            )
+        if (canWrite) {
+            SaldomiOutlinedButton(
+                modifier = Modifier.padding(start = 16.dp),
+                onClick = onCreateExpense,
+            ) { Text(stringResource(R.string.app_add_plan)) }
         }
         val groups = state.groups
 

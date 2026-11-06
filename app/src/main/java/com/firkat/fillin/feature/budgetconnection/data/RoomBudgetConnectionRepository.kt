@@ -28,6 +28,7 @@ class RoomBudgetConnectionRepository(
     private val scheduler: OperationSyncScheduler,
     private val json: Json,
     private val catalog: BudgetCatalogStore,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
     private val eraseMissing: suspend (String, Set<String>) -> Unit = { _, _ -> },
 ) : BudgetConnectionRepository {
     private val mutex = Mutex()
@@ -42,6 +43,7 @@ class RoomBudgetConnectionRepository(
     }
 
     override suspend fun budgets(uid: String): List<AvailableBudget> = mutex.withLock { mapped {
+        access?.requireCloud()
         requests.budgets(uid).budgetBody().map {
             UUID.fromString(it.id); UUID.fromString(it.memberId)
             require(it.name.isNotBlank() && it.role in setOf("OWNER", "MEMBER"))
@@ -49,6 +51,7 @@ class RoomBudgetConnectionRepository(
         }.also { rows ->
             require(rows.map { it.id }.distinct().size == rows.size)
             requests.ensureCurrent(uid)
+            access?.requireCloud()
             eraseMissing(uid, catalog.budgets(uid).map { it.id }.toSet() - rows.map { it.id }.toSet())
             requests.ensureCurrent(uid)
             catalog.replace(uid, rows)
@@ -59,6 +62,7 @@ class RoomBudgetConnectionRepository(
 
     override suspend fun connect(uid: String, budget: AvailableBudget) = mutex.withLock {
         mapped {
+            access?.requireCloud()
             requests.ensureCurrent(uid)
             // A downloaded budget is immediately selectable without a network exchange.
             // The catalog is UID scoped; unknown/partial profiles still require a full download.

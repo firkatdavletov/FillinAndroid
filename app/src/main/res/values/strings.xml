@@ -385,4 +385,18 @@
     <string name="plan_picker_category">Категория операции: %1$s</string>
     <string name="operation_details_money">%1$s %2$s</string>
     <string name="operation_create_clear">Очистить сумму</string>
+    <string name="local_budget_limit">Можно создать не более 2 локальных бюджетов</string>
+    <string name="cloud_budget_read_only">Облачный бюджет доступен только для чтения</string>
+    <string name="app_about">О приложении</string>
+    <string name="app_version">Версия %1$s</string>
+    <string name="app_installation_id">ID установки</string>
+    <string name="app_installation_unavailable">ID установки недоступен</string>
+    <string name="app_copy_installation_id">Скопировать ID</string>
+    <string name="app_access_check">Проверить доступ</string>
+    <string name="app_access_checking">Проверяем доступ…</string>
+    <string name="app_access_checked">Проверка завершена</string>
+    <string name="app_access_revoked">Облачные функции недоступны на этой установке</string>
+    <string name="app_access_check_failed">Не удалось проверить доступ</string>
+    <string name="app_about_close">Закрыть</string>
+    <string name="app_add_plan">Добавить план</string>
 </resources>

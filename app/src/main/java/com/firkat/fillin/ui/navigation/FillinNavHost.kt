@@ -49,7 +49,6 @@ import com.firkat.fillin.feature.operationhistory.ui.OperationDetailsRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationPlanLinkBottomSheet
 import com.firkat.fillin.feature.operationhistory.ui.PendingPlanLinkRecovery
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationBottomSheet
-import com.firkat.fillin.feature.profile.ui.BudgetPickerRoute
 import com.firkat.fillin.feature.sync.ui.CloudSyncRoute
 import com.firkat.fillin.ui.component.SnackbarType
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
@@ -72,6 +71,11 @@ fun FillinNavHost(
 ) {
     val setupState by setup.state.collectAsStateWithLifecycle()
     val state by auth.state.collectAsStateWithLifecycle()
+    LaunchedEffect(navigation.backStack.lastOrNull()) {
+        if (navigation.backStack.lastOrNull() == AppRoute.Main && setup.state.value.initialized) {
+            setup.onAction(BudgetSetupAction.Reset)
+        }
+    }
 
     LaunchedEffect(
         navigation.backStack.lastOrNull(),
@@ -91,7 +95,11 @@ fun FillinNavHost(
     }
     val launchFailed by navigation.launchFailed.collectAsStateWithLifecycle()
     val runtime by budgets.active.collectAsStateWithLifecycle()
-    val selectionRequired by budgets.selectionRequired.collectAsStateWithLifecycle()
+    val access: com.firkat.fillin.feature.appaccess.domain.AppAccess = koinInject()
+    val mode by access.mode.collectAsStateWithLifecycle()
+    val fullAccess = mode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull
+    val readOnly = !fullAccess && runtime?.profile?.firebaseUid != null
+    LaunchedEffect(fullAccess, readOnly) { navigation.closeRestrictedRoutes() }
     val mainModels: MainBudgetViewModelStore = viewModel(key = "main-budget-models")
     val operationCreateModels: MainBudgetViewModelStore = viewModel(key = "operation-create-models")
     mainModels.bind(runtime.takeIf { AppRoute.Main in navigation.backStack })
@@ -171,15 +179,6 @@ fun FillinNavHost(
     }
     val sheetDismissController = remember { BottomSheetDismissController() }
 
-    if (selectionRequired && !authVisible) {
-        BudgetPickerRoute(onSignIn = navigation::authenticateFromPicker)
-
-        return
-    }
-
-    LaunchedEffect(runtime?.scope?.id) {
-        if (runtime != null && navigation.configuringBudget) navigation.budgetChosen()
-    }
     NavDisplay(
         modifier = Modifier.fillMaxSize(),
         backStack = navigation.backStack,
@@ -231,7 +230,7 @@ fun FillinNavHost(
                     }
                 }
                 entry<AppRoute.Main> {
-                    ActiveBudgetContent(viewModelStoreOwner = mainModels) {
+                    if (!readOnly) ActiveBudgetContent(viewModelStoreOwner = mainModels) {
                         PendingPlanLinkRecovery(
                             onPending = { id ->
                                 runtime?.scope?.id?.let { navigation.openOperationPlanLink(id, it) }
@@ -243,6 +242,7 @@ fun FillinNavHost(
                     MainScreen(
                         modifier = Modifier.fillMaxSize(),
                         authBusy = state.busy,
+                        readOnly = readOnly,
                         onAccountClick = {
                             if (state.session.userOrNull != null) {
                                 auth.onAction(AuthAction.SignOut)
@@ -320,6 +320,7 @@ fun FillinNavHost(
                     sheetModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
                     ActiveBudgetContent(viewModelStoreOwner = sheetModels) {
                         OperationDetailsRoute(
+                            readOnly = readOnly,
                             operationId = route.operationId,
                             onLinkSelected = { navigation.openOperationPlanPicker(route) },
                             onOpenPlan = { type, id -> navigation.openDetailsPlanningRule(route, type, id) },
@@ -346,6 +347,7 @@ fun FillinNavHost(
                 entry<AppRoute.Categories> {
                     ActiveBudgetContent {
                         CategoriesRoute(
+                            readOnly = readOnly,
                             onBack = navigation::back,
                             onCreateCategory = { navigation.openCategoryEditor() },
                             onEditCategory = { categoryId -> navigation.openCategoryEditor(categoryId) },
@@ -385,7 +387,10 @@ fun FillinNavHost(
                 entry<AppRoute.BudgetSetup> {
                     BudgetSetupRoute(
                         setup,
-                        navigation::exitSetup,
+                        {
+                            navigation.exitSetup()
+                            (context as? Activity)?.finish()
+                        },
                         navigation::authenticateForSetup,
                         navigation::finishSetup,
                         navigation::showSetupPage,
@@ -394,7 +399,10 @@ fun FillinNavHost(
                 entry<AppRoute.BudgetSetupList> {
                     BudgetSetupRoute(
                         setup,
-                        navigation::exitSetup,
+                        {
+                            navigation.exitSetup()
+                            (context as? Activity)?.finish()
+                        },
                         navigation::authenticateForSetup,
                         navigation::finishSetup,
                         navigation::showSetupPage,
@@ -403,7 +411,10 @@ fun FillinNavHost(
                 entry<AppRoute.BudgetSetupJoin> {
                     BudgetSetupRoute(
                         setup,
-                        navigation::exitSetup,
+                        {
+                            navigation.exitSetup()
+                            (context as? Activity)?.finish()
+                        },
                         navigation::authenticateForSetup,
                         navigation::finishSetup,
                         navigation::showSetupPage,

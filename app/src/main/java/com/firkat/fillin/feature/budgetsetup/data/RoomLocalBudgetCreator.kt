@@ -12,6 +12,9 @@ import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncSchedul
 import com.firkat.fillin.feature.sync.data.CloudBudgetSession
 import com.firkat.fillin.feature.sync.data.LocalOnlyCloudApi
 import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
+import com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.Json
@@ -35,12 +38,20 @@ class RoomLocalBudgetCreator(
         val title = name?.trim()
         require(title == null || title.length in 1..80 && title.none(Char::isISOControl))
         val uid = currentUid()
-        val profile = if (title == null) profiles.createLocal() else profiles.createLocal(title)
-        val database = databases.open(profile)
+        val registry = profiles as? RoomBudgetProfileRegistry
+        val profile = registry?.reserveLocal(title, databases)
+            ?: if (title == null) profiles.createLocal() else profiles.createLocal(title)
         try {
-            CloudBudgetSession(database, LocalOnlyCloudApi, "", json, OperationSyncScheduler {})
-                .createLocal(balance, startedOn, currency)
-        } finally { database.close() }
+            val database = databases.open(profile)
+            try {
+                CloudBudgetSession(database, LocalOnlyCloudApi, "", json, OperationSyncScheduler {})
+                    .createLocal(balance, startedOn, currency)
+            } finally {
+                database.close()
+            }
+        } finally {
+            withContext(NonCancellable) { registry?.settleLocal(profile, databases) }
+        }
         currentCoroutineContext().ensureActive()
         if (uid != currentUid()) throw BudgetConnectionFailure("account_changed")
         active.select(profile.id, expectedUid = uid, requireExpectedAccount = true)

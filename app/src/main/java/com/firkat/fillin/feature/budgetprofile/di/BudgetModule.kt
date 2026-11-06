@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.budgetprofile.di
 
+import com.firkat.fillin.feature.appaccess.domain.AppAccess
 import com.firkat.fillin.feature.plannedoperations.data.repository.OfflinePlanningRulesRepository
 import com.firkat.fillin.feature.plannedoperations.domain.usecase.ObservePlanningRules
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlanningRulesRepository
@@ -106,6 +107,7 @@ val budgetModule = module {
                 .CloudBudgetSession(get(), get(), "",
                     get(), OperationSyncScheduler { get<OperationSyncScheduler>().schedule() },
                     checkAccess = {
+                        if (getOrNull<AppAccess>()?.cloudAllowed == false) throw com.firkat.fillin.feature.sync.data.CloudDisabledException()
                         if (!get<ActiveBudgetManager>().isCurrent(get<BudgetProfile>())) throw com.firkat.fillin.feature.sync.data.CloudDisabledException()
                         if (get<BudgetProfile>().kind != BudgetProfileKind.CLOUD) throw com.firkat.fillin.feature.operationhistory.data.sync.SyncBlockedException("sign_in_required")
                     }, firebase = get<BudgetProfile>().kind == BudgetProfileKind.CLOUD)
@@ -132,6 +134,7 @@ val budgetModule = module {
                     get<OperationSyncScheduler>().schedule()
                 },
                 get(),
+                canWrite = { profile.kind != BudgetProfileKind.CLOUD || getOrNull<AppAccess>()?.cloudAllowed != false },
                 currencyOverride = currencyOverride,
             )
         }
@@ -145,13 +148,14 @@ val budgetModule = module {
         scoped { OperationSyncRequests(synchronize = {
             val lease = get<ActiveBudgetManager>().acquire(get<BudgetProfile>().syncIdentity)
             if (lease == null) SyncResult.Completed else try {
+                if (getOrNull<AppAccess>()?.cloudAllowed == false) return@OperationSyncRequests SyncResult.Blocked
                 lease.scope.get<OperationsSynchronizer>().synchronize().also { getKoin().getOrNull<com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement>()?.schedule() }
             } finally { lease.close() }
         }) } onClose { it?.close() }
-        scoped<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get<BudgetProfile>().syncIdentity, get()) }
+        scoped<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get<BudgetProfile>().syncIdentity, get(), getOrNull<AppAccess>()) }
         scoped {
             OperationsSynchronizer(get(), get(), "",
-                get(), budget = get(), budgetApi = get(), cloud = get(), cloudApi = get(), canSynchronize = { get<ActiveBudgetManager>().isCurrent(get<BudgetProfile>()) })
+                get(), budget = get(), budgetApi = get(), cloud = get(), cloudApi = get(), canSynchronize = { getOrNull<AppAccess>()?.cloudAllowed != false && get<ActiveBudgetManager>().isCurrent(get<BudgetProfile>()) })
         }
         scoped {
             OfflineOperationHistoryRepository(

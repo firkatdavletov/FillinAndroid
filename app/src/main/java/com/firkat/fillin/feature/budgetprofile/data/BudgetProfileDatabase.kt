@@ -20,6 +20,7 @@ data class BudgetProfileEntity(
     val role: String?,
     val activeCloudKey: String? = budgetId,
     val name: String? = null,
+    @ColumnInfo(defaultValue = "0") val localCreationState: Int = 0,
 )
 
 @Entity(tableName = "budget_profile_selection")
@@ -27,6 +28,18 @@ data class BudgetProfileSelection(@PrimaryKey val accountKey: String, val profil
 
 @Dao
 interface BudgetProfileDao {
+    @Query("SELECT * FROM budget_profiles WHERE kind != 'CLOUD' AND localCreationState IN (0, 1)")
+    suspend fun localRecovery(): List<BudgetProfileEntity>
+
+    @Query("SELECT COUNT(*) FROM budget_profiles WHERE kind != 'CLOUD' AND localCreationState IN (1, 2)")
+    suspend fun localCount(): Int
+
+    @Query("SELECT COUNT(*) FROM budget_profiles WHERE kind != 'CLOUD' AND localCreationState IN (1, 2)")
+    fun observeLocalCount(): kotlinx.coroutines.flow.Flow<Int>
+
+    @Query("UPDATE budget_profiles SET localCreationState = :state WHERE id = :id")
+    suspend fun setLocalCreationState(id: String, state: Int)
+
     @Query("SELECT * FROM budget_profiles WHERE firebaseUid = :uid")
     suspend fun allCloud(uid: String): List<BudgetProfileEntity>
     @Query("DELETE FROM local_budget_upload WHERE profileId = :id")
@@ -63,7 +76,7 @@ interface BudgetProfileDao {
     suspend fun select(selection: BudgetProfileSelection)
 }
 
-@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class, com.firkat.fillin.feature.budgetmanagement.data.BudgetManagementEntry::class], version = 8, exportSchema = true)
+@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class, com.firkat.fillin.feature.budgetmanagement.data.BudgetManagementEntry::class], version = 9, exportSchema = true)
 abstract class BudgetProfileDatabase : RoomDatabase() {
     abstract fun management(): com.firkat.fillin.feature.budgetmanagement.data.BudgetManagementDao
     abstract fun profiles(): BudgetProfileDao
@@ -121,6 +134,12 @@ val PROFILE_MIGRATION_7_8 = object : Migration(7, 8) {
     }
 }
 
+val PROFILE_MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE budget_profiles ADD COLUMN localCreationState INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 internal val PROFILE_MIGRATIONS = arrayOf(
     PROFILE_MIGRATION_1_2,
     PROFILE_MIGRATION_2_3,
@@ -129,4 +148,5 @@ internal val PROFILE_MIGRATIONS = arrayOf(
     PROFILE_MIGRATION_5_6,
     PROFILE_MIGRATION_6_7,
     PROFILE_MIGRATION_7_8,
+    PROFILE_MIGRATION_8_9,
 )

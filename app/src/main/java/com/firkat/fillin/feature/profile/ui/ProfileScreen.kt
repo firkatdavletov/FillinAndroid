@@ -68,9 +68,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.appaccess.ui.AboutAppRoute
+import com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel
 import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationDraft
+import com.firkat.fillin.feature.budgetsetup.ui.accessErrorResource
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetCurrencyConfirmation
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementSheet
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel
@@ -100,11 +103,15 @@ fun ProfileRoute(
     onMethodsClick: () -> Unit = onAccountClick,
     deletionViewModel: ProfileDeletionViewModel = koinViewModel(),
     bottomBarOverlap: Dp = 0.dp,
+    budgetReadOnly: Boolean = false,
 ) {
+    val about: AboutAppViewModel = koinViewModel()
+    AboutAppRoute(about)
     val management: BudgetManagementViewModel = koinViewModel()
     val managementState by management.state.collectAsStateWithLifecycle()
     val pendingDeletions by management.pending.collectAsStateWithLifecycle()
-    managementState?.let {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    managementState?.takeIf { state.fullAccess || !it.family }?.let {
         if (it.pickerOpen) {
             BudgetCurrencyPicker(
                 it.currency,
@@ -129,7 +136,6 @@ fun ProfileRoute(
             )
         }
     }
-    val state by viewModel.state.collectAsStateWithLifecycle()
     val deletionState by deletionViewModel.deletion.state.collectAsStateWithLifecycle()
     val confirmation by deletionViewModel.confirmation.collectAsStateWithLifecycle()
     val password by deletionViewModel.password.collectAsStateWithLifecycle()
@@ -167,8 +173,9 @@ fun ProfileRoute(
             }
         },
         onBudgetActionsClick = viewModel::toggleBudgetActions,
+        onAboutClick = about::open,
         managementContent = {
-            pendingDeletions.forEach {
+            pendingDeletions.filter { state.fullAccess || it.uid == null }.forEach {
                 PendingBudgetDeletion(
                     it.name,
                     it.error != null && it.error != "sending",
@@ -207,6 +214,7 @@ fun ProfileRoute(
         onCloudSyncClick = onCloudSyncClick,
         onRetry = viewModel::refresh,
         bottomBarOverlap = bottomBarOverlap,
+        budgetReadOnly = budgetReadOnly,
     )
     state.creation?.let { draft ->
         if (state.currencyPickerOpen) {
@@ -223,6 +231,7 @@ fun ProfileRoute(
                 onCreateLocalClick = viewModel::createLocal,
                 onDismiss = viewModel::closeCreation,
                 signedIn = state.cloudAllowed,
+                localLimitReached = state.localLimitReached,
             )
         }
     }
@@ -248,7 +257,9 @@ fun ProfileScreen(
     onManageBudget: (String, String, Boolean) -> Unit = { _, _, _ -> },
     managementContent: @Composable () -> Unit = {},
     onBudgetActionsClick: (String) -> Unit = {},
+    onAboutClick: (() -> Unit)? = null,
     bottomBarOverlap: Dp = 0.dp,
+    budgetReadOnly: Boolean = false,
 ) {
     Column(
         modifier =
@@ -271,8 +282,8 @@ fun ProfileScreen(
                 shape = RoundedCornerShape(20.dp),
             ) {
                 ProfileAccount(user.displayName, user.email, Modifier.padding(16.dp))
-                HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                Surface(
+                if (state.fullAccess) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                if (state.fullAccess) Surface(
                     onClick = onMethodsClick,
                     enabled = !authBusy,
                     color = MaterialTheme.colorScheme.surface,
@@ -305,7 +316,7 @@ fun ProfileScreen(
                     }
                 }
             }
-        } else {
+        } else if (state.fullAccess) {
             PrimaryButton(
                 stringResource(R.string.profile_sign_in),
                 onAccountClick,
@@ -317,6 +328,7 @@ fun ProfileScreen(
         Spacer(Modifier.height(20.dp))
         Text(stringResource(R.string.profile_budgets), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Text(stringResource(R.string.budget_manage_selection_hint), style = MaterialTheme.typography.bodyMedium)
+        if (budgetReadOnly) Text(stringResource(R.string.cloud_budget_read_only), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("profile_loading"))
         state.budgets.forEachIndexed { index, budget ->
@@ -350,13 +362,16 @@ fun ProfileScreen(
         }
         managementContent()
         PrimaryButton(
-            stringResource(R.string.profile_create_budget),
-            onCreateBudgetClick,
+            stringResource(if (state.localLimitReached && state.fullAccess) R.string.cloud_budget_create else R.string.profile_create_budget),
+            if (state.localLimitReached && state.fullAccess && !state.cloudAllowed) onAccountClick else onCreateBudgetClick,
             Modifier.fillMaxWidth(),
-            enabled = !state.busy,
+            enabled = !state.busy && (!state.localLimitReached || state.fullAccess),
         )
+        if (state.localLimitReached) {
+            Text(stringResource(R.string.local_budget_limit), style = MaterialTheme.typography.bodyMedium)
+        }
         if (state.error != null && state.creation == null) {
-            Text(state.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
+            Text(accessErrorResource(state.error)?.let { stringResource(it) } ?: state.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
             TextButton(onClick = onRetry, enabled = !state.busy) { Text(stringResource(R.string.budget_profile_retry)) }
         }
         Spacer(Modifier.height(20.dp))
@@ -366,20 +381,25 @@ fun ProfileScreen(
             icon = FillinIcons.Categories,
             onClick = onCategoriesClick,
         )
-        Spacer(Modifier.height(8.dp))
-        ProfileSettingRow(
-            title = stringResource(R.string.profile_family_access),
-            subtitle = stringResource(R.string.profile_family_subtitle),
-            icon = FillinIcons.FamilyAccess,
-            onClick = onFamilyAccessClick,
-        )
-        Spacer(Modifier.height(8.dp))
-        ProfileSettingRow(
-            title = stringResource(R.string.profile_cloud_sync),
-            subtitle = stringResource(R.string.profile_cloud_subtitle),
-            icon = FillinIcons.CloudUpload,
-            onClick = onCloudSyncClick,
-        )
+        if (state.fullAccess) {
+            Spacer(Modifier.height(8.dp))
+            ProfileSettingRow(
+                title = stringResource(R.string.profile_family_access),
+                subtitle = stringResource(R.string.profile_family_subtitle),
+                icon = FillinIcons.FamilyAccess,
+                onClick = onFamilyAccessClick,
+            )
+            Spacer(Modifier.height(8.dp))
+            ProfileSettingRow(
+                title = stringResource(R.string.profile_cloud_sync),
+                subtitle = stringResource(R.string.profile_cloud_subtitle),
+                icon = FillinIcons.CloudUpload,
+                onClick = onCloudSyncClick,
+            )
+        }
+        if (onAboutClick != null) {
+            TextButton(onClick = onAboutClick) { Text(stringResource(R.string.app_about)) }
+        }
         Spacer(Modifier.height(32.dp))
         if (deletionState.phase != DeletionPhase.Idle) deletionContent()
         if (user != null && deletionState.phase in setOf(DeletionPhase.Idle, DeletionPhase.Completed)) {
@@ -590,6 +610,7 @@ private fun ProfileBudgetCreationDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     signedIn: Boolean = true,
+    localLimitReached: Boolean = false,
     onCurrencyClick: () -> Unit = {},
 ) {
     AlertDialog(
@@ -634,17 +655,18 @@ private fun ProfileBudgetCreationDialog(
                 )
                 BudgetCurrencyRow(draft.currency, !busy && !pending, onCurrencyClick, Modifier.testTag("profile_creation_currency"))
                 if (pending) Text(stringResource(R.string.cloud_budget_create_pending))
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (localLimitReached) Text(stringResource(R.string.local_budget_limit))
+                error?.let { Text(accessErrorResource(it)?.let { res -> stringResource(res) } ?: it, color = MaterialTheme.colorScheme.error) }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (signedIn &&
                     !pending
                 ) {
-                    TextButton(onClick = onCreateLocalClick, enabled = !busy) { Text(stringResource(R.string.profile_create_local)) }
+                    TextButton(onClick = onCreateLocalClick, enabled = !busy && !localLimitReached) { Text(stringResource(R.string.profile_create_local)) }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = if (signedIn) onCreateCloudClick else onCreateLocalClick, enabled = !busy) {
+            TextButton(onClick = if (signedIn) onCreateCloudClick else onCreateLocalClick, enabled = !busy && (signedIn || !localLimitReached)) {
                 Text(
                     stringResource(
                         if (!signedIn) {
@@ -963,7 +985,7 @@ internal fun BudgetPickerRoute(
         } else {
             TextButton(onClick = onSignIn) { Text(stringResource(R.string.profile_sign_in)) }
         }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        state.error?.let { Text(accessErrorResource(it)?.let { res -> stringResource(res) } ?: it, color = MaterialTheme.colorScheme.error) }
     }
     state.creation?.let { draft ->
         ProfileBudgetCreationDialog(
@@ -987,4 +1009,27 @@ internal fun BudgetPickerRoute(
 @Composable
 private fun ProfileBudgetActionsPreview() {
     FillinTheme { ProfileBudgetCard("Большой семейный бюджет", true, true, true, {}, canManage = true, expanded = true) }
+}
+
+@Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileOfflineLimitPreview() {
+    FillinTheme {
+        ProfileScreen(
+            previewProfileState().copy(fullAccess = false, localLimitReached = true),
+            null, false, {}, {}, {}, {}, {}, {}, {},
+            onAboutClick = {},
+        )
+    }
+}
+
+@Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileCloudAtLocalLimitPreview() {
+    FillinTheme {
+        ProfileBudgetCreationDialog(
+            BudgetCreationDraft("Семейный бюджет", "0", "2026-11-06"),
+            false, false, null, {}, {}, {}, {}, localLimitReached = true,
+        )
+    }
 }

@@ -51,6 +51,7 @@ fun CategoriesRoute(
     onEditCategory: (String) -> Unit,
     viewModel: CategoriesViewModel = koinViewModel(),
     syncViewModel: BudgetSyncViewModel = koinViewModel(),
+    readOnly: Boolean = false,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val sync by syncViewModel.context.collectAsStateWithLifecycle()
@@ -63,7 +64,7 @@ fun CategoriesRoute(
             CategoriesScreen(
                 state = state,
                 onEvent = viewModel::onEvent,
-                canWrite = sync.canWrite,
+                canWrite = sync.canWrite && !readOnly,
                 onCreateCategory = onCreateCategory,
                 onEditCategory = onEditCategory,
             )

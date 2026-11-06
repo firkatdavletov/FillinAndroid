@@ -36,6 +36,7 @@ val authModule = module {
         FirebaseAuthRepository(
             if (BuildConfig.FIREBASE_CONFIGURED) get<FirebaseAuthGateway>() else null,
             get<CredentialManager>(),
+            get<com.firkat.fillin.feature.appaccess.domain.AppAccess>(),
         )
     } onClose { it?.close() }
     single<AuthRepository> { get<FirebaseAuthRepository>() }
@@ -43,12 +44,12 @@ val authModule = module {
         SdkFirebaseIdTokenProvider(if (BuildConfig.FIREBASE_CONFIGURED) FirebaseAuth.getInstance() else null, get(), { uid -> get<com.firkat.fillin.feature.profile.domain.DeletionStore>().blocked(uid) }, { uid ->
             get<com.firkat.fillin.feature.profile.domain.DeletionStore>().block(uid)
             if (FirebaseAuth.getInstance().currentUser?.uid == uid) get<AuthRepository>().signOut()
-        })
+        }, access = get())
     }
     single<ServerAuthRepository> {
         val api = BuildConfig.FIREBASE_API_BASE_URL.takeIf(String::isNotBlank)?.let { url ->
             get<Retrofit>().newBuilder().baseUrl(url)
-                .client(OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+                .client(get<OkHttpClient>(org.koin.core.qualifier.named("cloud")).newBuilder()
                     .connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS)
                     .callTimeout(20, TimeUnit.SECONDS).build())
                 .build().create(FirebaseAuthApi::class.java)
@@ -58,7 +59,7 @@ val authModule = module {
     single<GoogleSignInLauncher> { CredentialManagerGoogleSignInLauncher(get()) }
     single<CoroutineDispatcher>(named("authIo")) { Dispatchers.IO }
     factory { AuthReducer() }
-    factory { AuthInteractor(get(), get(), get(named("authIo"))) }
+    factory { AuthInteractor(get(), get(), get(named("authIo")), access = get()) }
     viewModel {
         AuthViewModel(AuthState(session = get<AuthRepository>().session.value), get<AuthReducer>(), get<AuthInteractor>())
     }

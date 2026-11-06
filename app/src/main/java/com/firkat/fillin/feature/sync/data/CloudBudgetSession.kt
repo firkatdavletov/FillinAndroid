@@ -158,6 +158,7 @@ class CloudBudgetSession(
     }
 
     override suspend fun disable() {
+        if (firebase) checkAccess()
         database.withTransaction { dao.state()?.let { dao.putState(it.copy(cloudEnabled = false)) } }
     }
 

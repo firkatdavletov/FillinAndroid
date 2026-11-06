@@ -4,6 +4,15 @@ import androidx.room.withTransaction
 import com.firkat.fillin.feature.budgetprofile.domain.*
 import java.security.MessageDigest
 import java.util.UUID
+import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+const val LOCAL_BUDGET_LIMIT = 2
+
+private const val LOCAL_RESERVED = 1
+private const val LOCAL_READY = 2
+private const val LOCAL_EMPTY = 3
 
 class RoomBudgetProfileRegistry(
     private val database: BudgetProfileDatabase,
@@ -14,6 +23,57 @@ class RoomBudgetProfileRegistry(
     // Register the original file in place. Never rename, copy or recreate its contents.
     private val legacy = BudgetProfile("legacy-$backend", "operations-$backend.db", BudgetProfileKind.LEGACY)
     private val dao get() = database.profiles()
+
+    private val recoveryLock = Mutex()
+    private var recovered = false
+
+    fun observeLocalCount() = dao.observeLocalCount()
+
+    suspend fun recoverLocalCreations(databases: BudgetDatabaseFactory) = recoveryLock.withLock {
+        if (recovered) return@withLock
+        initialize()
+        for (row in dao.localRecovery()) {
+            val profile = row.profile()
+            val ready = isReady(profile, databases)
+            if (!ready && row.localCreationState == LOCAL_RESERVED) {
+                databases.discardUnregisteredCache(profile)
+                dao.deleteProfile(row.id)
+            } else {
+                dao.setLocalCreationState(row.id, if (ready) LOCAL_READY else LOCAL_EMPTY)
+            }
+        }
+        recovered = true
+    }
+
+    suspend fun reserveLocal(name: String?, databases: BudgetDatabaseFactory): BudgetProfile {
+        recoverLocalCreations(databases)
+        return database.withTransaction {
+            if (dao.localCount() >= LOCAL_BUDGET_LIMIT) throw BudgetConnectionFailure("local_budget_limit")
+            val id = UUID.randomUUID().toString()
+            BudgetProfile(id, "budget-$id.db", BudgetProfileKind.LOCAL, name = name).also {
+                dao.insert(it.entity().copy(localCreationState = LOCAL_RESERVED))
+            }
+        }
+    }
+
+    suspend fun settleLocal(profile: BudgetProfile, databases: BudgetDatabaseFactory) {
+        if (isReady(profile, databases)) {
+            dao.setLocalCreationState(profile.id, LOCAL_READY)
+        } else {
+            databases.discardUnregisteredCache(profile)
+            dao.deleteProfile(profile.id)
+        }
+    }
+
+    suspend fun isReady(profile: BudgetProfile, databases: BudgetDatabaseFactory): Boolean {
+        if (!databases.exists(profile)) return false
+        val database = databases.open(profile)
+        return try {
+            database.operations().state()?.let { it.localReady || it.initialSyncComplete } == true
+        } finally {
+            database.close()
+        }
+    }
 
     override suspend fun initialize(): BudgetProfile = database.withTransaction {
         dao.insert(legacy.entity())
@@ -32,7 +92,7 @@ class RoomBudgetProfileRegistry(
 
     override suspend fun available(uid: String?): List<BudgetProfile> {
         val hidden = database.management().all().filter { it.deleting }.map { it.profileId }.toSet()
-        return dao.available(uid).filter { it.id !in hidden }.map { it.profile() }
+        return dao.available(uid).filter { it.id !in hidden && it.localCreationState != LOCAL_RESERVED }.map { it.profile() }
     }
 
     override suspend fun createLocal(): BudgetProfile {
@@ -70,7 +130,8 @@ class RoomBudgetProfileRegistry(
 
     override suspend fun selected(uid: String?): BudgetProfile = database.withTransaction {
         val fallback = initialize()
-        dao.selection(accountKey(uid))?.let { dao.find(it)?.profile() }
+        (dao.selection(accountKey(uid)) ?: dao.selection("local"))
+            ?.let { dao.find(it)?.profile() }
             ?.takeIf { it.accessibleTo(uid) } ?: fallback
     }
 
@@ -89,6 +150,9 @@ class RoomBudgetProfileRegistry(
         require(database.management().all().none { it.profileId == id && it.deleting })
         require(profile.accessibleTo(uid)) { "Budget profile is unavailable for this account" }
         dao.select(BudgetProfileSelection(accountKey(uid), id))
+        if (profile.kind != BudgetProfileKind.CLOUD && uid != null) {
+            dao.select(BudgetProfileSelection("local", id))
+        }
         profile
     }
 

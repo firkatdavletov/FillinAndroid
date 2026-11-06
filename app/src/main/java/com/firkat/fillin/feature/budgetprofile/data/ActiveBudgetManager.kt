@@ -85,20 +85,32 @@ class ActiveBudgetManager(
         }
     }
 
+    suspend fun stopCloudSync() = mutex.withLock {
+        runtimes.values.filter { it.profile.kind == BudgetProfileKind.CLOUD }.forEach { runtime ->
+            runtime.retain()?.use {
+                cancelWork(runtime.profile.syncIdentity)
+                it.scope.get<OperationSyncRequests>().cancelForeground()
+            }
+        }
+    }
+
     suspend fun restore() = mutex.withLock {
         try {
             var uid: String?
             var profile: BudgetProfile
             do {
                 uid = currentUid()
-                if (registry is RoomBudgetProfileRegistry && registry.requiresSelection(uid)) {
-                    _active.value?.let { cancelWork(it.profile.syncIdentity); it.release() }
-                    _active.value = null
-                    _selectionRequired.value = true
-                    initialized.complete(Unit)
-                    return@withLock
-                }
                 profile = registry.selected(uid).takeUnless { it.id in retiredProfiles } ?: registry.selected(null)
+                if (registry is RoomBudgetProfileRegistry) {
+                    val databases = koin.get<BudgetDatabaseFactory>()
+                    registry.recoverLocalCreations(databases)
+                    val candidates = registry.available(uid).filterNot { it.id in retiredProfiles }
+                    val selectedReady = candidates.any { it.id == profile.id } && registry.isReady(profile, databases)
+                    if (!selectedReady) {
+                        val ready = candidates.firstOrNull { registry.isReady(it, databases) }
+                        if (ready != null) profile = registry.select(ready.id, uid)
+                    }
+                }
             } while (uid != currentUid())
             activate(profile)
             _failed.value = false
@@ -244,7 +256,10 @@ class ActiveBudgetManager(
 
     private suspend fun activate(profile: BudgetProfile) {
         val previous = _active.value
-        if (previous?.profile == profile) return
+        if (previous?.profile == profile) {
+            _selectionRequired.value = false
+            return
+        }
         // Returning while an old request finishes must reuse that profile's mutex and DB handle.
         val runtime = runtimes[profile]?.takeIf { it.retainOwner() } ?: BudgetRuntime(
             profile, koin.createScope("budget-${UUID.randomUUID()}", BUDGET_SCOPE, profile),

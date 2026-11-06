@@ -19,6 +19,8 @@ data class BudgetSetupState(
     val page: SetupPage = SetupPage.Create,
     val session: AuthSession = AuthSession.Loading,
     val ownerUid: String? = null,
+    val cloudAllowed: Boolean = true,
+    val localFirst: Boolean = false,
     val initialized: Boolean = false,
     val formOpened: Boolean = false,
     val authTarget: SetupAuthTarget? = null,
@@ -53,6 +55,7 @@ sealed interface BudgetSetupAction : Action {
     data class StorageChanged(val mode: BudgetSetupMode) : BudgetSetupAction
     data class CodeChanged(val value: String) : BudgetSetupAction
     data object Create : BudgetSetupAction
+    data object OpenList : BudgetSetupAction
     data object OpenCreate : BudgetSetupAction
     data object OpenJoin : BudgetSetupAction
     data object Join : BudgetSetupAction
@@ -72,7 +75,7 @@ sealed interface BudgetSetupCommand : Command {
 }
 enum class SubmitKind { Local, Cloud, Connect, Join }
 sealed interface BudgetSetupEvent : Event {
-    data class Session(val session: AuthSession) : BudgetSetupEvent
+    data class Session(val session: AuthSession, val cloudAllowed: Boolean = true, val localFirst: Boolean = false) : BudgetSetupEvent
     data class Catalog(val generation: Long, val budgets: List<AvailableBudget>, val pending: PendingBudgetCreation?, val cached: Boolean) : BudgetSetupEvent
     data class LoadFinished(val generation: Long, val error: String? = null) : BudgetSetupEvent
     data class Finished(val generation: Long, val operationId: Long, val error: String? = null, val pending: PendingBudgetCreation? = null) : BudgetSetupEvent

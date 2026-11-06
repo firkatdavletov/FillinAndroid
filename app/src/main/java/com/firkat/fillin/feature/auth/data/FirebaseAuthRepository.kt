@@ -17,10 +17,11 @@ import kotlinx.serialization.json.*
 
 class FirebaseAuthRepository(
     private val gateway: FirebaseAuthGateway?,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
     private val clearCredentials: suspend () -> Unit,
 ) : AuthRepository, AutoCloseable {
     constructor(auth: FirebaseAuth?, credentialManager: CredentialManager) : this(auth?.let(::SdkFirebaseAuthGateway), credentialManager)
-    constructor(gateway: FirebaseAuthGateway?, credentialManager: CredentialManager) : this(gateway, { credentialManager.clearCredentialState(ClearCredentialStateRequest()) })
+    constructor(gateway: FirebaseAuthGateway?, credentialManager: CredentialManager, access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null) : this(gateway, access, { credentialManager.clearCredentialState(ClearCredentialStateRequest()) })
     private val mutableSession = MutableStateFlow<AuthSession>(if (gateway == null) AuthSession.Unavailable else AuthSession.Loading)
     override val session = mutableSession.asStateFlow()
     private val mutex = Mutex()
@@ -36,7 +37,8 @@ class FirebaseAuthRepository(
             else AuthSession.Authenticated(value)
         }
     }
-    private suspend fun operation(block: suspend (FirebaseAuthGateway) -> Unit) = mutex.withLock {
+    private suspend fun operation(accountCleanup: Boolean = false, block: suspend (FirebaseAuthGateway) -> Unit) = mutex.withLock {
+        if (!accountCleanup && access?.cloudAllowed == false) throw AuthFailure(AuthError.NotConfigured)
         val sdk = gateway ?: throw AuthFailure(AuthError.NotConfigured)
         updating = true
         try { block(sdk) }
@@ -90,11 +92,11 @@ class FirebaseAuthRepository(
         if (sdk.user?.uid != uid) throw AuthFailure(AuthError.InvalidCredential)
         verificationRequired = sdk.user?.verified != true
     }
-    override suspend fun reauthenticatePassword(password: String) = operation { it.reauthenticatePassword(password) }
-    override suspend fun reauthenticateGoogle(idToken: String) = operation { it.reauthenticateGoogle(idToken) }
+    override suspend fun reauthenticatePassword(password: String)  = operation(accountCleanup = true) { it.reauthenticatePassword(password) }
+    override suspend fun reauthenticateGoogle(idToken: String)  = operation(accountCleanup = true) { it.reauthenticateGoogle(idToken) }
     override fun requireEmailVerification() { verificationRequired = true; publish() }
     override suspend fun signOut() {
-        operation { it.signOut(); verificationRequired = false }
+        operation(accountCleanup = true) { it.signOut(); verificationRequired = false }
         try { clearCredentials() }
         catch (_: ClearCredentialException) { throw AuthFailure(AuthError.CredentialResetFailed) }
     }

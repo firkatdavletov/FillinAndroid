@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 
@@ -21,6 +22,7 @@ class AuthInteractor(
     private val repository: AuthRepository,
     private val serverAuth: ServerAuthRepository?,
     private val dispatcher: CoroutineDispatcher,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
 ) : Interactor<AuthCommand, AuthEvent> {
     override fun execute(command: AuthCommand): Flow<AuthEvent> = flow {
         when (command) {
@@ -42,8 +44,12 @@ class AuthInteractor(
                 emit(AuthEvent.EmailFinished(command.task, error, System.currentTimeMillis()))
             }
 
-            AuthCommand.ObserveSession -> repository.session.collect {
-                emit(AuthEvent.SessionChanged(it, serverAuth != null))
+            AuthCommand.ObserveSession -> {
+                if (access == null) repository.session.collect {
+                    emit(AuthEvent.SessionChanged(it, serverAuth != null))
+                } else combine(repository.session, access.mode) { session, mode ->
+                    AuthEvent.SessionChanged(session, serverAuth != null && mode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull)
+                }.collect { emit(it) }
             }
             is AuthCommand.SignInWithGoogle -> {
                 val error = authError(AuthError.SignInFailed) { repository.signInWithGoogle(command.idToken) }
@@ -56,7 +62,7 @@ class AuthInteractor(
                 emit(AuthEvent.OperationFinished(command.operationId, error))
             }
             is AuthCommand.LoadServerProfile -> {
-                val server = serverAuth ?: return@flow
+                val server = serverAuth?.takeIf { access?.cloudAllowed != false } ?: return@flow
                 if (repository.session.value.uid != command.uid) return@flow
                 val profile = try {
                     ServerProfileState.Ready(server.authenticate(command.uid))

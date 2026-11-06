@@ -117,15 +117,15 @@ class DashboardScreenOfflineTest {
     @Test fun largeFontKeepsAllTextVisibleInLightTheme() = checkAppearance(false, 2f, "dashboard-large-font-light.png")
     @Test fun largeFontKeepsAllTextVisibleInDarkTheme() = checkAppearance(true, 2f, "dashboard-large-font-dark.png")
 
-    @Test fun forbiddenStateHidesWidgetsAndRetryEmitsAnEvent() {
-        val events = mutableListOf<DashboardEvent>()
+    @Test fun forecastShowsUnavailableMessageForForbiddenBudget() {
         compose.setContent {
-            FillinTheme { DashboardScreen(DashboardUiState(status = DashboardStatus.Forbidden), events::add) { Text(it.id) } }
+            FillinTheme {
+                com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastWidget(
+                    com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastUiState(dataStatus = DashboardStatus.Forbidden),
+                )
+            }
         }
         compose.onNodeWithText("Доступ к семейному бюджету отозван").assertIsDisplayed()
-        compose.onNodeWithTag("dashboard-grid").assertDoesNotExist()
-        compose.onNodeWithText("Повторить").performClick()
-        assertEquals(listOf(DashboardEvent.Retry), events)
     }
 
     private fun checkAppearance(dark: Boolean, fontScale: Float, screenshotName: String) {
@@ -171,7 +171,7 @@ class DashboardScreenOfflineTest {
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
                 FillinTheme(darkTheme = dark, dynamicColor = false) {
                     Box(Modifier.width(320.dp).fillMaxHeight()) {
-                        DashboardScreen(state, {}) { widget -> SampleWidget(widget, dashboard) }
+                        DashboardScreen { widget -> SampleWidget(widget, dashboard) }
                     }
                 }
             }

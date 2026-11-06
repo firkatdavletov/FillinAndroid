@@ -24,6 +24,7 @@ class RoomLocalBudgetUploadRepository(
     private val active: ActiveBudgetManager,
     private val scheduler: OperationSyncScheduler,
     private val json: Json,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
 ) : LocalBudgetUploadRepository {
     private val mutex = Mutex()
     suspend fun awaitIdle() = mutex.withLock { }
@@ -100,5 +101,8 @@ class RoomLocalBudgetUploadRepository(
     }
 
     private fun currentUid() = (auth.session.value as? AuthSession.Authenticated)?.user?.uid
-    private fun ensureCurrent(uid: String) { if (currentUid() != uid) throw BudgetConnectionFailure("account_changed") }
+    private fun ensureCurrent(uid: String) {
+        access?.requireCloud()
+        if (currentUid() != uid) throw BudgetConnectionFailure("account_changed")
+    }
 }

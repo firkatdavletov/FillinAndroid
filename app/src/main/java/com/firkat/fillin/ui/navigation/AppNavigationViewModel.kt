@@ -29,6 +29,8 @@ class AppNavigationViewModel(
     private val localBudget: LocalBudgetRestorer,
     private val budgetReadiness: ActiveBudgetReadiness,
     private val savedState: SavedStateHandle = SavedStateHandle(),
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
+    private val activeBudget: com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager? = null,
 ) : ViewModel() {
     // Activity ownership keeps navigation on rotation; a new process starts at Launch.
     private val entries = mutableStateListOf<AppRoute>(AppRoute.Launch)
@@ -48,6 +50,27 @@ class AppNavigationViewModel(
         get() = savedState["setup_auth"]
         set(value) { savedState["setup_auth"] = value }
 
+    val cloudAllowed get() = access?.cloudAllowed != false
+    private val readOnly get() = !cloudAllowed && activeBudget?.active?.value?.profile?.firebaseUid != null
+
+    fun closeRestrictedRoutes() {
+        if (cloudAllowed) return
+        val firstRestricted = entries.indexOfFirst {
+            it == AppRoute.Auth || it == AppRoute.AccountMethods || it == AppRoute.CloudSync || it == AppRoute.FamilyAccess ||
+                it == AppRoute.BudgetSetupList || it == AppRoute.BudgetSetupJoin ||
+                (readOnly && it !is AppRoute.OperationDetails && it != AppRoute.Categories && it != AppRoute.Main &&
+                    it != AppRoute.Launch && !it.isBudgetSetup() && it !is AppRoute.ForecastDetails && it !is AppRoute.DailyLimitDetails)
+        }
+        setupAuth = null
+        if (firstRestricted < 0) {
+            if (entries.lastOrNull() == AppRoute.BudgetSetup(BudgetSetupMode.Cloud)) openSetup(BudgetSetupMode.Local)
+        } else if (firstRestricted == 0) {
+            if (budgetReady) openMain() else openSetup(BudgetSetupMode.Local)
+        } else {
+            while (entries.size > firstRestricted) entries.removeAt(entries.lastIndex)
+        }
+    }
+
     val configuringBudget: Boolean get() = setupActive
 
     fun openForecast(scopeId: String) = openMainDestination(AppRoute.ForecastDetails(scopeId))
@@ -55,28 +78,27 @@ class AppNavigationViewModel(
     fun openDailyLimit(scopeId: String) { if (entries.lastOrNull() == AppRoute.Main) entries.add(AppRoute.DailyLimitDetails(scopeId)) }
 
     fun authenticateForSetup(target: SetupAuthTarget) {
-        if (!setupActive || auth.session.value is AuthSession.Authenticated) return
+        if (!cloudAllowed || !setupActive || auth.session.value is AuthSession.Authenticated) return
         setupAuth = target.name
         if (entries.last() != AppRoute.Auth) entries.add(AppRoute.Auth)
     }
 
     fun showSetupPage(page: SetupPage) {
-        if (!setupActive || !entries.last().isBudgetSetup()) return
+        if (!setupActive || !entries.last().isBudgetSetup() || (!cloudAllowed && page != SetupPage.Create)) return
         val route = when (page) {
-            SetupPage.Create -> AppRoute.BudgetSetup(if (auth.session.value is AuthSession.Authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local)
+            SetupPage.Create -> AppRoute.BudgetSetup(BudgetSetupMode.Local)
             SetupPage.List -> AppRoute.BudgetSetupList
             SetupPage.Join -> AppRoute.BudgetSetupJoin
         }
         if (entries.last() != route) entries[entries.lastIndex] = route
     }
 
-    fun exitSetup() { setupActive = false; setupAuth = null; replaceWith(AppRoute.Auth) }
+    fun exitSetup() { setupActive = false; setupAuth = null }
     fun finishSetup() { if (!setupActive || !entries.last().isBudgetSetup()) return; setupActive = false; setupAuth = null; openMain() }
     private fun resumeSetup() {
         val target = setupAuth
         setupAuth = null
         entries.clear()
-        entries.add(AppRoute.Auth)
         entries.add(if (target == SetupAuthTarget.Join.name) AppRoute.BudgetSetupJoin else AppRoute.BudgetSetup(BudgetSetupMode.Cloud))
     }
 
@@ -87,9 +109,8 @@ class AppNavigationViewModel(
             combine(auth.session, retries) { session, _ -> session }.collectLatest { session ->
                 resolving.value = true
                 budgetReady = false
-                if (session == AuthSession.Loading) return@collectLatest
                 val authenticated = session is AuthSession.Authenticated
-                if (!authenticated && lastUid != null) { setupActive = false; setupAuth = null; replaceWith(AppRoute.Auth) }
+                if (!authenticated && lastUid != null) { setupActive = false; setupAuth = null; replaceWith(AppRoute.Launch) }
                 val accountChanged = lastUid != (session as? AuthSession.Authenticated)?.user?.uid
                 lastUid = (session as? AuthSession.Authenticated)?.user?.uid
                 failure.value = false
@@ -105,21 +126,22 @@ class AppNavigationViewModel(
                         resolving.value = false
                         when {
                             first && setupActive -> {
-                                if (authenticated && setupAuth != null) resumeSetup()
+                                if (authenticated && setupAuth != null && cloudAllowed) resumeSetup()
                                 else if (entries.last() == AppRoute.Launch) {
-                                    entries.clear(); entries.add(AppRoute.Auth)
-                                    entries.add(AppRoute.BudgetSetup(if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local))
-                                    if (setupAuth != null) entries.add(AppRoute.Auth)
-                                }
+                                    replaceWith(if (ready) AppRoute.Main else AppRoute.BudgetSetup(BudgetSetupMode.Local))
+                                    if (ready) setupActive = false
+                                    else if (setupAuth != null && cloudAllowed) entries.add(AppRoute.Auth)
+                                } else if (ready && setupAuth == null && lastUid != null && entries.last() == AppRoute.BudgetSetup(BudgetSetupMode.Local)) budgetChosen()
                             }
                             first && authenticated && (accountChanged || entries.last() in listOf(AppRoute.Launch, AppRoute.Auth)) -> {
-                                if (ready) openMain() else openSetup(BudgetSetupMode.Cloud)
+                                if (ready) openMain() else openSetup(BudgetSetupMode.Local)
                             }
                             entries.last() == AppRoute.Launch -> {
-                                if (ready) openMain() else replaceWith(AppRoute.Auth)
+                                if (ready) openMain() else openSetup(BudgetSetupMode.Local)
                             }
+                            ready && entries.last().isBudgetSetup() && setupAuth == null -> budgetChosen()
                             !ready && (entries.last() is AppRoute.ForecastDetails || entries.last() is AppRoute.OperationDetails || entries.last() is AppRoute.OperationPlanLinkBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.PlanningRuleEditor || entries.last() is AppRoute.EditCategoryBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
-                                if (authenticated) BudgetSetupMode.Cloud else BudgetSetupMode.Local,
+                                BudgetSetupMode.Local,
                             )
                         }
                         first = false
@@ -137,32 +159,33 @@ class AppNavigationViewModel(
         }
     }
 
-    fun authenticateFromPicker() { setupActive = false; setupAuth = null; replaceWith(AppRoute.Auth) }
+    fun authenticateFromPicker() = openAuthentication()
 
     fun budgetChosen() { setupActive = false; setupAuth = null; openMain() }
 
     fun retryLaunch() { retries.update { it + 1 } }
 
     fun openAuthentication() {
+        if (!cloudAllowed) return
         if (auth.session.value is AuthSession.Authenticated) { openAccountMethods(); return }
         if (entries.last() in listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.CloudSync) && auth.session.value !is AuthSession.Authenticated) {
             entries.add(AppRoute.Auth)
         }
     }
 
-    fun openAccountMethods() { if (entries.last() in listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.CloudSync)) entries.add(AppRoute.AccountMethods) }
+    fun openAccountMethods() { if (cloudAllowed && entries.last() in listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.CloudSync)) entries.add(AppRoute.AccountMethods) }
 
     fun openCategories() = openMainDestination(AppRoute.Categories)
 
     fun openCategoryEditor(categoryId: String? = null) {
-        if (entries.last() == AppRoute.Categories && budgetReady && !resolving.value) {
+        if (!readOnly && entries.last() == AppRoute.Categories && budgetReady && !resolving.value) {
             entries.add(AppRoute.EditCategoryBottomSheet(categoryId))
         }
     }
 
-    fun openFamilyAccess() = openMainDestination(AppRoute.FamilyAccess)
+    fun openFamilyAccess() { if (cloudAllowed) openMainDestination(AppRoute.FamilyAccess) }
 
-    fun openCloudSync() = openMainDestination(AppRoute.CloudSync)
+    fun openCloudSync() { if (cloudAllowed) openMainDestination(AppRoute.CloudSync) }
 
     fun openOperationCreate() = openMainDestination(AppRoute.OperationCreate)
 
@@ -189,16 +212,16 @@ class AppNavigationViewModel(
         openMainDestination(AppRoute.OperationPlanLinkBottomSheet(operationId, scopeId))
 
     fun openDetailsPlanLink(route: AppRoute.OperationDetails) {
-        if (entries.lastOrNull() != route) return
+        if (readOnly || entries.lastOrNull() != route) return
         entries.add(AppRoute.OperationPlanLinkBottomSheet(route.operationId, route.budgetScopeId))
     }
 
     fun openOperationPlanPicker(route: AppRoute.OperationDetails) {
-        if (entries.lastOrNull() == route) entries.add(AppRoute.OperationPlanPicker(route.operationId, route.budgetScopeId))
+        if (!readOnly && entries.lastOrNull() == route) entries.add(AppRoute.OperationPlanPicker(route.operationId, route.budgetScopeId))
     }
 
     fun openDetailsPlanningRule(route: AppRoute.OperationDetails, type: PlannedOperationType, ruleId: String) {
-        if (entries.lastOrNull() == route && budgetReady && !resolving.value) {
+        if (!readOnly && entries.lastOrNull() == route && budgetReady && !resolving.value) {
             entries.add(AppRoute.PlanningRuleEditor(route.budgetScopeId, type, ruleId))
         }
     }
@@ -229,6 +252,7 @@ class AppNavigationViewModel(
     }
 
     private fun openMainDestination(route: AppRoute) {
+        if (readOnly && route !is AppRoute.ForecastDetails && route !is AppRoute.DailyLimitDetails && route !is AppRoute.OperationDetails && route != AppRoute.Categories) return
         if (entries.last() == AppRoute.Main && budgetReady && !resolving.value) entries.add(route)
     }
 
@@ -252,9 +276,7 @@ class AppNavigationViewModel(
 
     private fun openSetup(mode: BudgetSetupMode) {
         setupActive = true
-        entries.clear()
-        entries.add(AppRoute.Auth)
-        entries.add(AppRoute.BudgetSetup(mode))
+        replaceWith(AppRoute.BudgetSetup(mode))
     }
 
     private fun openMain() {

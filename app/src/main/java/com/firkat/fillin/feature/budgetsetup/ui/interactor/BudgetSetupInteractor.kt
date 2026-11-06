@@ -22,24 +22,34 @@ class BudgetSetupInteractor(
     private val family: FamilyBudgetRepository,
     private val dispatcher: CoroutineDispatcher,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
 ) : Interactor<BudgetSetupCommand, BudgetSetupEvent> {
     override fun execute(command: BudgetSetupCommand): Flow<BudgetSetupEvent> = flow {
         when (command) {
-            BudgetSetupCommand.ObserveSession -> auth.session.collect { emit(BudgetSetupEvent.Session(it)) }
+            BudgetSetupCommand.ObserveSession -> {
+                if (access == null) auth.session.collect { emit(BudgetSetupEvent.Session(it)) }
+                else combine(auth.session, access.mode) { session, mode ->
+                    BudgetSetupEvent.Session(session, mode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull, localFirst = true)
+                }.collect { emit(it) }
+            }
             is BudgetSetupCommand.Load -> {
+                access?.requireCloud()
                 checkUid(command.uid)
                 var pending: PendingBudgetCreation? = null
                 val error = try {
                     pending = creation.pending(command.uid)
                     val cached = connection.cachedBudgets(command.uid)
-                    checkUid(command.uid)
+                    access?.requireCloud()
+                checkUid(command.uid)
                     emit(BudgetSetupEvent.Catalog(command.generation, cached, pending, true))
                     val budgets = connection.budgets(command.uid)
-                    checkUid(command.uid)
+                    access?.requireCloud()
+                checkUid(command.uid)
                     emit(BudgetSetupEvent.Catalog(command.generation, budgets, pending, false))
                     null
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { setupError(e) }
+                access?.requireCloud()
                 checkUid(command.uid)
                 emit(BudgetSetupEvent.LoadFinished(command.generation, error))
             }
@@ -48,6 +58,7 @@ class BudgetSetupInteractor(
                 checkUid(state.uid)
                 var pending = state.pending
                 val error = try {
+                    if (command.kind != SubmitKind.Local) access?.requireCloud()
                     val today = LocalDate.now(clock.withZone(ZoneId.of("Asia/Almaty")))
                     when (command.kind) {
                         SubmitKind.Local -> {

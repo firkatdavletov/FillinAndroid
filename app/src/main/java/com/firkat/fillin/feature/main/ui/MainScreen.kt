@@ -61,12 +61,14 @@ fun MainScreen(
     onCreateOperationClick: () -> Unit = {},
     onOperationClick: (String, String) -> Unit = { _, _ -> },
     onForecastClick: () -> Unit = {},
+    readOnly: Boolean = false,
     onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit = { _, _ -> },
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
 
     MainContent(
         modifier = modifier,
+        readOnly = readOnly,
         selectedDestination = selectedDestination,
         onSelectDestination = {
             if (it == AppDestination.AddOperation) {

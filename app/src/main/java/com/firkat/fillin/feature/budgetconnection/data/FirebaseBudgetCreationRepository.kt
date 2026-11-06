@@ -16,6 +16,7 @@ class FirebaseBudgetCreationRepository(
     private val requests: FirebaseBudgetRequests,
     private val store: BudgetCreationStore,
     private val connection: BudgetConnectionRepository,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
 ) : BudgetCreationRepository {
     private val mutex = Mutex()
@@ -26,12 +27,14 @@ class FirebaseBudgetCreationRepository(
     }
     override suspend fun create(uid: String, draft: BudgetCreationDraft) = mutex.withLock {
         requests.ensureCurrent(uid)
+        access?.requireCloud()
         val valid = draft.validated(LocalDate.now(clock))
         val saved = store.save(uid, PendingBudgetCreation(UUID.randomUUID().toString(), valid))
         if (saved.draft != valid) throw BudgetConnectionFailure("creation_pending")
         send(uid, saved)
     }
     override suspend fun resume(uid: String) = mutex.withLock {
+        access?.requireCloud()
         val saved = pending(uid) ?: throw BudgetConnectionFailure("creation_not_found")
         send(uid, saved)
     }

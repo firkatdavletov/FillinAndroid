@@ -10,6 +10,8 @@ import com.firkat.fillin.feature.sync.data.CreateCloudBudget
 import kotlinx.serialization.json.Json
 import com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -22,7 +24,7 @@ class BudgetManagementDeviceTest {
     private val repository = RoomProfileBudgetsRepository(env.auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, env.koin.get(), env.uploads, management = service)
     @After fun close() = env.close()
 
-    @Test fun localRenameAndDeletePreserveAnotherBudgetAndRequireExplicitSelection() = runBlocking {
+    @Test fun localRenameAndDeleteRestoreAnotherBudget() = runBlocking {
         env.manager.restore()
         repository.createLocal("Первый", "100".toBigDecimal(), LocalDate.now())
         val first = env.manager.active.value!!.profile.id
@@ -32,12 +34,51 @@ class BudgetManagementDeviceTest {
         assertEquals("Новое имя", env.registry.find(first)?.name)
         service.submit(second, "Второй", true)
         assertNull(env.registry.find(second))
-        assertTrue(env.registry.requiresSelection(null))
-        env.manager.restore()
-        assertNull(env.manager.active.value)
+        assertEquals(first, env.manager.active.value?.profile?.id)
         assertEquals(first, repository.observe().first().single().id)
-        repository.select(first)
         assertFalse(env.manager.selectionRequired.value)
+    }
+
+    @Test fun concurrentLocalCreationSharesTwoSlotsAndDeletionReleasesOne() = runBlocking {
+        val results = kotlinx.coroutines.coroutineScope {
+            (1..3).map { index ->
+                async {
+                    runCatching {
+                        repository.createLocal("Бюджет $index", "0".toBigDecimal(), LocalDate.now())
+                    }
+                }
+            }.awaitAll()
+        }
+        assertEquals(2, results.count { it.isSuccess })
+        val failure = results.single { it.isFailure }.exceptionOrNull()
+        assertEquals("local_budget_limit", (failure as? com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure)?.code)
+        val removed = env.manager.active.value!!.profile
+        service.submit(removed.id, requireNotNull(removed.name), true)
+        repository.createLocal("После удаления", "0".toBigDecimal(), LocalDate.now())
+        assertEquals(2, repository.observe().first().size)
+    }
+
+    @Test fun restartRecoversCommittedReservationAndReleasesIncompleteOne() = runBlocking {
+        val factory = BudgetDatabaseFactory(env.context)
+        val committed = env.registry.reserveLocal("Готовый", factory)
+        val interrupted = env.registry.reserveLocal("Прерванный", factory)
+        val database = factory.open(committed)
+        try {
+            val session = com.firkat.fillin.feature.sync.data.CloudBudgetSession(
+                database, com.firkat.fillin.feature.sync.data.LocalOnlyCloudApi, "", env.koin.get(),
+                com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler {},
+            )
+            session.createLocal("123.45".toBigDecimal(), session.today)
+        } finally {
+            database.close()
+        }
+
+        val reopened = com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry(env.registryDb, env.backend)
+        reopened.recoverLocalCreations(factory)
+        assertTrue(reopened.isReady(committed, factory))
+        assertNull(reopened.find(interrupted.id))
+        assertEquals(1, reopened.observeLocalCount().first())
+        assertEquals(committed.id, reopened.available(null).first { it.name == "Готовый" }.id)
     }
 
     @Test fun offlineCurrencyChangeSurvivesRetryAndDoesNotChangeOpeningBalance() = runBlocking {
@@ -121,6 +162,6 @@ class BudgetManagementDeviceTest {
         assertTrue(env.connection.cachedBudgets("owner").isEmpty())
         assertTrue(env.registry.available("owner").none { it.id == id })
         env.manager.restore()
-        assertNull(env.manager.active.value)
+        assertNull(env.manager.active.value?.profile?.budgetId)
     }
 }

@@ -40,6 +40,8 @@ class FirebaseAuthenticatedRequests(private val tokens: FirebaseIdTokenProvider)
                 return Response.error(403, raw.toResponseBody(type))
             }
             return response
+        } catch (_: com.firkat.fillin.feature.appaccess.data.DeviceAccessDeniedIOException) {
+            throw BudgetConnectionFailure("device_access_denied")
         } catch (_: IOException) {
             throw BudgetConnectionFailure("network")
         } catch (_: SerializationException) {

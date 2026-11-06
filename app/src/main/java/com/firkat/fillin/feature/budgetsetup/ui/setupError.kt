@@ -1,9 +1,19 @@
 package com.firkat.fillin.feature.budgetsetup.ui
 
+import androidx.annotation.StringRes
+import com.firkat.fillin.R
 import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
+
+@StringRes
+internal fun accessErrorResource(code: String): Int? = when (code) {
+    "local_budget_limit" -> R.string.local_budget_limit
+    "device_access_denied" -> R.string.app_access_revoked
+    else -> null
+}
 
 fun setupError(error: Exception): String =
     when ((error as? BudgetConnectionFailure)?.code) {
+        "local_budget_limit", "device_access_denied" -> error.message.orEmpty()
         "not_local_budget" -> "Этот бюджет уже связан с облаком. Подключите его из списка бюджетов аккаунта."
         "creation_pending" -> "Создание предыдущего бюджета ещё не завершено. Продолжите его создание."
         "creation_conflict" -> "Сервер отклонил повтор создания. Запрос сохранён; обратитесь к разработчику."

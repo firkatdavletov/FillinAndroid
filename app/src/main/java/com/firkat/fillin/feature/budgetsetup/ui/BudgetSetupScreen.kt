@@ -3,6 +3,7 @@ package com.firkat.fillin.feature.budgetsetup.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,7 +20,9 @@ internal fun BudgetSetupScreen(
     onPageChange: (SetupPage) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val localCount by viewModel.localCount.collectAsStateWithLifecycle(initialValue = 0)
     val snackbar = remember { SnackbarHostState() }
+    val resources = LocalResources.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val back by rememberUpdatedState(onBack)
     LaunchedEffect(viewModel) { viewModel.onAction(BudgetSetupAction.Start) }
@@ -28,10 +31,10 @@ internal fun BudgetSetupScreen(
             viewModel.effects.collect { if (it == BudgetSetupEffect.Exit) { viewModel.onAction(BudgetSetupAction.Reset); back() } }
         }
     }
-    LaunchedEffect(state.error, lifecycle) {
+    LaunchedEffect(state.error, lifecycle, resources) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             state.error?.let {
-                snackbar.showSaldomiSnackbar(it)
+                snackbar.showSaldomiSnackbar(accessErrorResource(it)?.let(resources::getString) ?: it)
                 viewModel.onAction(BudgetSetupAction.ErrorShown)
             }
         }
@@ -52,5 +55,5 @@ internal fun BudgetSetupScreen(
     BackHandler {
         viewModel.onAction(if (state.currencyPickerOpen) BudgetSetupAction.CloseCurrencyPicker else BudgetSetupAction.Back)
     }
-    BudgetSetupContent(state, viewModel::onAction, snackbar)
+    BudgetSetupContent(state, viewModel::onAction, snackbar, localLimitReached = localCount >= com.firkat.fillin.feature.budgetprofile.data.LOCAL_BUDGET_LIMIT)
 }

@@ -25,8 +25,13 @@ class BudgetStore(
     private val scheduler: OperationSyncScheduler,
     private val json: Json,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
+    private val canWrite: () -> Boolean = { true },
     private val currencyOverride: Flow<BudgetCurrencyOverride> = flowOf(BudgetCurrencyOverride()),
 ) : BudgetSyncControl, OperationPlanLinkStore {
+    internal fun checkWritable() {
+        if (!canWrite()) throw BudgetLocalFailure("access_denied")
+    }
+
     private val dao get() = database.budget()
 
     internal suspend fun accountingStart() = java.time.Instant.parse(requireNotNull(dao.content()).sync.accountingStartedAt).atZone(ZoneId.of("Asia/Almaty")).toLocalDate()
@@ -161,6 +166,7 @@ class BudgetStore(
     }
 
     suspend fun suggest(operationId: String): SuggestedPlan? {
+        checkWritable()
         val content = requireNotNull(dao.content())
         val plan = project(content).links(operationId).candidates.firstOrNull()
         dao.putProposal(OperationPlanProposal(content.sync.scopeKey, operationId, plan?.let { json.encodeToString(it) }, if (plan == null) "NONE" else "PENDING"))
@@ -168,6 +174,7 @@ class BudgetStore(
     }
 
     override suspend fun selectProposal(operationId: String, plan: SuggestedPlan) = database.withTransaction {
+        checkWritable()
         val content = requireNotNull(dao.content())
         writable(content, allowMember = true)
         val current = project(content).links(operationId).candidates.firstOrNull { it.target.stableKey == plan.target.stableKey && it.target.type == plan.target.type }
@@ -176,6 +183,7 @@ class BudgetStore(
     }
 
     override suspend fun dismissProposal(operationId: String) = database.withTransaction {
+        checkWritable()
         val content = dao.content() ?: return@withTransaction
         val old = dao.proposal(content.sync.scopeKey, operationId)
         dao.putProposal(OperationPlanProposal(content.sync.scopeKey, operationId, old?.payload, "DISMISSED"))
@@ -208,6 +216,7 @@ class BudgetStore(
         edit: (BudgetSyncCommand) -> BudgetSyncCommand = { it },
     ): String {
         database.withTransaction {
+            checkWritable()
             val content = dao.content() ?: throw BudgetLocalFailure("not_initialized")
             writable(content, type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION") || type in BudgetProjection.LINK_COMMANDS)
             val projection = project(content)
@@ -525,6 +534,7 @@ class BudgetStore(
         }
 
     suspend fun cancelRejectedOperation(id: String) {
+        checkWritable()
         val content = requireNotNull(dao.content())
         content.commands.filter { it.entityId == id && it.status in setOf("REJECTED", "BLOCKED") }.forEach { dao.update(it.copy(status = "CANCELLED")) }
     }
@@ -605,6 +615,7 @@ class BudgetStore(
         database.withTransaction {
             val content = requireNotNull(dao.content())
             writable(content)
+            checkWritable()
             val failed = dao.command(id) ?: return@withTransaction
             val intent = json.decodeFromString<BudgetSyncCommand>(failed.intent)
             val descendants = mutableSetOf(id)

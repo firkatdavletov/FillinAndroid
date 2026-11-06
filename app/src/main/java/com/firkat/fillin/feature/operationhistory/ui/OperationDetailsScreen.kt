@@ -48,6 +48,7 @@ internal fun OperationDetailsRoute(
     operationId: String, onClose: () -> Unit, onResult: (EditOperationResult) -> Unit,
     onLinkSelected: () -> Unit, onOpenPlan: (PlannedOperationType, String) -> Unit,
     viewModel: EditOperationViewModel = koinViewModel { parametersOf(operationId) },
+    readOnly: Boolean = false,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val close by rememberUpdatedState(onClose)
@@ -55,7 +56,8 @@ internal fun OperationDetailsRoute(
     val openPlan by rememberUpdatedState(onOpenPlan)
     val openLink by rememberUpdatedState(onLinkSelected)
     val event = viewModel::onEvent
-    BackHandler { event(EditOperationEvent.CloseClicked) }
+    val closeDetails = { if (readOnly) onClose() else event(EditOperationEvent.CloseClicked) }
+    BackHandler(onBack = closeDetails)
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect -> when (effect) {
             EditOperationEffect.Close -> close()
@@ -65,7 +67,7 @@ internal fun OperationDetailsRoute(
         } }
     }
     EditOperationContent(
-        operation = state.operation, mode = state.mode, input = state.input, type = state.type,
+        operation = state.operation, mode = if (readOnly) EditOperationMode.ReadOnly else state.mode, input = state.input, type = state.type,
         categories = state.categories, selectedCategoryId = state.categoryId, isLoading = state.isLoading,
         isSaving = state.isSaving, canSave = state.canSave, canRefund = state.canRefund,
         inputError = state.inputError, error = state.error, description = state.description, descriptionError = state.descriptionError,
@@ -73,9 +75,9 @@ internal fun OperationDetailsRoute(
         onInputChange = { event(EditOperationEvent.InputChanged(it)) }, onTypeClick = { event(EditOperationEvent.TypeChanged(it)) },
         onCategoryOpen = { event(EditOperationEvent.WindowChanged(OperationDetailsWindow.Category)) },
         onSaveClick = { event(EditOperationEvent.SaveClicked) }, onRefundClick = { event(EditOperationEvent.RefundClicked) },
-        onCloseClick = { event(EditOperationEvent.CloseClicked) },
+        onCloseClick = closeDetails,
         planLinksContent = {
-            state.links.current.forEach { plan ->
+            if (!readOnly) {            state.links.current.forEach { plan ->
                 OperationLinkedPlanCard(plan, !state.isSaving && state.mode == EditOperationMode.Edit,
                     { event(EditOperationEvent.WindowChanged(OperationDetailsWindow.Unlink)) }, { event(EditOperationEvent.OpenPlan(plan)) })
             }
@@ -85,17 +87,18 @@ internal fun OperationDetailsRoute(
                 Text(stringResource(R.string.operation_details_bind))
             }
             if (state.planError) Text(stringResource(R.string.operation_details_plan_error), color = MaterialTheme.colorScheme.error)
+            }
         },
     )
-    if (state.window == OperationDetailsWindow.Category) CategorySelectionSheet(state.categories, state.categoryId, false, false,
+    if (!readOnly && state.window == OperationDetailsWindow.Category) CategorySelectionSheet(state.categories, state.categoryId, false, false,
         { event(EditOperationEvent.CategorySelected(it)) }, { event(EditOperationEvent.WindowChanged(null)) }, {})
-    if (state.window == OperationDetailsWindow.Discard || state.window == OperationDetailsWindow.Unlink) AlertDialog(
+    if (!readOnly && (state.window == OperationDetailsWindow.Discard || state.window == OperationDetailsWindow.Unlink)) AlertDialog(
         onDismissRequest = { event(EditOperationEvent.WindowChanged(null)) },
         title = { Text(stringResource(if (state.window == OperationDetailsWindow.Discard) R.string.rule_discard_question else R.string.operation_details_unlink_question)) },
         confirmButton = { TextButton(onClick = { event(if (state.window == OperationDetailsWindow.Discard) EditOperationEvent.DiscardConfirmed else EditOperationEvent.UnlinkConfirmed) }) { Text(stringResource(R.string.rule_confirm)) } },
         dismissButton = { TextButton(onClick = { event(EditOperationEvent.WindowChanged(null)) }) { Text(stringResource(R.string.rule_cancel)) } },
     )
-    if (state.isRefundConfirmationVisible) RefundConfirmation(
+    if (!readOnly && state.isRefundConfirmationVisible) RefundConfirmation(
         { event(EditOperationEvent.RefundConfirmed) }, { event(EditOperationEvent.RefundDismissed) }, dirty = state.dirty)
 }
 

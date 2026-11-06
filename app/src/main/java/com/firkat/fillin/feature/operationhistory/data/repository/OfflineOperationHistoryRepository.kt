@@ -106,6 +106,7 @@ class OfflineOperationHistoryRepository(
         replacesRejectedId: String?,
     ): CreateOperationResult {
         val result = database.withTransaction {
+            localCommand { budgetStore?.checkWritable() }
             val state = dao.state()?.takeIf { it.localReady || it.initialSyncComplete } ?: throw OperationHistoryException.InvalidRequest
             if (state.protocolVersion < 4 && state.errorCode == "scope_changed") throw OperationHistoryException.Forbidden
             try {
@@ -265,6 +266,7 @@ class OfflineOperationHistoryRepository(
     }
 
     private suspend fun requireOnlineOperation(id: String) {
+        localCommand { budgetStore?.checkWritable() }
         if (!connectivity.online.value) throw OperationHistoryException.Network
         val state = dao.state() ?: throw OperationHistoryException.InvalidRequest
         val operation = dao.operation(id)

@@ -21,9 +21,14 @@ class BudgetSetupViewModel(
     family: FamilyBudgetRepository,
     private val savedState: SavedStateHandle = SavedStateHandle(),
     dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
-    interactor: Interactor<BudgetSetupCommand, BudgetSetupEvent> = BudgetSetupInteractor(auth, connection, creation, local, family, dispatcher),
+    access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
+    val localCount: kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.flowOf(0),
+    interactor: Interactor<BudgetSetupCommand, BudgetSetupEvent> = BudgetSetupInteractor(auth, connection, creation, local, family, dispatcher, access = access),
 ) : BaseViewModel<BudgetSetupState, BudgetSetupAction, BudgetSetupCommand, BudgetSetupEvent, BudgetSetupEffect>(
-    restore(savedState), BudgetSetupReducer(), interactor,
+    restore(savedState).let { restored ->
+        if (access?.cloudAllowed != false) restored
+        else restored.copy(cloudAllowed = false, mode = BudgetSetupMode.Local, page = SetupPage.Create, authTarget = null)
+    }, BudgetSetupReducer(), interactor,
 ) {
     private var observer: Job? = null
     private var catalog: Job? = null
@@ -53,10 +58,11 @@ class BudgetSetupViewModel(
         save()
     }
     override fun handleEvent(event: BudgetSetupEvent) {
+        if (!state.value.cloudAllowed) catalog?.cancel()
         if (generation != state.value.generation) {
             generation = state.value.generation
             operation?.cancel(); catalog?.cancel(); startedId = null
-            if (state.value.uid != null) load()
+            if (state.value.cloudAllowed && state.value.uid != null) load()
         }
         previousPage = state.value.page
         save()

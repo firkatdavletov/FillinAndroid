@@ -27,6 +27,7 @@ class BudgetManagement(
     private val uploads: LocalBudgetUploadStore,
     private val json: Json,
     private val enqueue: (() -> Unit)? = null,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
     private val refreshCatalog: suspend (String) -> Unit = {},
 ) {
     private val mutex = Mutex()
@@ -48,12 +49,14 @@ class BudgetManagement(
         }
     }
     fun retry() {
+        if (access?.cloudAllowed == false) return
         active.applicationScope.launch {
             db.management().all().filter { it.uid == uid() && it.error == "access_denied" }.forEach { db.management().remove(it.requestId) }
             schedule()
         }
     }
     fun schedule() {
+        if (access?.cloudAllowed == false) return
         if (enqueue != null) { enqueue.invoke(); return }
         WorkManager.getInstance(context).enqueueUniqueWork("budget-management", ExistingWorkPolicy.APPEND_OR_REPLACE,
             OneTimeWorkRequestBuilder<BudgetManagementWorker>()
@@ -73,6 +76,7 @@ class BudgetManagement(
         val profileId = profile?.id ?: id
         require(db.management().all().none { it.profileId == profileId && it.deleting })
         val cloud = catalog != null || profile?.kind == BudgetProfileKind.CLOUD
+        if (cloud) access?.requireCloud()
         val budgetId = catalog?.budgetId ?: profile?.budgetId
         val original = db.management().all().lastOrNull { it.profileId == profileId && !it.deleting && it.rename && it.error != "access_denied" }?.name ?: catalog?.name ?: profile?.name
         val changeName = rename && title != original
@@ -122,6 +126,8 @@ class BudgetManagement(
             db.profiles().deleteProfile(profileId)
             db.management().removeProfile(profileId)
         }
+        active.revive(profileId)
+        if (active.selectionRequired.value) active.restore()
     }
 
     suspend fun run(): Boolean = mutex.withLock {
@@ -129,6 +135,7 @@ class BudgetManagement(
         val failedBudgets = mutableSetOf<String>()
         for (entry in db.management().all()) {
             val budgetKey = entry.budgetId ?: entry.profileId
+            if (entry.uid != null && access?.cloudAllowed == false) continue
             if (budgetKey in failedBudgets) continue
             if (entry.error == "access_denied" || (entry.uid != null && entry.uid in paused) || entry.uid != null && entry.uid != uid()) continue
             try {
@@ -146,6 +153,7 @@ class BudgetManagement(
                 if (!response.isSuccessful) {
                     val code = response.code()
                     response.errorBody()?.close()
+                    access?.requireCloud()
                     if (code in setOf(403, 404)) {
                         val rows = requests.budgets(entry.uid).budgetBody()
                         val remote = rows.firstOrNull { it.id == entry.budgetId }

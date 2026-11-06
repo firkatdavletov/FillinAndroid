@@ -10,8 +10,8 @@ import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
 import com.firkat.fillin.ui.theme.FillinTheme
 
-@Composable private fun SetupPreview(state: BudgetSetupState = BudgetSetupState()) {
-    FillinTheme { BudgetSetupContent(state.copy(initialized = true, session = com.firkat.fillin.feature.auth.domain.AuthSession.Anonymous), {}, remember { SnackbarHostState() }) }
+@Composable private fun SetupPreview(state: BudgetSetupState = BudgetSetupState(), localLimitReached: Boolean = false) {
+    FillinTheme { BudgetSetupContent(state.copy(initialized = true, session = com.firkat.fillin.feature.auth.domain.AuthSession.Anonymous), {}, remember { SnackbarHostState() }, localLimitReached = localLimitReached) }
 }
 @Preview(widthDp = 393, heightDp = 900) @Preview(widthDp = 393, heightDp = 900, uiMode = UI_MODE_NIGHT_YES)
 @Composable private fun LocalPreview() { SetupPreview() }
@@ -36,3 +36,9 @@ import com.firkat.fillin.ui.theme.FillinTheme
 @Composable private fun JoinBusyPreview() { SetupPreview(BudgetSetupState(page = SetupPage.Join, code = "12345-ABCDE-12345-ABCDE", busy = true)) }
 @Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
 @Composable private fun CatalogLoadingPreview() { SetupPreview(BudgetSetupState(page = SetupPage.List, loading = true)) }
+
+@Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun OfflineSetupPreview() { SetupPreview(BudgetSetupState(cloudAllowed = false)) }
+
+@Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun OfflineSetupLimitPreview() { SetupPreview(BudgetSetupState(cloudAllowed = false), localLimitReached = true) }

@@ -16,6 +16,10 @@ import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.awaitCancellation
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import com.firkat.fillin.feature.auth.domain.*
+import com.firkat.fillin.feature.appaccess.domain.AppAccess
+import com.firkat.fillin.feature.appaccess.domain.AppMode
+import com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
 import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
 import com.firkat.fillin.feature.auth.ui.interactor.AuthState
@@ -64,6 +68,13 @@ import org.koin.dsl.module
 class AppNavigationUiTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val env = BudgetConnectionDeviceTest.Environment()
+    private val access = object : AppAccess {
+        override val mode = MutableStateFlow(AppMode.InternalFull)
+        override val checking = MutableStateFlow(false)
+        override fun installationId() = "a625153f-4be5-47b1-adfa-2c404603c034"
+        override suspend fun refresh(manual: Boolean) = true
+        override fun revoke() { mode.value = AppMode.OfflineFree }
+    }
     private var pickerCalls = 0
     private var authModelsCreated = 0
     private var profileCalls = 0
@@ -95,7 +106,6 @@ class AppNavigationUiTest {
             env.auth.logout(); env.manager.restore()
         }
         show()
-        compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
         closeSoftKeyboard()
         compose.onNodeWithTag("setup_cloud").performScrollTo().performClick()
@@ -110,7 +120,6 @@ class AppNavigationUiTest {
 
     @Test fun cancelingAuthenticationFromSetupKeepsDraftAndDoesNotReopenAuth() {
         show()
-        compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
         closeSoftKeyboard(); compose.onNodeWithTag("setup_cloud").performScrollTo().performClick()
         compose.onNodeWithTag("setup_create").performScrollTo().performClick()
@@ -122,7 +131,6 @@ class AppNavigationUiTest {
 
     @Test fun guestJoinAuthenticatesAndOpensTheInvitationPage() {
         show()
-        compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithTag("setup_open_join").performScrollTo().performClick()
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
         compose.onNodeWithText("Продолжить с Google").performClick()
@@ -135,6 +143,7 @@ class AppNavigationUiTest {
         createdBudget: Boolean = false,
         restoration: StateRestorationTester? = null,
         fontScale: Float = 1f,
+        expectMain: Boolean = createdBudget,
     ) {
         compose.runOnUiThread {
             compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -147,6 +156,8 @@ class AppNavigationUiTest {
             }
         }
         env.koin.loadModules(listOf(module {
+            single<AppAccess> { access }
+            viewModel { AboutAppViewModel(get()) }
             viewModel {
                 authModelsCreated++
                 AuthViewModel(
@@ -160,10 +171,10 @@ class AppNavigationUiTest {
                 )
             }
             viewModel {
-                AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager))
+                AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager), access = access, activeBudget = env.manager)
             }
             viewModel { com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel(auth, env.connection, env.creation,
-                com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.koin.get()), env.sharing, get(), dispatcher = Dispatchers.IO) }
+                com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.koin.get()), env.sharing, get(), dispatcher = Dispatchers.IO, access = access) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(auth, env.sharing) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(env.sharing) }
             viewModel {
@@ -177,9 +188,9 @@ class AppNavigationUiTest {
             }
             viewModel { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadViewModel(auth, env.uploadConnection) }
             single<com.firkat.fillin.feature.profile.domain.ProfileBudgetsRepository> {
-                com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, get(), env.uploads)
+                com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, get(), env.uploads, access = access)
             }
-            viewModel { com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, env.creation) }
+            viewModel { com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, env.creation, access, env.registry.observeLocalCount()) }
             viewModel {
                 val store = object : com.firkat.fillin.feature.profile.domain.DeletionStore {
                     override fun operations() = emptyList<com.firkat.fillin.feature.profile.domain.DeletionOperation>()
@@ -220,11 +231,9 @@ class AppNavigationUiTest {
             }
         }
         if (restoration == null) compose.setContent(hostContent) else restoration.setContent(hostContent)
-        if (auth.session.value != AuthSession.Loading) {
-            compose.waitUntil(5000) {
-                compose.onAllNodes(if (createdBudget) hasTestTag("main_screen") else if (auth.session.value is AuthSession.Authenticated) hasTestTag("budget_setup_screen") else hasTestTag("auth_screen"))
-                    .fetchSemanticsNodes().isNotEmpty()
-            }
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithTag(if (expectMain) "main_screen" else "budget_setup_screen")
+                .fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -246,10 +255,10 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("tab_Profile").assertIsSelected()
     }
 
-    @Test fun launchWaitsForFirebaseBeforeOpeningMainWithoutAnotherPicker() {
+    @Test fun localLaunchOpensMainWhileFirebaseRestores() {
         env.auth.session.value = AuthSession.Loading
         show(createdBudget = true)
-        compose.onNodeWithTag("launch_screen").assertIsDisplayed()
+        compose.onNodeWithTag("main_screen").assertIsDisplayed()
         compose.runOnIdle { env.auth.login("owner") }
         compose.waitUntil(5000) { compose.onAllNodesWithText("Профиль").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(listOf(AppRoute.Main), navigation.backStack)
@@ -272,15 +281,17 @@ class AppNavigationUiTest {
         show(createdBudget = true)
         compose.onNodeWithTag("tab_Profile").performClick()
         compose.onNodeWithContentDescription("Выйти из аккаунта").performClick()
-        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.onNodeWithTag("sign_out_confirm").performClick()
+        compose.onNodeWithTag("main_screen").assertIsDisplayed()
         compose.runOnIdle { navigation.back() }
-        assertEquals(listOf(AppRoute.Auth), navigation.backStack)
+        assertEquals(listOf(AppRoute.Main), navigation.backStack)
         assertEquals(AuthSession.Anonymous, auth.session.value)
         assertEquals(0, pickerCalls)
     }
 
-    @Test fun emptyDeviceShowsAuthAndEmailOpensLogin() {
+    @Test fun explicitCloudCreationOpensAuthAndEmailOpensLogin() {
         show()
+        openSetupAuth()
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
         compose.onNodeWithText("Профиль").assertDoesNotExist()
         compose.onNodeWithText("Продолжить с email").performClick()
@@ -302,8 +313,6 @@ class AppNavigationUiTest {
     @Test fun missingFirebaseConfigurationStillAllowsGuestSetup() {
         env.auth.session.value = AuthSession.Unavailable
         show()
-        compose.onNodeWithText("Продолжить с Google").assertIsNotEnabled()
-        compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithTag("auth_screen").assertDoesNotExist()
         compose.onNodeWithText("Настройте свой бюджет").assertIsDisplayed()
         compose.onNodeWithText("Продолжить без авторизации").assertDoesNotExist()
@@ -315,6 +324,7 @@ class AppNavigationUiTest {
         val result = CompletableDeferred<String>()
         launcher = GoogleSignInLauncher { pickerCalls++; result.await() }
         show()
+        openSetupAuth()
         compose.onNodeWithText("Продолжить с Google").performClick()
         compose.waitUntil { pickerCalls == 1 }
         compose.onNodeWithText("Продолжить с email").assertIsNotEnabled()
@@ -446,7 +456,6 @@ class AppNavigationUiTest {
     }
     @Test fun guestCreatesBudgetAfterOneClickAndBackCannotReopenSetup() {
         show()
-        compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithText("Настройте свой бюджет").assertIsDisplayed()
         compose.onNodeWithText("Продолжить без авторизации").assertDoesNotExist()
         compose.onNodeWithText("Профиль").assertDoesNotExist()
@@ -464,22 +473,21 @@ class AppNavigationUiTest {
         assertTrue(env.server.creations.isEmpty())
     }
 
-    @Test fun localSetupBackReturnsToAuthAndRotationRetainsInput() {
+    @Test fun localSetupRotationRetainsInput() {
         val restoration = StateRestorationTester(compose)
         show(restoration = restoration)
-        compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithTag("budget_setup_balance").performScrollTo().performTextReplacement("456,78")
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithText("456,78").assertIsDisplayed()
         closeSoftKeyboard()
-        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.onNodeWithTag("auth_screen").assertDoesNotExist()
         compose.onNodeWithTag("main_screen").assertDoesNotExist()
     }
 
     @Test fun GoogleLoginWithoutReadyBudgetOpensCloudSetupAndCreatesBudget() {
         env.server.budgetExists = false
         show()
+        openSetupAuth()
         compose.onNodeWithText("Продолжить с Google").performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithText("Название бюджета").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("main_screen").assertDoesNotExist()
@@ -497,6 +505,7 @@ class AppNavigationUiTest {
     @Test fun restoredGoogleAccountSelectsExistingCloudBudgetBeforeMain() {
         env.auth.login("owner")
         show()
+        compose.onNodeWithText("Выберите бюджет").performScrollTo().performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithText("Тестовый бюджет · Владелец").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("main_screen").assertDoesNotExist()
         compose.onNodeWithText("Тестовый бюджет · Владелец").performClick()
@@ -505,16 +514,65 @@ class AppNavigationUiTest {
         assertEquals(0, pickerCalls)
     }
 
-    @Test fun cloudSetupBackReturnsToAuthAndResumesWithoutAnotherPicker() {
-        env.server.budgetExists = false
-        env.auth.login("owner")
+    @Test fun offlineSetupIsImmediateAndGrantPreservesDraft() {
+        access.revoke()
         show()
-        compose.waitUntil(5000) { compose.onAllNodesWithText("Название бюджета").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("setup_back").performScrollTo().performClick()
-        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
-        compose.onNodeWithText("Продолжить с Google").performClick()
-        compose.onNodeWithTag("budget_setup_screen").assertIsDisplayed()
-        assertEquals(0, pickerCalls)
+        compose.onNodeWithTag("auth_screen").assertDoesNotExist()
+        compose.onNodeWithTag("setup_cloud").assertDoesNotExist()
+        compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
+        closeSoftKeyboard()
+        compose.runOnIdle { access.mode.value = AppMode.InternalFull }
+        compose.onNodeWithTag("setup_cloud").assertExists()
+        compose.onNodeWithText("Поездка").assertExists()
+        compose.onNodeWithTag("auth_screen").assertDoesNotExist()
+    }
+
+    @Test fun revocationClosesCloudRouteAndHidesProfileActions() {
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.runOnIdle { navigation.openCloudSync() }
+        assertEquals(AppRoute.CloudSync, navigation.backStack.last())
+        compose.runOnIdle { access.revoke() }
+        compose.waitUntil(5000) { navigation.backStack.toList() == listOf(AppRoute.Main) }
+        compose.onNodeWithText("Авторизоваться").assertDoesNotExist()
+        compose.onNodeWithText("О приложении").assertExists()
+        compose.runOnIdle {
+            navigation.openAuthentication()
+            navigation.openCloudSync()
+            navigation.openFamilyAccess()
+            assertEquals(listOf(AppRoute.Main), navigation.backStack)
+        }
+    }
+
+    @Test fun revokedCloudBudgetStaysVisibleAndRejectsWrites() {
+        env.koin.loadModules(listOf(module { single<AppAccess> { access } }))
+        runBlocking {
+            env.auth.login("owner")
+            env.manager.restore()
+            env.connection.connect("owner", env.connection.budgets("owner").single())
+        }
+        show(createdBudget = false, expectMain = true)
+        compose.runOnIdle { access.revoke() }
+        compose.onNodeWithTag("tab_AddOperation").assertDoesNotExist()
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Облачный бюджет доступен только для чтения").assertExists()
+        compose.onNodeWithText("Тестовый бюджет").assertExists()
+        runBlocking {
+            val runtime = env.manager.active.value!!
+            val lease = env.manager.acquire(runtime.profile.syncIdentity)!!
+            lease.use {
+                val store = lease.scope.get<com.firkat.fillin.feature.sync.data.BudgetStore>()
+                val before = store.pending()
+                val error = runCatching { store.enqueue("CREATE_CATEGORY") }.exceptionOrNull()
+                assertEquals("access_denied", (error as? com.firkat.fillin.feature.sync.data.BudgetLocalFailure)?.code)
+                assertEquals(before, store.pending())
+            }
+        }
+    }
+
+    private fun openSetupAuth() {
+        compose.onNodeWithTag("setup_cloud").performScrollTo().performClick()
+        compose.onNodeWithTag("setup_create").performScrollTo().performClick()
     }
 
     @Test fun guestButtonFromCloudReturnsToExistingBudget() {

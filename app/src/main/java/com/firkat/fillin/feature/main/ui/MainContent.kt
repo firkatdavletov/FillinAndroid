@@ -26,7 +26,7 @@ import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import com.firkat.fillin.ui.component.SaldomiSnackbarHost
 
 @Composable
-private fun MainContent(
+internal fun MainContent(
     modifier: Modifier = Modifier,
     selectedDestination: AppDestination,
     onSelectDestination: (AppDestination) -> Unit,
@@ -41,6 +41,7 @@ private fun MainContent(
     onCloudSyncClick: () -> Unit,
     onOperationClick: (String, String) -> Unit,
     onForecastClick: () -> Unit,
+    readOnly: Boolean = false,
     onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit,
 ) {
     Scaffold(
@@ -51,6 +52,7 @@ private fun MainContent(
         bottomBar = {
             MainBottomNavigation(
                 selectedDestination = selectedDestination,
+                canCreateOperation = !readOnly,
                 onSelectDestination = onSelectDestination,
             )
         },
@@ -88,6 +90,7 @@ private fun MainContent(
                 entry(AppDestination.Planned) {
                     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
                         PlannedOperationsRoute(
+                            readOnly = readOnly,
                             onOpenEditor = { onPlannedOperationEditorClick(it, null) },
                             onEditRule = { onPlannedOperationEditorClick(it.type, it.id) },
                             bottomBarOverlap = bottomBarOverlap,
@@ -101,6 +104,7 @@ private fun MainContent(
                         onAccountClick = onAccountClick,
                         onMethodsClick = onMethodsClick,
                         onCategoriesClick = onCategoriesClick,
+                        budgetReadOnly = readOnly,
                         onFamilyAccessClick = onFamilyAccessClick,
                         onCloudSyncClick = onCloudSyncClick,
                         bottomBarOverlap = bottomBarOverlap,

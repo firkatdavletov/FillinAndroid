@@ -1,7 +1,16 @@
 package com.firkat.fillin.core.di
 
 import androidx.room.Room
+import android.os.SystemClock
+import com.firkat.fillin.feature.appaccess.data.AppAccessApi
+import com.firkat.fillin.feature.appaccess.data.BackendAppAccess
+import com.firkat.fillin.feature.appaccess.domain.AppAccess
+import com.firkat.fillin.feature.appaccess.data.CloudAccessInterceptor
+import java.io.File
+import org.koin.core.qualifier.named
 import com.firkat.fillin.BuildConfig
+import com.firkat.fillin.core.network.BackendHeadersInterceptor
+import com.firkat.fillin.core.network.InstallationIdStore
 import com.firkat.fillin.feature.operationhistory.data.remote.OperationSyncApi
 import com.firkat.fillin.feature.operationhistory.data.sync.AndroidOperationConnectivity
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationConnectivity
@@ -10,6 +19,7 @@ import com.firkat.fillin.feature.operationhistory.data.sync.OperationWorkerFacto
 import com.firkat.fillin.feature.operationhistory.data.sync.WorkManagerOperationSyncScheduler
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 import org.koin.dsl.onClose
@@ -25,7 +35,7 @@ val appModule =
         single<com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness> {
             com.firkat.fillin.feature.budgetsetup.data.RoomActiveBudgetReadiness(get())
         }
-        viewModel { com.firkat.fillin.ui.navigation.AppNavigationViewModel(get(), get(), get(), get()) }
+        viewModel { com.firkat.fillin.ui.navigation.AppNavigationViewModel(get(), get(), get(), get(), get(), get()) }
         includes(com.firkat.fillin.feature.auth.di.authModule, com.firkat.fillin.feature.budgetprofile.di.budgetModule, com.firkat.fillin.feature.budgetconnection.di.budgetConnectionModule, com.firkat.fillin.feature.profile.di.profileModule)
         single {
             Json {
@@ -33,13 +43,38 @@ val appModule =
                 explicitNulls = false
             }
         }
+        single { InstallationIdStore(androidContext().noBackupFilesDir) }
+        single {
+            val installationIdStore = get<InstallationIdStore>()
+            OkHttpClient.Builder()
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .addInterceptor(BackendHeadersInterceptor(installationIdStore::get, BuildConfig.VERSION_NAME))
+                .build()
+        }
         single {
             Retrofit
                 .Builder()
                 .baseUrl(BuildConfig.API_BASE_URL)
+                .client(get<OkHttpClient>())
                 .addConverterFactory(
                     get<Json>().asConverterFactory("application/json".toMediaType()),
                 ).build()
+        }
+        single<AppAccess> {
+            val backend = BuildConfig.FIREBASE_API_BASE_URL
+            val api = backend.takeIf(String::isNotBlank)?.let {
+                get<Retrofit>().newBuilder().baseUrl(it).build().create(AppAccessApi::class.java)
+            }
+            BackendAppAccess(api, backend, get<InstallationIdStore>()::get,
+                File(androidContext().noBackupFilesDir, "app-access"), SystemClock::elapsedRealtime)
+        }
+        single<OkHttpClient>(named("cloud")) {
+            val koin = getKoin()
+            get<OkHttpClient>().newBuilder()
+                .dispatcher(okhttp3.Dispatcher())
+                .addInterceptor(CloudAccessInterceptor { koin.get() })
+                .build()
         }
         single<com.firkat.fillin.feature.sync.data.CloudBudgetApi> { com.firkat.fillin.feature.sync.data.LocalOnlyCloudApi }
         single<OperationSyncApi> { com.firkat.fillin.feature.sync.data.RetiredOperationSyncApi }
@@ -58,7 +93,7 @@ val appModule =
             OperationSyncScheduler {
                 val manager = get<com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager>()
                 manager.active.value?.profile?.syncIdentity?.let {
-                    WorkManagerOperationSyncScheduler(androidContext(), it, manager).schedule()
+                    WorkManagerOperationSyncScheduler(androidContext(), it, manager, get()).schedule()
                 }
             }
         }

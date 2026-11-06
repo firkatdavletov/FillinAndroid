@@ -22,13 +22,13 @@ import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
 val profileModule = module {
-    single { com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement(androidContext(), get(), get(), get(), get(), get(), get(), get(), refreshCatalog = { uid -> get<BudgetConnectionRepository>().budgets(uid) }) }
+    single { com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement(androidContext(), get(), get(), get(), get(), get(), get(), get(), access = get(), refreshCatalog = { uid -> get<BudgetConnectionRepository>().budgets(uid) }) }
     single<DeletionStore> { EncryptedDeletionStore(androidContext()) }
     single { AccountCloudEraser(androidContext(), get(), get()) }
     single {
         val api = BuildConfig.FIREBASE_API_BASE_URL.takeIf(String::isNotBlank)?.let { url ->
             get<Retrofit>().newBuilder().baseUrl(url)
-                .client(OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+                .client(get<OkHttpClient>().newBuilder()
                     .callTimeout(20, TimeUnit.SECONDS).build())
                 .build().create(ProfileDeletionApi::class.java)
         }
@@ -46,8 +46,11 @@ val profileModule = module {
             (get<LocalBudgetUploadRepository>() as RoomLocalBudgetUploadRepository).awaitIdle()
         }, erase = { uid -> get<AccountCloudEraser>().erase(uid) })
     }
-    single<ProfileBudgetsRepository> { RoomProfileBudgetsRepository(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<ProfileBudgetsRepository> { RoomProfileBudgetsRepository(get(), get(), get(), get(), get(), get(), get(), get(), access = get(), management = get()) }
     viewModel { ProfileDeletionViewModel(get(), get()) }
     viewModel { com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel(get(), get()) }
-    viewModel { ProfileViewModel(get(), get(), get()) }
+    viewModel { ProfileViewModel(get(), get(), get(), get(),
+        (get<com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileRegistry>()
+            as com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry).observeLocalCount()) }
+    viewModel { com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel(get()) }
 }

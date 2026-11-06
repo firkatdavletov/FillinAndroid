@@ -28,13 +28,15 @@ class WorkManagerOperationSyncScheduler(
     private val context: Context,
     private val identity: BudgetSyncIdentity,
     private val budgets: ActiveBudgetManager,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
 ) : OperationSyncScheduler {
     override fun schedule() {
+        if (access?.cloudAllowed == false) return
         budgets.applicationScope.launch {
             val lease = budgets.acquire(identity) ?: return@launch
             try {
                 if (lease.scope.get<OperationDatabase>().operations().state()?.let { it.cloudEnabled && (it.localReady || it.initialSyncComplete) } != true) return@launch
-                if (budgets.isCurrent(lease.runtime.profile)) scheduleEnabled(lease.scope.get())
+                if (access?.cloudAllowed != false && budgets.isCurrent(lease.runtime.profile)) scheduleEnabled(lease.scope.get())
             } finally { lease.close() }
         }
     }

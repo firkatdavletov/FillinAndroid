@@ -32,6 +32,8 @@ data class ProfileUiState(
     val creation: BudgetCreationDraft? = null,
     val pendingCreation: Boolean = false,
     val cloudAllowed: Boolean = false,
+    val fullAccess: Boolean = true,
+    val localLimitReached: Boolean = false,
     val currencyPickerOpen: Boolean = false,
 )
 
@@ -39,14 +41,22 @@ class ProfileViewModel(
     private val budgets: ProfileBudgetsRepository,
     private val auth: AuthRepository,
     private val creation: BudgetCreationRepository,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
+    localCount: kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.flowOf(0),
 ) : ViewModel() {
-    private val mutableState = MutableStateFlow(ProfileUiState())
+    private val mutableState = MutableStateFlow(ProfileUiState(fullAccess = access?.cloudAllowed != false))
     val state = mutableState.asStateFlow()
     private var action: Job? = null
+    private var cloudAction = false
     private var refreshJob: Job? = null
     private val reload = MutableStateFlow(0)
 
     init {
+        viewModelScope.launch {
+            localCount.collect { count ->
+                mutableState.update { it.copy(localLimitReached = count >= com.firkat.fillin.feature.budgetprofile.data.LOCAL_BUDGET_LIMIT) }
+            }
+        }
         viewModelScope.launch {
             reload.collectLatest {
                 budgets.observe().catch { failure ->
@@ -55,9 +65,26 @@ class ProfileViewModel(
             }
         }
         viewModelScope.launch {
-            auth.session.collectLatest { session ->
-                action?.cancel()
-                mutableState.update { it.copy(expandedBudgetId = null, budgets = emptyList(), loading = true, creation = null, pendingCreation = false, currencyPickerOpen = false, busy = false, error = null, cloudAllowed = session is AuthSession.Authenticated) }
+            val mode = access?.mode ?: kotlinx.coroutines.flow.flowOf(com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull)
+            var previousSession: AuthSession? = null
+            kotlinx.coroutines.flow.combine(auth.session, mode, ::Pair).collectLatest { (session, currentMode) ->
+                val full = currentMode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull
+                val signedIn = full && session is AuthSession.Authenticated
+                val sessionChanged = previousSession != session
+                previousSession = session
+                if (sessionChanged || (!full && cloudAction)) action?.cancel()
+                mutableState.update {
+                    val discardDraft = sessionChanged || (!full && it.pendingCreation)
+                    it.copy(
+                        expandedBudgetId = null,
+                        creation = it.creation.takeUnless { discardDraft },
+                        pendingCreation = it.pendingCreation && !discardDraft,
+                        currencyPickerOpen = it.currencyPickerOpen && !discardDraft,
+                        error = null,
+                        cloudAllowed = signedIn,
+                        fullAccess = full,
+                    )
+                }
                 if (session != AuthSession.Loading) refresh()
             }
         }
@@ -87,12 +114,13 @@ class ProfileViewModel(
     fun selectBudget(id: String) {
         closeBudgetActions()
         if (state.value.budgets.none { it.id == id && !it.selected }) return
-        perform { budgets.select(id) }
+        perform(requiresCloud = id.startsWith("cloud:")) { budgets.select(id) }
     }
 
     fun openCreation() {
-        val uid = (auth.session.value as? AuthSession.Authenticated)?.user?.uid
-        perform {
+        if (state.value.localLimitReached && !state.value.cloudAllowed) return
+        val uid = (auth.session.value as? AuthSession.Authenticated)?.user?.uid?.takeIf { state.value.cloudAllowed }
+        perform(requiresCloud = uid != null) {
             val pending = uid?.let { creation.pending(it) }
             mutableState.update { it.copy(
                 creation = pending?.draft ?: BudgetCreationDraft("", "0", LocalDate.now(ZoneId.of("Asia/Almaty")).toString(), BudgetCurrency.RUB),
@@ -126,6 +154,7 @@ class ProfileViewModel(
     }
 
     fun createLocal() {
+        if (state.value.localLimitReached) return
         val draft = state.value.creation ?: return
         perform {
             budgets.createLocal(draft.openingBalance.trim().replace(',', '.').toBigDecimal(), LocalDate.parse(draft.accountingStartedOn.trim()), draft.currency)
@@ -134,9 +163,10 @@ class ProfileViewModel(
     }
 
     fun createCloud() {
+        if (!state.value.cloudAllowed) return
         val uid = (auth.session.value as? AuthSession.Authenticated)?.user?.uid ?: return
         val draft = state.value.creation ?: return
-        perform {
+        perform(requiresCloud = true) {
             try {
                 if (state.value.pendingCreation) creation.resume(uid) else creation.create(uid, draft)
                 mutableState.update { it.copy(creation = null, pendingCreation = false) }
@@ -151,14 +181,18 @@ class ProfileViewModel(
         }
     }
 
-    private fun perform(block: suspend () -> Unit) {
+    private fun perform(requiresCloud: Boolean = false, block: suspend () -> Unit) {
         if (state.value.busy) return
+        cloudAction = requiresCloud
         mutableState.update { it.copy(busy = true, error = null) }
         action = viewModelScope.launch {
             try { block() }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) { mutableState.update { it.copy(error = setupError(if (failure is IllegalArgumentException || failure is java.time.DateTimeException) BudgetConnectionFailure("invalid_creation") else failure)) } }
-            finally { mutableState.update { it.copy(busy = false) } }
+            finally {
+                cloudAction = false
+                mutableState.update { it.copy(busy = false) }
+            }
         }
     }
 }
