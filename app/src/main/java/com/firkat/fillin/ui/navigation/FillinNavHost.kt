@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -38,6 +39,8 @@ import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.BudgetSetupAction
 import com.firkat.fillin.feature.budgetsharing.ui.FamilyAccessRoute
 import com.firkat.fillin.feature.categories.ui.CategoriesRoute
+import com.firkat.fillin.feature.dailylimit.ui.DailyLimitDetailsRoute
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsRoute
 import com.firkat.fillin.feature.editcategory.ui.EditCategoryRoute
 import com.firkat.fillin.feature.launch.presentation.LaunchScreen
 import com.firkat.fillin.feature.main.ui.MainScreen
@@ -56,16 +59,25 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun FillinNavHost(
-    navigation: AppNavigationViewModel =
-        koinViewModel(viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)),
-    auth: AuthViewModel = koinViewModel(viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)),
+    navigation: AppNavigationViewModel = koinViewModel(
+        viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)
+    ),
+    auth: AuthViewModel = koinViewModel(
+        viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)
+    ),
+    setup: BudgetSetupViewModel = koinViewModel(
+        viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)
+    ),
     budgets: ActiveBudgetManager = koinInject(),
 ) {
-    val setup: BudgetSetupViewModel =
-        koinViewModel(viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity))
     val setupState by setup.state.collectAsStateWithLifecycle()
     val state by auth.state.collectAsStateWithLifecycle()
-    LaunchedEffect(navigation.backStack.lastOrNull(), setupState.uid, state.session) {
+
+    LaunchedEffect(
+        navigation.backStack.lastOrNull(),
+        setupState.uid,
+        state.session
+    ) {
         if (navigation.backStack.lastOrNull() == AppRoute.Auth && !navigation.configuringBudget) {
             setup.onAction(
                 BudgetSetupAction.Reset,
@@ -89,7 +101,10 @@ fun FillinNavHost(
     val resources = androidx.compose.ui.platform.LocalResources.current
     val sheet = navigation.backStack.lastOrNull() as? AppRoute.OperationDetails
     val linkSheet = navigation.backStack.lastOrNull() as? AppRoute.OperationPlanLinkBottomSheet
-    LaunchedEffect(runtime?.scope?.id, linkSheet) {
+    LaunchedEffect(
+        runtime?.scope?.id,
+        linkSheet
+    ) {
         if (linkSheet != null && linkSheet.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissOperationPlanLink(
                 linkSheet,
@@ -97,7 +112,10 @@ fun FillinNavHost(
         }
     }
     val editorRoute = navigation.backStack.lastOrNull() as? AppRoute.PlanningRuleEditor
-    LaunchedEffect(runtime?.scope?.id, editorRoute) {
+    LaunchedEffect(
+        runtime?.scope?.id,
+        editorRoute
+    ) {
         if (editorRoute != null && editorRoute.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissPlanningRuleEditor(
                 editorRoute,
@@ -105,17 +123,27 @@ fun FillinNavHost(
         }
     }
     val plannedSheet = navigation.backStack.lastOrNull() as? AppRoute.PlannedOperationBottomSheet
-    LaunchedEffect(runtime?.scope?.id, sheet) {
+    LaunchedEffect(
+        runtime?.scope?.id,
+        sheet
+    ) {
         if (sheet != null && sheet.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissOperationDetails(sheet)
         }
     }
-    LaunchedEffect(runtime?.scope?.id, plannedSheet) {
+    LaunchedEffect(
+        runtime?.scope?.id,
+        plannedSheet
+    ) {
         if (plannedSheet != null && plannedSheet.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissPlannedOperationBottomSheet(plannedSheet)
         }
     }
-    DisposableEffect(mainModels, operationCreateModels, context) {
+    DisposableEffect(
+        mainModels,
+        operationCreateModels,
+        context
+    ) {
         onDispose {
             if ((context as? Activity)?.isChangingConfigurations != true) {
                 mainModels.bind(null)
@@ -125,7 +153,13 @@ fun FillinNavHost(
     }
     val authVisible = navigation.backStack.lastOrNull() in listOf(AppRoute.Auth, AppRoute.AccountMethods)
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(authVisible, state.errorId, state.error, lifecycleOwner, resources) {
+    LaunchedEffect(
+        authVisible,
+        state.errorId,
+        state.error,
+        lifecycleOwner,
+        resources
+    ) {
         if (!authVisible) {
             lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 state.error?.let { error ->
@@ -136,11 +170,16 @@ fun FillinNavHost(
         }
     }
     val sheetDismissController = remember { BottomSheetDismissController() }
+
     if (selectionRequired && !authVisible) {
         BudgetPickerRoute(onSignIn = navigation::authenticateFromPicker)
+
         return
     }
-    LaunchedEffect(runtime?.scope?.id) { if (runtime != null && navigation.configuringBudget) navigation.budgetChosen() }
+
+    LaunchedEffect(runtime?.scope?.id) {
+        if (runtime != null && navigation.configuringBudget) navigation.budgetChosen()
+    }
     NavDisplay(
         modifier = Modifier.fillMaxSize(),
         backStack = navigation.backStack,
@@ -165,24 +204,30 @@ fun FillinNavHost(
         entryProvider =
             entryProvider {
                 entry<AppRoute.Launch> {
-                    LaunchScreen(launchFailed, navigation::onLaunchShown, navigation::retryLaunch)
+                    LaunchScreen(
+                        failed = launchFailed,
+                        onShown = navigation::onLaunchShown,
+                        onRetry = navigation::retryLaunch
+                    )
                 }
                 entry<AppRoute.DailyLimitDetails> { route ->
                     val models: MainBudgetViewModelStore = viewModel(key = "daily-limit-details")
                     models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
-                    LaunchedEffect(runtime?.scope?.id) { if (runtime?.scope?.id != route.budgetScopeId) navigation.back() }
+                    LaunchedEffect(runtime?.scope?.id) {
+                        if (runtime?.scope?.id != route.budgetScopeId) navigation.back()
+                    }
                     ActiveBudgetContent(viewModelStoreOwner = models) {
-                        com.firkat.fillin.feature.dailylimit.ui
-                            .DailyLimitDetailsRoute(onBack = navigation::back)
+                        DailyLimitDetailsRoute(onBack = navigation::back)
                     }
                 }
                 entry<AppRoute.ForecastDetails> { route ->
                     val models: MainBudgetViewModelStore = viewModel(key = "forecast-details")
                     models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
-                    LaunchedEffect(runtime?.scope?.id) { if (runtime?.scope?.id != route.budgetScopeId) navigation.back() }
+                    LaunchedEffect(runtime?.scope?.id) {
+                        if (runtime?.scope?.id != route.budgetScopeId) navigation.back()
+                    }
                     ActiveBudgetContent(viewModelStoreOwner = models) {
-                        com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui
-                            .ForecastDetailsRoute(onBack = navigation::back)
+                        ForecastDetailsRoute(onBack = navigation::back)
                     }
                 }
                 entry<AppRoute.Main> {
@@ -196,6 +241,7 @@ fun FillinNavHost(
                         )
                     }
                     MainScreen(
+                        modifier = Modifier.fillMaxSize(),
                         authBusy = state.busy,
                         onAccountClick = {
                             if (state.session.userOrNull != null) {

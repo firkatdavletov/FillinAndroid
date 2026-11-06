@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.dashboard.domain.model.*
 import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetCard
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.theme.saldomiColors
@@ -64,7 +65,10 @@ internal fun BalanceForecastWidget(
     WidgetCard(
         modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.padding(4.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             ForecastHeading(state)
             if (state.points.isEmpty()) {
                 ForecastUnavailable(state.dataStatus)
@@ -78,9 +82,13 @@ internal fun BalanceForecastWidget(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 ForecastEndings(state)
-                FilledTonalButton(onClick = onDetailsClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                    Text(stringResource(R.string.forecast_details), Modifier.weight(1f))
-                    Text(stringResource(R.string.forecast_chevron))
+                SaldomiOutlinedButton (
+                    onClick = onDetailsClick,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(R.string.forecast_details),
+                    )
                 }
             }
         }

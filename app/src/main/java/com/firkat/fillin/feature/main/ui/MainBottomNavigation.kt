@@ -58,7 +58,6 @@ internal fun MainBottomNavigation(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
-//            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         NavigationBar(
@@ -66,7 +65,7 @@ internal fun MainBottomNavigation(
                 .padding(top = 24.dp)
                 .clip(MainNavigationShape)
                 .background(
-                    Brush.verticalGradient(listOf(colors.surfaceContainer, colors.surfaceContainerLowest)),
+                    Brush.verticalGradient(listOf(colors.surfaceContainer.copy(alpha = 0.8f), colors.surfaceContainerLowest)),
                 )
                 .border(
                     width = 1.dp,

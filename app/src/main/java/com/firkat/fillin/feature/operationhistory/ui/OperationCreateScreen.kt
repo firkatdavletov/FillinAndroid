@@ -63,6 +63,7 @@ import com.firkat.fillin.ui.component.SaldomiTextField
 import com.firkat.fillin.ui.component.SnackbarType
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
 import com.firkat.fillin.ui.theme.FillinTheme
+import com.firkat.fillin.ui.theme.saldomiDesignColors
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -97,7 +98,7 @@ internal fun OperationCreateScreen(
     BackHandler { onEvent(OperationCreateEvent.CreateClosed) }
     Scaffold(
         modifier = modifier.fillMaxSize().testTag("operation_create_screen"),
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.saldomiDesignColors.background,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.operation_record_title)) },
@@ -109,7 +110,7 @@ internal fun OperationCreateScreen(
                         Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.navigation_back))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.saldomiDesignColors.background),
             )
         },
     ) { padding ->

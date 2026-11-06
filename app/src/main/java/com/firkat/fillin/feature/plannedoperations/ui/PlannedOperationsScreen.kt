@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -48,6 +51,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.dashboard.ui.MainScreenHeader
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningFrequency
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
@@ -56,6 +60,8 @@ import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiTextButton
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.icon.FillinIcons
 import com.firkat.fillin.ui.theme.saldomiColors
@@ -96,104 +102,89 @@ fun PlannedOperationsScreen(
     onCreateExpense: () -> Unit,
     onCreateIncome: () -> Unit,
     onEditRule: (PlanningRule) -> Unit,
-    canWrite: Boolean = true,
     modifier: Modifier = Modifier,
+    canWrite: Boolean = true,
     bottomBarOverlap: Dp = 0.dp,
 ) {
     val listState = rememberLazyListState()
-    Column(modifier.fillMaxSize()) {
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(R.string.planning_title), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+    Column(
+        modifier = modifier.fillMaxSize(),
+    ) {
+        MainScreenHeader(
+            modifier =
+                Modifier
+                    .padding(horizontal = 16.dp)
+                    .statusBarsPadding(),
+            title = stringResource(R.string.planning_title),
+        )
+        PlanningTypeFilters(state.selectedType, { onEvent(PlannedOperationsEvent.TypeSelected(it)) })
+        SaldomiOutlinedButton(
+            modifier = Modifier.padding(start = 16.dp),
+            onClick = onCreateExpense
+        ) {
             Text(
-                stringResource(R.string.planning_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "Добавить план"
             )
         }
-        PlanningTypeFilters(state.selectedType, { onEvent(PlannedOperationsEvent.TypeSelected(it)) })
         val groups = state.groups
-        Scaffold(
-            modifier = Modifier.weight(1f),
-            containerColor = Color.Transparent,
-            contentWindowInsets = WindowInsets(0),
-            bottomBar = {
-                if (canWrite) {
-                    PlanningAddButton(
-                        onCreateExpense,
-                        onCreateIncome,
-                        Modifier
-                            .padding(bottom = bottomBarOverlap)
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
-                }
-            },
-        ) { padding ->
-            // The measured action height includes its clearance above the main bar.
-            val bottomClearance = if (canWrite) padding.calculateBottomPadding() else bottomBarOverlap
-            val drawListBehindBars = groups.isNotEmpty() && bottomBarOverlap > 0.dp
-            RefreshableContent(
-                isRefreshing = state.isRefreshing,
-                onRefresh = { onEvent(PlannedOperationsEvent.Refresh) },
-                hasScrollableContent = groups.isNotEmpty(),
-                modifier = Modifier.padding(bottom = if (drawListBehindBars) 0.dp else bottomClearance),
+
+        if (state.isLoading && state.rules.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        } else if (groups.isEmpty()) {
+            Column(
+                Modifier.fillMaxSize().padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (state.isLoading && state.rules.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                } else if (groups.isEmpty()) {
-                    Column(
-                        Modifier.fillMaxSize().padding(24.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            stringResource(
-                                state.error?.messageResource
-                                    ?: if (state.rules.isEmpty()) R.string.planning_empty else R.string.planning_filtered_empty,
-                            ),
+                Text(
+                    stringResource(
+                        state.error?.messageResource
+                            ?: if (state.rules.isEmpty()) R.string.planning_empty else R.string.planning_filtered_empty,
+                    ),
+                )
+                if (state.error !=
+                    null
+                ) {
+                    TextButton(
+                        { onEvent(PlannedOperationsEvent.Retry) },
+                    ) { Text(stringResource(R.string.planned_operations_retry)) }
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().testTag("planned-operations-list"),
+                state = listState,
+                contentPadding =
+                    PaddingValues(
+                        start = 16.dp,
+                        top = 16.dp,
+                        end = 16.dp,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                state.error?.let { error ->
+                    item("error") {
+                        RefreshErrorContent(
+                            error.messageResource,
+                            R.string.planned_operations_retry,
+                        ) { onEvent(PlannedOperationsEvent.Retry) }
+                    }
+                }
+                groups.forEach { group ->
+                    item(group.frequency.name) {
+                        PlanningGroupCard(
+                            group.frequency,
+                            group.rules,
+                            group.frequency !in state.collapsed,
+                            onToggle = { onEvent(PlannedOperationsEvent.GroupToggled(group.frequency)) },
+                            onRuleClick = onEditRule,
+                            enabled = canWrite,
+                            today = state.today,
                         )
-                        if (state.error !=
-                            null
-                        ) {
-                            TextButton(
-                                { onEvent(PlannedOperationsEvent.Retry) },
-                            ) { Text(stringResource(R.string.planned_operations_retry)) }
-                        }
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().testTag("planned-operations-list"),
-                        state = listState,
-                        contentPadding =
-                            PaddingValues(
-                                start = 16.dp,
-                                top = 16.dp,
-                                end = 16.dp,
-                                bottom = 16.dp + if (drawListBehindBars) bottomClearance else 0.dp,
-                            ),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        state.error?.let { error ->
-                            item("error") {
-                                RefreshErrorContent(
-                                    error.messageResource,
-                                    R.string.planned_operations_retry,
-                                ) { onEvent(PlannedOperationsEvent.Retry) }
-                            }
-                        }
-                        groups.forEach { group ->
-                            item(group.frequency.name) {
-                                PlanningGroupCard(
-                                    group.frequency,
-                                    group.rules,
-                                    group.frequency !in state.collapsed,
-                                    onToggle = { onEvent(PlannedOperationsEvent.GroupToggled(group.frequency)) },
-                                    onRuleClick = onEditRule,
-                                    enabled = canWrite,
-                                    today = state.today,
-                                )
-                            }
-                        }
-                    }
+                }
+                item {
+                    Spacer(Modifier.height(184.dp))
                 }
             }
         }

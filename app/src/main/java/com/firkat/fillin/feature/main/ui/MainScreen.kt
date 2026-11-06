@@ -2,14 +2,16 @@ package com.firkat.fillin.feature.main.ui
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -17,8 +19,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
@@ -30,6 +35,7 @@ import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
+import com.firkat.fillin.feature.dashboard.ui.MainScreenHeader
 import com.firkat.fillin.feature.operationhistory.ui.OperationHistoryRoute
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsEvent
@@ -37,6 +43,7 @@ import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsRoute
 import com.firkat.fillin.feature.plannedoperations.ui.planningRulesViewModel
 import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import com.firkat.fillin.ui.component.SaldomiSnackbarHost
+import com.firkat.fillin.ui.theme.saldomiDesignColors
 import kotlinx.serialization.Serializable
 
 @Composable
@@ -47,6 +54,7 @@ fun MainScreen(
     onMethodsClick: () -> Unit = onAccountClick,
     snackbarHostState: SnackbarHostState,
     budgetViewModelStoreOwner: MainBudgetViewModelStore,
+    modifier: Modifier = Modifier,
     onCategoriesClick: () -> Unit = {},
     onFamilyAccessClick: () -> Unit = {},
     onCloudSyncClick: () -> Unit = {},
@@ -57,6 +65,7 @@ fun MainScreen(
 ) {
     var selectedDestination by rememberSaveable { mutableStateOf(AppDestination.Dashboard) }
     MainContent(
+        modifier = modifier,
         selectedDestination = selectedDestination,
         onSelectDestination = {
             if (it == AppDestination.AddOperation) {
@@ -80,8 +89,10 @@ fun MainScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainContent(
+    modifier: Modifier = Modifier,
     selectedDestination: AppDestination,
     onSelectDestination: (AppDestination) -> Unit,
     authBusy: Boolean,
@@ -98,7 +109,7 @@ private fun MainContent(
     onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit,
 ) {
     Scaffold(
-        modifier = Modifier.testTag("main_screen"),
+        modifier = modifier.testTag("main_screen"),
         snackbarHost = {
             SaldomiSnackbarHost(snackbarHostState)
         },
@@ -109,7 +120,6 @@ private fun MainContent(
             )
         },
     ) { innerPadding ->
-        val layoutDirection = LocalLayoutDirection.current
         val bottomBarOverlap = innerPadding.calculateBottomPadding()
         val provider =
             entryProvider<NavKey> {
@@ -117,15 +127,16 @@ private fun MainContent(
                     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
                         val plansViewModel = planningRulesViewModel()
                         DashboardRoute(
+                            modifier = Modifier
+                                .fillMaxSize(),
                             bottomBarOverlap = bottomBarOverlap,
-                            topBarPadding = innerPadding.calculateTopPadding(),
                             onForecastClick = onForecastClick,
                             onPaymentsClick = { _, _ ->
                                 plansViewModel.onEvent(
-                                    PlannedOperationsEvent.TypeSelected(PlannedOperationType.Expense)
+                                    PlannedOperationsEvent.TypeSelected(PlannedOperationType.Expense),
                                 )
                                 onSelectDestination(AppDestination.Planned)
-                            }
+                            },
                         )
                     }
                 }
@@ -181,16 +192,7 @@ private fun MainContent(
         NavDisplay(
             entries = visibleTabs.flatMap { tabEntries.getValue(it) },
             onBack = { onSelectDestination(AppDestination.Dashboard) },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    PaddingValues(
-                        start = innerPadding.calculateStartPadding(layoutDirection),
-//                        top = innerPadding.calculateTopPadding(),
-                        end = innerPadding.calculateEndPadding(layoutDirection),
-                    ),
-                )
-                .consumeWindowInsets(innerPadding),
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -38,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEffect
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.dashboard.ui.MainScreenHeader
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
@@ -81,14 +83,12 @@ fun OperationHistoryRoute(
     DisposableEffect(resultBus, resultKey) {
         onDispose { resultBus.removeResult(resultKey) }
     }
-    FeatureScaffold(titleResource = R.string.operation_history_title) {
-        OperationHistoryScreen(
-            state = state,
-            onEvent = viewModel::onEvent,
-            onOperationClick = { id -> onOperationClick(id, resultKey) },
-            bottomBarOverlap = bottomBarOverlap,
-        )
-    }
+    OperationHistoryScreen(
+        state = state,
+        onEvent = viewModel::onEvent,
+        onOperationClick = { id -> onOperationClick(id, resultKey) },
+        bottomBarOverlap = bottomBarOverlap,
+    )
 }
 
 @Composable
@@ -99,6 +99,12 @@ fun OperationHistoryScreen(
     bottomBarOverlap: Dp = 0.dp,
 ) {
     Column(Modifier.fillMaxSize()) {
+        MainScreenHeader(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .statusBarsPadding(),
+            title = stringResource(R.string.operation_history_title)
+        )
         OperationHistoryFilters(state = state, onEvent = onEvent)
 
         Box(Modifier.weight(1f)) {

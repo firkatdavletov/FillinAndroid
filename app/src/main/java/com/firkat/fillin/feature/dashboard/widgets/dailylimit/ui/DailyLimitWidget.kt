@@ -1,18 +1,19 @@
 package com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui
 
 import android.content.res.Configuration
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -25,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.dashboard.domain.model.Money
 import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetCard
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetHeading
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.koin.compose.viewmodel.koinViewModel
@@ -66,21 +68,20 @@ internal fun DailyLimitWidget(
     val deficit = state.status == DailyLimitCardStatus.Deficit
     val color = if (state.status != DailyLimitCardStatus.Normal) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
     WidgetCard(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(
+                onClick = onDetailsClick,
+            ),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 8.dp),
+            modifier = Modifier.padding(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text(stringResource(R.string.dashboard_daily_limit), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                androidx.compose.material3.IconButton(onClick = onDetailsClick) {
-                    androidx.compose.material3.Icon(
-                        androidx.compose.material.icons.Icons.Outlined.Info,
-                        stringResource(R.string.daily_details_title),
-                    )
-                }
-            }
+            WidgetHeading(
+                title = R.string.dashboard_daily_limit,
+                icon = R.drawable.ic_categories
+            )
             Text(
                 state.amount?.let { stringResource(R.string.daily_per_day, formatMoney(it.amount, it.currency)) } ?: "—",
                 Modifier.testTag("daily-limit-amount"),
