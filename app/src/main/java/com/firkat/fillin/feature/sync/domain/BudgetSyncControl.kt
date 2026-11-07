@@ -29,6 +29,9 @@ interface BudgetSyncControl {
 
     fun requestSync()
 
+    /** Explicit user retry; background synchronization must not revive rejected commands. */
+    suspend fun retryRejectedCommands() = requestSync()
+
     suspend fun resolve(
         id: String,
         reapply: Boolean,

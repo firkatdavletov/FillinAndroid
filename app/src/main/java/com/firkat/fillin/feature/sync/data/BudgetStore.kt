@@ -208,6 +208,32 @@ class BudgetStore(
 
     override fun requestSync() = scheduler.schedule()
 
+    override suspend fun retryRejectedCommands() {
+        database.withTransaction {
+            val content = dao.content() ?: return@withTransaction
+            if (content.sync.role != "OWNER" || !canWrite() ||
+                !(content.sync.localReady || content.sync.initialSyncComplete)
+            ) return@withTransaction
+            // Replay the exact v4 request: changing its ID or frozen payload could duplicate a commit.
+            content.commands.filter { it.protocolVersion >= 4 && it.status == "REJECTED" }.forEach {
+                dao.update(it.copy(status = "PENDING", errorCode = null))
+            }
+            // Only release dependencies whose parents are now eligible; conflicts stay blocked.
+            do {
+                val commands = dao.commands(content.sync.scopeKey).associateBy { it.requestId }
+                val ready = commands.values.filter { item ->
+                    item.protocolVersion >= 4 && item.status == "BLOCKED" && item.errorCode == "dependency_failed" &&
+                        (listOfNotNull(item.predecessor, item.dependency) +
+                            json.decodeFromString<List<String>>(item.dependencies)).all { parent ->
+                            commands[parent]?.status in setOf("PENDING", "ACKNOWLEDGED")
+                        }
+                }
+                ready.forEach { dao.update(it.copy(status = "PENDING", errorCode = null)) }
+            } while (ready.isNotEmpty())
+        }
+        scheduler.schedule()
+    }
+
     suspend fun enqueue(
         type: String,
         entityId: String = UUID.randomUUID().toString(),

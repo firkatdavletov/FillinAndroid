@@ -16,6 +16,8 @@ import com.firkat.fillin.feature.operationhistory.data.sync.SyncResult
 import com.firkat.fillin.feature.sync.data.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
@@ -34,6 +36,51 @@ class IncomeRuleSyncCapabilityTest {
         budget = store, budgetApi = RetiredBudgetSyncApi, cloudApi = api)
 
     @After fun close() = database.close()
+
+    @Test fun explicitRetryAfterBackendFixReplaysMonthlyRuleWithoutChangingIdentity() = runBlocking {
+        initialize()
+        val rule = BudgetSyncCommand("monthly-request", scope.householdId, scope.memberId,
+            "CREATE_RULE", "monthly-rule", "2026-11-06", categoryId = "category",
+            amount = "319200", frequency = "MONTHLY", scheduleValue = 19,
+            startsOn = "2026-11-19", replaceDetails = true)
+        enqueue(rule)
+        api.rejectRule = true
+        sync.synchronize()
+        val rejected = database.budget().command(rule.requestId)!!
+        assertEquals("REJECTED", rejected.status)
+        assertNotNull(rejected.wirePayload)
+
+        api.rejectRule = false
+        sync.synchronize()
+        assertEquals(listOf(rule), api.posts) // Background sync does not retry a rejection.
+        store.retryRejectedCommands()
+        assertEquals(rejected.copy(status = "PENDING", errorCode = null), store.pending().single())
+        assertEquals(SyncResult.Completed, sync.synchronize())
+        assertEquals(listOf(rule, rule), api.posts)
+        assertEquals("ACKNOWLEDGED", database.budget().command(rule.requestId)!!.status)
+        assertFalse(store.hasFailures())
+    }
+
+    @Test fun explicitRetryReleasesDependentsButPreservesConflictsAndLegacyRejections() = runBlocking {
+        initialize()
+        val parent = enqueue(command, frozen = true)
+        store.fail(parent, "REJECTED", "invalid_request")
+        val child = enqueue(command.copy(requestId = "child"))
+        database.budget().update(child.copy(predecessor = parent.requestId, status = "BLOCKED", errorCode = "dependency_failed"))
+        val conflict = enqueue(command.copy(requestId = "conflict"))
+        store.fail(conflict, "CONFLICT", "version_conflict")
+        val blocked = enqueue(command.copy(requestId = "blocked"))
+        database.budget().update(blocked.copy(dependency = conflict.requestId, status = "BLOCKED", errorCode = "dependency_failed"))
+        val legacy = enqueue(command.copy(requestId = "legacy"))
+        database.budget().update(legacy.copy(protocolVersion = 3, status = "REJECTED"))
+
+        store.retryRejectedCommands()
+
+        assertEquals(setOf(parent.requestId, child.requestId), store.pending().map { it.requestId }.toSet())
+        assertEquals("CONFLICT", database.budget().command(conflict.requestId)!!.status)
+        assertEquals("BLOCKED", database.budget().command(blocked.requestId)!!.status)
+        assertEquals("REJECTED", database.budget().command(legacy.requestId)!!.status)
+    }
 
     @Test fun narrowCapabilitySendsIncomeRulesAndMetadataWithoutDailyPlanning() = runBlocking {
         initialize()
@@ -126,6 +173,7 @@ class IncomeRuleSyncCapabilityTest {
         var budgetScope = scope
         var budgetReads = 0
         var loseReceipt = false
+        var rejectRule = false
         val posts = mutableListOf<BudgetSyncCommand>()
 
         override suspend fun budget(authorization: String): Response<CloudBudget> {
@@ -136,6 +184,8 @@ class IncomeRuleSyncCapabilityTest {
         override suspend fun changes(authorization: String, cursor: String?) = SyncPageDto(scope, emptyList(), "cursor", false)
         override suspend fun command(authorization: String, command: BudgetSyncCommand): Response<BudgetCommandReceipt> {
             posts += command
+            if (rejectRule) return Response.error(422,
+                "{\"code\":\"invalid_request\"}".toResponseBody("application/json".toMediaType()))
             if (loseReceipt) {
                 loseReceipt = false
                 throw IOException("Lost receipt after commit")

@@ -1,11 +1,11 @@
 package com.firkat.fillin.feature.editcategory.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -22,17 +22,21 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
+import com.firkat.fillin.feature.categories.ui.CategoriesError
 import com.firkat.fillin.feature.categories.ui.CategoriesEvent
 import com.firkat.fillin.feature.categories.ui.CategoriesViewModel
 import com.firkat.fillin.feature.categories.ui.CategoryEditorUiState
-import com.firkat.fillin.feature.categories.ui.CategoriesError
 import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
-import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.CategoryIconImage
+import com.firkat.fillin.ui.component.FeatureScaffold
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiTextField
 import com.firkat.fillin.ui.icon.CategoryIconOption
 import com.firkat.fillin.ui.icon.CategoryIcons
-import androidx.annotation.StringRes
+import com.firkat.fillin.ui.theme.saldomiColors
+import com.firkat.fillin.ui.theme.saldomiDesignColors
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.foundation.lazy.grid.items as gridItems
 
 @Composable
 fun EditCategoryRoute(
@@ -46,64 +50,86 @@ fun EditCategoryRoute(
     val sync by syncViewModel.context.collectAsStateWithLifecycle()
     var editorWasOpen by remember { mutableStateOf(false) }
     var editorInitialized by remember { mutableStateOf(false) }
+
     LaunchedEffect(categoryId, state.items) {
         if (!editorInitialized && state.editor == null &&
             !state.isLoading && !state.isRefreshing &&
             (categoryId == null || state.items.any { it.id == categoryId })
         ) {
             editorInitialized = true
-            if (categoryId == null) viewModel.onEvent(CategoriesEvent.CreateRequested)
-            else viewModel.onEvent(CategoriesEvent.EditRequested(categoryId))
+            if (categoryId == null) {
+                viewModel.onEvent(CategoriesEvent.CreateRequested)
+            } else {
+                viewModel.onEvent(CategoriesEvent.EditRequested(categoryId))
+            }
         }
     }
     LaunchedEffect(state.editor) {
-        if (state.editor != null) editorWasOpen = true
-        else if (editorWasOpen) onClose()
+        if (state.editor != null) {
+            editorWasOpen = true
+        } else if (editorWasOpen) {
+            onClose()
+        }
     }
     FeatureScaffold(
         titleResource = R.string.categories_title,
-        onNavigateBack = { viewModel.onEvent(CategoriesEvent.EditorClosed); onClose() },
+        onNavigateBack = {
+            viewModel.onEvent(CategoriesEvent.EditorClosed)
+            onClose()
+        },
         navigateBackEnabled = state.editor?.isSaving != true,
     ) {
         val editor = state.editor
         when {
-            editor != null && sync.canWrite -> CategoryEditor(editor, viewModel::onEvent)
-            editor != null -> Text(
-                text = stringResource(CategoriesError.Forbidden.messageResource),
-                modifier = Modifier.padding(24.dp),
-                color = MaterialTheme.colorScheme.error,
-            )
-            editor == null && screenError != null -> Text(
-                text = stringResource(screenError.messageResource),
-                modifier = Modifier.padding(24.dp),
-                color = MaterialTheme.colorScheme.error,
-            )
-            editor == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+            editor != null && sync.canWrite -> {
+                CategoryEditor(editor, viewModel::onEvent)
+            }
+
+            editor != null -> {
+                Text(
+                    text = stringResource(CategoriesError.Forbidden.messageResource),
+                    modifier = Modifier.padding(24.dp),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            screenError != null -> {
+                Text(
+                    text = stringResource(screenError.messageResource),
+                    modifier = Modifier.padding(24.dp),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            else -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
         }
     }
 }
 
 private val CategoryKind.labelResource: Int
-    @StringRes get() = when (this) {
-        CategoryKind.Expense -> R.string.categories_kind_expense
-        CategoryKind.Income -> R.string.categories_kind_income
-    }
+    @StringRes get() =
+        when (this) {
+            CategoryKind.Expense -> R.string.categories_kind_expense
+            CategoryKind.Income -> R.string.categories_kind_income
+        }
 
 private val CategoriesError.messageResource: Int
-    @StringRes get() = when (this) {
-        CategoriesError.MissingApiToken, CategoriesError.Unauthorized -> R.string.categories_error_unauthorized
-        CategoriesError.Forbidden -> R.string.categories_error_forbidden
-        CategoriesError.InvalidRequest -> R.string.categories_error_invalid_request
-        CategoriesError.NotFound -> R.string.categories_error_not_found
-        CategoriesError.Conflict -> R.string.categories_error_conflict
-        CategoriesError.Network -> R.string.categories_error_network
-        CategoriesError.InvalidResponse -> R.string.categories_error_invalid_response
-        CategoriesError.Unknown -> R.string.categories_error_generic
-    }
+    @StringRes get() =
+        when (this) {
+            CategoriesError.MissingApiToken, CategoriesError.Unauthorized -> R.string.categories_error_unauthorized
+            CategoriesError.Forbidden -> R.string.categories_error_forbidden
+            CategoriesError.InvalidRequest -> R.string.categories_error_invalid_request
+            CategoriesError.NotFound -> R.string.categories_error_not_found
+            CategoriesError.Conflict -> R.string.categories_error_conflict
+            CategoriesError.Network -> R.string.categories_error_network
+            CategoriesError.InvalidResponse -> R.string.categories_error_invalid_response
+            CategoriesError.Unknown -> R.string.categories_error_generic
+        }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CategoryEditor(
     state: CategoryEditorUiState,
@@ -134,20 +160,15 @@ private fun CategoryEditor(
             fontWeight = FontWeight.SemiBold,
         )
 
-        OutlinedTextField(
+        SaldomiTextField(
             value = state.name,
             onValueChange = { onEvent(CategoriesEvent.NameChanged(it)) },
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.isSaving && state.original?.dictionaryKey != "OTHER",
-            label = { Text(stringResource(R.string.categories_name_label)) },
-            singleLine = true,
+            placeholder = stringResource(R.string.categories_name_label),
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = stringResource(R.string.categories_kind_label),
-                style = MaterialTheme.typography.labelLarge,
-            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CategoryKind.entries.forEach { kind ->
                     FilterChip(
@@ -261,23 +282,18 @@ private fun CategoryIconSelector(
     val selectedIcon = CategoryIcons.find(iconCode)
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(R.string.categories_icon_label),
-            style = MaterialTheme.typography.labelLarge,
-        )
-        OutlinedButton(
+        SaldomiOutlinedButton(
             onClick = onClick,
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 64.dp),
             enabled = enabled,
-            contentPadding = PaddingValues(horizontal = 16.dp),
         ) {
             if (iconCode.isNotBlank()) {
                 CategoryIconImage(iconCode, Modifier.alpha(if (enabled) 1f else 0.38f))
                 Text(
-                    text = stringResource(selectedIcon?.labelResource ?: R.string.category_icon_default),
+                    text = stringResource(R.string.categories_icon_select_action),
                     modifier =
                         Modifier
                             .weight(1f)
@@ -293,10 +309,6 @@ private fun CategoryIconSelector(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
-            Text(
-                text = "▾",
-                style = MaterialTheme.typography.titleMedium,
-            )
         }
     }
 }
@@ -323,12 +335,11 @@ private fun CategoryIconPickerBottomSheet(
                 fontWeight = FontWeight.SemiBold,
             )
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(104.dp),
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(384.dp)
-                        .padding(top = 16.dp),
+                columns = GridCells.Adaptive(64.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(384.dp)
+                    .padding(top = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
@@ -357,11 +368,22 @@ private fun CategoryIconPickerItem(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().heightIn(min = 104.dp).semantics { selected = isSelected },
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .semantics { selected = isSelected },
         shape = MaterialTheme.shapes.large,
-        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        color = if (isSelected)
+            MaterialTheme.saldomiDesignColors.primaryContainer
+        else
+            MaterialTheme.saldomiDesignColors.surfaceContainerHighest,
+        contentColor = if (isSelected)
+            MaterialTheme.saldomiDesignColors.onPrimaryContainer
+        else
+            MaterialTheme.colorScheme.onSurface,
+        border = if (isSelected)
+            BorderStroke(2.dp, MaterialTheme.saldomiDesignColors.primary)
+        else null,
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -369,12 +391,6 @@ private fun CategoryIconPickerItem(
             verticalArrangement = Arrangement.Center,
         ) {
             CategoryIconImage(icon.code, Modifier.size(32.dp))
-            Text(
-                text = stringResource(icon.labelResource),
-                modifier = Modifier.padding(top = 8.dp),
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.labelSmall,
-            )
         }
     }
 }

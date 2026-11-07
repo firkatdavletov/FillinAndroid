@@ -33,7 +33,7 @@ class BudgetSyncViewModel(
 
     fun disable() = action { session?.disable() }
 
-    fun refresh() = sync.requestSync()
+    fun refresh() = action { sync.retryRejectedCommands() }
 
     private fun action(block: suspend () -> Unit) {
         if (_busy.value) return
