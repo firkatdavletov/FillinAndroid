@@ -140,7 +140,7 @@ class AppNavigationViewModel(
                                 if (ready) openMain() else openSetup(BudgetSetupMode.Local)
                             }
                             ready && entries.last().isBudgetSetup() && setupAuth == null -> budgetChosen()
-                            !ready && (entries.last() is AppRoute.ForecastDetails || entries.last() is AppRoute.OperationDetails || entries.last() is AppRoute.OperationPlanLinkBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.PlanningRuleEditor || entries.last() is AppRoute.EditCategoryBottomSheet || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
+                            !ready && (entries.last() is AppRoute.ForecastDetails || entries.last() is AppRoute.OperationDetails || entries.last() is AppRoute.OperationPlanLinkBottomSheet || entries.last() is AppRoute.PlannedOperationBottomSheet || entries.last() is AppRoute.PlanningRuleEditor || entries.last() is AppRoute.EditCategory || entries.last() in listOf(AppRoute.Main, AppRoute.OperationCreate, AppRoute.Categories, AppRoute.FamilyAccess, AppRoute.CloudSync)) -> openSetup(
                                 BudgetSetupMode.Local,
                             )
                         }
@@ -177,10 +177,14 @@ class AppNavigationViewModel(
 
     fun openCategories() = openMainDestination(AppRoute.Categories)
 
-    fun openCategoryEditor(categoryId: String? = null) {
+    fun openCategoryEditor(budgetScopeId: String, categoryId: String? = null) {
         if (!readOnly && entries.last() == AppRoute.Categories && budgetReady && !resolving.value) {
-            entries.add(AppRoute.EditCategoryBottomSheet(categoryId))
+            entries.add(AppRoute.EditCategory(budgetScopeId, categoryId))
         }
+    }
+
+    fun dismissCategoryEditor(route: AppRoute.EditCategory) {
+        if (entries.lastOrNull() == route) back()
     }
 
     fun openFamilyAccess() { if (cloudAllowed) openMainDestination(AppRoute.FamilyAccess) }

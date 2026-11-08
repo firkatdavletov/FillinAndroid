@@ -22,16 +22,15 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import com.firkat.fillin.feature.editcategory.ui.*
 import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.icon.CategoryIcons
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -94,27 +93,28 @@ class CategoryIconsUiTest {
         var editor by mutableStateOf(CategoryEditorUiState(name = "Кафе", iconCode = "custom.icon-v2"))
         compose.setContent {
             FillinTheme {
-                CategoriesScreen(CategoriesUiState(editor = editor), { event ->
+                EditCategoryScreen(true, EditCategoryState.Ready(editor), true) { event ->
                     editor = when (event) {
-                        CategoriesEvent.IconPickerRequested -> editor.copy(isIconPickerVisible = true)
-                        is CategoriesEvent.IconSelected -> editor.copy(iconCode = event.iconCode, isIconPickerVisible = false)
+                        EditCategoryEvent.PickIcon -> editor.copy(overlay = CategoryEditorOverlay.IconPicker)
+                        is EditCategoryEvent.IconSelected -> editor.copy(iconCode = event.code, overlay = null)
                         else -> editor
                     }
-                }, onCreateCategory = {}, onEditCategory = {})
+                }
             }
         }
-        compose.onNodeWithText("Другая иконка").assertIsEnabled().performClick()
+        compose.onNodeWithContentDescription("Выберите иконку").assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals("custom.icon-v2", editor.iconCode) }
-        compose.onNodeWithText("Продукты").assertIsNotSelected().performClick()
+        compose.onNodeWithContentDescription("Продукты").assertIsNotSelected().performClick()
         compose.runOnIdle { assertEquals("GROCERIES", editor.iconCode) }
-        compose.onNodeWithText("Продукты").assertExists()
     }
 
     @Test fun legacyIconIsHighlightedAndSavingDisablesTheSelector() {
-        var editor by mutableStateOf(CategoryEditorUiState(name = "Кафе", iconCode = "FOOD", isIconPickerVisible = true))
-        compose.setContent { FillinTheme { CategoriesScreen(CategoriesUiState(editor = editor), {}, onCreateCategory = {}, onEditCategory = {}) } }
-        compose.onNode(hasText("Продукты") and isSelectable()).assertIsSelected()
-        compose.runOnIdle { editor = editor.copy(isIconPickerVisible = false, isSaving = true) }
-        compose.onNodeWithText("Продукты").assertIsNotEnabled()
+        var editor by mutableStateOf(CategoryEditorUiState(
+            name = "Кафе", iconCode = "FOOD", overlay = CategoryEditorOverlay.IconPicker,
+        ))
+        compose.setContent { FillinTheme { EditCategoryScreen(true, EditCategoryState.Ready(editor), true) {} } }
+        compose.onNodeWithContentDescription("Продукты").assertIsSelected()
+        compose.runOnIdle { editor = editor.copy(overlay = null, operation = CategoryEditorOperation.Save) }
+        compose.onNodeWithContentDescription("Выберите иконку").assertIsNotEnabled()
     }
 }

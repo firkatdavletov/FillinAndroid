@@ -126,12 +126,12 @@ internal fun BudgetCurrencyConfirmation(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    SaldomiActionBottomSheet(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.budget_currency_change_title)) },
         text = { Text(stringResource(R.string.budget_currency_change_message, from.symbol, to.symbol)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.budget_manage_save)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.profile_delete_cancel)) } },
+        confirmButton = { SaldomiButton(onClick = onConfirm, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.budget_manage_save)) } },
+        dismissButton = { SaldomiOutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.profile_delete_cancel)) } },
     )
 }
 

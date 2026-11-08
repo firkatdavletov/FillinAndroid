@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.dashboard.domain.model.*
 import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetCard
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetHeading
 import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -101,17 +102,14 @@ internal fun ForecastHeading(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.forecast_title),
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
-            Icon(painterResource(R.drawable.ic_forecast), null, tint = MaterialTheme.saldomiColors.income)
-        }
+        WidgetHeading(
+            title = R.string.forecast_title,
+            icon = R.drawable.ic_forecast
+        )
+
         val start = state.startDate
         val end = state.endDate
+
         if (start != null && end != null) {
             val pattern = if (start.year == end.year) "d MMM" else "d MMM yyyy"
             val count = (ChronoUnit.DAYS.between(start, end) + 1).toInt()
@@ -174,16 +172,16 @@ internal fun ForecastStatusMessage(
     val date = state.projection?.structuralDeficitDate ?: state.currentPace?.firstDeficitDate ?: state.byLimit.firstDeficitDate
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(
-                imageVector =
-                    when (status) {
-                        BalanceForecastStatus.NORMAL -> Icons.Default.CheckCircle
-                        BalanceForecastStatus.INSUFFICIENT_DATA -> Icons.Default.Info
-                        else -> Icons.Default.Warning
-                    },
-                contentDescription = null,
-                tint = color,
-            )
+//            Icon(
+//                imageVector =
+//                    when (status) {
+//                        BalanceForecastStatus.NORMAL -> Icons.Default.CheckCircle
+//                        BalanceForecastStatus.INSUFFICIENT_DATA -> Icons.Default.Info
+//                        else -> Icons.Default.Warning
+//                    },
+//                contentDescription = null,
+//                tint = color,
+//            )
             Text(
                 stringResource(
                     when (status) {

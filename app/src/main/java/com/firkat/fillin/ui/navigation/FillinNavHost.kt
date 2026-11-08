@@ -130,6 +130,12 @@ fun FillinNavHost(
             )
         }
     }
+    val categoryEditor = navigation.backStack.lastOrNull() as? AppRoute.EditCategory
+    LaunchedEffect(runtime?.scope?.id, categoryEditor) {
+        if (categoryEditor != null && categoryEditor.budgetScopeId != runtime?.scope?.id) {
+            navigation.dismissCategoryEditor(categoryEditor)
+        }
+    }
     val plannedSheet = navigation.backStack.lastOrNull() as? AppRoute.PlannedOperationBottomSheet
     LaunchedEffect(
         runtime?.scope?.id,
@@ -349,17 +355,22 @@ fun FillinNavHost(
                         CategoriesRoute(
                             readOnly = readOnly,
                             onBack = navigation::back,
-                            onCreateCategory = { navigation.openCategoryEditor() },
-                            onEditCategory = { categoryId -> navigation.openCategoryEditor(categoryId) },
+                            onCreateCategory = { runtime?.scope?.id?.let { navigation.openCategoryEditor(it) } },
+                            onEditCategory = { categoryId -> runtime?.scope?.id?.let { navigation.openCategoryEditor(it, categoryId) } },
                         )
                     }
                 }
-                entry<AppRoute.EditCategoryBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
-                    ActiveBudgetContent {
-                        EditCategoryRoute(
-                            categoryId = route.categoryId,
-                            onClose = navigation::back,
-                        )
+                entry<AppRoute.EditCategory> { route ->
+                    val models: MainBudgetViewModelStore = viewModel(key = "category-editor")
+                    models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                    if (route.budgetScopeId == runtime?.scope?.id) {
+                        ActiveBudgetContent(viewModelStoreOwner = models) {
+                            EditCategoryRoute(
+                                categoryId = route.categoryId,
+                                readOnly = readOnly,
+                                onClose = { navigation.dismissCategoryEditor(route) },
+                            )
+                        }
                     }
                 }
                 entry<AppRoute.FamilyAccess> {

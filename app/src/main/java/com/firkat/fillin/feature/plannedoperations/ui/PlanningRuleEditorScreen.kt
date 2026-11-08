@@ -108,16 +108,19 @@ internal fun PlanningRuleEditorScreen(state: RuleEditorState, canWrite: Boolean,
                     return date >= minimumDate || state.original != null && date == state.initial.date
                 }
             })
-        DatePickerDialog(onDismissRequest = { onWindow(null) }, confirmButton = {
-            TextButton(enabled = enabled && picker.selectedDateMillis != null, onClick = {
+        SaldomiActionBottomSheet(onDismissRequest = { onWindow(null) }, confirmButton = {
+            SaldomiButton(enabled = enabled && picker.selectedDateMillis != null, onClick = {
                 picker.selectedDateMillis?.let { millis -> onChange { it.copy(date = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()) } }; onWindow(null)
-            }) { Text(stringResource(R.string.rule_select)) }
-        }, dismissButton = { TextButton({ onWindow(null) }) { Text(stringResource(R.string.rule_cancel)) } }) { DatePicker(picker) }
+            }, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.rule_select)) }
+        }, dismissButton = { SaldomiOutlinedButton({ onWindow(null) }, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.rule_cancel)) } },
+            edgeToEdgeContent = true,
+            text = { DatePicker(picker) },
+        )
     }
-    if (state.window == RuleWindow.Discard || state.window == RuleWindow.Delete) AlertDialog(onDismissRequest = { onWindow(null) },
+    if (state.window == RuleWindow.Discard || state.window == RuleWindow.Delete) SaldomiActionBottomSheet(onDismissRequest = { onWindow(null) },
         title = { Text(stringResource(if (state.window == RuleWindow.Delete) R.string.rule_delete_question else R.string.rule_discard_question)) },
-        confirmButton = { TextButton(if (state.window == RuleWindow.Delete) onDelete else onDiscard, enabled = !state.saving && (state.window != RuleWindow.Delete || canWrite)) { Text(stringResource(R.string.rule_confirm)) } },
-        dismissButton = { TextButton({ onWindow(null) }) { Text(stringResource(R.string.rule_cancel)) } })
+        confirmButton = { SaldomiButton(if (state.window == RuleWindow.Delete) onDelete else onDiscard, enabled = !state.saving && (state.window != RuleWindow.Delete || canWrite), modifier = Modifier.fillMaxWidth(), large = true, destructive = state.window == RuleWindow.Delete) { Text(stringResource(R.string.rule_confirm)) } },
+        dismissButton = { SaldomiOutlinedButton({ onWindow(null) }, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.rule_cancel)) } })
 }
 
 @Composable
@@ -151,4 +154,28 @@ private val PlanningFrequency.editorTitleResource: Int get() = when (this) {
     PlanningFrequency.Weekly -> R.string.income_frequency_weekly
     PlanningFrequency.Biweekly -> R.string.income_frequency_biweekly
     PlanningFrequency.Monthly -> R.string.income_frequency_monthly
+}
+
+@Preview(name = "Date sheet")
+@Preview(name = "Date sheet dark", uiMode = UI_MODE_NIGHT_YES)
+@Preview(name = "Date sheet compact", widthDp = 320, heightDp = 600, fontScale = 2f)
+@Composable
+private fun RuleDateSheetPreview() {
+    EditorPreviewState(RuleEditorState(loading = false, window = RuleWindow.Date))
+}
+
+@Preview(name = "Discard sheet")
+@Preview(name = "Discard sheet dark", uiMode = UI_MODE_NIGHT_YES)
+@Preview(name = "Discard sheet compact", widthDp = 320, heightDp = 600, fontScale = 2f)
+@Composable
+private fun RuleDiscardSheetPreview() {
+    EditorPreviewState(RuleEditorState(loading = false, window = RuleWindow.Discard))
+}
+
+@Preview(name = "Delete sheet")
+@Preview(name = "Delete sheet dark", uiMode = UI_MODE_NIGHT_YES)
+@Preview(name = "Delete sheet compact", widthDp = 320, heightDp = 600, fontScale = 2f)
+@Composable
+private fun RuleDeleteSheetPreview() {
+    EditorPreviewState(RuleEditorState(loading = false, window = RuleWindow.Delete))
 }

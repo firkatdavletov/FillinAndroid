@@ -1,7 +1,9 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import com.firkat.fillin.feature.budgetprofile.ui.LocalBudgetCurrency
-
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.outlined.EventAvailable
@@ -92,11 +94,11 @@ internal fun OperationDetailsRoute(
     )
     if (!readOnly && state.window == OperationDetailsWindow.Category) CategorySelectionSheet(state.categories, state.categoryId, false, false,
         { event(EditOperationEvent.CategorySelected(it)) }, { event(EditOperationEvent.WindowChanged(null)) }, {})
-    if (!readOnly && (state.window == OperationDetailsWindow.Discard || state.window == OperationDetailsWindow.Unlink)) AlertDialog(
+    if (!readOnly && (state.window == OperationDetailsWindow.Discard || state.window == OperationDetailsWindow.Unlink)) SaldomiActionBottomSheet(
         onDismissRequest = { event(EditOperationEvent.WindowChanged(null)) },
         title = { Text(stringResource(if (state.window == OperationDetailsWindow.Discard) R.string.rule_discard_question else R.string.operation_details_unlink_question)) },
-        confirmButton = { TextButton(onClick = { event(if (state.window == OperationDetailsWindow.Discard) EditOperationEvent.DiscardConfirmed else EditOperationEvent.UnlinkConfirmed) }) { Text(stringResource(R.string.rule_confirm)) } },
-        dismissButton = { TextButton(onClick = { event(EditOperationEvent.WindowChanged(null)) }) { Text(stringResource(R.string.rule_cancel)) } },
+        confirmButton = { SaldomiButton(onClick = { event(if (state.window == OperationDetailsWindow.Discard) EditOperationEvent.DiscardConfirmed else EditOperationEvent.UnlinkConfirmed) }, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.rule_confirm)) } },
+        dismissButton = { SaldomiOutlinedButton(onClick = { event(EditOperationEvent.WindowChanged(null)) }, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.rule_cancel)) } },
     )
     if (!readOnly && state.isRefundConfirmationVisible) RefundConfirmation(
         { event(EditOperationEvent.RefundConfirmed) }, { event(EditOperationEvent.RefundDismissed) }, dirty = state.dirty)
@@ -224,11 +226,11 @@ private fun OperationLinkedPlanCard(plan: SuggestedPlan, enabled: Boolean, onUnl
 
 @Composable
 private fun RefundConfirmation(onConfirm: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier, dirty: Boolean = false) {
-    AlertDialog(modifier = modifier, onDismissRequest = onDismiss,
+    SaldomiActionBottomSheet(modifier = modifier, onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.operation_history_refund_title)) },
         text = { Text(stringResource(if (dirty) R.string.operation_details_refund_draft else R.string.operation_history_refund_message)) },
-        confirmButton = { TextButton(onConfirm) { Text(stringResource(R.string.operation_history_refund_confirm)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.operation_history_refund_cancel)) } })
+        confirmButton = { SaldomiButton(onConfirm, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.operation_history_refund_confirm)) } },
+        dismissButton = { SaldomiOutlinedButton(onDismiss, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.operation_history_refund_cancel)) } })
 }
 
 private val previewOperation = Operation("preview", "Продукты", "Супермаркет", BigDecimal("1200"), "KZT", BigDecimal("1200"), "KZT", LocalDate.of(2026, 10, 24), OperationStatus.Posted, 0)

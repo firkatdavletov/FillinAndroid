@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -35,7 +33,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -212,17 +209,11 @@ private fun OperationCreateForm(
                 { onEvent(OperationCreateEvent.CreateInputChanged(it)) },
                 Modifier.fillMaxWidth().focusRequester(focus).testTag("operation-create-input"),
             )
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.operation_history_category_title),
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                TextButton(onClick = { onEvent(OperationCreateEvent.CategoriesOpened) }, enabled = !editor.isSaving) {
-                    Text(stringResource(R.string.operation_history_all_categories))
-                }
-            }
+            Text(
+                stringResource(R.string.operation_history_category_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
             if (categories.isEmpty()) {
                 Text(
                     stringResource(R.string.operation_create_no_categories),
@@ -230,9 +221,11 @@ private fun OperationCreateForm(
                 )
             } else {
                 OperationCategoryGrid(
-                    categories.take(8),
-                    !editor.isSaving,
-                    { onEvent(OperationCreateEvent.CreateCategoryClicked(it)) },
+                    categories = categories.take(7),
+                    enabled = !editor.isSaving,
+                    onCategoryClick = { onEvent(OperationCreateEvent.CreateCategoryClicked(it)) },
+                    showMore = categories.size > 7,
+                    onMoreClick = { onEvent(OperationCreateEvent.CategoriesOpened) },
                 )
             }
         }

@@ -44,6 +44,36 @@ fun SaldomiButton(
 }
 
 @Composable
+fun SaldomiPrimaryButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    isLoading: Boolean = false,
+    content: @Composable RowScope.() -> Unit,
+) {
+    SaldomiButton(onClick, modifier, enabled, large = true, isLoading = isLoading, content = content)
+}
+
+@Composable
+fun SaldomiDeleteButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    isLoading: Boolean = false,
+    content: @Composable RowScope.() -> Unit,
+) {
+    SaldomiButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        large = true,
+        isLoading = isLoading,
+        destructive = true,
+        content = content,
+    )
+}
+
+@Composable
 fun SaldomiTextButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
     TextButton(onClick = onClick, modifier = modifier, enabled = enabled, content = content)
 }

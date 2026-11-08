@@ -16,6 +16,7 @@ import com.firkat.fillin.feature.categories.domain.usecase.DeleteCategory
 import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
 import com.firkat.fillin.feature.categories.domain.usecase.UpdateCategory
 import com.firkat.fillin.feature.categories.ui.CategoriesViewModel
+import com.firkat.fillin.feature.editcategory.ui.EditCategoryViewModel
 import com.firkat.fillin.feature.dashboard.data.repository.OfflineDashboardRepository
 import com.firkat.fillin.feature.dashboard.domain.DashboardDataSource
 import com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository
@@ -235,13 +236,7 @@ val budgetModule = module {
         factory { CreateCategory(repository = get()) }
         factory { UpdateCategory(repository = get()) }
         factory { DeleteCategory(repository = get()) }
-        viewModel {
-            CategoriesViewModel(
-                getCategories = get(),
-                createCategory = get(),
-                updateCategory = get(),
-                deleteCategory = get(),
-            )
-        }
+        viewModel { CategoriesViewModel(getCategories = get()) }
+        viewModel { params -> EditCategoryViewModel(params.getOrNull<String>(), get(), get(), get(), get()) }
     }
 }

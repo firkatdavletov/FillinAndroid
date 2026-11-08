@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="budget_currency_picker_title">Валюта бюджета</string>
-    <string name="budget_currency_kzt">Тенге · KZT</string>
-    <string name="budget_currency_rub">Российский рубль · RUB</string>
-    <string name="budget_currency_usd">Доллар США · USD</string>
-    <string name="budget_currency_eur">Евро · EUR</string>
+    <string name="budget_currency_kzt">Тенге</string>
+    <string name="budget_currency_rub">Российский рубль</string>
+    <string name="budget_currency_usd">Доллар США</string>
+    <string name="budget_currency_eur">Евро</string>
     <string name="budget_currency_change_title">Сменить валюту бюджета?</string>
     <string name="budget_currency_change_message">Суммы не будут пересчитаны. Например, 1 000 %1$s станут 1 000 %2$s.</string>
     <string name="operation_original_amount">Исходная сумма: %1$s</string>

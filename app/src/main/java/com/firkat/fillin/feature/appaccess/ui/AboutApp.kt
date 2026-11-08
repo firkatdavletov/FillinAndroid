@@ -1,11 +1,14 @@
 package com.firkat.fillin.feature.appaccess.ui
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,7 +61,7 @@ internal fun AboutAppRoute(viewModel: AboutAppViewModel) {
     val context = LocalContext.current
     id?.let { installationId ->
         val label = stringResource(R.string.app_installation_id)
-        AboutAppDialog(
+        AboutAppBottomSheet(
             version = BuildConfig.VERSION_NAME,
             id = installationId,
             checking = checking,
@@ -74,7 +77,7 @@ internal fun AboutAppRoute(viewModel: AboutAppViewModel) {
 }
 
 @Composable
-private fun AboutAppDialog(
+private fun AboutAppBottomSheet(
     version: String,
     id: String,
     checking: Boolean,
@@ -84,7 +87,7 @@ private fun AboutAppDialog(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AlertDialog(
+    SaldomiActionBottomSheet(
         modifier = modifier,
         onDismissRequest = onClose,
         title = { Text(stringResource(R.string.app_about)) },
@@ -106,11 +109,11 @@ private fun AboutAppDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onRefresh, enabled = !checking) {
+            SaldomiButton(onClick = onRefresh, enabled = !checking, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.app_access_check))
             }
         },
-        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.app_about_close)) } },
+        dismissButton = { SaldomiOutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.app_about_close)) } },
     )
 }
 
@@ -135,5 +138,5 @@ private fun AboutPreview(
     result: Boolean? = null,
     id: String = "a625153f-4be5-47b1-adfa-2c404603c034",
 ) {
-    FillinTheme { AboutAppDialog("0.1", id, checking, result, {}, {}, {}) }
+    FillinTheme { AboutAppBottomSheet("0.1", id, checking, result, {}, {}, {}) }
 }

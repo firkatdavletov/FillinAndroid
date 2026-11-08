@@ -139,6 +139,74 @@ class AppNavigationUiTest {
         assertTrue(env.server.creations.isEmpty())
     }
 
+    @Test fun categoryEditorIsAFullScreenAndSavesToTheOfflineList() {
+        show(createdBudget = true)
+        compose.runOnIdle { navigation.openCategories() }
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("Новая категория", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Новая категория", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Новая категория").assertIsDisplayed()
+        compose.runOnIdle { assertNull((navigation.backStack.last() as AppRoute.EditCategory).categoryId) }
+        compose.onNodeWithText("Удалить").assertDoesNotExist()
+        compose.onNodeWithText("Сохранить").assertIsNotEnabled()
+        compose.onNodeWithText("Расход").assertIsSelected()
+        compose.onNodeWithText("Доход").performClick().assertIsSelected()
+        compose.onNode(hasSetTextAction()).performTextInput("Возврат за товар")
+        closeSoftKeyboard()
+        compose.onNodeWithText("Сохранить").assertIsEnabled().performClick()
+        compose.waitUntil(5000) { navigation.backStack.lastOrNull() == AppRoute.Categories }
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("Возврат за товар").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Возврат за товар").performScrollTo().performClick()
+        compose.onNodeWithText("Редактирование").assertIsDisplayed()
+        compose.onNodeWithText("Доход").assertIsSelected().assertIsNotEnabled()
+        compose.onNodeWithText("Сохранить").assertIsNotEnabled()
+        compose.onNodeWithText("Удалить").assertDoesNotExist()
+        compose.onNode(hasSetTextAction()).performTextReplacement("Возврат за билет")
+        closeSoftKeyboard()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Продолжить редактирование").performClick()
+        compose.onNodeWithText("Возврат за билет").assertExists()
+        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.onNodeWithText("Выйти без сохранения").performClick()
+        compose.onNodeWithText("Возврат за товар").assertExists()
+    }
+
+    @Test fun categoryDraftSurvivesRecreationAndClosesOnBudgetSwitch() {
+        show(createdBudget = true, fontScale = 2f)
+        val runtime = requireNotNull(env.manager.active.value)
+        val category = runBlocking {
+            runtime.scope.get<com.firkat.fillin.feature.categories.domain.usecase.CreateCategory>()(
+                "Поездки", CategoryKind.Expense, "CAR",
+            )
+        }
+        compose.runOnIdle {
+            navigation.openCategories()
+            navigation.openCategoryEditor(runtime.scope.id, category.id)
+        }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Сохранить").fetchSemanticsNodes().isNotEmpty() }
+        val delete = compose.onNodeWithText("Удалить").assertIsDisplayed()
+        val save = compose.onNodeWithText("Сохранить").assertIsDisplayed()
+        assertTrue(delete.getUnclippedBoundsInRoot().bottom <= save.getUnclippedBoundsInRoot().top)
+        compose.onNode(hasSetTextAction()).performTextReplacement("Черновик поездок")
+        closeSoftKeyboard()
+        save.assertIsEnabled()
+        compose.activityRule.scenario.recreate()
+        compose.setContent(hostContent)
+        compose.onNodeWithText("Черновик поездок").assertExists()
+        save.assertIsEnabled()
+
+        runBlocking {
+            env.manager.select(env.registry.createLocal().id)
+            val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
+            session.createLocal("900.00".toBigDecimal(), session.today)
+        }
+        compose.waitUntil(5000) { navigation.backStack.none { it is AppRoute.EditCategory } }
+        compose.onNodeWithText("Черновик поездок").assertDoesNotExist()
+    }
+
     private fun show(
         createdBudget: Boolean = false,
         restoration: StateRestorationTester? = null,

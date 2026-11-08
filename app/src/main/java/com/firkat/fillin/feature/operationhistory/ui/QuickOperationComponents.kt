@@ -23,6 +23,7 @@ import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.theme.FillinTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Backspace
+import androidx.compose.material.icons.filled.MoreHoriz
 
 @Composable
 internal fun OperationAmountInput(value: String, enabled: Boolean, isError: Boolean,
@@ -57,23 +58,49 @@ internal fun OperationAmountInput(value: String, enabled: Boolean, isError: Bool
 }
 
 @Composable
-internal fun OperationCategoryGrid(categories: List<Category>, enabled: Boolean,
-    onCategoryClick: (String) -> Unit, modifier: Modifier = Modifier) {
+internal fun OperationCategoryGrid(
+    categories: List<Category>,
+    enabled: Boolean,
+    onCategoryClick: (String) -> Unit,
+    showMore: Boolean,
+    onMoreClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val fontScale = LocalDensity.current.fontScale
+    val tileCount = categories.size + if (showMore) 1 else 0
     BoxWithConstraints(modifier.fillMaxWidth().testTag("operation-create-categories")) {
         val columns = if (maxWidth < 340.dp || fontScale > 1.3f) 2 else 4
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            categories.chunked(columns).forEach { row ->
+            (0 until tileCount).chunked(columns).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    row.forEach { category ->
-                        FilledTonalButton(onClick = { onCategoryClick(category.id) }, enabled = enabled,
+                    row.forEach { index ->
+                        val category = categories.getOrNull(index)
+                        val tag = if (category == null) "operation-create-more-categories"
+                            else "operation-create-category-${category.id}"
+                        FilledTonalButton(
+                            onClick = { if (category == null) onMoreClick() else onCategoryClick(category.id) },
+                            enabled = enabled,
                             shape = MaterialTheme.shapes.large,
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 16.dp),
                             colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                            modifier = Modifier.weight(1f).heightIn(min = 100.dp).testTag("operation-create-category-" + category.id)) {
+                            modifier = Modifier.weight(1f).heightIn(min = 100.dp).testTag(tag),
+                        ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                CategoryIconImage(category.icon.code, Modifier.size(28.dp))
-                                Text(category.name.orEmpty(), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
+                                if (category == null) {
+                                    Icon(
+                                        Icons.Filled.MoreHoriz,
+                                        contentDescription = stringResource(R.string.operation_create_more_categories_description),
+                                        modifier = Modifier.size(28.dp),
+                                    )
+                                } else {
+                                    CategoryIconImage(category.icon.code, Modifier.size(28.dp))
+                                }
+                                Text(
+                                    text = if (category == null) stringResource(R.string.operation_create_more_categories)
+                                        else category.name.orEmpty(),
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
                             }
                         }
                     }
@@ -94,6 +121,25 @@ private fun InvalidAmountPreview() { FillinTheme { OperationAmountInput("0", tru
 private fun SavingAmountPreview() { FillinTheme { OperationAmountInput("1200", false, false, {}) } }
 @Preview(widthDp = 393) @Preview(widthDp = 393, uiMode = UI_MODE_NIGHT_YES)
 @Preview(widthDp = 320, fontScale = 2f) @Composable
-private fun GridPreview() { FillinTheme { OperationCategoryGrid(previewOperationCategories(), true, {}) } }
+private fun GridPreview() { FillinTheme { OperationCategoryGrid(previewOperationCategories(), true, {}, false, {}) } }
 @Preview @Preview(uiMode = UI_MODE_NIGHT_YES) @Composable
-private fun DisabledGridPreview() { FillinTheme { OperationCategoryGrid(previewOperationCategories(), false, {}) } }
+private fun DisabledGridPreview() { FillinTheme { OperationCategoryGrid(previewOperationCategories(), false, {}, false, {}) } }
+
+@Preview(widthDp = 393)
+@Preview(widthDp = 393, uiMode = UI_MODE_NIGHT_YES)
+@Preview(widthDp = 320, fontScale = 2f)
+@Composable
+private fun GridWithMorePreview() {
+    FillinTheme { OperationCategoryGrid(previewCategoriesWithMore(), true, {}, true, {}) }
+}
+
+@Preview(widthDp = 393)
+@Preview(widthDp = 393, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun DisabledGridWithMorePreview() {
+    FillinTheme { OperationCategoryGrid(previewCategoriesWithMore(), false, {}, true, {}) }
+}
+
+private fun previewCategoriesWithMore() = previewOperationCategories().let { categories ->
+    (categories + categories).take(7)
+}

@@ -1,5 +1,8 @@
 package com.firkat.fillin.feature.plannedexpenses.ui
 
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -18,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -352,21 +354,20 @@ internal fun DeleteRuleConfirmation(
     onEvent: (PlannedExpensesEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AlertDialog(
+    SaldomiActionBottomSheet(
         modifier = modifier,
         onDismissRequest = { onEvent(PlannedExpensesEvent.DeleteDismissed) },
         title = { Text(stringResource(R.string.planned_expenses_delete_title)) },
         text = { Text(stringResource(R.string.planned_expenses_delete_message)) },
         confirmButton = {
-            TextButton(onClick = { onEvent(PlannedExpensesEvent.DeleteConfirmed) }) {
+            SaldomiButton(onClick = { onEvent(PlannedExpensesEvent.DeleteConfirmed) }, modifier = Modifier.fillMaxWidth(), large = true, destructive = true) {
                 Text(
                     text = stringResource(R.string.planned_expenses_delete_confirm),
-                    color = MaterialTheme.colorScheme.error,
                 )
             }
         },
         dismissButton = {
-            TextButton(onClick = { onEvent(PlannedExpensesEvent.DeleteDismissed) }) {
+            SaldomiOutlinedButton(onClick = { onEvent(PlannedExpensesEvent.DeleteDismissed) }, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.planned_expenses_delete_cancel))
             }
         },
@@ -380,7 +381,8 @@ internal fun CloseExpenseConfirmation(
     error: PlannedExpensesError?,
     onEvent: (PlannedExpensesEvent) -> Unit,
 ) {
-    AlertDialog(
+    SaldomiActionBottomSheet(
+        dismissEnabled = !isClosing,
         onDismissRequest = { onEvent(PlannedExpensesEvent.CloseDismissed) },
         title = { Text(stringResource(R.string.planned_expenses_close_title)) },
         text = {
@@ -402,10 +404,9 @@ internal fun CloseExpenseConfirmation(
             }
         },
         confirmButton = {
-            TextButton(
+            SaldomiButton(
                 onClick = { onEvent(PlannedExpensesEvent.CloseConfirmed) },
-                enabled = !isClosing,
-            ) {
+                enabled = !isClosing, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(
                     stringResource(
                         if (isClosing) {
@@ -418,10 +419,9 @@ internal fun CloseExpenseConfirmation(
             }
         },
         dismissButton = {
-            TextButton(
+            SaldomiOutlinedButton(
                 onClick = { onEvent(PlannedExpensesEvent.CloseDismissed) },
-                enabled = !isClosing,
-            ) {
+                enabled = !isClosing, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.planned_expenses_close_cancel))
             }
         },

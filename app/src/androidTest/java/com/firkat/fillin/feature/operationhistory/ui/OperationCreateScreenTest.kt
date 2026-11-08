@@ -17,6 +17,7 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.espresso.Espresso.closeSoftKeyboard
+import androidx.test.espresso.Espresso.pressBack
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.Category
@@ -54,12 +55,21 @@ class OperationCreateScreenTest {
     }
 
     @Test fun switchingTypesFiltersCategoriesAndResetsHorizontalScrollWithoutLosingFocus() {
+        val context = history.context.value
+        history.context.value = context.copy(categories =
+            context.categories.filter { it.kind == CategoryKind.Expense } +
+                context.categories.filter { it.kind == CategoryKind.Income }.take(7),
+        )
         show()
         assertKeyboardVisible()
         compose.onNodeWithTag("operation-create-category-income-0").assertDoesNotExist()
-        compose.onNodeWithTag("operation-create-category-expense-8").assertDoesNotExist()
+        compose.onNodeWithTag("operation-create-category-expense-6").assertExists()
+        compose.onNodeWithTag("operation-create-category-expense-7").assertDoesNotExist()
+        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertExists()
         compose.onNodeWithTag("operation-create-type-INCOME").performClick().assertIsSelected()
         compose.onNodeWithTag("operation-create-category-income-0").assertIsDisplayed()
+        compose.onNodeWithTag("operation-create-category-income-6").assertExists()
+        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertDoesNotExist()
         compose.onNodeWithTag("operation-create-category-expense-9").assertDoesNotExist()
         compose.onNodeWithTag("operation-create-type-EXPENSE").performClick()
         compose.onNodeWithTag("operation-create-category-expense-0").performScrollTo().assertIsDisplayed()
@@ -92,6 +102,7 @@ class OperationCreateScreenTest {
         show()
         compose.onNodeWithTag("operation-create-no-categories").assertIsDisplayed()
         compose.onNodeWithTag("operation-create-categories").assertDoesNotExist()
+        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertDoesNotExist()
         compose.onNodeWithTag("operation-create-input").assertIsFocused()
     }
 
@@ -116,10 +127,47 @@ class OperationCreateScreenTest {
         assertFalse(ViewCompat.getRootWindowInsets(compose.activity.window.decorView)!!.isVisible(WindowInsetsCompat.Type.ime()))
     }
 
-    @Test fun allCategoriesSelectionClosesSheetAndCreatesOperation() {
+    @Test fun moreAppearsAtExactlyEightCategoriesButNotForASingleCategory() {
+        val context = history.context.value
+        history.context.value = context.copy(categories =
+            context.categories.filter { it.kind == CategoryKind.Expense }.take(8) +
+                context.categories.filter { it.kind == CategoryKind.Income }.take(1),
+        )
+        show()
+        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertExists()
+        compose.onNodeWithTag("operation-create-category-expense-7").assertDoesNotExist()
+        compose.onNodeWithTag("operation-create-type-INCOME").performClick()
+        compose.onNodeWithTag("operation-create-category-income-0").assertIsDisplayed()
+        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertDoesNotExist()
+    }
+
+    @Test fun moreIsDisabledWhileSaving() {
+        compose.setContent {
+            FillinTheme {
+                OperationCreateScreen(
+                    editor = OperationCreateUiState(occurredOn = LocalDate.now(CLOCK), isSaving = true),
+                    context = history.context.value,
+                    onEvent = {},
+                )
+            }
+        }
+        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertIsNotEnabled()
+    }
+
+    @Test fun moreCanBeDismissedOrUsedToCreateOperationWithHiddenCategory() {
         show()
         compose.onNodeWithTag("operation-create-input").performTextReplacement("12,50")
-        compose.onNodeWithText(compose.activity.getString(R.string.operation_history_all_categories)).performClick()
+        compose.onNodeWithTag(MORE_CATEGORIES_TAG).performScrollTo().performClick()
+        compose.onNodeWithText("Категория 7").assertExists()
+        compose.onNodeWithText("Зарплата").assertDoesNotExist()
+        pressBack()
+        compose.onNodeWithText("Категория 7").assertDoesNotExist()
+        compose.onNodeWithTag("operation-create-input").assertTextContains("12,50")
+        compose.onNodeWithTag("operation-create-input").assertIsFocused()
+        assertKeyboardVisible()
+        assertTrue(history.created.isEmpty())
+
+        compose.onNodeWithTag(MORE_CATEGORIES_TAG).performScrollTo().performClick()
         compose.onNodeWithText("Категория 9").performScrollTo().performClick()
         compose.waitUntil { model.uiState.value.createEditor == null }
         assertEquals(1, history.created.size)
@@ -184,6 +232,7 @@ class OperationCreateScreenTest {
     }
 
     companion object {
+        private const val MORE_CATEGORIES_TAG = "operation-create-more-categories"
         private val CLOCK = Clock.fixed(Instant.parse("2026-10-24T05:00:00Z"), ZoneId.of("Asia/Almaty"))
     }
 }

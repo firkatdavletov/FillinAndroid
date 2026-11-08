@@ -67,7 +67,7 @@ internal fun MainBottomNavigation(
                 .padding(top = 24.dp)
                 .clip(shape)
                 .background(
-                    Brush.verticalGradient(listOf(colors.surfaceContainer.copy(alpha = 0.8f), colors.surfaceContainerLowest)),
+                    Brush.verticalGradient(listOf(colors.surfaceContainer.copy(alpha = 0.9f), colors.surfaceContainerLowest)),
                 )
                 .border(
                     width = 1.dp,

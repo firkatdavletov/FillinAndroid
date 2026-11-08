@@ -296,35 +296,6 @@ private fun ErrorContent(
     }
 }
 
-private val CategoryKind.labelResource: Int
-    @StringRes get() =
-        when (this) {
-            CategoryKind.Expense -> R.string.categories_kind_expense
-            CategoryKind.Income -> R.string.categories_kind_income
-        }
-
-private val CategoriesError.messageResource: Int
-    @StringRes get() =
-        when (this) {
-            CategoriesError.MissingApiToken,
-            CategoriesError.Unauthorized,
-            -> R.string.categories_error_unauthorized
-
-            CategoriesError.Forbidden -> R.string.categories_error_forbidden
-
-            CategoriesError.InvalidRequest -> R.string.categories_error_invalid_request
-
-            CategoriesError.NotFound -> R.string.categories_error_not_found
-
-            CategoriesError.Conflict -> R.string.categories_error_conflict
-
-            CategoriesError.Network -> R.string.categories_error_network
-
-            CategoriesError.InvalidResponse -> R.string.categories_error_invalid_response
-
-            CategoriesError.Unknown -> R.string.categories_error_generic
-        }
-
 @Preview(showBackground = true)
 @Composable
 private fun CategoriesPreview() {

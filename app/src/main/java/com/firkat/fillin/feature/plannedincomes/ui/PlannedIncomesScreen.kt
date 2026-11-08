@@ -1,5 +1,8 @@
 package com.firkat.fillin.feature.plannedincomes.ui
 
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -17,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -322,21 +324,20 @@ internal fun DeleteIncomeConfirmation(
     onEvent: (PlannedIncomesEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AlertDialog(
+    SaldomiActionBottomSheet(
         modifier = modifier,
         onDismissRequest = { onEvent(PlannedIncomesEvent.DeleteDismissed) },
         title = { Text(stringResource(R.string.planned_incomes_delete_title)) },
         text = { Text(stringResource(R.string.planned_incomes_delete_message)) },
         confirmButton = {
-            TextButton(onClick = { onEvent(PlannedIncomesEvent.DeleteConfirmed) }) {
+            SaldomiButton(onClick = { onEvent(PlannedIncomesEvent.DeleteConfirmed) }, modifier = Modifier.fillMaxWidth(), large = true, destructive = true) {
                 Text(
                     text = stringResource(R.string.planned_incomes_delete_confirm),
-                    color = MaterialTheme.colorScheme.error,
                 )
             }
         },
         dismissButton = {
-            TextButton(onClick = { onEvent(PlannedIncomesEvent.DeleteDismissed) }) {
+            SaldomiOutlinedButton(onClick = { onEvent(PlannedIncomesEvent.DeleteDismissed) }, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.planned_incomes_delete_cancel))
             }
         },

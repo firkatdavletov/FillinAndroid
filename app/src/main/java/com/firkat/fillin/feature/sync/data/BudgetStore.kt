@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.sync.data
 
+import com.firkat.fillin.feature.categories.domain.model.isValidCategoryName
 import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
 
 import androidx.room.withTransaction
@@ -415,14 +416,7 @@ class BudgetStore(
             val old = p.categories[c.entityId]
             if (c.type != "CREATE_CATEGORY" && (old == null || old.archived)) throw BudgetLocalFailure("not_found")
             c.name?.let { name ->
-                if (name.isBlank() || name.length > 50 ||
-                    !Regex(
-                        "[A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*(?: [A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*)*",
-                    ).matches(name) ||
-                    name.split(' ').any {
-                        it.lowercase() in
-                            setOf("сегодня", "вчера", "завтра", "купить", "покупать", "покупку", "покупке", "покупки")
-                    } ||
+                if (!isValidCategoryName(name) ||
                     p.categories.values.any { it.id != c.entityId && it.name.equals(name, true) }
                 ) {
                     throw BudgetLocalFailure("invalid")

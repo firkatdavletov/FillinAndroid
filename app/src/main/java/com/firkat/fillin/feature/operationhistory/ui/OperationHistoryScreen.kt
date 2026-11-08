@@ -149,7 +149,7 @@ fun OperationHistoryScreen(
         }
     }
     if (state.isPeriodFilterVisible) {
-        OperationPeriodFilterDialog(filters = state.filters, onEvent = onEvent)
+        OperationPeriodFilterBottomSheet(filters = state.filters, onEvent = onEvent)
     }
 }
 

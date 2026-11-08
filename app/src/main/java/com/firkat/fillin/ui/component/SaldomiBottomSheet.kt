@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
 import com.firkat.fillin.ui.theme.FillinTheme
+import com.firkat.fillin.ui.theme.saldomiDesignColors
 
 /** Shared modal container. The caller owns its presence and supplies feature content. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,6 +43,7 @@ internal fun SaldomiBottomSheet(
         properties = properties,
         content = content,
         containerColor = MaterialTheme.colorScheme.background,
+        tonalElevation = 8.dp,
         dragHandle = {
             Box(
                 modifier = Modifier
@@ -49,7 +51,7 @@ internal fun SaldomiBottomSheet(
                     .height(4.dp)
                     .width(32.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.surfaceBright)
+                    .background(MaterialTheme.colorScheme.surfaceTint)
             ) { }
         }
     )

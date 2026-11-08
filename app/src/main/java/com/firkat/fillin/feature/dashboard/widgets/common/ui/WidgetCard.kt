@@ -47,8 +47,6 @@ fun WidgetHeading(
     stacked: Boolean = false,
 ) {
     if (stacked) {
-        Icon(painterResource(icon), null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.height(8.dp))
         Text(stringResource(title), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     } else {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -69,7 +67,6 @@ fun WidgetHeading(
                         stepSize = 1.sp,
                     ),
             )
-            Icon(painterResource(icon), null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

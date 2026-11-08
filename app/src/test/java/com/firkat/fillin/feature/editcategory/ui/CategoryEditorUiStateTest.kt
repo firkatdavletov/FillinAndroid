@@ -1,4 +1,4 @@
-package com.firkat.fillin.feature.categories.ui
+package com.firkat.fillin.feature.editcategory.ui
 
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon

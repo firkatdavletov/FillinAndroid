@@ -10,14 +10,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
@@ -39,7 +42,13 @@ internal fun BudgetCurrencyRow(
         headlineContent = { Text(stringResource(R.string.setup_currency)) },
         supportingContent = { Text(currencyLabel(currency)) },
         leadingContent = { Icon(FillinIcons.Currency, null) },
-        modifier = modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick
+            ),
     )
 }
 
@@ -61,14 +70,31 @@ private fun BudgetCurrencyOptions(
     onSelect: (BudgetCurrency) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).selectableGroup()) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .selectableGroup()
+    ) {
         Text(stringResource(R.string.budget_currency_picker_title), Modifier.padding(16.dp),
             style = MaterialTheme.typography.titleLarge)
         BudgetCurrency.entries.forEach { currency ->
             ListItem(
-                headlineContent = { Text(currencyLabel(currency)) },
-                trailingContent = { RadioButton(selected = currency == selected, onClick = null) },
-                modifier = Modifier.selectable(currency == selected, role = Role.RadioButton, onClick = { onSelect(currency) }),
+                headlineContent = {
+                    Text(currencyLabel(currency))
+                },
+                trailingContent = {
+                    RadioButton(selected = currency == selected, onClick = null)
+                },
+                modifier = Modifier
+                    .selectable(
+                        selected = currency == selected,
+                        role = Role.RadioButton,
+                        onClick = { onSelect(currency) }
+                    ),
+                colors = ListItemDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     }

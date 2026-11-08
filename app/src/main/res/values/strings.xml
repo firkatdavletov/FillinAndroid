@@ -32,7 +32,8 @@
     <string name="operation_totals_incomes">Доходы</string>
     <string name="operation_totals_reset_type">Показать все типы операций</string>
     <string name="operation_history_all_types">Все операции</string>
-    <string name="operation_history_all_categories">Все категории</string>
+    <string name="operation_create_more_categories">Еще</string>
+    <string name="operation_create_more_categories_description">Показать все категории</string>
     <string name="operation_history_category_title">Категория</string>
     <string name="operation_history_period_title">Выберите период</string>
     <string name="operation_history_period_start">Начало</string>
@@ -197,7 +198,7 @@
     <string name="categories_empty">Активных категорий пока нет</string>
     <string name="categories_create_action">Новая категория</string>
     <string name="categories_editor_create_title">Новая категория</string>
-    <string name="categories_editor_edit_title">Редактирование категории</string>
+    <string name="categories_editor_edit_title">Редактирование</string>
     <string name="categories_name_label">Название</string>
     <string name="categories_kind_label">Направление</string>
     <string name="categories_kind_expense">Расход</string>
@@ -212,6 +213,10 @@
     <string name="categories_delete_title">Удалить категорию?</string>
     <string name="categories_delete_message">Категория будет архивирована, её правила удалены, а проведённые операции перенесены в системную категорию OTHER. Это действие нельзя отменить.</string>
     <string name="categories_delete_confirm">Удалить</string>
+    <string name="category_editor_icon_other">Прочее</string>
+    <string name="category_editor_discard_title">Выйти без сохранения?</string>
+    <string name="category_editor_discard_confirm">Выйти без сохранения</string>
+    <string name="category_editor_discard_cancel">Продолжить редактирование</string>
     <string name="categories_delete_cancel">Отмена</string>
     <string name="categories_retry">Повторить</string>
     <string name="categories_error_network">Не удалось подключиться к серверу</string>
