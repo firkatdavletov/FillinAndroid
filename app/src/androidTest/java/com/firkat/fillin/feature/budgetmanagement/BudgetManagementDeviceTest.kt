@@ -24,6 +24,46 @@ class BudgetManagementDeviceTest {
     private val repository = RoomProfileBudgetsRepository(env.auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, env.koin.get(), env.uploads, management = service)
     @After fun close() = env.close()
 
+    @Test fun newLocalBudgetSavesPresetCategoriesAndUsesTheSameEntriesForCloudImport() = runBlocking {
+        repository.createLocal("Новый бюджет", "0.00".toBigDecimal(), LocalDate.now())
+        val profile = requireNotNull(env.manager.active.value).profile
+        env.database(profile) { database ->
+            val content = requireNotNull(database.budget().content())
+            val bootstrap = env.koin.get<Json>().decodeFromString<CreateCloudBudget>(
+                requireNotNull(content.sync.bootstrapPayload),
+            )
+            val expenses = bootstrap.categories.filter { it.kind == "EXPENSE" }
+            assertEquals(
+                listOf(
+                    "Продукты", "Кафе и рестораны", "Жильё", "Транспорт", "Связь и интернет",
+                    "Здоровье", "Одежда и обувь", "Дом и быт", "Личный уход", "Дети",
+                    "Образование", "Отдых и увлечения", "Путешествия", "Подарки и помощь", "Прочие расходы",
+                ),
+                expenses.map { it.name },
+            )
+            assertEquals(
+                listOf(
+                    "Зарплата" to "INCOME",
+                    "Подработка" to "SIDE_JOB",
+                    "Социальные выплаты" to "SOCIAL_BENEFITS",
+                    "Подарки и помощь" to "INCOME_GIFT",
+                    "Прочие доходы" to "OTHER_INCOME",
+                ),
+                bootstrap.categories.filter { it.kind == "INCOME" }.map { it.name to it.icon },
+            )
+            assertEquals("OTHER_EXPENSE", expenses.single { it.dictionaryKey == "OTHER" }.icon)
+            assertEquals(20, content.categories.size)
+            val localById = content.categories.associateBy { it.id }
+            bootstrap.categories.forEach { seed ->
+                val local = localById.getValue(seed.id)
+                assertEquals(seed.name, local.name)
+                assertEquals(seed.kind, local.kind)
+                assertEquals(seed.icon, local.iconCode)
+                assertEquals(seed.dictionaryKey, local.dictionaryKey)
+            }
+        }
+    }
+
     @Test fun localRenameAndDeleteRestoreAnotherBudget() = runBlocking {
         env.manager.restore()
         repository.createLocal("Первый", "100".toBigDecimal(), LocalDate.now())

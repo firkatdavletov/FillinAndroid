@@ -70,7 +70,7 @@ internal fun OperationCategoryTile(
         modifier = modifier.fillMaxWidth().heightIn(min = 100.dp),
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            CategoryIconImage(category.icon.code, Modifier.size(28.dp))
+            CategoryIconImage(category.icon.code, category.name, Modifier.size(28.dp))
             Text(category.name, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
         }
     }

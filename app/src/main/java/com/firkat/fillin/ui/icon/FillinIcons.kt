@@ -8,8 +8,6 @@ import com.firkat.fillin.R
 /** Shared vector and bitmap painters. */
 internal object FillinIcons {
     val Add: Painter @Composable get() = painterResource(R.drawable.ic_add_24)
-    @Composable
-    fun category(code: String): Painter = painterResource(CategoryIcons.drawableResource(code))
 
     val Wallet: Painter @Composable get() = painterResource(R.drawable.ic_wallet)
     val Cloud: Painter @Composable get() = painterResource(R.drawable.ic_cloud)

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -232,11 +233,11 @@ internal fun CategoryItem(
     ) {
         Surface(
             modifier = Modifier.size(40.dp),
-            shape = MaterialTheme.shapes.medium,
+            shape = CircleShape,
             color = MaterialTheme.colorScheme.surfaceContainerHighest,
         ) {
             Box(contentAlignment = Alignment.Center) {
-                CategoryIconImage(category.icon.code)
+                CategoryIconImage(category.icon.code, category.name)
             }
         }
         Column(modifier = Modifier.weight(1f)) {

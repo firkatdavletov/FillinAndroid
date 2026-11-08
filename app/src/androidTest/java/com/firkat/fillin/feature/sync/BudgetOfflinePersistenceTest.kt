@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.feature.categories.data.repository.OfflineCategoriesRepository
+import com.firkat.fillin.feature.categories.domain.model.CATEGORY_INITIAL_ICON_CODE
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.data.OfflineTestEnvironment
 import com.firkat.fillin.feature.operationhistory.data.SyntheticSyncApi
@@ -469,12 +470,13 @@ class BudgetOfflinePersistenceTest {
         assertEquals(code, api.log.last { it.category?.id == created.id }.category!!.iconCode)
         assertEquals(code, repository.getCategories().single { it.id == created.id }.icon.code)
         val current = repository.getCategories().single { it.id == created.id }
-        repository.updateCategory(current, null, "next.icon-V3")
+        repository.updateCategory(current, null, CATEGORY_INITIAL_ICON_CODE)
         assertEquals(SyncResult.Completed, sync(api, store, remote).synchronize())
+        assertEquals(CATEGORY_INITIAL_ICON_CODE, api.log.last { it.category?.id == created.id }.category!!.iconCode)
         database.close()
         database = open()
         repository = OfflineCategoriesRepository(store())
-        assertEquals("next.icon-V3", repository.getCategories().single { it.id == created.id }.icon.code)
+        assertEquals(CATEGORY_INITIAL_ICON_CODE, repository.getCategories().single { it.id == created.id }.icon.code)
     }
 
     private class Mutations(

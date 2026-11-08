@@ -194,7 +194,7 @@ internal fun PlannedIncomeEditor(
                         },
                         enabled = !editor.isSaving,
                         label = { Text(category.name) },
-                        leadingIcon = { CategoryIconImage(category.icon.code) },
+                        leadingIcon = { CategoryIconImage(category.icon.code, category.name) },
                     )
                 }
             }

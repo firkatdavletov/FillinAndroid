@@ -40,7 +40,8 @@ import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.component.SaldomiPrimaryButton
 import com.firkat.fillin.ui.component.SaldomiRadioButton
 import com.firkat.fillin.ui.theme.FillinTheme
-import com.firkat.fillin.ui.icon.CategoryIconOption
+import com.firkat.fillin.feature.categories.domain.model.CATEGORY_INITIAL_ICON_CODE
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import com.firkat.fillin.ui.icon.CategoryIcons
 import com.firkat.fillin.ui.theme.saldomiDesignColors
 import org.koin.compose.viewmodel.koinViewModel
@@ -125,6 +126,7 @@ private fun CategoryEditorForm(
             ) {
                 CategoryIconButton(
                     iconCode = form.iconCode,
+                    categoryName = form.name,
                     enabled = canWrite && !form.isBusy,
                     onClick = { onEvent(EditCategoryEvent.PickIcon) },
                 )
@@ -191,6 +193,7 @@ private fun CategoryEditorForm(
 @Composable
 private fun CategoryIconButton(
     iconCode: String,
+    categoryName: String,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -203,6 +206,7 @@ private fun CategoryIconButton(
     ) {
         CategoryIconImage(
             iconCode = iconCode,
+            categoryName = categoryName,
             modifier = Modifier.alpha(if (enabled) 1f else 0.38f),
             contentDescription = stringResource(R.string.categories_icon_select_action),
         )
@@ -224,6 +228,7 @@ private fun CategoryEditorOverlays(
     when (form.overlay) {
         CategoryEditorOverlay.IconPicker -> CategoryIconPickerBottomSheet(
             selectedIconCode = form.iconCode,
+            categoryName = form.name,
             onIconSelected = { onEvent(EditCategoryEvent.IconSelected(it)) },
             onDismiss = dismiss,
         )
@@ -266,12 +271,12 @@ private fun CategoryEditorOverlays(
 @Composable
 private fun CategoryIconPickerBottomSheet(
     selectedIconCode: String,
+    categoryName: String,
     onIconSelected: (String) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val other = CategoryIconOption("OTHER", R.drawable.ic_category_household_goods, R.string.category_editor_icon_other)
-    val selectedIcon = if (selectedIconCode == other.code) other else CategoryIcons.find(selectedIconCode)
+    val selectedIcon = CategoryIcons.find(selectedIconCode)
     ModalBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
         Column(
             modifier =
@@ -295,12 +300,24 @@ private fun CategoryIconPickerBottomSheet(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
             ) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    CategoryIconPickerItem(
+                        iconCode = CATEGORY_INITIAL_ICON_CODE,
+                        categoryName = categoryName,
+                        label = stringResource(R.string.category_icon_initial),
+                        isSelected = selectedIconCode == CATEGORY_INITIAL_ICON_CODE,
+                        onClick = { onIconSelected(CATEGORY_INITIAL_ICON_CODE) },
+                        showLabel = true,
+                    )
+                }
                 gridItems(
-                    items = listOf(other) + CategoryIcons.options,
+                    items = CategoryIcons.options,
                     key = { it.code },
                 ) { icon ->
                     CategoryIconPickerItem(
-                        icon = icon,
+                        iconCode = icon.code,
+                        categoryName = categoryName,
+                        label = stringResource(icon.labelResource),
                         isSelected = icon == selectedIcon,
                         onClick = { onIconSelected(icon.code) },
                     )
@@ -312,10 +329,13 @@ private fun CategoryIconPickerBottomSheet(
 
 @Composable
 private fun CategoryIconPickerItem(
-    icon: CategoryIconOption,
+    iconCode: String,
+    categoryName: String,
+    label: String,
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showLabel: Boolean = false,
 ) {
     Surface(
         onClick = onClick,
@@ -341,7 +361,15 @@ private fun CategoryIconPickerItem(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            CategoryIconImage(icon.code, Modifier.size(32.dp), stringResource(icon.labelResource))
+            CategoryIconImage(
+                iconCode = iconCode,
+                categoryName = categoryName,
+                modifier = Modifier.size(32.dp),
+                contentDescription = if (showLabel) null else label,
+            )
+            if (showLabel) {
+                Text(label, style = MaterialTheme.typography.labelMedium)
+            }
         }
     }
 }
@@ -390,7 +418,14 @@ private fun ReadOnlyCategoryPreview() {
 @Composable
 private fun SelectedIconPreview() {
     FillinTheme {
-        CategoryIconPickerItem(CategoryIcons.options.first(), isSelected = true, onClick = {})
+        val icon = CategoryIcons.options.first()
+        CategoryIconPickerItem(
+            iconCode = icon.code,
+            categoryName = "Продукты",
+            label = stringResource(icon.labelResource),
+            isSelected = true,
+            onClick = {},
+        )
     }
 }
 
@@ -399,7 +434,14 @@ private fun SelectedIconPreview() {
 @Composable
 private fun UnselectedIconPreview() {
     FillinTheme {
-        CategoryIconPickerItem(CategoryIcons.options.first(), isSelected = false, onClick = {})
+        val icon = CategoryIcons.options.first()
+        CategoryIconPickerItem(
+            iconCode = icon.code,
+            categoryName = "Продукты",
+            label = stringResource(icon.labelResource),
+            isSelected = false,
+            onClick = {},
+        )
     }
 }
 
@@ -407,5 +449,21 @@ private fun UnselectedIconPreview() {
 private fun EditorPreview(form: CategoryEditorUiState, canWrite: Boolean = true) {
     FillinTheme {
         EditCategoryScreen(form.isCreating, EditCategoryState.Ready(form), canWrite, onEvent = {})
+    }
+}
+
+@Preview(name = "Automatic icon option")
+@Preview(name = "Automatic icon option dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AutomaticIconOptionPreview() {
+    FillinTheme {
+        CategoryIconPickerItem(
+            iconCode = CATEGORY_INITIAL_ICON_CODE,
+            categoryName = "Кафе",
+            label = stringResource(R.string.category_icon_initial),
+            isSelected = true,
+            onClick = {},
+            showLabel = true,
+        )
     }
 }

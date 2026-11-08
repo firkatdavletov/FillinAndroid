@@ -38,14 +38,14 @@
 | EditCategoryRoute | Нет права записи | Текст Forbidden вместо формы | «Нет права записи» |
 | EditCategoryRoute | Ошибка до появления editor | Текст ошибки вместо формы | «Ошибка инициализации», сообщение выбирается отдельно |
 | CategoryEditor | Новый / существующий объект | Заголовок, Название, Направление, Иконка, Создать / Сохранить | `screen-create-category.html`, `screen-edit-category.html` |
-| CategoryEditor / CategoryEditorUiState | Новая категория | Направление переключается, иконка обязательна, название не пустое | Поля и кнопки формы |
+| CategoryEditor / CategoryEditorUiState | Новая категория | Направление переключается, значок по умолчанию обновляется по названию, название не пустое | Поля и кнопки формы |
 | CategoryEditor / hasChanges | Существующая категория без изменений | Сохранить недоступно; изменение названия или иконки включает | `#save-category` |
 | CategoryEditor | Существующая категория | Направление отключено, пояснение сохранено | Disabled chips и hint |
 | CategoryEditor | OTHER | Название заблокировано, удаление отключено; иконку можно изменить | «Системная OTHER» |
 | CategoryEditor | Income | Кнопки удаления нет, направление Доход заблокировано | «Доход», также переход из строки дохода |
 | CategoryEditor | isSaving | Поля, выбор иконки, сохранение, удаление и назад отключены | «Сохранение» |
 | CategoryEditor | error | Текст ошибки рядом с сохранением | Селектор «Ошибка», все сообщения enum |
-| CategoryIconSelector / CategoryIconPickerBottomSheet | Каталог / выбранная иконка | Открытие, выбор, закрытие; название и образец обновляются | `data-sheet="icons"`, все 23 варианта |
+| CategoryIconSelector / CategoryIconPickerBottomSheet | Каталог / выбранная иконка | Открытие, выбор, закрытие; название и образец обновляются | `data-sheet="icons"`, 23 PNG и буквенный значок |
 | CategoryEditor / AlertDialog | Подтверждение удаления расхода | Сохранены последствия, Удалить / Отмена; презентация заменена на Bottom Sheet | `data-sheet="delete"` |
 | `feature/categories/ui/CategoriesViewModel.kt` | SaveRequested / DeleteConfirmed | В приложении — операция репозитория и закрытие; здесь — только сообщение «Превью», без записи и удаления | `data-demo-action` |
 | CategoriesViewModel / EditorClosed | Выход из формы | Возврат к списку; во время сохранения заблокирован | `.appbar a` |

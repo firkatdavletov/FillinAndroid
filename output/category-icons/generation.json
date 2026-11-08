@@ -1,0 +1,140 @@
+[
+  {
+    "id": "expense_groceries",
+    "label": "Продукты",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: orange grocery bag with a red apple. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-e64b1be0-dd68-493a-8c0e-c4f2b7b6c536.png"
+  },
+  {
+    "id": "expense_dining",
+    "label": "Кафе и рестораны",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: coral coffee cup with orange handle. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-82f0ae36-328b-4e9a-ba0a-aa0211b628b9.png"
+  },
+  {
+    "id": "expense_housing",
+    "label": "Жильё",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: blue house with orange roof. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-b1cc6a64-0578-49d2-b1c0-85236667b43d.png"
+  },
+  {
+    "id": "expense_transport",
+    "label": "Транспорт",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: blue car with orange headlights. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-1c53b407-a04b-44e9-a4b1-5bf2e0278cd6.png"
+  },
+  {
+    "id": "expense_internet",
+    "label": "Связь и интернет",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: violet smartphone with blue wifi arcs. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-7d25657a-93a1-46fa-a35f-2849c779f364.png"
+  },
+  {
+    "id": "expense_health",
+    "label": "Здоровье",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: coral medical case with a white cross. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-a54eb713-e8fe-4d30-aeb0-3ff584f5edaa.png"
+  },
+  {
+    "id": "expense_clothing",
+    "label": "Одежда и обувь",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: violet t-shirt with coral collar. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-746572d4-d174-496c-b2b3-b699b75f0393.png"
+  },
+  {
+    "id": "expense_household",
+    "label": "Дом и быт",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: orange armchair with blue legs. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-58ca9037-8d8a-4268-8e09-e6b03f1e8184.png"
+  },
+  {
+    "id": "expense_care",
+    "label": "Личный уход",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: pink lotion pump bottle with violet pump. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-f8878fd7-93d2-4f29-b554-714c722ee2c1.png"
+  },
+  {
+    "id": "expense_children",
+    "label": "Дети",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: orange teddy bear with coral belly. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-85fc5a6a-5007-4434-8090-bc727d352d5e.png"
+  },
+  {
+    "id": "expense_education",
+    "label": "Образование",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: blue open book with orange bookmark. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-415f13f6-e694-4441-82ce-a867792183f0.png"
+  },
+  {
+    "id": "expense_leisure",
+    "label": "Отдых и увлечения",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: violet game controller with coral buttons. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-d07750e3-b17d-432e-9149-f9b595bf90f0.png"
+  },
+  {
+    "id": "expense_travel",
+    "label": "Путешествия",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: orange suitcase with blue handle. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-c9cd562a-7bbf-42e6-a280-fdb2c5f2aa75.png"
+  },
+  {
+    "id": "expense_gifts",
+    "label": "Подарки и помощь",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: coral gift box with violet ribbon. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-f30c1d1e-af8a-45b8-95cb-3dcd51e9d432.png"
+  },
+  {
+    "id": "expense_other",
+    "label": "Прочие расходы",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: three blue dots inside violet rounded square outline. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-7370944f-ab45-4070-8ebc-d7fce652ab29.png"
+  },
+  {
+    "id": "income_salary",
+    "label": "Зарплата",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: blue briefcase with orange clasp. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-d01b2822-e46c-4b9d-95e5-94263101a811.png"
+  },
+  {
+    "id": "income_side_job",
+    "label": "Подработка",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: violet laptop with orange screen. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-bc1faba3-0d84-42fe-927f-70f33ef91c42.png"
+  },
+  {
+    "id": "income_benefits",
+    "label": "Социальные выплаты",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: coral heart above blue cupped hand. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-e0f7d8c3-e10c-4b5f-8b5c-8f2fdd7783a4.png"
+  },
+  {
+    "id": "income_gifts",
+    "label": "Подарки и помощь",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: orange gift box with blue ribbon. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-004e48af-4527-47bc-a02e-8c4ddd2344ca.png"
+  },
+  {
+    "id": "income_other",
+    "label": "Прочие доходы",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: blue wallet with orange coin. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-716fc6cc-009e-48e5-9df8-51fe82dbf5e9.png"
+  },
+  {
+    "id": "optional_pets",
+    "label": "Питомцы",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: orange paw print with coral central pad. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-42c8a52d-0266-4d7f-9c0f-9b820bbb0bd5.png"
+  },
+  {
+    "id": "optional_loans",
+    "label": "Кредиты и займы",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: blue credit card with orange chip. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-195b8f76-b021-4cfa-a37a-3c1062aa327b.png"
+  },
+  {
+    "id": "optional_taxes",
+    "label": "Налоги и сборы",
+    "prompt": "Create ONE isolated minimal modern finance app category icon: violet receipt with orange checkmark. Flat solid-color geometric pictogram, rounded corners, consistent bold shapes, exactly two main saturated colors, no gradients, no shadows, no text or letters, no background tile except where explicitly part of the subject. Entire object centered in square canvas with 8% padding. Extremely simple silhouette readable at final 24x24 pixels, details at least 2/24 of width. Transparent background. Avoid green, mint and teal, because the app uses forest green #064A37 and pale green #F6F9F6. Colors blue #4285EB, coral #EB5967, orange #E99A35, violet #9061D5, chosen according to subject. Output PNG.",
+    "path": "/Users/firkatdavletov/.codex/generated_images/01a1bb57-0846-7110-91fe-783e8db22ddf/exec-ced9ad13-e28a-48f1-bb81-7b9096b9761c.png"
+  }
+]

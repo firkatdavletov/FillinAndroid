@@ -148,7 +148,7 @@ private fun OperationCategoryCard(
         modifier = modifier.semantics { this.selected = selected }.widthIn(min = 80.dp, max = 128.dp).heightIn(min = 88.dp),
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            CategoryIconImage(iconCode, Modifier.size(26.dp).alpha(if (enabled) 1f else 0.38f))
+            CategoryIconImage(iconCode, name.orEmpty(), Modifier.size(26.dp).alpha(if (enabled) 1f else 0.38f))
             if (!name.isNullOrBlank())
                 Text(
                     text = name,

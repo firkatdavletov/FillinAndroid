@@ -18,6 +18,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.platform.app.InstrumentationRegistry
+import com.firkat.fillin.feature.appaccess.domain.AppAccess
+import com.firkat.fillin.feature.appaccess.domain.AppMode
 import com.firkat.fillin.feature.budgetconnection.BudgetConnectionDeviceTest
 import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationDraft
 import com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory
@@ -26,6 +28,7 @@ import com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator
 import com.firkat.fillin.feature.budgetsetup.ui.*
 import com.firkat.fillin.ui.theme.FillinTheme
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.*
 import org.junit.Assert.*
 import java.io.File
@@ -39,13 +42,13 @@ class BudgetSetupUiTest {
     private var backs = 0
     private var signIns = 0
     private var completed = 0
-    private fun newModel(saved: SavedStateHandle = SavedStateHandle()) = BudgetSetupViewModel(env.auth, env.connection, env.creation,
+    private fun newModel(saved: SavedStateHandle = SavedStateHandle(), access: AppAccess? = null) = BudgetSetupViewModel(env.auth, env.connection, env.creation,
         RoomLocalBudgetCreator(env.auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.koin.get()),
-        env.sharing, saved, dispatcher = kotlinx.coroutines.Dispatchers.IO).also { models.put("setup-${models.keys().size}", it) }
-    private fun show(signedIn: Boolean = false, compact: Boolean = false) {
+        env.sharing, saved, dispatcher = kotlinx.coroutines.Dispatchers.IO, access = access).also { models.put("setup-${models.keys().size}", it) }
+    private fun show(signedIn: Boolean = false, compact: Boolean = false, access: AppAccess? = null) {
         if (signedIn) env.auth.login("owner")
         runBlocking { env.manager.restore() }
-        model = newModel()
+        model = newModel(access = access)
         compose.activityRule.scenario.onActivity {
             it.enableEdgeToEdge(); it.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
@@ -84,6 +87,22 @@ class BudgetSetupUiTest {
             env.database(env.manager.active.value!!.profile) { assertEquals("EUR", it.operations().state()?.currency) }
         }
         assertTrue(server.creations.isEmpty())
+    }
+    @Test fun offlineCreationDoesNotShowCloudControlsAfterCompletion() {
+        val access = object : AppAccess {
+            override val mode = MutableStateFlow(AppMode.OfflineFree)
+            override val checking = MutableStateFlow(false)
+            override fun installationId() = "test"
+            override suspend fun refresh(manual: Boolean) = false
+            override fun revoke() = Unit
+        }
+        show(access = access)
+        compose.onNodeWithTag("setup_back").assertDoesNotExist()
+        compose.onNodeWithText("Где хранить бюджет?").assertDoesNotExist()
+        compose.onNodeWithTag("setup_create").performScrollTo().performClick()
+        waitForCompletion()
+        compose.onNodeWithTag("setup_back").assertDoesNotExist()
+        compose.onNodeWithText("Где хранить бюджет?").assertDoesNotExist()
     }
     @Test fun invalidAmountShowsFieldErrorAndCanBeCorrected() {
         show()

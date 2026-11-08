@@ -213,7 +213,6 @@
     <string name="categories_delete_title">Удалить категорию?</string>
     <string name="categories_delete_message">Категория будет архивирована, её правила удалены, а проведённые операции перенесены в системную категорию OTHER. Это действие нельзя отменить.</string>
     <string name="categories_delete_confirm">Удалить</string>
-    <string name="category_editor_icon_other">Прочее</string>
     <string name="category_editor_discard_title">Выйти без сохранения?</string>
     <string name="category_editor_discard_confirm">Выйти без сохранения</string>
     <string name="category_editor_discard_cancel">Продолжить редактирование</string>

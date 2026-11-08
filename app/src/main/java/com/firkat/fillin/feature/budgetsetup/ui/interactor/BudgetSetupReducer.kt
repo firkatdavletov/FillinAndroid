@@ -50,7 +50,11 @@ class BudgetSetupReducer : Reducer<BudgetSetupState, BudgetSetupAction, BudgetSe
             BudgetSetupAction.AuthLaunched -> copy(authLaunched = true)
             BudgetSetupAction.AuthReturned -> copy(authTarget = null, authLaunched = false)
             BudgetSetupAction.ErrorShown -> copy(error = null)
-            BudgetSetupAction.Reset -> BudgetSetupState(generation = generation + 1)
+            BudgetSetupAction.Reset -> BudgetSetupState(
+                cloudAllowed = cloudAllowed,
+                localFirst = localFirst,
+                generation = generation + 1,
+            )
             is BudgetSetupAction.Cancelled -> if (generation == action.generation && operationId == action.operationId) copy(busy = false) else this
         }
     }

@@ -137,7 +137,7 @@ internal fun EditOperationContent(
                         OutlinedCard(onClick = onCategoryOpen, enabled = editable, modifier = Modifier.fillMaxWidth().testTag("operation_details_category")) {
                             Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 val selected = categories.firstOrNull { it.id == selectedCategoryId }
-                                selected?.let { com.firkat.fillin.ui.component.CategoryIconImage(it.icon.code) }
+                                selected?.let { com.firkat.fillin.ui.component.CategoryIconImage(it.icon.code, it.name) }
                                 Text(selected?.name ?: op.categoryName, Modifier.weight(1f))
                                 if (editable) Text("›")
                             }

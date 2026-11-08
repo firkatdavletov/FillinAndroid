@@ -2,6 +2,11 @@ package com.firkat.fillin.ui.theme
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
+private val categoryInitialPalette = listOf(
+    Color(0xFFC62828), Color(0xFFAD1457), Color(0xFF8E24AA), Color(0xFF673AB7),
+    Color(0xFF3949AB), Color(0xFF1565C0), Color(0xFF0077A3), Color(0xFFC2410C),
+)
+
 @Immutable
 data class SaldomiSemanticColors(
     val forecastPace: Color,
@@ -20,7 +25,10 @@ data class SaldomiSemanticColors(
     val onTransfer: Color,
     val transferContainer: Color,
     val onTransferContainer: Color,
-)
+) {
+    internal val categoryInitialColors get() = categoryInitialPalette
+    internal val onCategoryInitial get() = Color.White
+}
 
 val SaldomiLightSemanticColors = SaldomiSemanticColors(
     forecastPace = Color(0xFF356C75), forecastWarning = Color(0xFF806000),

@@ -23,6 +23,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
@@ -30,6 +31,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import com.firkat.fillin.feature.categories.domain.model.CATEGORY_INITIAL_ICON_CODE
 import com.firkat.fillin.feature.editcategory.ui.*
 import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.icon.CategoryIcons
@@ -52,9 +54,10 @@ class CategoryIconsUiTest {
                 FillinTheme(darkTheme = dark, dynamicColor = false) {
                     Surface {
                         Column {
+                            CategoryIconImage(CATEGORY_INITIAL_ICON_CODE, "Электроника", Modifier.testTag("initial"))
                             CategoryIcons.options.chunked(4).forEach { row ->
                                 Row {
-                                    row.forEach { CategoryIconImage(it.code, Modifier.testTag(it.code)) }
+                                    row.forEach { CategoryIconImage(it.code, "Категория", Modifier.testTag(it.code)) }
                                 }
                             }
                         }
@@ -67,6 +70,7 @@ class CategoryIconsUiTest {
             CategoryIcons.options.forEach {
                 compose.onNodeWithTag(it.code).assertWidthIsEqualTo(24.dp).assertHeightIsEqualTo(24.dp)
             }
+            compose.onNodeWithTag("initial").assertWidthIsEqualTo(24.dp).assertHeightIsEqualTo(24.dp)
             val context = ApplicationProvider.getApplicationContext<Context>()
             val output = File(context.getExternalFilesDir(null), "category-icons-$night-$scale.png")
             output.outputStream().use {
@@ -75,18 +79,27 @@ class CategoryIconsUiTest {
         }
     }
 
-    @Test fun unknownCodeRendersTheSamePngAsTheDefaultIcon() {
+    @Test fun unknownCodeMatchesAutomaticIconAndReactsToNameChanges() {
+        var name by mutableStateOf("")
         compose.setContent {
             FillinTheme {
-                Row {
-                    CategoryIconImage("custom.icon-v2", Modifier.testTag("unknown"))
-                    CategoryIconImage("HOUSEHOLD_GOODS", Modifier.testTag("default"))
+                Surface {
+                    Row {
+                        CategoryIconImage("custom.icon-v2", name, Modifier.testTag("unknown"))
+                        CategoryIconImage(CATEGORY_INITIAL_ICON_CODE, name, Modifier.testTag("automatic"))
+                    }
                 }
             }
         }
-        val unknown = compose.onNodeWithTag("unknown").captureToImage().asAndroidBitmap()
-        val default = compose.onNodeWithTag("default").captureToImage().asAndroidBitmap()
-        assertTrue(unknown.sameAs(default))
+        fun bitmap(tag: String) = compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
+        val placeholder = bitmap("unknown")
+        assertTrue(placeholder.sameAs(bitmap("automatic")))
+        compose.runOnIdle { name = "Кафе" }
+        val named = bitmap("unknown")
+        assertTrue(named.sameAs(bitmap("automatic")))
+        assertTrue(!placeholder.sameAs(named))
+        compose.runOnIdle { name = "  " }
+        assertTrue(placeholder.sameAs(bitmap("unknown")))
     }
 
     @Test fun unknownCodeIsReplacedOnlyAfterAnExplicitIconChoice() {
@@ -105,7 +118,14 @@ class CategoryIconsUiTest {
         compose.onNodeWithContentDescription("Выберите иконку").assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals("custom.icon-v2", editor.iconCode) }
         compose.onNodeWithContentDescription("Продукты").assertIsNotSelected().performClick()
-        compose.runOnIdle { assertEquals("GROCERIES", editor.iconCode) }
+        compose.runOnIdle {
+            assertEquals("GROCERIES", editor.iconCode)
+            editor = editor.copy(name = "Продукты и напитки")
+        }
+        compose.onNodeWithContentDescription("Выберите иконку").performClick()
+        compose.onNodeWithContentDescription("Продукты").assertIsSelected()
+        compose.onNodeWithText("Буква категории").performClick()
+        compose.runOnIdle { assertEquals(CATEGORY_INITIAL_ICON_CODE, editor.iconCode) }
     }
 
     @Test fun legacyIconIsHighlightedAndSavingDisablesTheSelector() {

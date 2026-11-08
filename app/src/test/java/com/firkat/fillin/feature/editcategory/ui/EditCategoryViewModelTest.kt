@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.editcategory.ui
 
+import com.firkat.fillin.feature.categories.domain.model.CATEGORY_INITIAL_ICON_CODE
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
@@ -51,7 +52,7 @@ class EditCategoryViewModelTest {
         runCurrent()
         assertTrue(model.form.isBusy)
         assertEquals("  Зарплата  ", model.form.name)
-        assertEquals(listOf(Category("new", "Зарплата", CategoryKind.Income, CategoryIcon("OTHER"))), repository.created)
+        assertEquals(listOf(Category("new", "Зарплата", CategoryKind.Income, CategoryIcon(CATEGORY_INITIAL_ICON_CODE))), repository.created)
         repository.finishCreate.complete(Unit)
         runCurrent()
         assertEquals(EditCategoryState.Closed, model.state.value)

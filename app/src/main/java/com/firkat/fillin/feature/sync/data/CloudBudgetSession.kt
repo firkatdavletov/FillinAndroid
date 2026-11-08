@@ -58,10 +58,26 @@ class CloudBudgetSession(
             val scope = "$household:$member"
             val seeds =
                 listOf(
-                    seed("Продукты", "EXPENSE", "FOOD", "GROCERIES"),
-                    seed("Здоровье", "EXPENSE", "HEALTH", "HEALTH"),
+                    expenseSeed("Продукты", "GROCERIES"),
+                    expenseSeed("Кафе и рестораны", "CAFE_RESTAURANTS"),
+                    expenseSeed("Жильё", "HOME"),
+                    expenseSeed("Транспорт", "CAR"),
+                    expenseSeed("Связь и интернет", "COMMUNICATION"),
+                    expenseSeed("Здоровье", "HEALTH"),
+                    expenseSeed("Одежда и обувь", "CLOTHING"),
+                    expenseSeed("Дом и быт", "HOUSEHOLD_GOODS"),
+                    expenseSeed("Личный уход", "PERSONAL_CARE"),
+                    expenseSeed("Дети", "CHILDREN"),
+                    expenseSeed("Образование", "BOOKS_EDUCATION"),
+                    expenseSeed("Отдых и увлечения", "ENTERTAINMENT"),
+                    expenseSeed("Путешествия", "TRAVEL"),
+                    expenseSeed("Подарки и помощь", "GIFT"),
+                    expenseSeed("Прочие расходы", "OTHER_EXPENSE", key = "OTHER"),
                     seed("Зарплата", "INCOME", "INCOME", "SALARY"),
-                    seed("Другое", "EXPENSE", "OTHER", "OTHER"),
+                    seed("Подработка", "INCOME", "SIDE_JOB", "SIDE_JOB"),
+                    seed("Социальные выплаты", "INCOME", "SOCIAL_BENEFITS", "SOCIAL_BENEFITS"),
+                    seed("Подарки и помощь", "INCOME", "INCOME_GIFT", "INCOME_GIFT"),
+                    seed("Прочие доходы", "INCOME", "OTHER_INCOME", "OTHER_INCOME"),
                 )
             val request = CreateCloudBudget(UUID.randomUUID().toString(), household, member, openingBalance.setScale(2).toPlainString(), startedOn.toString(), seeds, currency.name.takeUnless { currency == BudgetCurrency.KZT })
             seeds.forEach { c ->
@@ -204,6 +220,9 @@ class CloudBudgetSession(
     }
 
     private fun authorization() = "Bearer $apiToken"
+
+    private fun expenseSeed(name: String, icon: String, key: String = icon) =
+        seed(name, "EXPENSE", icon, key)
 
     private fun seed(
         name: String,

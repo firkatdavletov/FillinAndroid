@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.editcategory.ui
 
+import com.firkat.fillin.feature.categories.domain.model.CATEGORY_INITIAL_ICON_CODE
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.categories.domain.model.isValidCategoryName
@@ -9,7 +10,7 @@ internal data class CategoryEditorUiState(
     val original: Category? = null,
     val name: String = original?.name.orEmpty(),
     val kind: CategoryKind = original?.kind ?: CategoryKind.Expense,
-    val iconCode: String = original?.icon?.code ?: "OTHER",
+    val iconCode: String = original?.icon?.code ?: CATEGORY_INITIAL_ICON_CODE,
     val operation: CategoryEditorOperation? = null,
     val error: CategoriesError? = null,
     val overlay: CategoryEditorOverlay? = null,
@@ -20,12 +21,12 @@ internal data class CategoryEditorUiState(
     val canChangeKind get() = !isBusy && isCreating
     val hasChanges: Boolean
         get() = if (original == null) {
-            name.isNotBlank() || kind != CategoryKind.Expense || iconCode != "OTHER"
+            name.isNotBlank() || kind != CategoryKind.Expense || iconCode != CATEGORY_INITIAL_ICON_CODE
         } else {
             name.trim() != original.name || iconCode != original.icon.code
         }
     val hasInvalidName get() = name.isNotBlank() && name.trim() != original?.name && !isValidCategoryName(name.trim())
-    val canSave get() = !isBusy && hasChanges && name.isNotBlank() && !hasInvalidName && iconCode.isNotBlank()
+    val canSave get() = !isBusy && hasChanges && name.isNotBlank() && !hasInvalidName && (iconCode.isNotBlank() || iconCode == original?.icon?.code)
     val supportsDelete get() = original?.kind == CategoryKind.Expense && original.dictionaryKey != "OTHER"
 }
 

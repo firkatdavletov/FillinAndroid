@@ -48,4 +48,24 @@ class BudgetSetupReducerTest {
         val done = reducer.reduceEvent(busy, BudgetSetupEvent.Finished(busy.generation, busy.operationId))
         assertTrue(done.completed); assertEquals(done, reducer.reduceAction(done, BudgetSetupAction.Create))
     }
+    @Test fun resetKeepsOfflineAccessUntilSessionIsObservedAgain() {
+        val offline = reducer.reduceEvent(BudgetSetupState(), BudgetSetupEvent.Session(AuthSession.Anonymous, cloudAllowed = false, localFirst = true))
+        val completed = reducer.reduceEvent(
+            reducer.reduceAction(offline.copy(name = "Поездка"), BudgetSetupAction.Create),
+            BudgetSetupEvent.Finished(offline.generation, offline.operationId + 1),
+        )
+        assertTrue(completed.completed)
+
+        val reset = reducer.reduceAction(completed, BudgetSetupAction.Reset)
+        assertFalse(reset.cloudAllowed)
+        assertTrue(reset.localFirst)
+        assertFalse(reset.completed)
+        assertFalse(reset.initialized)
+        assertEquals("Личный бюджет", reset.name)
+        assertEquals(offline.generation + 1, reset.generation)
+
+        val restarted = reducer.reduceEvent(reset, BudgetSetupEvent.Session(AuthSession.Anonymous, cloudAllowed = false, localFirst = true))
+        assertTrue(restarted.initialized)
+        assertFalse(restarted.cloudAllowed)
+    }
 }

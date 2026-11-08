@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -63,7 +64,7 @@ import com.firkat.fillin.ui.component.SaldomiButton
 import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.component.SaldomiTextButton
 import com.firkat.fillin.ui.format.formatMoney
-import com.firkat.fillin.ui.icon.FillinIcons
+import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.theme.saldomiColors
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.format.DateTimeFormatter
@@ -295,14 +296,13 @@ internal fun PlanningRuleRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = CircleShape,
                     color = if (income) MaterialTheme.saldomiColors.incomeContainer else MaterialTheme.saldomiColors.expenseContainer,
                 ) {
-                    Icon(
-                        FillinIcons.category(rule.iconCode),
-                        null,
-                        Modifier.padding(12.dp).size(24.dp),
-                        tint = if (income) MaterialTheme.saldomiColors.onIncomeContainer else MaterialTheme.saldomiColors.onExpenseContainer,
+                    CategoryIconImage(
+                        iconCode = rule.iconCode,
+                        categoryName = rule.categoryName,
+                        modifier = Modifier.padding(12.dp),
                     )
                 }
                 val amount = (if (income) "+" else "") + formatMoney(rule.amount, rule.currency)
