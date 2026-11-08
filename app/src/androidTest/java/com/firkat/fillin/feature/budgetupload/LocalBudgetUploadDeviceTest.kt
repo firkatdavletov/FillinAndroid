@@ -33,6 +33,8 @@ class LocalBudgetUploadDeviceTest {
                     content.categories.first { it.kind == "INCOME" }.id, "7.00".toBigDecimal(), session.today, null), null)
             }
             val before = env.database(local) { it.budget().content()!! }
+            val originalUsage = env.database(local) { it.categoryUsage().pending(before.sync.scopeKey) }
+            assertEquals(2, originalUsage.size)
             val originalCommand = before.commands.first()
             env.connection.connect("owner", remote.other.summary())
             val otherProfile = env.manager.active.value!!.profile
@@ -47,6 +49,7 @@ class LocalBudgetUploadDeviceTest {
             assertEquals(before.commands, after.commands)
             assertEquals(before.operations, after.operations)
             assertEquals(before.records, after.records)
+            assertEquals(originalUsage, env.database(cloud) { it.categoryUsage().pending(after.sync.scopeKey) })
             remote.target.loseResponse = true
             env.manager.acquire(cloud.syncIdentity)!!.use { lease ->
                 assertEquals(SyncResult.Retry, lease.scope.get<OperationsSynchronizer>().synchronize())
@@ -57,6 +60,7 @@ class LocalBudgetUploadDeviceTest {
                 assertTrue(lease.scope.get<BudgetStore>().pending().isEmpty())
                 assertNotNull(payload)
             }
+            assertEquals(originalUsage, env.database(cloud) { it.categoryUsage().pending(after.sync.scopeKey) })
             assertEquals(before.sync.householdId, remote.target.scope.householdId)
             assertEquals(before.sync.memberId, remote.target.scope.memberId)
             assertEquals(before.categories.map { it.id }.toSet(), remote.target.categories.map { it.id }.toSet())
@@ -159,6 +163,8 @@ class LocalBudgetUploadDeviceTest {
     }
 
     internal class UploadServer : FirebaseBudgetApi {
+        override suspend fun rename(authorization: String, id: String, request: com.firkat.fillin.feature.budgetconnection.data.RenameBudgetDto): retrofit2.Response<com.firkat.fillin.feature.budgetconnection.data.AvailableBudgetDto> = error("Not used in this fixture")
+        override suspend fun delete(authorization: String, id: String, requestId: String): retrofit2.Response<Unit> = error("Not used in this fixture")
         val other = BudgetConnectionDeviceTest.Server()
         val target = BudgetConnectionDeviceTest.Server().apply { budgetExists = false }
         val imports = linkedMapOf<String, ImportFirebaseBudgetDto>()

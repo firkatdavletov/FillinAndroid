@@ -15,27 +15,27 @@ internal object CategoryIcons {
     val options = listOf(
         CategoryIconOption("GROCERIES", R.drawable.ic_category_groceries, R.string.category_icon_groceries),
         CategoryIconOption("CAFE_RESTAURANTS", R.drawable.ic_category_cafe_restaurants, R.string.category_icon_cafe_restaurants),
-        CategoryIconOption("CAR", R.drawable.ic_category_car, R.string.category_icon_car),
-        CategoryIconOption("BICYCLE", R.drawable.ic_category_bicycle, R.string.category_icon_bicycle),
         CategoryIconOption("HOME", R.drawable.ic_category_home, R.string.category_icon_home),
-        CategoryIconOption("MORTGAGE", R.drawable.ic_category_mortgage, R.string.category_icon_mortgage),
-        CategoryIconOption("HOUSEHOLD_GOODS", R.drawable.ic_category_household_goods, R.string.category_icon_household_goods),
-        CategoryIconOption("CLOTHING", R.drawable.ic_category_clothing, R.string.category_icon_clothing),
+        CategoryIconOption("CAR", R.drawable.ic_category_car, R.string.category_icon_car),
+        CategoryIconOption("COMMUNICATION", R.drawable.ic_category_communication, R.string.category_icon_communication),
         CategoryIconOption("HEALTH", R.drawable.ic_category_health, R.string.category_icon_health),
+        CategoryIconOption("CLOTHING", R.drawable.ic_category_clothing, R.string.category_icon_clothing),
+        CategoryIconOption("HOUSEHOLD_GOODS", R.drawable.ic_category_household_goods, R.string.category_icon_household_goods),
         CategoryIconOption("PERSONAL_CARE", R.drawable.ic_category_personal_care, R.string.category_icon_personal_care),
         CategoryIconOption("CHILDREN", R.drawable.ic_category_children, R.string.category_icon_children),
-        CategoryIconOption("PETS", R.drawable.ic_category_pets, R.string.category_icon_pets),
         CategoryIconOption("BOOKS_EDUCATION", R.drawable.ic_category_books_education, R.string.category_icon_books_education),
         CategoryIconOption("ENTERTAINMENT", R.drawable.ic_category_entertainment, R.string.category_icon_entertainment),
-        CategoryIconOption("SPORT", R.drawable.ic_category_sport, R.string.category_icon_sport),
-        CategoryIconOption("COMMUNICATION", R.drawable.ic_category_communication, R.string.category_icon_communication),
-        CategoryIconOption("SUBSCRIPTIONS", R.drawable.ic_category_subscriptions, R.string.category_icon_subscriptions),
+        CategoryIconOption("TRAVEL", R.drawable.ic_category_travel, R.string.category_icon_travel),
         CategoryIconOption("GIFT", R.drawable.ic_category_gift, R.string.category_icon_gift),
-        CategoryIconOption("LOAN", R.drawable.ic_category_loan, R.string.category_icon_loan),
-        CategoryIconOption("SERVICE_FEES", R.drawable.ic_category_service_fees, R.string.category_icon_service_fees),
+        CategoryIconOption("OTHER_EXPENSE", R.drawable.ic_category_other_expense, R.string.category_icon_other_expense),
         CategoryIconOption("SALARY", R.drawable.ic_category_salary, R.string.category_icon_salary),
-        CategoryIconOption("BONUS", R.drawable.ic_category_bonus, R.string.category_icon_bonus),
+        CategoryIconOption("SIDE_JOB", R.drawable.ic_category_side_job, R.string.category_icon_side_job),
         CategoryIconOption("SOCIAL_BENEFITS", R.drawable.ic_category_social_benefits, R.string.category_icon_social_benefits),
+        CategoryIconOption("INCOME_GIFT", R.drawable.ic_category_income_gift, R.string.category_icon_income_gift),
+        CategoryIconOption("OTHER_INCOME", R.drawable.ic_category_other_income, R.string.category_icon_other_income),
+        CategoryIconOption("PETS", R.drawable.ic_category_pets, R.string.category_icon_pets),
+        CategoryIconOption("LOAN", R.drawable.ic_category_loan, R.string.category_icon_loan),
+        CategoryIconOption("TAXES", R.drawable.ic_category_taxes, R.string.category_icon_taxes),
     )
 
     private val byCode = options.associateBy { it.code }
@@ -52,7 +52,4 @@ internal object CategoryIcons {
         return byCode[legacyCodes[lookupCode] ?: lookupCode]
     }
 
-    @DrawableRes
-    fun drawableResource(code: String): Int =
-        find(code)?.drawableResource ?: R.drawable.ic_category_household_goods
 }

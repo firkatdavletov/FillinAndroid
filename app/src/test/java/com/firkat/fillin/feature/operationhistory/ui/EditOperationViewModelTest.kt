@@ -359,6 +359,56 @@ class EditOperationViewModelTest {
         }
     }
 
+    @Test fun `dirty back closes category first then requests discard`() = runTest {
+        val model = model(FakeOfflineHistory())
+        runCurrent()
+        model.onEvent(EditOperationEvent.InputChanged("12"))
+        model.onEvent(EditOperationEvent.WindowChanged(OperationDetailsWindow.Category))
+        model.onEvent(EditOperationEvent.CloseClicked)
+        assertNull(model.uiState.value.window)
+        model.onEvent(EditOperationEvent.CloseClicked)
+        assertEquals(OperationDetailsWindow.Discard, model.uiState.value.window)
+        assertEquals("12", model.uiState.value.input)
+        model.onEvent(EditOperationEvent.WindowChanged(null))
+        assertTrue(model.uiState.value.dirty)
+    }
+
+    @Test fun `unlink retains draft refreshes token and allows save`() = runTest {
+        val history = FakeOfflineHistory()
+        val plan = SuggestedPlan(PlanLinkTarget("EXPENSE", ruleId = "rule", dueOn = "2026-10-24"), "expense-category", "Продукты", "10", "0", 0)
+        val linkState = kotlinx.coroutines.flow.MutableStateFlow(OperationPlanLinks(current = listOf(plan)))
+        var removals = 0
+        val links = object : OperationPlanLinkStore {
+            override val pendingProposal = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+            override fun observeLinks(operationId: String) = linkState
+            override suspend fun proposal(operationId: String): SuggestedPlan? = null
+            override suspend fun selectProposal(operationId: String, plan: SuggestedPlan) = Unit
+            override suspend fun dismissProposal(operationId: String) = Unit
+            override suspend fun setLink(operationId: String, plan: SuggestedPlan, operationVersion: Long) = Unit
+            override suspend fun removeLink(operationId: String, operationVersion: Long) {
+                removals++
+                history.operations.value = history.operations.value.map { it.copy(version = it.version + 1) }
+                linkState.value = OperationPlanLinks()
+            }
+        }
+        val model = EditOperationViewModel("first", history, UpdateOperation(history), RefundPurchase(history), links = links)
+        models.put("unlink", model)
+        runCurrent()
+        model.onEvent(EditOperationEvent.InputChanged("12"))
+        model.onEvent(EditOperationEvent.WindowChanged(OperationDetailsWindow.Unlink))
+        assertEquals(0, removals)
+        model.onEvent(EditOperationEvent.UnlinkConfirmed)
+        runCurrent()
+        assertEquals(1, removals)
+        assertEquals("12", model.uiState.value.input)
+        assertTrue(model.uiState.value.links.current.isEmpty())
+        assertTrue(model.uiState.value.canSave)
+        model.onEvent(EditOperationEvent.SaveClicked)
+        runCurrent()
+        assertNull(model.uiState.value.error)
+        assertEquals(BigDecimal("12.00"), history.operations.value.single().originalAmount)
+    }
+
     private fun model(history: FakeOfflineHistory, commands: OperationHistoryRepository = history) =
         EditOperationViewModel("first", history, UpdateOperation(commands), RefundPurchase(commands),
             Clock.fixed(Instant.parse("2026-10-25T05:00:00Z"), ZoneId.of("Asia/Almaty")))

@@ -28,9 +28,9 @@ internal fun localHistory(
     var incomes = BigDecimal.ZERO
     period.filter { it.status == "POSTED" && it.syncStatus != "REJECTED" }.forEach {
         when (it.type) {
-            "EXPENSE" -> expenses += it.amountKzt.toBigDecimal()
-            "EXPENSE_REFUND" -> expenses -= it.amountKzt.toBigDecimal()
-            "INCOME" -> incomes += it.amountKzt.toBigDecimal()
+            "EXPENSE" -> expenses += it.accountingAmount.toBigDecimal()
+            "EXPENSE_REFUND" -> expenses -= it.accountingAmount.toBigDecimal()
+            "INCOME" -> incomes += it.accountingAmount.toBigDecimal()
         }
     }
     val rows =
@@ -54,7 +54,7 @@ internal fun localHistory(
         } else {
             null
         },
-        OperationPeriodTotals(expenses, incomes),
+        OperationPeriodTotals(expenses, incomes, content?.sync?.currency ?: "KZT"),
         content?.sync?.let { it.localReady || it.initialSyncComplete } == true,
     )
 }
@@ -70,14 +70,18 @@ private fun operationToDomain(
     content: LocalHistoryContent?,
     categories: Map<String, LocalCategory>,
 ): Operation = record.let {
+    val budgetCurrency = content?.sync?.currency ?: "KZT"
+    val historicalValuation = it.hasOriginalValuation
     Operation(
         id = it.id,
         categoryName = categories[it.categoryId]?.name ?: "Категория недоступна",
         description = it.description,
-        amount = it.amountKzt.toBigDecimal(),
-        currency = "KZT",
+        amount = it.accountingAmount.toBigDecimal(),
+        currency = budgetCurrency,
         originalAmount = it.originalAmount.toBigDecimal(),
-        originalCurrency = it.originalCurrency,
+        originalCurrency = if (historicalValuation) it.originalCurrency else budgetCurrency,
+        legacyConversion = historicalValuation,
+        rubKztRate = it.rubKztRate?.toBigDecimal(),
         occurredOn = LocalDate.parse(it.occurredOn),
         status = if (it.status == "POSTED") OperationStatus.Posted else OperationStatus.Voided,
         version = it.version,

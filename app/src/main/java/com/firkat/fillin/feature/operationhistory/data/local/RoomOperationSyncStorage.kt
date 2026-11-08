@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.data.local
 
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import androidx.room.withTransaction
 import com.firkat.fillin.core.database.LocalSyncRecord
 import com.firkat.fillin.core.database.SyncStagingPage
@@ -41,7 +43,8 @@ class RoomOperationSyncStorage(
             val scope = page.scope
             UUID.fromString(scope.householdId)
             UUID.fromString(scope.memberId)
-            require(scope.currency == "KZT" && scope.timeZone == "Asia/Almaty" && scope.role in setOf("OWNER", "MEMBER"))
+            require(BudgetCurrency.entries.any { it.name == scope.currency } && scope.timeZone == "Asia/Almaty" && scope.role in setOf("OWNER", "MEMBER"))
+            require(scope.currencyVersion >= 0)
             Instant.parse(scope.accountingStartedAt)
             if (previous.scopeKey.isNotEmpty() &&
                 previous.scopeKey != scope.key
@@ -86,7 +89,7 @@ class RoomOperationSyncStorage(
                         UUID.fromString(requireNotNull(change.variableSpendingExclusion).id)
                     }
 
-                    "RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH" -> {
+                    "INCOME_RULE", "RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH" -> {
                         val record = requireNotNull(change.record)
                         UUID.fromString(record.id)
                         record.categoryId?.let(UUID::fromString)
@@ -97,6 +100,12 @@ class RoomOperationSyncStorage(
                             require(record.createdAt != null && record.modifiedAt != null)
                         }
                         record.amount?.let { requireMoney(it.toBigDecimal()) }
+                        record.incomeFrequency?.let { require(it in setOf("ONCE", "WEEKLY", "BIWEEKLY", "MONTHLY")) }
+                        record.incomeName?.let { require(it.isNotBlank() && it.length <= 160) }
+                        record.scheduledOn?.let(LocalDate::parse)
+                        record.remainderDueOn?.let(LocalDate::parse)
+                        record.remainderAmount?.let { requireMoney(it.toBigDecimal()) }
+                        record.remainderReceived?.let { requireDecimal(it, nonNegative = true) }
                         record.startsOn?.let(LocalDate::parse)
                         record.dueOn?.let(LocalDate::parse)
                         record.createdAt?.let(Instant::parse)
@@ -107,10 +116,20 @@ class RoomOperationSyncStorage(
                                     record.categoryId != null && record.amount != null && record.startsOn != null &&
                                         record.active != null,
                                 )
-                                require(record.frequency in setOf("MONTHLY", "WEEKLY"))
-                                require(record.scheduleValue in if (record.frequency == "MONTHLY") 1..31 else 1..7)
+                                require(when (record.frequency) {
+                                    "ONCE" -> record.scheduleValue == null
+                                    "MONTHLY" -> record.scheduleValue in 1..31
+                                    "WEEKLY" -> record.scheduleValue in 1..7
+                                    else -> false
+                                })
                             }
 
+                            "INCOME_RULE" -> {
+                                require(record.categoryId != null && record.amount != null && record.dueOn != null)
+                                require(!record.incomeName.isNullOrBlank() && record.incomeActive != null)
+                                require(record.incomeFrequency in setOf("ONCE", "WEEKLY", "BIWEEKLY", "MONTHLY"))
+                                require(record.status in setOf("SCHEDULED", "CANCELLED"))
+                            }
                             "EXPECTED_INCOME", "RECURRING_OCCURRENCE" -> {
                                 require(record.categoryId != null && record.amount != null && record.dueOn != null)
                                 require(
@@ -230,6 +249,8 @@ class RoomOperationSyncStorage(
             if (!page.hasMore && previous.protocolVersion >= 4) require(database.budget().record(scope.key, "BUDGET_SETTINGS", scope.householdId) != null)
             dao.putState(
                 previous.copy(
+                    currency = if (!page.hasMore && scope.currencyVersion >= previous.currencyVersion) scope.currency else previous.currency,
+                    currencyVersion = if (page.hasMore) previous.currencyVersion else maxOf(previous.currencyVersion, scope.currencyVersion),
                     scopeKey = scope.key,
                     householdId = scope.householdId,
                     memberId = scope.memberId,
@@ -313,6 +334,7 @@ internal fun SyncOperationDto.toLocal(scope: String): LocalOperation {
     LocalDate.parse(occurredOn)
     Instant.parse(createdAt)
     occurredAt?.let(Instant::parse)
+    rubKztRate?.let { require(originalCurrency == "RUB" && it.toBigDecimal().signum() > 0) }
     return LocalOperation(
         id,
         scope,
@@ -330,6 +352,7 @@ internal fun SyncOperationDto.toLocal(scope: String): LocalOperation {
         refundOf,
         requestId,
         occurredAt = occurredAt,
+        rubKztRate = rubKztRate,
     )
 }
 

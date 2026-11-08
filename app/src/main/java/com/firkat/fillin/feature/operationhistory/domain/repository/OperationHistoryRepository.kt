@@ -40,5 +40,6 @@ sealed class OperationHistoryException : Exception() {
     data object Conflict : OperationHistoryException()
     data object Network : OperationHistoryException()
     data object InvalidResponse : OperationHistoryException()
+    data object UnlinkBeforeCategoryChange : OperationHistoryException()
     data object Unknown : OperationHistoryException()
 }

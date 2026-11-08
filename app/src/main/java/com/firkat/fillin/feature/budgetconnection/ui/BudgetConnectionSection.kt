@@ -10,182 +10,84 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.auth.domain.*
 import com.firkat.fillin.feature.budgetconnection.domain.*
-import com.firkat.fillin.feature.budgetsetup.ui.setupError
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import com.firkat.fillin.feature.budgetconnection.ui.interactor.*
+import com.firkat.fillin.ui.component.*
 import org.koin.compose.viewmodel.koinViewModel
-import java.time.LocalDate
-import java.time.ZoneId
-
-data class BudgetConnectionState(
-    val session: AuthSession = AuthSession.Loading,
-    val budgets: List<AvailableBudget> = emptyList(),
-    val loading: Boolean = false,
-    val connecting: String? = null,
-    val loaded: Boolean = false,
-    val error: String? = null,
-    val draft: BudgetCreationDraft? = null,
-    val pending: PendingBudgetCreation? = null,
-    val creating: Boolean = false,
-    val activeBudgetId: String? = null,
-    val showingSaved: Boolean = false,
-) {
-    val busy get() = loading || connecting != null || creating
-}
-
-class BudgetConnectionViewModel(
-    private val auth: AuthRepository,
-    private val repository: BudgetConnectionRepository,
-    private val creation: BudgetCreationRepository,
-    private val autoStartCreation: Boolean = false,
-) : ViewModel() {
-    private val _state = MutableStateFlow(BudgetConnectionState())
-    val state = _state.asStateFlow()
-    private var action: Job? = null
-    private var selectedBudgetId: String? = null
-
-    init {
-        viewModelScope.launch {
-            repository.activeBudgetId.collect { id ->
-                selectedBudgetId = id
-                _state.update { it.copy(activeBudgetId = id) }
-            }
-        }
-        viewModelScope.launch {
-            auth.session.distinctUntilChanged { old, new -> old == new }.collectLatest { session ->
-                action?.cancel()
-                _state.value = BudgetConnectionState(session, activeBudgetId = selectedBudgetId)
-                (session as? AuthSession.Authenticated)?.let { load(it.user.uid) }
-            }
-        }
-    }
-
-    fun refresh() {
-        val uid = uid() ?: return
-        if (state.value.busy) return
-        action = viewModelScope.launch { load(uid) }
-    }
-
-    fun chooseCreate() {
-        if (uid() == null || state.value.busy || !state.value.loaded || state.value.pending != null) return
-        _state.update { it.copy(draft = newDraft(), error = null) }
-    }
-
-    private fun newDraft() = BudgetCreationDraft("", "0", LocalDate.now(ZoneId.of("Asia/Almaty")).toString())
-
-    fun editDraft(draft: BudgetCreationDraft) {
-        if (!state.value.busy && state.value.pending == null) _state.update { it.copy(draft = draft, error = null) }
-    }
-
-    fun cancelCreate() {
-        if (!state.value.busy && state.value.pending == null) _state.update { it.copy(draft = null, error = null) }
-    }
-
-    fun create() {
-        val uid = uid() ?: return
-        val draft = state.value.draft ?: return
-        if (state.value.busy) return
-        _state.update { it.copy(creating = true, error = null) }
-        action = viewModelScope.launch {
-            try {
-                if (state.value.pending != null) creation.resume(uid) else creation.create(uid, draft)
-                if (current(uid)) {
-                    _state.update { it.copy(pending = null, draft = null) }
-                    load(uid)
-                }
-            } catch (e: CancellationException) { throw e }
-            catch (e: Exception) {
-                if (current(uid)) {
-                    val pending = try { creation.pending(uid) } catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { state.value.pending }
-                    if (current(uid)) _state.update { it.copy(pending = pending, draft = pending?.draft ?: draft, error = creationError(e)) }
-                }
-            } finally { if (current(uid)) _state.update { it.copy(creating = false) } }
-        }
-    }
-
-    fun connect(budget: AvailableBudget) {
-        val uid = uid() ?: return
-        if (state.value.busy || state.value.pending != null || budget !in state.value.budgets) return
-        _state.update { it.copy(connecting = budget.id, error = null) }
-        action = viewModelScope.launch {
-            try { repository.connect(uid, budget) }
-            catch (e: CancellationException) { throw e }
-            catch (e: Exception) { if (current(uid)) _state.update { it.copy(error = setupError(e)) } }
-            finally { if (current(uid)) _state.update { it.copy(connecting = null) } }
-        }
-    }
-
-    private suspend fun load(uid: String) {
-        _state.update { it.copy(loading = true, error = null) }
-        try {
-            val cached = repository.cachedBudgets(uid)
-            if (current(uid) && cached.isNotEmpty()) _state.update {
-                it.copy(budgets = cached, loaded = true, showingSaved = true)
-            }
-            val pending = creation.pending(uid)
-            if (current(uid)) _state.update { it.copy(pending = pending, draft = pending?.draft ?: it.draft) }
-            val budgets = repository.budgets(uid)
-            if (current(uid)) _state.update {
-                it.copy(budgets = budgets, loaded = true, showingSaved = false,
-                    draft = it.draft ?: if (autoStartCreation && budgets.isEmpty()) newDraft() else null)
-            }
-        } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { if (current(uid)) _state.update { it.copy(error = setupError(e)) } }
-        finally { if (current(uid)) _state.update { it.copy(loading = false) } }
-    }
-
-    private fun uid() = (auth.session.value as? AuthSession.Authenticated)?.user?.uid
-        ?.takeIf { it == (state.value.session as? AuthSession.Authenticated)?.user?.uid }
-    private fun current(uid: String) = uid() == uid
-    private fun creationError(error: Exception) = if (error is IllegalArgumentException || error is java.time.DateTimeException)
-        "Проверьте название (до 80 символов), баланс (до двух знаков после запятой) и дату начала учёта." else setupError(error)
-}
 
 @Composable
 fun BudgetConnectionSection(viewModel: BudgetConnectionViewModel = koinViewModel(), showCreateCancel: Boolean = true) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    BudgetConnectionContent(
+        session = state.session, budgets = state.budgets, busy = state.busy, loaded = state.loaded,
+        draft = state.draft, pending = state.pending, activeBudgetId = state.activeBudgetId,
+        showingSaved = state.showingSaved, error = state.error, showCreateCancel = showCreateCancel,
+        onDraftChange = { viewModel.onAction(BudgetConnectionAction.EditDraft(it)) },
+        onCreateClick = { viewModel.onAction(BudgetConnectionAction.Create) },
+        onCancelCreateClick = { viewModel.onAction(BudgetConnectionAction.CancelCreate) },
+        onChooseCreateClick = { viewModel.onAction(BudgetConnectionAction.ChooseCreate()) },
+        onRefreshClick = { viewModel.onAction(BudgetConnectionAction.Refresh) },
+        onBudgetClick = { viewModel.onAction(BudgetConnectionAction.Connect(it)) },
+    )
+}
+
+@Composable
+internal fun BudgetConnectionContent(
+    session: AuthSession,
+    budgets: List<AvailableBudget>,
+    busy: Boolean,
+    loaded: Boolean,
+    draft: BudgetCreationDraft?,
+    pending: PendingBudgetCreation?,
+    activeBudgetId: String?,
+    showingSaved: Boolean,
+    error: String?,
+    showCreateCancel: Boolean,
+    onDraftChange: (BudgetCreationDraft) -> Unit,
+    onCreateClick: () -> Unit,
+    onCancelCreateClick: () -> Unit,
+    onChooseCreateClick: () -> Unit,
+    onRefreshClick: () -> Unit,
+    onBudgetClick: (AvailableBudget) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.cloud_budgets_title), style = MaterialTheme.typography.titleMedium)
-        when (state.session) {
+        when (session) {
             is AuthSession.Authenticated -> {
-                if (state.busy) CircularProgressIndicator()
-                val draft = state.draft
+                if (busy) SaldomiProgressIndicator()
                 if (draft != null) {
-                    val editable = !state.busy && state.pending == null
+                    val editable = !busy && pending == null
                     Text(stringResource(R.string.cloud_budget_create_title), style = MaterialTheme.typography.titleSmall)
-                    OutlinedTextField(draft.name, { viewModel.editDraft(draft.copy(name = it)) }, label = { Text(stringResource(R.string.cloud_budget_name)) }, enabled = editable, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(draft.openingBalance, { viewModel.editDraft(draft.copy(openingBalance = it)) }, label = { Text(stringResource(R.string.cloud_budget_opening_balance)) }, enabled = editable, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(draft.accountingStartedOn, { viewModel.editDraft(draft.copy(accountingStartedOn = it)) }, label = { Text(stringResource(R.string.cloud_budget_start_date)) }, enabled = editable, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Text(stringResource(if (state.pending == null) R.string.cloud_budget_create_explanation else R.string.cloud_budget_create_pending))
-                    Button(onClick = viewModel::create, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(if (state.pending == null) R.string.cloud_budget_create else R.string.cloud_budget_create_resume)) }
-                    if (state.pending == null && showCreateCancel) TextButton(onClick = viewModel::cancelCreate, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budget_create_cancel)) }
+                    SaldomiTextField(draft.name, { onDraftChange(draft.copy(name = it)) }, label = stringResource(R.string.cloud_budget_name), enabled = editable, modifier = Modifier.fillMaxWidth())
+                    SaldomiTextField(draft.openingBalance, { onDraftChange(draft.copy(openingBalance = it)) }, label = stringResource(R.string.cloud_budget_opening_balance), enabled = editable, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+                    SaldomiTextField(draft.accountingStartedOn, { onDraftChange(draft.copy(accountingStartedOn = it)) }, label = stringResource(R.string.cloud_budget_start_date), enabled = editable, modifier = Modifier.fillMaxWidth())
+                    Text(stringResource(if (pending == null) R.string.cloud_budget_create_explanation else R.string.cloud_budget_create_pending))
+                    SaldomiButton(onClick = onCreateClick, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(if (pending == null) R.string.cloud_budget_create else R.string.cloud_budget_create_resume)) }
+                    if (pending == null && showCreateCancel) SaldomiTextButton(onClick = onCancelCreateClick, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budget_create_cancel)) }
                 } else {
-                    if (state.loaded && state.budgets.isEmpty()) {
+                    if (loaded && budgets.isEmpty()) {
                         Text(stringResource(R.string.cloud_budgets_empty))
                     }
-                    state.budgets.forEach { budget ->
-                        OutlinedButton(onClick = { viewModel.connect(budget) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().semantics { selected = state.activeBudgetId == budget.id }) {
+                    budgets.forEach { budget ->
+                        SaldomiOutlinedButton(onClick = { onBudgetClick(budget) }, enabled = !busy, modifier = Modifier.fillMaxWidth().semantics { selected = activeBudgetId == budget.id }) {
                             Text(budget.name + " · " + stringResource(if (budget.role == "OWNER") R.string.cloud_budget_owner else R.string.cloud_budget_member))
                         }
-                        if (state.activeBudgetId == budget.id) Text(stringResource(R.string.cloud_budget_selected), style = MaterialTheme.typography.labelMedium)
+                        if (activeBudgetId == budget.id) Text(stringResource(R.string.cloud_budget_selected), style = MaterialTheme.typography.labelMedium)
                     }
-                    if (state.loaded) Button(onClick = viewModel::chooseCreate, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(if (state.budgets.isEmpty()) R.string.cloud_budget_create else R.string.cloud_budget_create_another))
+                    if (loaded) SaldomiButton(onClick = onChooseCreateClick, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(if (budgets.isEmpty()) R.string.cloud_budget_create else R.string.cloud_budget_create_another))
                     }
                 }
-                if (state.showingSaved) Text(stringResource(R.string.cloud_budgets_saved))
-                TextButton(onClick = viewModel::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budgets_refresh)) }
+                if (showingSaved) Text(stringResource(R.string.cloud_budgets_saved))
+                SaldomiTextButton(onClick = onRefreshClick, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budgets_refresh)) }
             }
-            AuthSession.Loading -> CircularProgressIndicator()
+            AuthSession.Loading -> SaldomiProgressIndicator()
             else -> Text(stringResource(R.string.cloud_budgets_sign_in))
         }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }

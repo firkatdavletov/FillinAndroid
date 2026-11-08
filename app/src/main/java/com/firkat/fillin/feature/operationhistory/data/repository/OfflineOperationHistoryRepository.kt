@@ -1,6 +1,8 @@
 package com.firkat.fillin.feature.operationhistory.data.repository
 
 import androidx.room.withTransaction
+import com.firkat.fillin.feature.categories.data.local.CategoryUsageEvent
+import com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
@@ -103,8 +105,9 @@ class OfflineOperationHistoryRepository(
     override suspend fun create(
         operation: NewOperation,
         replacesRejectedId: String?,
-    ) {
-        database.withTransaction {
+    ): CreateOperationResult {
+        val result = database.withTransaction {
+            localCommand { budgetStore?.checkWritable() }
             val state = dao.state()?.takeIf { it.localReady || it.initialSyncComplete } ?: throw OperationHistoryException.InvalidRequest
             if (state.protocolVersion < 4 && state.errorCode == "scope_changed") throw OperationHistoryException.Forbidden
             try {
@@ -136,6 +139,7 @@ class OfflineOperationHistoryRepository(
                 previous.requestId?.let { dao.complete(it) }
             }
             val id = UUID.randomUUID().toString()
+            val savedAt = clock.instant()
             val amount = operation.amount.setScale(2).toPlainString()
             val request =
                 CreateOperationDto(
@@ -158,7 +162,7 @@ class OfflineOperationHistoryRepository(
                     "KZT",
                     amount,
                     operation.occurredOn.toString(),
-                    clock.instant().toString(),
+                    savedAt.toString(),
                     "POSTED",
                     0,
                     0,
@@ -171,15 +175,22 @@ class OfflineOperationHistoryRepository(
             )
             if (state.protocolVersion >= 4 && budgetStore != null) {
                 budgetStore.enqueue("CREATE_OPERATION", id) {
-                    it.copy(categoryId = request.categoryId, amount = request.amount, kind = request.type, occurredOn = request.occurredOn, description = request.description)
+                    it.copy(categoryId = request.categoryId, amount = request.amount, kind = request.type, occurredOn = request.occurredOn, description = request.description, planMatchingMode = "CONFIRM_REQUIRED")
                 }
             } else {
                 dao.enqueue(OperationOutbox(id, state.scopeKey, id, json.encodeToString(request)))
             }
+            if (replacesRejectedId == null) {
+                database.categoryUsage().record(
+                    CategoryUsageEvent(state.scopeKey, id, id, operation.categoryId, savedAt.toEpochMilli()),
+                )
+            }
+            CreateOperationResult(id, budgetStore?.suggest(id))
         }
         // A scheduler failure must not turn a committed local save into an apparent failure.
         // Startup will discover the durable outbox again.
         runCatching { scheduler.schedule() }
+        return result
     }
 
     override suspend fun getOperations(
@@ -262,6 +273,7 @@ class OfflineOperationHistoryRepository(
     }
 
     private suspend fun requireOnlineOperation(id: String) {
+        localCommand { budgetStore?.checkWritable() }
         if (!connectivity.online.value) throw OperationHistoryException.Network
         val state = dao.state() ?: throw OperationHistoryException.InvalidRequest
         val operation = dao.operation(id)
@@ -281,6 +293,7 @@ private inline fun <T> localCommand(action: () -> T): T = try {
     action()
 } catch (failure: com.firkat.fillin.feature.sync.data.BudgetLocalFailure) {
     throw when (failure.code) {
+        "unlink_before_category_change" -> OperationHistoryException.UnlinkBeforeCategoryChange
         "not_found" -> OperationHistoryException.NotFound
         "conflict" -> OperationHistoryException.Conflict
         "forbidden" -> OperationHistoryException.Forbidden

@@ -1,0 +1,9 @@
+<resources>
+    <string name="profile_sign_out_title">Выйти из аккаунта?</string>
+    <string name="profile_sign_out_description">Вы выйдете из аккаунта Saldomi на этом устройстве. Данные бюджета сохранятся и будут доступны после повторного входа.</string>
+    <string name="profile_sign_out_confirm">Выйти</string>
+    <string name="profile_delete_title">Удалить аккаунт?</string>
+    <string name="profile_delete_instruction">Для подтверждения введите слово УДАЛИТЬ</string>
+    <string name="profile_delete_input_label">Слово подтверждения</string>
+    <string name="profile_delete_confirm">Удалить</string>
+</resources>

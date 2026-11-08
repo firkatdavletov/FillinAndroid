@@ -19,7 +19,11 @@ data class Operation(
     val syncStatus: OperationSyncStatus = OperationSyncStatus.Synced,
     val syncError: String? = null,
     val refundedAmount: BigDecimal = BigDecimal.ZERO,
-)
+    val legacyConversion: Boolean = false,
+    val rubKztRate: BigDecimal? = null,
+) {
+    val hasOriginalValuation: Boolean get() = legacyConversion || originalCurrency != currency
+}
 
 enum class OperationSyncStatus { Synced, Pending, Rejected }
 

@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.data.sync
 
+import com.firkat.fillin.feature.categories.data.sync.CategoryUsageSync
+import com.firkat.fillin.feature.sync.data.BudgetCapabilities
 import com.firkat.fillin.feature.operationhistory.data.local.OperationOutbox
 import com.firkat.fillin.feature.operationhistory.data.local.OperationSyncState
 import com.firkat.fillin.feature.operationhistory.data.remote.CreateOperationDto
@@ -62,8 +64,10 @@ class OperationsSynchronizer(
     private val cloud: CloudBudgetSession? = null,
     private val cloudApi: CloudBudgetApi? = null,
     private val canSynchronize: () -> Boolean = { true },
+    private val categoryUsage: CategoryUsageSync? = null,
 ) {
     private val mutex = Mutex()
+    private val commandSupport = BudgetCommandSupport(::readCapabilities)
     private val _running = MutableStateFlow(false)
     val running: StateFlow<Boolean> = _running.asStateFlow()
 
@@ -75,6 +79,7 @@ class OperationsSynchronizer(
                 storage.finish("sign_in_required")
                 return@withLock SyncResult.Blocked
             }
+            commandSupport.reset()
             _running.value = true
             try {
                 if (cloud?.firebase == true && (storage.state().protocolVersion != 4 || storage.pending().isNotEmpty() || budget?.pending().orEmpty().any { it.protocolVersion != 4 })) {
@@ -139,13 +144,14 @@ class OperationsSynchronizer(
                     deferDeletes = false,
                 )
                 if (pendingCommands.isNotEmpty() || budgetCommands.isNotEmpty()) pull()
+                val retryUsage = exchangeCategoryUsage()
                 val remaining = budget?.pending().orEmpty()
                 if (cloud != null && (remaining.isNotEmpty() || budget?.hasFailures() == true)) {
                     storage.finish("pending_changes")
-                    return@withLock if (remaining.isNotEmpty()) SyncResult.Retry else SyncResult.Blocked
+                    return@withLock if (remaining.isNotEmpty() || retryUsage) SyncResult.Retry else SyncResult.Blocked
                 }
                 storage.finish(null, clock.instant().toString())
-                SyncResult.Completed
+                if (retryUsage) SyncResult.Retry else SyncResult.Completed
             } catch (_: CloudDisabledException) {
                 SyncResult.Completed
             } catch (exception: CancellationException) {
@@ -162,10 +168,11 @@ class OperationsSynchronizer(
                         401 -> "unauthorized"
                         403 -> "access_denied"
                         409 -> "scope_changed"
+                        426 -> "client_upgrade_required"
                         else -> "server_unavailable"
                     }
                 storage.finish(code)
-                if (exception.code() in listOf(401, 403, 409)) SyncResult.Blocked else SyncResult.Retry
+                if (exception.code() in listOf(401, 403, 409, 426)) SyncResult.Blocked else SyncResult.Retry
             } catch (exception: IOException) {
                 storage.finish("network")
                 SyncResult.Retry
@@ -181,6 +188,42 @@ class OperationsSynchronizer(
             }
         }
 
+    private suspend fun exchangeCategoryUsage(): Boolean {
+        val usage = categoryUsage ?: return false
+        return try {
+            if (BudgetCapabilities.CATEGORY_USAGE in commandSupport.capabilities()) {
+                usage.exchange(storage.state().scopeKey) {
+                    if (!canSynchronize()) throw CloudDisabledException()
+                    cloud?.checkEnabled()
+                }
+            }
+            false
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (_: IOException) {
+            true
+        } catch (exception: HttpException) {
+            exception.code() == 429 || exception.code() >= 500
+        } catch (exception: com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure) {
+            exception.code in setOf("network", "server_unavailable")
+        } catch (_: CloudDisabledException) {
+            false
+        } catch (_: SerializationException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            false
+        }
+    }
+
+    private suspend fun readCapabilities(): Set<String> {
+        cloud?.checkEnabled()
+        val response = cloudApi?.budget("Bearer $apiToken") ?: throw SyncBlockedException("backend_update_required")
+        if (!response.isSuccessful) throw HttpException(response)
+        val remote = response.body() ?: throw IOException("Empty budget response")
+        if (remote.scope.key != storage.state().scopeKey) throw SyncBlockedException("scope_changed")
+        return remote.capabilities
+    }
+
     private suspend fun pushBudget(
         commands: List<com.firkat.fillin.core.database.BudgetOutbox>,
         deferDeletes: Boolean,
@@ -193,6 +236,8 @@ class OperationsSynchronizer(
             ) {
                 continue
             }
+            val intent = json.decodeFromString<BudgetSyncCommand>(item.wirePayload ?: item.intent)
+            commandSupport.ensure(intent)
             val command = store.prepare(item) ?: continue
             val state = storage.state()
             if (item.scopeKey != state.scopeKey || command.householdId != state.householdId ||

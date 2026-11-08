@@ -10,7 +10,105 @@ import java.math.BigDecimal
 import java.time.LocalDate
 
 class BudgetProjectionTest {
+    @Test fun `catalog reads rules once and keeps paid regular rules`() {
+        val source = content().copy(records = content().records.map { row ->
+            if (row.kind == "RECURRING_OCCURRENCE") record(row.kind, occurrence.copy(status = "PAID")) else row
+        })
+        val projection = BudgetProjection(source, json, today)
+        val catalog = projection.planningRules()
+        assertEquals(1, catalog.count { it.id == "r" })
+        assertEquals(BigDecimal("100.00"), catalog.first { it.id == "r" }.amount)
+        assertEquals(catalog, projection.planningRules())
+        projection.plans(filter)
+        assertEquals(catalog, projection.planningRules())
+    }
+
+    @Test fun `catalog hides completed once but keeps full amount of partial once`() {
+        val once = rule.copy(frequency = "ONCE", scheduleValue = null, startsOn = "2026-02-28")
+        val source = content().copy(records = content().records.map {
+            if (it.kind == "RECURRING_RULE") record(it.kind, once) else it
+        })
+        assertEquals(BigDecimal("100.00"), BudgetProjection(source, json, today).planningRules().first { it.id == "r" }.amount)
+        val paid = source.copy(operations = listOf(operation("payment", "100.00")))
+        assertFalse(BudgetProjection(paid, json, today).planningRules().any { it.id == "r" })
+        assertEquals(BigDecimal("100.00"), BudgetProjection(paid, json, today).planningRules(includeSettled = true).first { it.id == "r" }.amount)
+        val disabled = source.copy(records = source.records.map { if (it.kind == "RECURRING_RULE") record(it.kind, once.copy(active = false)) else it })
+        assertFalse(BudgetProjection(disabled, json, today).planningRules().any { it.id == "r" })
+    }
+
+    @Test fun `income rule catalog never duplicates expanded occurrences and preserves anchor`() {
+        val income = SyncPlanRecord("ir", categoryId = "income", amount = "200", dueOn = "2025-01-31", status = "SCHEDULED",
+            incomeName = "Salary", incomeFrequency = "MONTHLY", incomeActive = true, version = 7)
+        val source = content().copy(records = listOf(record("INCOME_RULE", income)))
+        val catalog = BudgetProjection(source, json, today).planningRules()
+        assertEquals(1, catalog.size)
+        assertEquals(LocalDate.of(2025, 1, 31), catalog.single().startsOn)
+        assertEquals(7L, catalog.single().version)
+        assertTrue(catalog.single().isIncomeRule)
+    }
+
+    @Test fun `catalog overlays local creates updates and deletes before sync`() {
+        val created = BudgetSyncCommand("create", "h", "m", "CREATE_RULE", "new", today.toString(),
+            categoryId = "expense", amount = "75", frequency = "WEEKLY", scheduleValue = 1, startsOn = today.toString())
+        val createOutbox = BudgetOutbox(created.requestId, "scope", created.entityId, created.entityKind(), json.encodeToString(created), 1)
+        val source = content(commands = listOf(createOutbox, command("UPDATE_RULE", "125", order = 2)))
+        val catalog = BudgetProjection(source, json, today).planningRules()
+        assertEquals(BigDecimal("125"), catalog.first { it.id == "r" }.amount)
+        assertEquals(PlanningFrequency.Weekly, catalog.first { it.id == "new" }.frequency)
+        val deleted = source.copy(commands = source.commands + command("DELETE_RULE", id = "new", order = 3))
+        assertFalse(BudgetProjection(deleted, json, today).planningRules().any { it.id == "new" })
+    }
+
+    @Test fun `catalog excludes fully received or cancelled standalone incomes`() {
+        val income = SyncPlanRecord("salary", categoryId = "income", amount = "200.00", dueOn = "2026-02-28", status = "SCHEDULED")
+        val source = content().copy(records = listOf(record("EXPECTED_INCOME", income),
+            record("INCOME_MATCH", SyncPlanRecord("salary", ledgerId = "payment"))),
+            operations = listOf(operation("payment", "100.00")))
+        assertEquals(BigDecimal("200.00"), BudgetProjection(source, json, today).planningRules().single().amount)
+        assertTrue(BudgetProjection(source.copy(operations = listOf(operation("payment", "200.00"))), json, today).planningRules().isEmpty())
+        assertTrue(BudgetProjection(source.copy(records = listOf(record("EXPECTED_INCOME", income.copy(status = "CANCELLED")))), json, today).planningRules().isEmpty())
+    }
+
     private val json = Json
+    @Test fun `full rule edit updates metadata and future schedule while preserving partial payment`() {
+        val change = BudgetSyncCommand("edit", "h", "m", "UPDATE_RULE", "r", today.toString(),
+            categoryId = "expense", amount = "300", frequency = "MONTHLY", scheduleValue = 20,
+            startsOn = "2026-02-20", ruleName = "Rent", replaceDetails = true)
+        val source = content(commands = listOf(BudgetOutbox("edit", "scope", "r", "RECURRING_RULE", json.encodeToString(change), 1)))
+        val projection = BudgetProjection(source, json, today)
+        val catalog = projection.planningRules().first { it.id == "r" }
+        assertEquals("Rent", catalog.name)
+        assertEquals(20, catalog.scheduleValue)
+        projection.plans(filter)
+        assertEquals("100.00", projection.occurrences.getValue("occurrence").amount)
+        assertEquals("300", projection.occurrences.values.first { it.ruleId == "r" && it.dueOn == "2026-02-20" }.amount)
+        assertEquals(1, projection.occurrences.values.count { it.ruleId == "r" && it.dueOn == "2026-02-20" })
+    }
+
+    @Test fun `returning to earlier schedule restores matching unpaid dates without duplicates`() {
+        val first = BudgetSyncCommand("first", "h", "m", "UPDATE_RULE", "r", today.toString(),
+            amount = "200", frequency = "MONTHLY", scheduleValue = 20, startsOn = "2026-02-20", replaceDetails = true)
+        val second = first.copy(requestId = "second", scheduleValue = 28, startsOn = "2026-02-28")
+        val commands = listOf(first, second).mapIndexed { index, c -> BudgetOutbox(c.requestId, "scope", "r", "RECURRING_RULE", json.encodeToString(c), index.toLong()) }
+        val source = content(commands).copy(records = content().records.filter { it.kind != "OCCURRENCE_PAYMENT" })
+        val p = BudgetProjection(source, json, today)
+        p.plans(filter)
+        assertEquals("SCHEDULED", p.occurrences.getValue("occurrence").status)
+        assertEquals("200", p.occurrences.getValue("occurrence").amount)
+        assertEquals(1, p.occurrences.values.count { it.ruleId == "r" && it.dueOn == "2026-02-28" })
+    }
+
+    @Test fun `editing standalone partially received income separates rule without changing payment`() {
+        val change = BudgetSyncCommand("income-edit", "h", "m", "UPDATE_INCOME_RULE", "salary", today.toString(),
+            categoryId = "income", amount = "500", dueOn = "2026-02-28", incomeName = "New name", incomeFrequency = "ONCE", incomeActive = true)
+        val p = BudgetProjection(content(listOf(BudgetOutbox(change.requestId, "scope", "salary", "INCOME_RULE", json.encodeToString(change), 1))), json, today)
+        val catalog = p.planningRules().single { it.id == "salary" }
+        assertEquals("New name", catalog.name)
+        assertEquals("500".toBigDecimal(), catalog.amount)
+        assertEquals("200.00", p.incomes.getValue("salary").amount)
+        assertEquals("salary", p.incomes.getValue("salary").ruleId)
+    }
+
     private val today = LocalDate.parse("2026-02-15")
     private val filter =
         PlannedOperationsFilter(
@@ -171,7 +269,7 @@ class BudgetProjectionTest {
     @Test fun `calendar projection uses month end and merges materialized occurrences`() {
         val plans = BudgetProjection(content(), json, today).plans(filter)
         assertEquals(BigDecimal("280.00"), plans.totals.expenses)
-        assertEquals(BigDecimal("50.00"), plans.totals.incomes)
+        assertEquals(BigDecimal("249.00"), plans.totals.incomes)
         val expenses = plans.items.filterIsInstance<PlannedOperation.Expense>()
         assertEquals(listOf("2026-01-31", "2026-02-28", "2026-03-31"), expenses.map { it.dueOn.toString() })
         assertEquals("occurrence", expenses[1].id)
@@ -182,7 +280,7 @@ class BudgetProjectionTest {
                 today,
             ).plans(filter.copy(type = PlannedOperationType.Income))
         assertEquals(plans.totals, incomesOnly.totals)
-        assertEquals(1, incomesOnly.items.size)
+        assertEquals(2, incomesOnly.items.size)
     }
 
     @Test fun `voiding linked facts restores obligation and expected income`() {
@@ -279,8 +377,39 @@ class BudgetProjectionTest {
         val plans = projection.plans(filter)
         assertTrue(plans.items.any { it.id == "occurrence" })
         assertTrue(projection.rules.getValue("r").active == true)
-        assertEquals(BigDecimal("60.00"), plans.totals.incomes)
+        assertEquals(BigDecimal("259.00"), plans.totals.incomes)
         assertEquals(plans, projection.plans(filter))
+    }
+
+    @Test fun `once restored from sync stays singular overdue and keeps canonical payment`() {
+        val once = rule.copy(frequency = "ONCE", scheduleValue = null, startsOn = "2026-02-01")
+        val canonical = occurrence.copy(dueOn = "2026-02-01")
+        val source = content().copy(records = listOf(
+            record("RECURRING_RULE", once),
+            record("RECURRING_OCCURRENCE", canonical),
+            record("OCCURRENCE_PAYMENT", SyncPlanRecord("occurrence", ledgerId = "payment")),
+        ))
+        val projection = BudgetProjection(source, json, today)
+        val extended = filter.copy(dateTo = today.plusYears(2))
+        val first = projection.plans(extended).items.filterIsInstance<PlannedOperation.Expense>().single().expense
+        assertEquals("occurrence", first.id)
+        assertTrue(first.overdue)
+        assertEquals(BigDecimal("20.00"), first.paidAmount)
+        assertEquals(first, projection.plans(extended).items.filterIsInstance<PlannedOperation.Expense>().single().expense)
+        val paid = source.copy(operations = listOf(operation("payment", "100.00")))
+        assertEquals(BigDecimal.ZERO, BudgetProjection(paid, json, today).plans(extended).totals.expenses.stripTrailingZeros())
+    }
+
+    @Test fun `once without canonical occurrence materializes only within horizon and survives reconstruction`() {
+        val source = content().copy(records = listOf(record("RECURRING_RULE", rule.copy(
+            frequency = "ONCE", scheduleValue = null, startsOn = "2026-02-20",
+        ))))
+        val projection = BudgetProjection(source, json, today)
+        assertTrue(projection.plans(filter.copy(dateTo = today)).items.isEmpty())
+        val first = projection.plans(filter).items.single()
+        assertEquals("r@2026-02-20", first.id)
+        assertEquals(listOf(first), projection.plans(filter.copy(dateTo = today.plusYears(2))).items)
+        assertEquals(listOf(first), BudgetProjection(source, json, today).plans(filter).items)
     }
 
     companion object {

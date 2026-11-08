@@ -30,7 +30,7 @@ class FirebaseFamilyBudgetRepository(
         requests.ensureCurrent(uid)
         val dto = body(requests.execute(uid, api) { endpoint, token -> endpoint.join(token, request) })
         valid { UUID.fromString(dto.id); UUID.fromString(dto.memberId); require(dto.name.isNotBlank() && dto.role in setOf("OWNER", "MEMBER")) }
-        val budget = AvailableBudget(dto.id, dto.name, dto.memberId, dto.role)
+        val budget = AvailableBudget(dto.id, dto.name, dto.memberId, dto.role, dto.currency, dto.currencyVersion)
         requests.ensureCurrent(uid)
         catalog.remember(uid, budget)
         requests.ensureCurrent(uid)

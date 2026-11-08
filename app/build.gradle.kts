@@ -46,8 +46,8 @@ android {
         applicationId = "com.firkat.fillin"
         minSdk = 33
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "0.1"
 
         testInstrumentationRunner = "com.firkat.fillin.FillinTestRunner"
 
@@ -127,6 +127,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
 
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

@@ -18,7 +18,7 @@ class RoomActiveBudgetReadiness(
         manager.restore()
         check(!manager.failed.value) { "Could not restore the active budget" }
         emitAll(manager.active.transformLatest { runtime ->
-            if (runtime == null || !manager.isCurrent(runtime.profile)) return@transformLatest
+            if (runtime == null || !manager.isCurrent(runtime.profile)) { emit(false); return@transformLatest }
             val lease = runtime.retain() ?: return@transformLatest
             try {
                 emitAll(lease.scope.get<BudgetSetupRepository>().ready)

@@ -33,7 +33,11 @@ data class BudgetOutbox(
     val receiptRevision: Long? = null,
     val receiptToken: Long? = null,
     @ColumnInfo(defaultValue = "2") val protocolVersion: Int = 2,
+    @ColumnInfo(defaultValue = "'[]'") val dependencies: String = "[]",
 )
+
+@Entity(tableName = "operation_plan_proposals", primaryKeys = ["scopeKey", "operationId"])
+data class OperationPlanProposal(val scopeKey: String, val operationId: String, val payload: String?, val decision: String)
 
 @Entity(tableName = "sync_staging_pages")
 data class SyncStagingPage(
@@ -51,6 +55,15 @@ data class BudgetContent(
 
 @Dao
 interface BudgetDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun putProposal(proposal: OperationPlanProposal)
+
+    @Query("SELECT * FROM operation_plan_proposals WHERE scopeKey = :scope AND operationId = :id")
+    suspend fun proposal(scope: String, id: String): OperationPlanProposal?
+
+    @Query("SELECT operationId FROM operation_plan_proposals WHERE scopeKey = (SELECT scopeKey FROM operation_sync_state WHERE id = 1) AND decision = 'PENDING' ORDER BY rowid LIMIT 1")
+    fun observePendingProposal(): Flow<String?>
+
     @Transaction
     @Query("SELECT * FROM operation_sync_state WHERE id = 1")
     fun observeContent(): Flow<BudgetContent?>
@@ -96,7 +109,7 @@ interface BudgetDao {
     suspend fun clearStaged()
 
     @Query(
-        "DELETE FROM budget_outbox WHERE scopeKey = :scope AND status = 'ACKNOWLEDGED' AND receiptRevision <= :revision AND NOT EXISTS (SELECT 1 FROM budget_outbox child WHERE child.predecessor = budget_outbox.requestId OR child.dependency = budget_outbox.requestId)",
+        "DELETE FROM budget_outbox WHERE scopeKey = :scope AND status = 'ACKNOWLEDGED' AND receiptRevision <= :revision AND NOT EXISTS (SELECT 1 FROM budget_outbox child WHERE child.predecessor = budget_outbox.requestId OR child.dependency = budget_outbox.requestId OR instr(child.dependencies, char(34) || budget_outbox.requestId || char(34)) > 0)",
     )
     suspend fun cleanReceipts(
         scope: String,
@@ -145,3 +158,42 @@ val BUDGET_MIGRATION_3_4 =
             db.execSQL("DELETE FROM sync_staging_pages")
         }
     }
+
+val BUDGET_MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE budget_outbox ADD COLUMN dependencies TEXT NOT NULL DEFAULT '[]'")
+        db.execSQL("CREATE TABLE IF NOT EXISTS operation_plan_proposals (scopeKey TEXT NOT NULL, operationId TEXT NOT NULL, payload TEXT, decision TEXT NOT NULL, PRIMARY KEY(scopeKey, operationId))")
+    }
+}
+
+val BUDGET_MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE operation_sync_state ADD COLUMN currency TEXT NOT NULL DEFAULT 'KZT'")
+        db.execSQL("ALTER TABLE operation_sync_state ADD COLUMN currencyVersion INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE local_operations ADD COLUMN rubKztRate TEXT")
+    }
+}
+
+val BUDGET_MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE category_usage_events (
+                scopeKey TEXT NOT NULL, id TEXT NOT NULL, operationId TEXT NOT NULL,
+                categoryId TEXT NOT NULL, usedAtMillis INTEGER NOT NULL, delivered INTEGER NOT NULL,
+                PRIMARY KEY(scopeKey, id)
+            )
+        """.trimIndent())
+        db.execSQL("CREATE UNIQUE INDEX index_category_usage_events_scopeKey_operationId ON category_usage_events(scopeKey, operationId)")
+        db.execSQL("CREATE INDEX index_category_usage_events_scopeKey_categoryId_usedAtMillis_id ON category_usage_events(scopeKey, categoryId, usedAtMillis, id)")
+        db.execSQL("CREATE TABLE category_usage_cursors (scopeKey TEXT NOT NULL PRIMARY KEY, cursor TEXT NOT NULL)")
+    }
+}
+
+internal val BUDGET_MIGRATIONS = arrayOf(
+    BUDGET_MIGRATION_1_2,
+    BUDGET_MIGRATION_2_3,
+    BUDGET_MIGRATION_3_4,
+    BUDGET_MIGRATION_4_5,
+    BUDGET_MIGRATION_5_6,
+    BUDGET_MIGRATION_6_7,
+)

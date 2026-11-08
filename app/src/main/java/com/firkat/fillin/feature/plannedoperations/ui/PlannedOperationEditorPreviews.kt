@@ -93,7 +93,7 @@ private fun ExpenseInvalidAmountPreview() { ExpensePreview(editor = expenseEdito
 @Preview(name = "ExpenseCreateMonthly")
 @Preview(name = "ExpenseCreateMonthly dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
-private fun ExpenseCreateMonthlyPreview() { ExpensePreview(editor = expenseEditor.copy(original = null, categoryId = "home", scheduleValue = "25", startsOn = previewDay.toString())) }
+private fun ExpenseCreateMonthlyPreview() { ExpensePreview(editor = expenseEditor.copy(original = null, categoryId = "home", frequency = PlannedExpenseFrequency.Monthly, scheduleValue = "25", startsOn = previewDay.toString())) }
 
 @Preview(name = "ExpenseCreateWeekly")
 @Preview(name = "ExpenseCreateWeekly dark", uiMode = UI_MODE_NIGHT_YES)
@@ -274,3 +274,28 @@ private fun ExpenseAdaptivePreview() { ExpensePreview(editor = expenseEditor.cop
 @Preview(name = "Income wide", widthDp = 840)
 @Composable
 private fun IncomeAdaptivePreview() { IncomePreview(editor = incomeEditor.copy(original = previewIncome.copy(categoryName = "Планирование семейного бюджета и обязательные платежи"))) }
+
+@Preview(name = "ExpenseOnce")
+@Preview(name = "ExpenseOnce dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun ExpenseOncePreview() { ExpensePreview(editor = onceEditor) }
+
+@Preview(name = "ExpenseOnce compact", widthDp = 320)
+@Preview(name = "ExpenseOnce wide", widthDp = 840)
+@Preview(name = "ExpenseOnce large font", fontScale = 2f)
+@Composable
+private fun ExpenseOnceAdaptivePreview() { ExpensePreview(editor = onceEditor) }
+
+@Preview(name = "ExpenseOnce past date")
+@Preview(name = "ExpenseOnce past date dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun ExpenseOncePastDatePreview() { ExpensePreview(editor = onceEditor.copy(startsOn = previewDay.minusDays(1).toString())) }
+
+@Preview(name = "ExpenseOnce saving")
+@Preview(name = "ExpenseOnce saving dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun ExpenseOnceSavingPreview() { ExpensePreview(editor = onceEditor.copy(isSaving = true)) }
+
+private val onceEditor = PlannedExpenseRuleEditorUiState(
+    today = previewDay, categoryId = "home", amount = "270000", startsOn = previewDay.toString(),
+)

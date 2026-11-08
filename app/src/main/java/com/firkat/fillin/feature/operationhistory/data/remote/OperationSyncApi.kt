@@ -32,6 +32,7 @@ data class SyncScopeDto(
     val accountingStartedAt: String,
     val timeZone: String,
     val currency: String,
+    val currencyVersion: Long = 0,
 ) {
     val key: String get() = "$householdId:$memberId"
 }
@@ -75,6 +76,7 @@ data class SyncOperationDto(
     val refundOf: String? = null,
     val requestId: String? = null,
     val occurredAt: String? = null,
+    val rubKztRate: String? = null,
 )
 
 @Serializable

@@ -41,6 +41,7 @@ data class PlannedExpenses(
 )
 
 enum class PlannedExpenseFrequency {
+    Once,
     Monthly,
     Weekly,
 }

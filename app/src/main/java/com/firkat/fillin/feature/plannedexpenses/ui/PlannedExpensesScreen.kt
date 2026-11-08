@@ -1,5 +1,8 @@
 package com.firkat.fillin.feature.plannedexpenses.ui
 
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -8,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -61,11 +64,10 @@ import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.math.MathContext
-import java.text.NumberFormat
+import com.firkat.fillin.ui.format.formatMoney
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Currency
 import java.util.Locale
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -213,14 +215,14 @@ internal fun PlannedExpenseRuleEditor(
                             },
                             enabled = !editor.isSaving,
                             label = { Text(category.name) },
-                            leadingIcon = { CategoryIconImage(category.icon.code) },
+                            leadingIcon = { CategoryIconImage(category.icon.code, category.name) },
                         )
                     }
                 }
             }
         } else {
             Text(
-                text = editor.original?.categoryName.orEmpty(),
+                text = editor.originalRule?.categoryName ?: editor.original?.categoryName.orEmpty(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -251,7 +253,7 @@ internal fun PlannedExpenseRuleEditor(
                 text = stringResource(R.string.planned_expenses_frequency_label),
                 style = MaterialTheme.typography.labelLarge,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PlannedExpenseFrequency.entries.forEach { frequency ->
                     FilterChip(
                         selected = editor.frequency == frequency,
@@ -262,28 +264,30 @@ internal fun PlannedExpenseRuleEditor(
                 }
             }
 
-            OutlinedTextField(
-                value = editor.scheduleValue,
-                onValueChange = { onEvent(PlannedExpensesEvent.ScheduleValueChanged(it)) },
-                modifier = Modifier.fillMaxWidth().testTag("planned-editor-schedule"),
-                enabled = !editor.isSaving,
-                label = { Text(stringResource(editor.frequency.scheduleLabelResource)) },
-                supportingText = {
-                    Text(stringResource(editor.frequency.scheduleHintResource))
-                },
-                isError = editor.scheduleValue.isNotBlank() && editor.parsedScheduleValue == null,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-            )
+            if (editor.frequency != PlannedExpenseFrequency.Once) {
+                OutlinedTextField(
+                    value = editor.scheduleValue,
+                    onValueChange = { onEvent(PlannedExpensesEvent.ScheduleValueChanged(it)) },
+                    modifier = Modifier.fillMaxWidth().testTag("planned-editor-schedule"),
+                    enabled = !editor.isSaving,
+                    label = { Text(stringResource(editor.frequency.scheduleLabelResource)) },
+                    supportingText = {
+                        Text(stringResource(editor.frequency.scheduleHintResource))
+                    },
+                    isError = editor.scheduleValue.isNotBlank() && editor.parsedScheduleValue == null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                )
+            }
 
             OutlinedTextField(
                 value = editor.startsOn,
                 onValueChange = { onEvent(PlannedExpensesEvent.StartsOnChanged(it)) },
                 modifier = Modifier.fillMaxWidth().testTag("planned-editor-starts-on"),
                 enabled = !editor.isSaving,
-                label = { Text(stringResource(R.string.planned_expenses_starts_on_label)) },
+                label = { Text(stringResource(if (editor.frequency == PlannedExpenseFrequency.Once) R.string.planned_expenses_due_on_label else R.string.planned_expenses_starts_on_label)) },
                 supportingText = {
-                    Text(stringResource(R.string.planned_expenses_starts_on_hint))
+                    Text(stringResource(if (editor.frequency == PlannedExpenseFrequency.Once) R.string.planned_expenses_once_date_hint else R.string.planned_expenses_starts_on_hint))
                 },
                 isError = editor.startsOn.isNotBlank() && editor.parsedStartsOn == null,
                 singleLine = true,
@@ -350,21 +354,20 @@ internal fun DeleteRuleConfirmation(
     onEvent: (PlannedExpensesEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AlertDialog(
+    SaldomiActionBottomSheet(
         modifier = modifier,
         onDismissRequest = { onEvent(PlannedExpensesEvent.DeleteDismissed) },
         title = { Text(stringResource(R.string.planned_expenses_delete_title)) },
         text = { Text(stringResource(R.string.planned_expenses_delete_message)) },
         confirmButton = {
-            TextButton(onClick = { onEvent(PlannedExpensesEvent.DeleteConfirmed) }) {
+            SaldomiButton(onClick = { onEvent(PlannedExpensesEvent.DeleteConfirmed) }, modifier = Modifier.fillMaxWidth(), large = true, destructive = true) {
                 Text(
                     text = stringResource(R.string.planned_expenses_delete_confirm),
-                    color = MaterialTheme.colorScheme.error,
                 )
             }
         },
         dismissButton = {
-            TextButton(onClick = { onEvent(PlannedExpensesEvent.DeleteDismissed) }) {
+            SaldomiOutlinedButton(onClick = { onEvent(PlannedExpensesEvent.DeleteDismissed) }, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.planned_expenses_delete_cancel))
             }
         },
@@ -378,7 +381,8 @@ internal fun CloseExpenseConfirmation(
     error: PlannedExpensesError?,
     onEvent: (PlannedExpensesEvent) -> Unit,
 ) {
-    AlertDialog(
+    SaldomiActionBottomSheet(
+        dismissEnabled = !isClosing,
         onDismissRequest = { onEvent(PlannedExpensesEvent.CloseDismissed) },
         title = { Text(stringResource(R.string.planned_expenses_close_title)) },
         text = {
@@ -400,10 +404,9 @@ internal fun CloseExpenseConfirmation(
             }
         },
         confirmButton = {
-            TextButton(
+            SaldomiButton(
                 onClick = { onEvent(PlannedExpensesEvent.CloseConfirmed) },
-                enabled = !isClosing,
-            ) {
+                enabled = !isClosing, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(
                     stringResource(
                         if (isClosing) {
@@ -416,10 +419,9 @@ internal fun CloseExpenseConfirmation(
             }
         },
         dismissButton = {
-            TextButton(
+            SaldomiOutlinedButton(
                 onClick = { onEvent(PlannedExpensesEvent.CloseDismissed) },
-                enabled = !isClosing,
-            ) {
+                enabled = !isClosing, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.planned_expenses_close_cancel))
             }
         },
@@ -872,6 +874,7 @@ private val PlannedExpensesError.closeMessageResource: Int
 
 private val PlannedExpenseFrequency.labelResource: Int
     @StringRes get() = when (this) {
+        PlannedExpenseFrequency.Once -> R.string.planned_expenses_frequency_once
         PlannedExpenseFrequency.Monthly -> R.string.planned_expenses_frequency_monthly
         PlannedExpenseFrequency.Weekly -> R.string.planned_expenses_frequency_weekly
     }
@@ -884,12 +887,14 @@ private val PlannedExpensesPeriod.labelResource: Int
 
 private val PlannedExpenseFrequency.scheduleLabelResource: Int
     @StringRes get() = when (this) {
+        PlannedExpenseFrequency.Once -> R.string.planned_expenses_due_on_label
         PlannedExpenseFrequency.Monthly -> R.string.planned_expenses_month_day_label
         PlannedExpenseFrequency.Weekly -> R.string.planned_expenses_week_day_label
     }
 
 private val PlannedExpenseFrequency.scheduleHintResource: Int
     @StringRes get() = when (this) {
+        PlannedExpenseFrequency.Once -> R.string.planned_expenses_once_date_hint
         PlannedExpenseFrequency.Monthly -> R.string.planned_expenses_month_day_hint
         PlannedExpenseFrequency.Weekly -> R.string.planned_expenses_week_day_hint
     }
@@ -900,16 +905,6 @@ private fun paidFraction(expense: PlannedExpense): Float {
         .divide(expense.plannedAmount, MathContext.DECIMAL64)
         .toFloat()
         .coerceIn(0f, 1f)
-}
-
-private fun formatMoney(amount: BigDecimal, currencyCode: String): String = runCatching {
-    NumberFormat.getCurrencyInstance(Locale.forLanguageTag("ru-KZ")).apply {
-        currency = Currency.getInstance(currencyCode)
-        minimumFractionDigits = 2
-        maximumFractionDigits = 2
-    }.format(amount)
-}.getOrElse {
-    "${amount.setScale(2).toPlainString()} $currencyCode"
 }
 
 private val shortDateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("ru"))

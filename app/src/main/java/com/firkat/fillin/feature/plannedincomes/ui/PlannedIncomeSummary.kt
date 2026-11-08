@@ -13,7 +13,7 @@ internal fun plannedIncomeTotals(items: List<PlannedIncome>): List<PlannedIncome
     .map { (currency, incomes) ->
         PlannedIncomeTotal(
             amount = incomes.fold(BigDecimal.ZERO) { total, income ->
-                total + income.plannedAmount
+                total + income.remainingAmount
             },
             currency = currency,
         )

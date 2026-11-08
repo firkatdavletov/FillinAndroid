@@ -1,6 +1,10 @@
 package com.firkat.fillin.feature.sync.data
 
+import com.firkat.fillin.feature.categories.domain.model.isValidCategoryName
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+
 import androidx.room.withTransaction
+import com.firkat.fillin.feature.operationhistory.domain.repository.*
 import com.firkat.fillin.core.database.*
 import com.firkat.fillin.feature.operationhistory.data.local.*
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
@@ -22,21 +26,50 @@ class BudgetStore(
     private val scheduler: OperationSyncScheduler,
     private val json: Json,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
-) : BudgetSyncControl {
+    private val canWrite: () -> Boolean = { true },
+    private val currencyOverride: Flow<BudgetCurrencyOverride> = flowOf(BudgetCurrencyOverride()),
+) : BudgetSyncControl, OperationPlanLinkStore {
+    internal fun checkWritable() {
+        if (!canWrite()) throw BudgetLocalFailure("access_denied")
+    }
+
     private val dao get() = database.budget()
 
+    internal suspend fun accountingStart() = java.time.Instant.parse(requireNotNull(dao.content()).sync.accountingStartedAt).atZone(ZoneId.of("Asia/Almaty")).toLocalDate()
+
+    internal fun currentDate() = today()
     private fun today() = LocalDate.now(clock.withZone(ZoneId.of("Asia/Almaty")))
+
+    internal fun observeContent(): Flow<BudgetContent?> =
+        combine(dao.observeContent(), currencyOverride) { content, override ->
+            content?.withCurrency(override)
+        }
+
+    val currency: Flow<BudgetCurrency> =
+        combine(database.operations().observeState(), currencyOverride) { state, override ->
+            BudgetCurrency.valueOf(override.resolve(state))
+        }.distinctUntilChanged()
+
+    private fun BudgetContent.withCurrency(override: BudgetCurrencyOverride): BudgetContent {
+        val currency = override.resolve(sync)
+        return if (currency == sync.currency) this else copy(sync = sync.copy(currency = currency))
+    }
+
+    private fun BudgetCurrencyOverride.resolve(state: OperationSyncState?): String =
+        pending ?: confirmed?.takeIf { version > (state?.currencyVersion ?: -1) } ?: state?.currency ?: BudgetCurrency.KZT.name
+
+    private suspend fun currentContent() = dao.content()?.withCurrency(currencyOverride.first())
 
     internal fun project(content: BudgetContent) = BudgetProjection(content, json, today())
 
-    internal suspend fun snapshot(): BudgetProjection = project(requireNotNull(dao.content()))
+    internal suspend fun snapshot(): BudgetProjection = project(requireNotNull(currentContent()))
 
     override val context: Flow<BudgetSyncContext> =
-        dao.observeContent().map { content ->
+        observeContent().map { content ->
             if (content == null) {
                 BudgetSyncContext()
             } else {
-                val blocked = content.sync.errorCode in setOf("scope_changed", "unauthorized", "access_denied")
+                val blocked = content.sync.errorCode in setOf("email_not_verified", "scope_changed", "unauthorized", "access_denied")
                 BudgetSyncContext(
                     content.sync.localReady || content.sync.initialSyncComplete,
                     (content.sync.localReady || content.sync.initialSyncComplete) && content.sync.role == "OWNER" && (!blocked || content.sync.protocolVersion >= 4),
@@ -79,8 +112,7 @@ class BudgetStore(
         }
 
     fun observePlans(filter: PlannedOperationsFilter) =
-        dao
-            .observeContent()
+        observeContent()
             .filter {
                 (it?.sync?.localReady == true || it?.sync?.initialSyncComplete == true) ||
                     it?.sync?.errorCode in setOf("unauthorized", "access_denied", "scope_changed")
@@ -94,8 +126,23 @@ class BudgetStore(
                 project(content).plans(filter)
             }.flowOn(kotlinx.coroutines.Dispatchers.Default)
 
+    fun observePlanningRules(includeSettled: Boolean = false) =
+        observeContent()
+            .filter {
+                (it?.sync?.localReady == true || it?.sync?.initialSyncComplete == true) ||
+                    it?.sync?.errorCode in setOf("unauthorized", "access_denied", "scope_changed")
+            }.map { content ->
+                if (content == null || !(content.sync.localReady || content.sync.initialSyncComplete)) throw BudgetLocalFailure("not_initialized")
+                if (content.sync.protocolVersion < 4 && content.sync.errorCode in
+                    setOf("unauthorized", "access_denied", "scope_changed")
+                ) {
+                    throw BudgetLocalFailure("forbidden")
+                }
+                project(content).planningRules(includeSettled)
+            }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+
     fun observeHistoryContent(): Flow<LocalHistoryContent?> =
-        dao.observeContent().map { c ->
+        observeContent().map { c ->
             c?.let {
                 project(it).let { p ->
                     LocalHistoryContent(it.sync, p.operations.values.toList(), p.categories.values.toList())
@@ -104,11 +151,89 @@ class BudgetStore(
         }
 
     suspend fun historySnapshot(): LocalHistoryContent? =
-        dao.content()?.let { c ->
+        currentContent()?.let { c ->
             project(c).let { LocalHistoryContent(c.sync, it.operations.values.toList(), it.categories.values.toList()) }
         }
 
+    override val pendingProposal = dao.observePendingProposal()
+
+    override fun observeLinks(operationId: String): Flow<OperationPlanLinks> = dao.observeContent().map {
+        it?.let { content -> project(content).links(operationId) } ?: OperationPlanLinks()
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+
+    override suspend fun proposal(operationId: String): SuggestedPlan? {
+        val content = dao.content() ?: return null
+        return dao.proposal(content.sync.scopeKey, operationId)?.takeIf { it.decision == "PENDING" }?.payload?.let { json.decodeFromString(it) }
+    }
+
+    suspend fun suggest(operationId: String): SuggestedPlan? {
+        checkWritable()
+        val content = requireNotNull(dao.content())
+        val plan = project(content).links(operationId).candidates.firstOrNull()
+        dao.putProposal(OperationPlanProposal(content.sync.scopeKey, operationId, plan?.let { json.encodeToString(it) }, if (plan == null) "NONE" else "PENDING"))
+        return plan
+    }
+
+    override suspend fun selectProposal(operationId: String, plan: SuggestedPlan) = database.withTransaction {
+        checkWritable()
+        val content = requireNotNull(dao.content())
+        writable(content, allowMember = true)
+        val current = project(content).links(operationId).candidates.firstOrNull { it.target.stableKey == plan.target.stableKey && it.target.type == plan.target.type }
+            ?: throw BudgetLocalFailure("plan_unavailable")
+        dao.putProposal(OperationPlanProposal(content.sync.scopeKey, operationId, json.encodeToString(current), "PENDING"))
+    }
+
+    override suspend fun dismissProposal(operationId: String) = database.withTransaction {
+        checkWritable()
+        val content = dao.content() ?: return@withTransaction
+        val old = dao.proposal(content.sync.scopeKey, operationId)
+        dao.putProposal(OperationPlanProposal(content.sync.scopeKey, operationId, old?.payload, "DISMISSED"))
+    }
+
+    override suspend fun setLink(operationId: String, plan: SuggestedPlan, operationVersion: Long) {
+        database.withTransaction {
+            enqueue("SET_OPERATION_PLAN_LINK", operationId, operationVersion) {
+                it.copy(planTarget = plan.target, expectedPlanVersion = plan.version)
+            }
+            val scope = requireNotNull(dao.content()).sync.scopeKey
+            dao.putProposal(OperationPlanProposal(scope, operationId, json.encodeToString(plan), "CONFIRMED"))
+        }
+    }
+
+    override suspend fun removeLink(operationId: String, operationVersion: Long) {
+        database.withTransaction {
+            enqueue("REMOVE_OPERATION_PLAN_LINK", operationId, operationVersion)
+            dismissProposal(operationId)
+        }
+    }
+
     override fun requestSync() = scheduler.schedule()
+
+    override suspend fun retryRejectedCommands() {
+        database.withTransaction {
+            val content = dao.content() ?: return@withTransaction
+            if (content.sync.role != "OWNER" || !canWrite() ||
+                !(content.sync.localReady || content.sync.initialSyncComplete)
+            ) return@withTransaction
+            // Replay the exact v4 request: changing its ID or frozen payload could duplicate a commit.
+            content.commands.filter { it.protocolVersion >= 4 && it.status == "REJECTED" }.forEach {
+                dao.update(it.copy(status = "PENDING", errorCode = null))
+            }
+            // Only release dependencies whose parents are now eligible; conflicts stay blocked.
+            do {
+                val commands = dao.commands(content.sync.scopeKey).associateBy { it.requestId }
+                val ready = commands.values.filter { item ->
+                    item.protocolVersion >= 4 && item.status == "BLOCKED" && item.errorCode == "dependency_failed" &&
+                        (listOfNotNull(item.predecessor, item.dependency) +
+                            json.decodeFromString<List<String>>(item.dependencies)).all { parent ->
+                            commands[parent]?.status in setOf("PENDING", "ACKNOWLEDGED")
+                        }
+                }
+                ready.forEach { dao.update(it.copy(status = "PENDING", errorCode = null)) }
+            } while (ready.isNotEmpty())
+        }
+        scheduler.schedule()
+    }
 
     suspend fun enqueue(
         type: String,
@@ -118,8 +243,9 @@ class BudgetStore(
         edit: (BudgetSyncCommand) -> BudgetSyncCommand = { it },
     ): String {
         database.withTransaction {
+            checkWritable()
             val content = dao.content() ?: throw BudgetLocalFailure("not_initialized")
-            writable(content, type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION"))
+            writable(content, type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION") || type in BudgetProjection.LINK_COMMANDS)
             val projection = project(content)
             var command =
                 edit(
@@ -134,12 +260,12 @@ class BudgetStore(
                 )
             if (content.sync.protocolVersion >= 4) {
                 val category = projection.categories[entityId]
-                val income = projection.incomes[entityId]
+                val income = projection.incomeRules[entityId] ?: projection.incomes[entityId]
                 if (type == "UPDATE_CATEGORY" && category != null) command = command.copy(name = command.name ?: category.name, icon = command.icon ?: category.iconCode, kind = category.kind)
-                if (type == "UPDATE_INCOME" && income != null) command = command.copy(categoryId = command.categoryId ?: income.categoryId, amount = command.amount ?: income.amount, dueOn = command.dueOn ?: income.dueOn)
+                if (type in setOf("UPDATE_INCOME", "UPDATE_INCOME_RULE") && income != null) command = command.copy(categoryId = command.categoryId ?: income.categoryId, amount = command.amount ?: income.amount, dueOn = command.dueOn ?: income.dueOn)
                 if (type == "UPDATE_RULE") {
                     projection.plans(PlannedOperationsFilter())
-                    projection.rules[entityId]?.let { rule -> command = command.copy(categoryId = rule.categoryId, frequency = rule.frequency, scheduleValue = rule.scheduleValue, startsOn = rule.startsOn) }
+                    projection.rules[entityId]?.let { rule -> command = command.copy(categoryId = command.categoryId ?: rule.categoryId, frequency = command.frequency ?: rule.frequency, scheduleValue = if (command.frequency == "ONCE") null else command.scheduleValue ?: rule.scheduleValue, startsOn = command.startsOn ?: rule.startsOn) }
                 }
                 if (type in setOf("UPDATE_OPERATION", "REFUND_OPERATION")) {
                     projection.operations[entityId]?.let { operation ->
@@ -161,9 +287,9 @@ class BudgetStore(
             if (prior?.status in setOf("CONFLICT", "REJECTED") && content.sync.protocolVersion >= 4) {
                 val failed = requireNotNull(prior)
                 dao.update(failed.copy(status = "CANCELLED"))
-                content.commands.filter { it.requestId != failed.requestId && (it.predecessor == failed.requestId || it.dependency == failed.requestId) }.forEach { child ->
+                content.commands.filter { it.requestId != failed.requestId && (it.predecessor == failed.requestId || it.dependency == failed.requestId || failed.requestId in json.decodeFromString<List<String>>(it.dependencies)) }.forEach { child ->
                     require(child.wirePayload == null)
-                    dao.update(child.copy(predecessor = if (child.predecessor == failed.requestId) command.requestId else child.predecessor, dependency = if (child.dependency == failed.requestId) command.requestId else child.dependency, status = "PENDING", errorCode = null))
+                    dao.update(child.copy(predecessor = if (child.predecessor == failed.requestId) command.requestId else child.predecessor, dependency = if (child.dependency == failed.requestId) command.requestId else child.dependency, dependencies = rebindDependencies(child, failed.requestId, command.requestId), status = "PENDING", errorCode = null))
                 }
                 prior = null
             }
@@ -176,6 +302,7 @@ class BudgetStore(
                             projection.rules[entityId]?.version
                         }
 
+                        "INCOME_RULE" -> (projection.incomeRules[entityId] ?: projection.incomes[entityId])?.version
                         "EXPECTED_INCOME" -> {
                             projection.incomes[entityId]?.version
                         }
@@ -195,6 +322,7 @@ class BudgetStore(
                 if (visible != expectedVersion) throw BudgetLocalFailure("conflict")
             }
             val canonicalToken = observedCategoryRevision ?: token(content, kind, entityId)
+                ?: if (type == "UPDATE_INCOME_RULE") token(content, "EXPECTED_INCOME", entityId) else null
             validate(command, projection, content)
             val dependency =
                 command.categoryId?.let { category ->
@@ -219,6 +347,9 @@ class BudgetStore(
                     prior?.requestId,
                     dependency,
                     protocolVersion = if (content.sync.protocolVersion >= 4) 4 else 2,
+                    dependencies = json.encodeToString(content.commands.filter {
+                        it.entityId in setOfNotNull(command.ruleId, command.planTarget?.ruleId, command.planTarget?.planId) && it.status != "CANCELLED"
+                    }.map { it.requestId }),
                 ),
             )
         }
@@ -261,25 +392,31 @@ class BudgetStore(
         p: BudgetProjection,
         content: BudgetContent,
     ) {
+        if (c.type in BudgetProjection.LINK_COMMANDS) {
+            val operation = p.operations[c.entityId] ?: throw BudgetLocalFailure("not_found")
+            if (operation.status != "POSTED" || operation.syncStatus == "REJECTED" || operation.hasOriginalValuation) throw BudgetLocalFailure("invalid")
+            if (c.type == "SET_OPERATION_PLAN_LINK") {
+                val target = requireNotNull(c.planTarget)
+                val plan = p.links(c.entityId).candidates.firstOrNull { it.target.stableKey == target.stableKey && it.target.type == target.type }
+                    ?: throw BudgetLocalFailure("plan_unavailable")
+                if (plan.version != c.expectedPlanVersion) throw BudgetLocalFailure("plan_changed")
+            }
+        }
+        if (c.type == "UPDATE_OPERATION" && c.categoryId != null && c.categoryId != p.operations[c.entityId]?.categoryId && p.links(c.entityId).current.isNotEmpty()) {
+            throw BudgetLocalFailure("unlink_before_category_change")
+        }
         if (c.type != "CLOSE_EXPENSE" || !c.entityId.contains("@")) UUID.fromString(c.entityId)
         c.amount?.let { requireMoney(it.toBigDecimal()) }
         c.categoryId?.let { id ->
             val category = p.categories[id] ?: throw BudgetLocalFailure("invalid")
-            val expected = if (c.type.endsWith("INCOME") || c.type in setOf("CREATE_OPERATION", "UPDATE_OPERATION") && c.kind == "INCOME") "INCOME" else "EXPENSE"
+            val expected = if (c.type.endsWith("INCOME") || c.type.endsWith("INCOME_RULE") || c.type in setOf("CREATE_OPERATION", "UPDATE_OPERATION") && c.kind == "INCOME") "INCOME" else "EXPENSE"
             if (category.archived || category.kind != expected) throw BudgetLocalFailure("invalid")
         }
         if (c.type.endsWith("CATEGORY")) {
             val old = p.categories[c.entityId]
             if (c.type != "CREATE_CATEGORY" && (old == null || old.archived)) throw BudgetLocalFailure("not_found")
             c.name?.let { name ->
-                if (name.isBlank() || name.length > 50 ||
-                    !Regex(
-                        "[A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*(?: [A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*)*",
-                    ).matches(name) ||
-                    name.split(' ').any {
-                        it.lowercase() in
-                            setOf("сегодня", "вчера", "завтра", "купить", "покупать", "покупку", "покупке", "покупки")
-                    } ||
+                if (!isValidCategoryName(name) ||
                     p.categories.values.any { it.id != c.entityId && it.name.equals(name, true) }
                 ) {
                     throw BudgetLocalFailure("invalid")
@@ -301,19 +438,31 @@ class BudgetStore(
                 throw BudgetLocalFailure("invalid")
             }
         }
-        if (c.replaceDetails && (c.type != "UPDATE_OPERATION" || c.categoryId == null || c.description.orEmpty().length > 160)) {
+        if (c.replaceDetails && (c.type !in setOf("UPDATE_OPERATION", "CREATE_RULE", "UPDATE_RULE") || c.categoryId == null || c.description.orEmpty().length > 160)) {
             throw BudgetLocalFailure("invalid")
         }
         if (c.type in setOf("UPDATE_OPERATION", "REFUND_OPERATION")) {
             val operation = p.operations[c.entityId] ?: throw BudgetLocalFailure("not_found")
             val allowedTypes = if (c.type == "UPDATE_OPERATION") setOf("EXPENSE", "INCOME") else setOf("EXPENSE")
-            if (operation.type !in allowedTypes || operation.originalCurrency != "KZT" || operation.status != "POSTED") throw BudgetLocalFailure("invalid")
+            if (operation.type !in allowedTypes || operation.hasOriginalValuation || operation.status != "POSTED") throw BudgetLocalFailure("invalid")
             val refunds = p.operations.values.filter { it.refundOf == c.entityId && it.status == "POSTED" && it.syncStatus != "REJECTED" }
             if (c.type == "UPDATE_OPERATION" && refunds.isNotEmpty()) throw BudgetLocalFailure("invalid")
             if (c.type == "REFUND_OPERATION" && operation.originalAmount.toBigDecimal() <= refunds.sumOf { it.originalAmount.toBigDecimal() }) throw BudgetLocalFailure("invalid")
         }
-        c.dueOn?.let { if (LocalDate.parse(it) < LocalDate.parse(c.authoredOn) && !(c.type == "UPDATE_INCOME" && it == p.incomes[c.entityId]?.dueOn)) throw BudgetLocalFailure("invalid") }
-        if (c.type == "CREATE_RULE") {
+        c.incomeFrequency?.let { if (it !in com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.entries.map { f -> f.name }) throw BudgetLocalFailure("invalid") }
+        c.ruleName?.let { if (it.isBlank() || it.length > 160) throw BudgetLocalFailure("invalid") }
+        c.incomeName?.let { if (it.isBlank() || it.length > 160) throw BudgetLocalFailure("invalid") }
+        if (c.type == "CONFIRM_REMAINDER_INCOME") {
+            val item = p.plans(PlannedOperationsFilter(period = PlannedOperationPeriod.Custom,
+                dateFrom = LocalDate.of(1,1,1), dateTo = today().plusYears(5))).items
+                .filterIsInstance<PlannedOperation.Income>().firstOrNull { it.id == c.entityId }?.income ?: throw BudgetLocalFailure("not_found")
+            val amount = c.remainderAmount?.toBigDecimalOrNull() ?: throw BudgetLocalFailure("invalid")
+            if (amount.signum() <= 0 || amount.scale() > 2 || amount > item.remainingAmount ||
+                c.remainderReceived?.toBigDecimalOrNull()?.compareTo(item.receivedAmount) != 0 ||
+                LocalDate.parse(c.remainderDueOn) < today()) throw BudgetLocalFailure("invalid")
+        }
+        c.dueOn?.let { if (LocalDate.parse(it) < LocalDate.parse(c.authoredOn) && !(c.type in setOf("UPDATE_INCOME", "UPDATE_INCOME_RULE") && it == (p.incomeRules[c.entityId] ?: p.incomes[c.entityId])?.dueOn)) throw BudgetLocalFailure("invalid") }
+        if (c.type == "CREATE_RULE" || c.type == "UPDATE_RULE" && c.replaceDetails) {
             val start = LocalDate.parse(c.startsOn)
             val accountingStart =
                 java.time.Instant
@@ -321,8 +470,12 @@ class BudgetStore(
                         content.sync.accountingStartedAt,
                     ).atZone(ZoneId.of("Asia/Almaty"))
                     .toLocalDate()
-            if (start < accountingStart || c.scheduleValue !in (if (c.frequency == "MONTHLY") 1..31 else 1..7) ||
-                c.frequency !in setOf("MONTHLY", "WEEKLY")
+            if (start < accountingStart && !(c.type == "UPDATE_RULE" && c.startsOn == p.rules[c.entityId]?.startsOn) || !when (c.frequency) {
+                    "ONCE" -> c.scheduleValue == null && (start >= LocalDate.parse(c.authoredOn) || c.type == "UPDATE_RULE" && start.toString() == p.rules[c.entityId]?.startsOn)
+                    "MONTHLY" -> c.scheduleValue in 1..31
+                    "WEEKLY" -> c.scheduleValue in 1..7
+                    else -> false
+                }
             ) {
                 throw BudgetLocalFailure("invalid")
             }
@@ -336,7 +489,8 @@ class BudgetStore(
                         dateTo = today().plusYears(5),
                     ),
                 )
-            val target = all.items.find { it.id == c.entityId } ?: throw BudgetLocalFailure("not_found")
+            val target = all.items.find { it.id == c.entityId }
+            if (target == null && (c.type == "CLOSE_EXPENSE" || p.incomes[c.entityId]?.status != "SCHEDULED")) throw BudgetLocalFailure("not_found")
             if (c.type == "CLOSE_EXPENSE" &&
                 (target !is PlannedOperation.Expense || !target.expense.canBeClosed)
             ) {
@@ -354,7 +508,7 @@ class BudgetStore(
             val current = dao.command(item.requestId) ?: return@withTransaction null
             if (current.status != "PENDING") return@withTransaction null
             current.wirePayload?.let { return@withTransaction json.decodeFromString<BudgetSyncCommand>(it) }
-            val parents = listOfNotNull(current.predecessor, current.dependency).mapNotNull { dao.command(it) }
+            val parents = (listOfNotNull(current.predecessor, current.dependency) + json.decodeFromString<List<String>>(current.dependencies)).distinct().mapNotNull { dao.command(it) }
             if (parents.any { it.status in setOf("CONFLICT", "REJECTED", "BLOCKED", "CANCELLED") }) {
                 dao.update(current.copy(status = "BLOCKED", errorCode = "dependency_failed"))
                 return@withTransaction null
@@ -375,6 +529,12 @@ class BudgetStore(
                 intent = intent.copy(ruleId = occurrence?.ruleId, dueOn = occurrence?.dueOn)
             }
             val prior = current.predecessor?.let { dao.command(it) }
+            if (intent.type == "SET_OPERATION_PLAN_LINK") {
+                val target = requireNotNull(intent.planTarget)
+                val targetParent = parents.filter { it.entityId == target.planId || it.entityId == target.ruleId }.maxByOrNull { it.createdOrder }
+                // Income versions come from their own receipt. A rule receipt is not an occurrence version.
+                if (target.type == "INCOME" && targetParent?.entityId == target.planId && targetParent?.receiptToken != null) intent = intent.copy(expectedPlanVersion = targetParent.receiptToken)
+            }
             val wire = if (prior != null) intent.copy(expectedToken = prior.receiptToken) else intent
             dao.update(current.copy(wirePayload = json.encodeToString(wire)))
             wire
@@ -387,13 +547,14 @@ class BudgetStore(
             val replacement = intent.copy(requestId = UUID.randomUUID().toString())
             dao.update(current.copy(status = "CANCELLED"))
             dao.enqueue(current.copy(requestId = replacement.requestId, intent = json.encodeToString(replacement), wirePayload = null, status = "PENDING", errorCode = null, receiptRevision = null, receiptToken = null, protocolVersion = 4))
-            dao.commands(current.scopeKey).filter { it.requestId != current.requestId && (it.predecessor == current.requestId || it.dependency == current.requestId) }.forEach { child ->
+            dao.commands(current.scopeKey).filter { it.requestId != current.requestId && (it.predecessor == current.requestId || it.dependency == current.requestId || current.requestId in json.decodeFromString<List<String>>(it.dependencies)) }.forEach { child ->
                 require(child.wirePayload == null)
-                dao.update(child.copy(predecessor = if (child.predecessor == current.requestId) replacement.requestId else child.predecessor, dependency = if (child.dependency == current.requestId) replacement.requestId else child.dependency, status = "PENDING", errorCode = null))
+                dao.update(child.copy(predecessor = if (child.predecessor == current.requestId) replacement.requestId else child.predecessor, dependency = if (child.dependency == current.requestId) replacement.requestId else child.dependency, dependencies = rebindDependencies(child, current.requestId, replacement.requestId), status = "PENDING", errorCode = null))
             }
         }
 
     suspend fun cancelRejectedOperation(id: String) {
+        checkWritable()
         val content = requireNotNull(dao.content())
         content.commands.filter { it.entityId == id && it.status in setOf("REJECTED", "BLOCKED") }.forEach { dao.update(it.copy(status = "CANCELLED")) }
     }
@@ -424,6 +585,10 @@ class BudgetStore(
     ) = database.withTransaction {
         require(receipt.requestId == item.requestId && receipt.revision >= 0 && receipt.entityToken != null && receipt.entityToken >= 0)
         val current = requireNotNull(dao.command(item.requestId))
+        val proposal = dao.proposal(item.scopeKey, item.entityId)
+        if (receipt.suggestedPlan != null && proposal?.decision == "NONE") {
+            dao.putProposal(OperationPlanProposal(item.scopeKey, item.entityId, json.encodeToString(receipt.suggestedPlan), "PENDING"))
+        }
         dao.update(
             current.copy(
                 status = "ACKNOWLEDGED",
@@ -470,6 +635,7 @@ class BudgetStore(
         database.withTransaction {
             val content = requireNotNull(dao.content())
             writable(content)
+            checkWritable()
             val failed = dao.command(id) ?: return@withTransaction
             val intent = json.decodeFromString<BudgetSyncCommand>(failed.intent)
             val descendants = mutableSetOf(id)
@@ -478,13 +644,14 @@ class BudgetStore(
                 changed = false
                 content.commands.forEach {
                     if (it.predecessor in descendants ||
-                        it.dependency in descendants
+                        it.dependency in descendants || json.decodeFromString<List<String>>(it.dependencies).any { dependency -> dependency in descendants }
                     ) {
                         changed = descendants.add(it.requestId) || changed
                     }
                 }
             } while (changed)
             if (reapply) {
+                if (intent.type in BudgetProjection.LINK_COMMANDS) throw BudgetLocalFailure("confirmation_required")
                 val canonical = token(content, failed.kind, failed.entityId)
                 if (canonical == null && !intent.type.startsWith("CREATE_")) throw BudgetLocalFailure("not_found")
                 val replacement = intent.copy(requestId = UUID.randomUUID().toString(), expectedToken = canonical)
@@ -529,6 +696,7 @@ class BudgetStore(
                                     child.predecessor
                                 },
                             dependency = if (child.dependency == id) replacement.requestId else child.dependency,
+                            dependencies = rebindDependencies(child, id, replacement.requestId),
                             status = "PENDING",
                             errorCode = null,
                         ),
@@ -543,6 +711,9 @@ class BudgetStore(
         }
         runCatching { scheduler.schedule() }
     }
+
+    private fun rebindDependencies(child: BudgetOutbox, oldId: String, newId: String): String =
+        json.encodeToString(json.decodeFromString<List<String>>(child.dependencies).map { if (it == oldId) newId else it })
 
     private fun issue(
         c: BudgetContent,
@@ -565,6 +736,8 @@ class BudgetStore(
             }
         val action =
             when {
+                intent.type == "SET_OPERATION_PLAN_LINK" -> "Связь с планом"
+                intent.type == "REMOVE_OPERATION_PLAN_LINK" -> "Снятие связи с планом"
                 intent.type.startsWith("CREATE") -> "Создание"
 
                 intent.type.startsWith("DELETE") -> "Удаление"
@@ -574,12 +747,13 @@ class BudgetStore(
 
                 else -> "Изменение"
             }
+        val symbol = BudgetCurrency.valueOf(c.sync.currency).symbol
         val local =
             listOfNotNull(
                 action,
                 intent.name,
                 intent.amount?.let {
-                    "$it ₸"
+                    "$it $symbol"
                 },
                 intent.dueOn,
                 intent.startsOn,
@@ -592,7 +766,7 @@ class BudgetStore(
                             .find { category ->
                                 category.id == it.categoryId
                             }?.name,
-                        it.amount?.let { value -> "$value ₸" },
+                        it.amount?.let { value -> "$value $symbol" },
                         it.dueOn,
                         when (it.status) {
                             "SCHEDULED" -> "Запланировано"
@@ -612,7 +786,7 @@ class BudgetStore(
             local,
             server,
             item.status,
-            item.status != "BLOCKED" && (available || intent.type.startsWith("CREATE_")),
+            item.status != "BLOCKED" && intent.type !in BudgetProjection.LINK_COMMANDS && (available || intent.type.startsWith("CREATE_")),
         )
     }
 }

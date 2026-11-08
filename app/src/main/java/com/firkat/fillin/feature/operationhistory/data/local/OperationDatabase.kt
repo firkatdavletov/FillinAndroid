@@ -14,6 +14,9 @@ import androidx.room.Relation
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import com.firkat.fillin.core.database.*
+import com.firkat.fillin.feature.categories.data.local.CategoryUsageCursor
+import com.firkat.fillin.feature.categories.data.local.CategoryUsageDao
+import com.firkat.fillin.feature.categories.data.local.CategoryUsageEvent
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "local_operations", indices = [Index("scopeKey"), Index("requestId", unique = true)])
@@ -36,7 +39,12 @@ data class LocalOperation(
     val syncStatus: String = "SYNCED",
     val syncError: String? = null,
     val occurredAt: String? = null,
-)
+    val rubKztRate: String? = null,
+) {
+    // Older databases and sync payloads use amountKzt for the accounting value.
+    val accountingAmount: String get() = amountKzt
+    val hasOriginalValuation: Boolean get() = originalCurrency != "KZT"
+}
 
 @Entity(tableName = "local_categories", primaryKeys = ["scopeKey", "id"])
 data class LocalCategory(
@@ -79,6 +87,8 @@ data class OperationSyncState(
     @ColumnInfo(defaultValue = "0") val cloudEnabled: Boolean = false,
     @ColumnInfo(defaultValue = "0") val cloudBound: Boolean = false,
     val bootstrapPayload: String? = null,
+    @ColumnInfo(defaultValue = "'KZT'") val currency: String = "KZT",
+    @ColumnInfo(defaultValue = "0") val currencyVersion: Long = 0,
 )
 
 data class LocalHistoryContent(
@@ -151,13 +161,16 @@ interface OperationDao {
 @Database(
     entities = [
         LocalOperation::class, LocalCategory::class, OperationOutbox::class, OperationSyncState::class,
-        LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class,
+        LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class, OperationPlanProposal::class,
+        CategoryUsageEvent::class, CategoryUsageCursor::class,
     ],
-    version = 4,
+    version = 7,
     exportSchema = true,
 )
 abstract class OperationDatabase : RoomDatabase() {
     abstract fun operations(): OperationDao
+
+    abstract fun categoryUsage(): CategoryUsageDao
 
     abstract fun budget(): BudgetDao
 }

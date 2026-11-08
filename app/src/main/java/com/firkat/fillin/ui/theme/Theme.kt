@@ -1,58 +1,29 @@
 package com.firkat.fillin.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
+val LocalSaldomiSemanticColors =
+    staticCompositionLocalOf {
+        SaldomiLightSemanticColors
+    }
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+val LocalSaldomiDesignColors =
+    staticCompositionLocalOf {
+        SaldomiLightDesignColors
+    }
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-)
+val MaterialTheme.saldomiDesignColors: SaldomiDesignColors
+    @Composable
+    get() = LocalSaldomiDesignColors.current
 
-val SaldomiLightColors = lightColorScheme(
-    primary = Color(0xFF064A37),
-    onPrimary = Color.White,
-    surface = Color.White,
-    onSurface = Color(0xFF102B23),
-    surfaceVariant = Color(0xFFEAF2ED),
-    onSurfaceVariant = Color(0xFF102B23),
-    outlineVariant = Color(0xFFDAE6DE),
-)
+val MaterialTheme.saldomiColors: SaldomiSemanticColors
+    @Composable
+    get() = LocalSaldomiSemanticColors.current
 
-val SaldomiDarkColors = darkColorScheme(
-    primary = Color(0xFF4FD18F),
-    onPrimary = Color(0xFF06271D),
-    surface = Color(0xFF203630),
-    onSurface = Color.White,
-    surfaceVariant = Color(0xFF203630),
-    onSurfaceVariant = Color.White,
-    outlineVariant = Color(0xFF35564A),
-)
 
 @Composable
 fun FillinTheme(
@@ -61,15 +32,26 @@ fun FillinTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor -> SaldomiDarkColors
-        darkTheme -> SaldomiDarkColors
-        else -> SaldomiLightColors
+    val colorScheme = if (darkTheme) {
+        SaldomiDarkColors
+    } else {
+        SaldomiLightColors
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    val semanticColors = if (darkTheme) {
+        SaldomiDarkSemanticColors
+    } else {
+        SaldomiLightSemanticColors
+    }
+
+    CompositionLocalProvider(
+        LocalSaldomiSemanticColors provides semanticColors,
+        LocalSaldomiDesignColors provides if (darkTheme) SaldomiDarkDesignColors else SaldomiLightDesignColors,
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content,
+        )
+    }
 }

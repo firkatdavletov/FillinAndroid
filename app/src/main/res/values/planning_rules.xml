@@ -1,0 +1,24 @@
+<resources>
+    <string name="planning_title">Планы</string>
+    <string name="planning_subtitle">Правила регулярных и разовых операций</string>
+    <string name="planning_all">Все</string>
+    <string name="planning_once">Разовые</string>
+    <string name="planning_weekly">Еженедельные</string>
+    <string name="planning_biweekly">Раз в две недели</string>
+    <string name="planning_monthly">Ежемесячные</string>
+    <string name="planning_add">Добавить правило</string>
+    <string name="planning_expand">Развернуть группу</string>
+    <string name="planning_collapse">Свернуть группу</string>
+    <string name="planning_empty">Пока нет действующих правил. Добавьте правило, чтобы запланировать расход или доход.</string>
+    <string name="planning_filtered_empty">Нет правил выбранного типа</string>
+    <string name="planning_once_schedule">%1$s · Один раз</string>
+    <string name="planning_weekly_schedule">Каждую неделю · %1$s</string>
+    <string name="planning_monthly_schedule">%1$d-го числа</string>
+    <string name="planning_biweekly_schedule">Раз в две недели · %1$s</string>
+    <plurals name="planning_rule_count">
+        <item quantity="one">%d правило</item>
+        <item quantity="few">%d правила</item>
+        <item quantity="many">%d правил</item>
+        <item quantity="other">%d правила</item>
+    </plurals>
+</resources>

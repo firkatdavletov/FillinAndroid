@@ -1,5 +1,8 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationPlanLinkStore
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
+import com.firkat.fillin.feature.plannedoperations.domain.usecase.ObservePlanningRules
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
@@ -22,6 +25,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.time.Clock
@@ -34,6 +38,8 @@ class EditOperationViewModel(
     private val updateOperation: UpdateOperation,
     private val refundPurchase: RefundPurchase,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
+    private val links: OperationPlanLinkStore? = null,
+    private val rules: ObservePlanningRules? = null,
 ) : ViewModel() {
     private val state = MutableStateFlow(EditOperationUiState())
     val uiState = state.asStateFlow()
@@ -45,6 +51,11 @@ class EditOperationViewModel(
     val canDismiss: Boolean get() = !state.value.isSaving && !completed
 
     init {
+        if (links != null) viewModelScope.launch {
+            try { links.observeLinks(operationId).collect { publish(state.value.copy(links = it)) } }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { publish(state.value.copy(planError = true)) }
+        }
         viewModelScope.launch {
             try {
                 combine(history.observeOperation(operationId), history.context) { operation, context -> operation to context }
@@ -88,6 +99,20 @@ class EditOperationViewModel(
         if (completed || state.value.isSaving) return
         val current = state.value
         when (event) {
+            is EditOperationEvent.WindowChanged -> publish(current.copy(window = event.window))
+            EditOperationEvent.DiscardConfirmed -> close()
+            EditOperationEvent.UnlinkConfirmed -> if (current.window == OperationDetailsWindow.Unlink) linkAction { links?.removeLink(operationId, requireNotNull(current.operation).version) }
+            is EditOperationEvent.PlanSelected -> linkAction {
+                requireNotNull(links).selectProposal(operationId, event.plan)
+                effectChannel.send(EditOperationEffect.OpenLinkConfirmation)
+            }
+            is EditOperationEvent.OpenPlan -> linkAction {
+                val type = if (event.plan.target.type == "EXPENSE") PlannedOperationType.Expense else PlannedOperationType.Income
+                val id = event.plan.target.ruleId ?: event.plan.target.planId
+                val rule = id?.let { rules?.observeRule(it)?.first()?.takeIf { rule -> rule.type == type } }
+                if (rule == null) publish(state.value.copy(planError = true))
+                else effectChannel.send(EditOperationEffect.OpenPlan(type, rule.id))
+            }
             is EditOperationEvent.InputChanged -> if (current.mode != EditOperationMode.ReadOnly) {
                 val next = current.copy(input = event.value, error = null, inputError = null)
                 val invalid = parse(next) as? OperationInputResult.Invalid
@@ -100,7 +125,9 @@ class EditOperationViewModel(
                 publish(current.copy(type = event.type, categoryId = null, error = null))
             }
             is EditOperationEvent.CategorySelected -> if ((current.mode == EditOperationMode.Correct || current.mode == EditOperationMode.Edit && current.operation?.refundedAmount?.signum() == 0) && current.categories.any { it.id == event.id }) {
-                publish(current.copy(categoryId = event.id, error = null))
+                if (current.links.current.isNotEmpty() && event.id != current.operation?.categoryId) {
+                    publish(current.copy(error = OperationHistoryError.UnlinkBeforeCategoryChange, window = null))
+                } else publish(current.copy(categoryId = event.id, error = null, window = null))
             }
             EditOperationEvent.SaveClicked -> save()
             EditOperationEvent.RefundClicked -> if (current.canRefund) publish(current.copy(isRefundConfirmationVisible = true))
@@ -109,9 +136,32 @@ class EditOperationViewModel(
                 mutate(EditOperationOutcome.Refunded) { refundPurchase(requireNotNull(original)) }
             }
             EditOperationEvent.CloseClicked -> {
-                completed = true
-                effectChannel.trySend(EditOperationEffect.Close)
+                when {
+                    current.window != null -> publish(current.copy(window = null))
+                    current.isRefundConfirmationVisible -> publish(current.copy(isRefundConfirmationVisible = false))
+                    current.dirty -> publish(current.copy(window = OperationDetailsWindow.Discard))
+                    else -> close()
+                }
             }
+        }
+    }
+
+    private fun close() {
+        completed = true
+        effectChannel.trySend(EditOperationEffect.Close)
+    }
+
+    private fun linkAction(action: suspend () -> Unit) {
+        val current = state.value
+        if (current.operation?.version != original?.version) {
+            publish(current.copy(error = OperationHistoryError.Conflict)); return
+        }
+        publish(current.copy(isSaving = true, window = null, planError = false))
+        viewModelScope.launch {
+            try { action() }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { publish(state.value.copy(planError = true)) }
+            finally { publish(state.value.copy(isSaving = false)) }
         }
     }
 
@@ -170,11 +220,13 @@ class EditOperationViewModel(
         val operation = next.operation
         val mode = when {
             operation?.syncStatus == OperationSyncStatus.Rejected -> EditOperationMode.Correct
-            operation?.status == OperationStatus.Posted && operation.originalCurrency == "KZT" -> EditOperationMode.Edit
+            operation?.status == OperationStatus.Posted && !operation.hasOriginalValuation -> EditOperationMode.Edit
             else -> EditOperationMode.ReadOnly
         }
         val categories = context.categories.filter { it.kind == if (next.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income }
-        val candidate = next.copy(mode = mode, categories = categories,
+        val initialInput = original?.let { if (it.syncStatus == OperationSyncStatus.Rejected) listOfNotNull(it.description?.takeIf(String::isNotBlank), it.originalAmount.toPlainString()).joinToString(" ") else it.originalAmount.toPlainString() }
+        val dirty = original != null && (next.input != initialInput || next.description != original?.description.orEmpty() || next.categoryId != original?.categoryId || next.type != original?.type)
+        val candidate = next.copy(mode = mode, categories = categories, dirty = dirty,
             descriptionError = mode == EditOperationMode.Edit && next.description.trim().length > 160)
         val parsed = parse(candidate) as? OperationInputResult.Valid
         val available = !completed && !next.isSaving && context.initialSyncComplete && context.syncError != "scope_changed"

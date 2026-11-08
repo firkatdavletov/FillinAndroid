@@ -1,6 +1,7 @@
 package com.firkat.fillin.feature.plannedoperations.ui
 
 import com.firkat.fillin.feature.categories.domain.model.Category
+import com.firkat.fillin.feature.plannedoperations.domain.model.*
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository
 import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
@@ -45,6 +46,22 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlannedOperationEditorsTest {
+    @Test fun `once is default and date and schedule validation follow selected frequency`() {
+        val day = LocalDate.parse("2026-11-04")
+        val editor = com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpenseRuleEditorUiState(
+            today = day, categoryId = "home", amount = "100", startsOn = day.toString(),
+        )
+        assertEquals(PlannedExpenseFrequency.Once, editor.frequency)
+        org.junit.Assert.assertTrue(editor.canSave)
+        org.junit.Assert.assertFalse(editor.copy(startsOn = day.minusDays(1).toString()).canSave)
+        org.junit.Assert.assertFalse(editor.copy(categoryId = "").canSave)
+        org.junit.Assert.assertFalse(editor.copy(amount = "0").canSave)
+        org.junit.Assert.assertFalse(editor.copy(frequency = PlannedExpenseFrequency.Monthly).canSave)
+        org.junit.Assert.assertTrue(editor.copy(frequency = PlannedExpenseFrequency.Monthly, scheduleValue = "31").canSave)
+        org.junit.Assert.assertTrue(editor.copy(frequency = PlannedExpenseFrequency.Weekly, scheduleValue = "7").canSave)
+        org.junit.Assert.assertFalse(editor.copy(frequency = PlannedExpenseFrequency.Weekly, scheduleValue = "8").canSave)
+    }
+
     @Before fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
     @After fun tearDown() = Dispatchers.resetMain()
 
@@ -107,6 +124,48 @@ class PlannedOperationEditorsTest {
         assertEquals(2L, model.uiState.value.changeVersion)
     }
 
+    @Test fun `catalog expense edits and deletes source rule version without a payment`() = runTest {
+        val repository = ExpenseCommands()
+        val model = expenseEditor(repository)
+        val rule = PlanningRule("source", 42, PlannedOperationType.Expense, "rent", "Rent", "HOME", "Rent",
+            BigDecimal("100"), frequency = PlanningFrequency.Monthly, startsOn = DAY, scheduleValue = 31)
+        model.edit(rule)
+        assertNull(model.uiState.value.editor?.original)
+        model.onEvent(PlannedExpensesEvent.AmountChanged("120"))
+        model.onEvent(PlannedExpensesEvent.SaveRequested)
+        runCurrent()
+        assertEquals(listOf("update:source:42:120"), repository.commands)
+        model.edit(rule.copy(version = 43))
+        model.onEvent(PlannedExpensesEvent.DeleteRequested)
+        model.onEvent(PlannedExpensesEvent.DeleteConfirmed)
+        runCurrent()
+        assertEquals("delete:source:43", repository.commands.last())
+    }
+
+    @Test fun `catalog income edits original anchor and retains input on failure`() = runTest {
+        val repository = IncomeCommands()
+        val model = PlannedIncomesViewModel(GetPlannedIncomes(repository), GetCategories(NoCategories()),
+            CreatePlannedIncome(repository), UpdatePlannedIncome(repository), DeletePlannedIncome(repository),
+            editorOnly = true, repository = repository)
+        val rule = PlanningRule("source-income", 12, PlannedOperationType.Income, "salary", "Salary", "INCOME", "Salary",
+            BigDecimal("200"), frequency = PlanningFrequency.Monthly, startsOn = DAY, isIncomeRule = true)
+        model.edit(rule)
+        assertEquals(DAY.toString(), model.uiState.value.editor?.dueOn)
+        assertNull(model.uiState.value.editor?.original)
+        model.onEvent(PlannedIncomesEvent.AmountChanged("250"))
+        model.onEvent(PlannedIncomesEvent.SaveRequested)
+        runCurrent()
+        assertEquals("rule:source-income:12:$DAY:250", repository.commands.last())
+        assertNull(model.uiState.value.editor)
+        repository.fail = true
+        model.edit(rule)
+        model.onEvent(PlannedIncomesEvent.AmountChanged("350"))
+        model.onEvent(PlannedIncomesEvent.SaveRequested)
+        runCurrent()
+        assertEquals("350", model.uiState.value.editor?.amount)
+        org.junit.Assert.assertNotNull(model.uiState.value.editor?.error)
+    }
+
     private fun expenseEditor(repository: PlannedExpensesRepository) = PlannedExpensesViewModel(
         GetPlannedExpenses(repository), GetCategories(NoCategories()), CreatePlannedExpenseRule(repository),
         UpdatePlannedExpenseRule(repository), DeletePlannedExpenseRule(repository), ClosePlannedExpense(repository),
@@ -121,7 +180,7 @@ private class ExpenseCommands : PlannedExpensesRepository {
         categoryId: String,
         amount: BigDecimal,
         frequency: PlannedExpenseFrequency,
-        scheduleValue: Int,
+        scheduleValue: Int?,
         startsOn: LocalDate,
     ): PlannedExpenseRule = error("Unused")
     override suspend fun updateRule(id: String, version: Long, amount: BigDecimal): PlannedExpenseRule {
@@ -134,6 +193,12 @@ private class ExpenseCommands : PlannedExpensesRepository {
 
 private class IncomeCommands : PlannedIncomesRepository {
     val commands = mutableListOf<String>()
+    var fail = false
+    override suspend fun saveRuleDetails(rule: PlanningRule, categoryId: String, amount: BigDecimal,
+        dueOn: LocalDate, name: String, frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency, active: Boolean) {
+        if (fail) throw com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesException.Network
+        commands += "rule:${rule.id}:${rule.version}:$dueOn:$amount"
+    }
     override suspend fun getPlannedIncomes(): PlannedIncomes = error("Legacy list must not be requested")
     override suspend fun createPlannedIncome(
         categoryId: String,

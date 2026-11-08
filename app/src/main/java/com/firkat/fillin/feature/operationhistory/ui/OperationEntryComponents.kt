@@ -26,6 +26,7 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
@@ -99,22 +100,36 @@ internal fun OperationCategoryRow(
     modifier: Modifier = Modifier,
     selectedCategoryId: String? = null,
 ) {
+    val scrollState = rememberLazyListState()
+    LaunchedEffect(selectedCategoryId) {
+        val index = categories.indexOfFirst {
+            it.id == selectedCategoryId
+        }.coerceAtLeast(0)
+        scrollState.scrollToItem(index)
+    }
     LazyRow(
-        state = rememberLazyListState(),
+        state = scrollState,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(horizontal = 24.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
         modifier = modifier.fillMaxWidth().testTag("operation-create-categories"),
     ) {
         items(categories, key = { it.id }) { category ->
-            OperationCategoryCard(category.name, category.icon.code, enabled, { onCategoryClick(category.id) },
-                Modifier.testTag("operation-create-category-" + category.id), selected = category.id == selectedCategoryId)
+            OperationCategoryCard(
+                name = category.name,
+                iconCode = category.icon.code,
+                enabled = enabled,
+                onClick = { onCategoryClick(category.id) },
+                modifier = Modifier
+                    .testTag("operation-create-category-" + category.id),
+                selected = category.id == selectedCategoryId
+            )
         }
     }
 }
 
 @Composable
 private fun OperationCategoryCard(
-    name: String,
+    name: String?,
     iconCode: String,
     enabled: Boolean,
     onClick: () -> Unit,
@@ -133,8 +148,15 @@ private fun OperationCategoryCard(
         modifier = modifier.semantics { this.selected = selected }.widthIn(min = 80.dp, max = 128.dp).heightIn(min = 88.dp),
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            CategoryIconImage(iconCode, Modifier.size(26.dp).alpha(if (enabled) 1f else 0.38f))
-            Text(name, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            CategoryIconImage(iconCode, name.orEmpty(), Modifier.size(26.dp).alpha(if (enabled) 1f else 0.38f))
+            if (!name.isNullOrBlank())
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
         }
     }
 }

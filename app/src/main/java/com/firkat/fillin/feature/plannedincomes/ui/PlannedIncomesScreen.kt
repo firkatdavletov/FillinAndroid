@@ -1,5 +1,8 @@
 package com.firkat.fillin.feature.plannedincomes.ui
 
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -17,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -55,11 +57,10 @@ import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
-import java.text.NumberFormat
+import com.firkat.fillin.ui.format.formatMoney
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Currency
 import java.util.Locale
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -173,17 +174,16 @@ internal fun PlannedIncomeEditor(
             )
             else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val original = editor.original
-                if (
-                    original != null &&
-                    categories.none { it.id == original.categoryId }
-                ) {
+                val originalCategoryId = editor.originalRule?.categoryId ?: original?.categoryId
+                val originalCategoryName = editor.originalRule?.categoryName ?: original?.categoryName.orEmpty()
+                if (originalCategoryId != null && categories.none { it.id == originalCategoryId }) {
                     FilterChip(
-                        selected = editor.categoryId == original.categoryId,
+                        selected = editor.categoryId == originalCategoryId,
                         onClick = {
-                            onEvent(PlannedIncomesEvent.CategorySelected(original.categoryId))
+                            onEvent(PlannedIncomesEvent.CategorySelected(originalCategoryId))
                         },
                         enabled = !editor.isSaving,
-                        label = { Text(original.categoryName) },
+                        label = { Text(originalCategoryName) },
                     )
                 }
                 categories.forEach { category ->
@@ -194,12 +194,36 @@ internal fun PlannedIncomeEditor(
                         },
                         enabled = !editor.isSaving,
                         label = { Text(category.name) },
-                        leadingIcon = { CategoryIconImage(category.icon.code) },
+                        leadingIcon = { CategoryIconImage(category.icon.code, category.name) },
                     )
                 }
             }
         }
 
+        OutlinedTextField(value = editor.name, onValueChange = { onEvent(PlannedIncomesEvent.NameChanged(it)) },
+            label = { Text(stringResource(R.string.income_name_label)) }, enabled = !editor.isSaving,
+            modifier = Modifier.fillMaxWidth(), singleLine = true)
+        com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.entries.forEach { frequency ->
+            FilterChip(selected = editor.frequency == frequency,
+                onClick = { onEvent(PlannedIncomesEvent.FrequencyChanged(frequency)) }, enabled = !editor.isSaving,
+                label = { Text(stringResource(when (frequency) {
+                    com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.ONCE -> R.string.income_frequency_once
+                    com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.WEEKLY -> R.string.income_frequency_weekly
+                    com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.BIWEEKLY -> R.string.income_frequency_biweekly
+                    com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.MONTHLY -> R.string.income_frequency_monthly
+                })) })
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Switch(checked = editor.active, onCheckedChange = { onEvent(PlannedIncomesEvent.ActiveChanged(it)) }, enabled = !editor.isSaving)
+            Text(stringResource(R.string.income_active_label))
+        }
+        if (editor.original?.receivedAmount?.signum() == 1 && editor.original.remainingAmount.signum() > 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Checkbox(checked = editor.confirmRemainder,
+                    onCheckedChange = { onEvent(PlannedIncomesEvent.RemainderChanged(it)) }, enabled = !editor.isSaving)
+                Text(stringResource(R.string.income_remainder_label))
+            }
+        }
         OutlinedTextField(
             value = editor.amount,
             onValueChange = { onEvent(PlannedIncomesEvent.AmountChanged(it)) },
@@ -300,21 +324,20 @@ internal fun DeleteIncomeConfirmation(
     onEvent: (PlannedIncomesEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AlertDialog(
+    SaldomiActionBottomSheet(
         modifier = modifier,
         onDismissRequest = { onEvent(PlannedIncomesEvent.DeleteDismissed) },
         title = { Text(stringResource(R.string.planned_incomes_delete_title)) },
         text = { Text(stringResource(R.string.planned_incomes_delete_message)) },
         confirmButton = {
-            TextButton(onClick = { onEvent(PlannedIncomesEvent.DeleteConfirmed) }) {
+            SaldomiButton(onClick = { onEvent(PlannedIncomesEvent.DeleteConfirmed) }, modifier = Modifier.fillMaxWidth(), large = true, destructive = true) {
                 Text(
                     text = stringResource(R.string.planned_incomes_delete_confirm),
-                    color = MaterialTheme.colorScheme.error,
                 )
             }
         },
         dismissButton = {
-            TextButton(onClick = { onEvent(PlannedIncomesEvent.DeleteDismissed) }) {
+            SaldomiOutlinedButton(onClick = { onEvent(PlannedIncomesEvent.DeleteDismissed) }, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.planned_incomes_delete_cancel))
             }
         },
@@ -469,7 +492,7 @@ internal fun PlannedIncomeItem(income: PlannedIncome, onEdit: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = income.categoryName,
+                    text = income.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -487,7 +510,7 @@ internal fun PlannedIncomeItem(income: PlannedIncome, onEdit: () -> Unit) {
                 )
             }
             Text(
-                text = "+" + formatMoney(income.plannedAmount, income.currency),
+                text = "+" + formatMoney(income.remainingAmount, income.currency),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
@@ -554,16 +577,6 @@ private val PlannedIncomesError.messageResource: Int
         PlannedIncomesError.Unknown -> R.string.planned_incomes_error_generic
     }
 
-private fun formatMoney(amount: BigDecimal, currencyCode: String): String = runCatching {
-    NumberFormat.getCurrencyInstance(Locale.forLanguageTag("ru-KZ")).apply {
-        currency = Currency.getInstance(currencyCode)
-        minimumFractionDigits = 2
-        maximumFractionDigits = 2
-    }.format(amount)
-}.getOrElse {
-    "${amount.setScale(2).toPlainString()} $currencyCode"
-}
-
 private val shortDateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("ru"))
 private val longDateFormatter = DateTimeFormatter.ofPattern("d MMMM", Locale.forLanguageTag("ru"))
 
@@ -610,4 +623,28 @@ private fun PlannedIncomesPreview() {
             onEvent = {},
         )
     }
+}
+
+@Preview(name = "Income Recurring", widthDp = 360, heightDp = 900)
+@Preview(name = "Income Recurring dark", widthDp = 360, heightDp = 900, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun IncomeRecurringEditorPreview() {
+    FillinTheme { PlannedIncomeEditor(emptyList(), false,
+        PlannedIncomeEditorUiState(today = LocalDate.of(2026,11,1), name = "Зарплата", amount = "300000", dueOn = "2026-11-15", frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.MONTHLY), {}) }
+}
+
+@Preview(name = "Income Disabled", widthDp = 360, heightDp = 900)
+@Preview(name = "Income Disabled dark", widthDp = 360, heightDp = 900, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun IncomeDisabledEditorPreview() {
+    FillinTheme { PlannedIncomeEditor(emptyList(), false,
+        PlannedIncomeEditorUiState(today = LocalDate.of(2026,11,1), name = "Зарплата", amount = "300000", dueOn = "2026-11-15", active = false), {}) }
+}
+
+@Preview(name = "Income Saving", widthDp = 360, heightDp = 900)
+@Preview(name = "Income Saving dark", widthDp = 360, heightDp = 900, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun IncomeSavingEditorPreview() {
+    FillinTheme { PlannedIncomeEditor(emptyList(), false,
+        PlannedIncomeEditorUiState(today = LocalDate.of(2026,11,1), name = "Зарплата", amount = "300000", dueOn = "2026-11-15", isSaving = true), {}) }
 }

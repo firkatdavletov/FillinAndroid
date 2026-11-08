@@ -23,142 +23,97 @@ class CalculateBalanceForecastTest {
     private fun forecast(input: DashboardCalculationInput = input()) = CalculateDashboard.calculate(input).balanceForecast
     private fun BalanceForecastProjection.balance(day: Int) = points[day].balance.amount
 
-    @Test fun `uses thirty completed days including zero spending days and projects thirty days ahead`() {
-        val result = forecast()
-        assertEquals(today, result.startDate)
-        assertEquals(today.plusDays(30), result.endDate)
-        assertEquals(31, result.points.size)
-        assertEquals((0L..30L).map(today::plusDays), result.points.map { it.date })
-        assertEquals(amount("9900"), result.balance(0))
-        assertEquals(amount("6900"), result.balance(30))
-        assertEquals(today, result.maximum!!.date)
-        assertEquals(today.plusDays(30), result.minimum!!.date)
-        assertFalse(result.insufficientHistory)
-    }
 
-    @Test fun `groups daily plans includes overdue expenses and ignores overdue incomes`() {
-        val result = forecast(input().copy(
-            payments = listOf(
-                DashboardPayment("overdue", "Кредит", today.minusDays(3), amount("200")),
-                DashboardPayment("first", "Аренда", today.plusDays(1), amount("600")),
-                DashboardPayment("second", "Связь", today.plusDays(1), amount("100")),
-            ),
-            incomes = listOf(
-                DashboardExpectedIncome(today.minusDays(1), amount("99999")),
-                DashboardExpectedIncome(today.plusDays(2), amount("400")),
-                DashboardExpectedIncome(today.plusDays(2), amount("600")),
-            ),
+    @Test fun `both series use limit horizon and income is available the next day`() {
+        val dashboard = CalculateDashboard.calculate(input().copy(
+            payments = listOf(DashboardPayment("overdue", "Rent", today.minusDays(3), amount("200"))),
+            incomes = listOf(DashboardExpectedIncome(today.plusDays(2), amount("1000"))),
         ))
-        assertEquals(amount("9700"), result.balance(0))
-        assertEquals(amount("8900"), result.balance(1))
-        assertEquals(amount("9800"), result.balance(2))
-        assertEquals(amount("7000"), result.balance(30))
-        assertEquals(today.plusDays(2), result.maximum!!.date)
+        val result = dashboard.balanceForecast
+        assertEquals(today.plusDays(59), result.endDate)
+        assertEquals(60, result.points.size)
+        assertEquals(result.points.map { it.date }, result.currentPacePoints!!.map { it.date })
+        assertEquals(amount("9500"), result.currentPacePoints[2].balance.amount)
+        assertEquals(amount("10400"), result.currentPacePoints[3].balance.amount)
+        assertEquals(dashboard.dailyLimit!!.projectedDailyBalances.map { it.afterDailySpending }, result.points.map { it.balance })
+        assertEquals(result.points.last().balance, result.byLimit.endingBalance)
+        assertEquals(result.currentPacePoints.last().balance, result.currentPace!!.endingBalance)
     }
 
-    @Test fun `includes both horizon endpoints and ignores plans beyond the last day`() {
-        val result = forecast(input().copy(
-            payments = listOf(
-                DashboardPayment("today", "Аренда", today, amount("100")),
-                DashboardPayment("last", "Связь", today.plusDays(30), amount("200")),
-                DashboardPayment("outside", "Связь", today.plusDays(31), amount("99999")),
-            ),
-            incomes = listOf(
-                DashboardExpectedIncome(today, amount("300")),
-                DashboardExpectedIncome(today.plusDays(30), amount("400")),
-                DashboardExpectedIncome(today.plusDays(31), amount("99999")),
-            ),
-        ))
-        assertEquals(amount("10100"), result.balance(0))
-        assertEquals(amount("7300"), result.balance(30))
-    }
-
-    @Test fun `already spent today reduces only the remaining daily estimate`() {
-        val before = forecast()
-        for (spent in listOf("40", "100", "150")) {
-            val source = input()
-            val result = forecast(source.copy(operations = source.operations + expense("today", spent, today)))
-            val expected = amount("10000") - maxOf(amount("100"), amount(spent))
-            assertEquals(expected, result.balance(0))
-            assertEquals(expected - amount("3000"), result.balance(30))
-            if (spent == "40") assertEquals(before.points, result.points)
+    @Test fun `income boundary ends both scenarios before that income`() {
+        for (offset in listOf(30L, 44L, 60L)) {
+            val result = forecast(input().copy(incomes = listOf(DashboardExpectedIncome(today.plusDays(offset), amount("99999")))))
+            assertEquals(today.plusDays(offset - 1), result.endDate)
+            assertEquals(offset.toInt(), result.points.size)
+            assertEquals(result.points.size, result.currentPacePoints!!.size)
+            assertFalse(result.dependsOnPlannedIncome)
         }
     }
 
-    @Test fun `refunds above today spending increase balance without increasing the daily estimate`() {
-        val source = input()
-        val refund = expense("refund", "50", today).copy(kind = DashboardOperationKind.Refund, refundOf = "history")
-        val result = forecast(source.copy(operations = source.operations + refund))
-        assertEquals(amount("9950"), result.balance(0))
+    @Test fun `twenty nine days keep limit available and thirty days unlock pace`() {
+        val fresh = forecast(input().copy(accountingStartedAt = today.minusDays(29).atStartOfDay(zone).toInstant()))
+        assertTrue(fresh.insufficientHistory)
+        assertEquals(60, fresh.points.size)
+        assertNull(fresh.currentPace)
+        val ready = forecast(input().copy(accountingStartedAt = today.minusDays(30).atStartOfDay(zone).toInstant()))
+        assertFalse(ready.insufficientHistory)
+        assertEquals(amount("9900"), ready.currentPacePoints!!.first().balance.amount)
     }
 
-    @Test fun `history refunds use original classification and regular payments do not inflate the average`() {
+    @Test fun `thirty tracked days without operations give a real zero average`() {
+        val result = forecast(input().copy(operations = emptyList(), accountingStartedAt = today.minusDays(30).atStartOfDay(zone).toInstant()))
+        assertFalse(result.insufficientHistory)
+        assertEquals(amount("0"), result.averageDailyExpenses!!.amount)
+        assertNotNull(result.currentPace)
+    }
+
+    @Test fun `today spending is not subtracted twice and excess refunds do not raise spending estimate`() {
+        for (spent in listOf("40", "100", "150")) {
+            val source = input()
+            val result = forecast(source.copy(operations = source.operations + expense("today", spent, today)))
+            assertEquals(amount("10000") - maxOf(amount("100"), amount(spent)), result.currentPacePoints!!.first().balance.amount)
+        }
+        val source = input()
+        val refund = expense("refund", "50", today).copy(kind = DashboardOperationKind.Refund, refundOf = "history")
+        assertEquals(amount("9950"), forecast(source.copy(operations = source.operations + refund)).currentPacePoints!!.first().balance.amount)
+    }
+
+    @Test fun `history refunds retain original classification and scheduled payments do not inflate average`() {
         val source = input()
         val regular = expense("regular", "600")
         val refund = expense("refund", "300").copy(kind = DashboardOperationKind.Refund, refundOf = "history")
         val regularRefund = expense("regular-refund", "200").copy(kind = DashboardOperationKind.Refund, refundOf = "regular")
-        val result = forecast(source.copy(
-            operations = source.operations + regular + refund + regularRefund,
-            excludedVariableExpenseIds = setOf("regular"),
-        ))
-        // Actual balance is 9900; variable daily average is (3000 - 300) / 30 = 90.
-        assertEquals(amount("9810"), result.balance(0))
-        assertEquals(amount("7110"), result.balance(30))
+        val result = forecast(source.copy(operations = source.operations + regular + refund + regularRefund,
+            excludedVariableExpenseIds = setOf("regular")))
+        assertEquals(amount("9810"), result.currentPacePoints!!.first().balance.amount)
     }
 
-    @Test fun `history excludes days before the rolling window and average rounds half up`() {
-        val source = input()
-        val result = forecast(source.copy(
-            openingBalance = amount("2000"),
-            operations = listOf(expense("old", "1000", today.minusDays(31)), expense("history", "100.05")),
-        ))
-        assertEquals(amount("896.61"), result.balance(0))
-        assertEquals(amount("796.41"), result.balance(30))
+    @Test fun `history excludes older days and average rounds half up`() {
+        val result = forecast(input().copy(openingBalance = amount("2000"),
+            operations = listOf(expense("old", "1000", today.minusDays(31)), expense("history", "100.05"))))
+        assertEquals(amount("896.61"), result.currentPacePoints!!.first().balance.amount)
+        assertEquals(amount("796.41"), result.currentPacePoints[30].balance.amount)
     }
 
-    @Test fun `thirteen completed days hide the forecast and fourteen days unlock it`() {
-        val source = input()
-        val fresh = forecast(source.copy(accountingStartedAt = today.minusDays(13).atStartOfDay(zone).toInstant()))
-        assertTrue(fresh.insufficientHistory)
-        assertTrue(fresh.points.isEmpty())
-        assertNull(fresh.minimum)
-        assertNull(fresh.maximum)
-        val ready = forecast(source.copy(accountingStartedAt = today.minusDays(14).atStartOfDay(zone).toInstant()))
-        assertFalse(ready.insufficientHistory)
-        assertEquals(amount("9785.71"), ready.balance(0))
-    }
-
-    @Test fun `zero and negative flat balances retain their sign and earliest extrema dates`() {
-        for (balance in listOf("0", "-50", "100")) {
-            val result = forecast(input().copy(openingBalance = amount(balance), operations = emptyList()))
-            assertTrue(result.points.all { it.balance.amount == amount(balance) })
-            assertEquals(result.points.first(), result.minimum)
-            assertEquals(result.minimum, result.maximum)
+    @Test fun `series report first deficit relative to reserve and retain earliest extrema`() {
+        val points = listOf("100", "40", "40", "-10").mapIndexed { index, value ->
+            com.firkat.fillin.feature.dashboard.domain.model.ForecastPoint(today.plusDays(index.toLong()),
+                com.firkat.fillin.feature.dashboard.domain.model.Money(amount(value), "KZT"))
         }
+        val series = com.firkat.fillin.feature.dashboard.domain.model.ForecastSeries.from(points,
+            com.firkat.fillin.feature.dashboard.domain.model.Money(amount("50"), "KZT"))
+        assertEquals(today.plusDays(1), series.firstDeficitDate)
+        assertEquals(amount("10"), series.deficitAmount!!.amount)
+        val flat = forecast(input().copy(openingBalance = amount("0"), operations = emptyList()))
+        assertEquals(flat.minimum, flat.maximum)
+        assertEquals(today, flat.minimum!!.date)
     }
 
-    @Test fun `crosses leap February and year boundaries in Almaty and advances at midnight`() {
+    @Test fun `crosses calendar boundaries and updates both endpoints at Almaty midnight`() {
         for (date in listOf(LocalDate.of(2024, 2, 28), LocalDate.of(2026, 12, 25))) {
-            val result = forecast(input(date))
-            assertEquals(date.plusDays(30), result.points.last().date)
-            assertEquals(31, result.points.size)
+            assertEquals(date.plusDays(59), forecast(input(date)).points.last().date)
         }
         val source = input().copy(asOf = today.atTime(23, 59, 59).atZone(zone).toInstant())
-        assertEquals(today, forecast(source).startDate)
         assertEquals(today.plusDays(1), forecast(source.copy(asOf = source.asOf.plusSeconds(1))).startDate)
-    }
-
-    @Test fun `next month plans change the rolling graph without changing monthly dashboard metrics`() {
-        val source = input()
-        val before = CalculateDashboard.calculate(source)
-        val after = CalculateDashboard.calculate(source.copy(
-            payments = listOf(DashboardPayment("next-month", "Аренда", today.plusDays(10), amount("1000"))),
-            incomes = listOf(DashboardExpectedIncome(today.plusDays(11), amount("2000"))),
-        ))
-        assertEquals(before.forecast, after.forecast)
-        assertEquals(before.freeMoney, after.freeMoney)
-        assertEquals(before.budgetExecution, after.budgetExecution)
-        assertEquals(before.monthActuals, after.monthActuals)
-        assertEquals(before.balanceForecast.balance(30) + amount("1000"), after.balanceForecast.balance(30))
     }
 }

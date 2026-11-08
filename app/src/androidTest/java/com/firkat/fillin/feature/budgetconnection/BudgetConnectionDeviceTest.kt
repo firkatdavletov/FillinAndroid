@@ -146,14 +146,14 @@ class BudgetConnectionDeviceTest {
     ) : AutoCloseable {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val auth = TestAuth()
-        private val registryDb = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, registryName).build()
+        val registryDb = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, registryName).build()
         val registry = RoomBudgetProfileRegistry(registryDb, backend)
         private val factory = BudgetDatabaseFactory(context)
         private val tokens = object : FirebaseIdTokenProvider {
             override fun isCurrentUser(uid: String) = (auth.session.value as? AuthSession.Authenticated)?.user?.uid == uid
             override suspend fun idToken(uid: String, forceRefresh: Boolean) = "synthetic-$uid"
         }
-        private val requests = FirebaseBudgetRequests(apiOverride ?: server, tokens)
+        val requests = FirebaseBudgetRequests(apiOverride ?: server, tokens)
         private val remote = Retrofit.Builder().baseUrl("https://unused.invalid/")
             .client(OkHttpClient.Builder().addInterceptor { error("No real network in T05 tests") }.build()).build()
         private val application = koinApplication {
@@ -161,6 +161,7 @@ class BudgetConnectionDeviceTest {
             modules(budgetModule, module {
                 single { Json { ignoreUnknownKeys = true; explicitNulls = false } }
                 single { factory }
+                single { registryDb }
                 single<BudgetProfileRegistry> { registry }
                 single<AuthRepository> { auth }
                 single { requests }
@@ -225,6 +226,26 @@ class BudgetConnectionDeviceTest {
     }
 
     internal class Server : FirebaseBudgetApi {
+        var loseManagementResponse = false
+        val managementRequests = mutableListOf<String>()
+        private val renamed = mutableSetOf<String>()
+        override suspend fun rename(authorization: String, id: String, request: RenameBudgetDto): Response<AvailableBudgetDto> {
+            managementRequests += request.requestId
+            if (renamed.add(request.requestId)) {
+                request.name?.let { budgetName = it }
+                request.currency?.takeUnless { it == scope.currency }?.let {
+                    scope = scope.copy(currency = it, currencyVersion = scope.currencyVersion + 1)
+                }
+            }
+            if (loseManagementResponse) { loseManagementResponse = false; throw IOException("Lost management response") }
+            return Response.success(AvailableBudgetDto(id, budgetName, scope.memberId, "OWNER", scope.currency, scope.currencyVersion))
+        }
+        override suspend fun delete(authorization: String, id: String, requestId: String): Response<Unit> {
+            managementRequests += requestId
+            budgetExists = false
+            if (loseManagementResponse) { loseManagementResponse = false; throw IOException("Lost management response") }
+            return Response.success(Unit)
+        }
         override suspend fun importLocal(authorization: String, request: ImportFirebaseBudgetDto): Response<AvailableBudgetDto> = error("Unused in T05/T06")
         var budgetExists = true
         var budgetName = "Тестовый бюджет"
@@ -239,8 +260,9 @@ class BudgetConnectionDeviceTest {
                 check(!budgetExists)
                 replaceBudget()
                 scope = scope.copy(accountingStartedAt = LocalDate.parse(request.accountingStartedOn).atStartOfDay(java.time.ZoneId.of("Asia/Almaty")).toInstant().toString())
+                scope = scope.copy(currency = request.currency)
                 budgetExists = true; budgetName = request.name; openingBalance = request.openingBalance
-                AvailableBudgetDto(scope.householdId, budgetName, scope.memberId, "OWNER").also { creations[request.requestId] = request to it }
+                AvailableBudgetDto(scope.householdId, budgetName, scope.memberId, "OWNER", scope.currency, scope.currencyVersion).also { creations[request.requestId] = request to it }
             }
             if (loseCreationResponse) { loseCreationResponse = false; throw IOException("Synthetic lost creation response after commit") }
             return Response.success(budget)
@@ -251,11 +273,11 @@ class BudgetConnectionDeviceTest {
         var loseResponse = false
         val receipts = linkedMapOf<String, BudgetCommandReceipt>()
         val entries = mutableListOf<SyncOperationDto>()
-        fun summary() = AvailableBudget(scope.householdId, budgetName, scope.memberId, scope.role)
+        fun summary() = AvailableBudget(scope.householdId, budgetName, scope.memberId, scope.role, scope.currency, scope.currencyVersion)
         fun replaceBudget() { scope = newScope(); categories = seeds(scope); entries.clear(); receipts.clear() }
-        override suspend fun budgets(authorization: String) = Response.success(if (budgetExists && authorization == "Bearer synthetic-owner") listOf(AvailableBudgetDto(scope.householdId, budgetName, scope.memberId, scope.role)) else emptyList())
+        override suspend fun budgets(authorization: String) = Response.success(if (budgetExists && authorization == "Bearer synthetic-owner") listOf(AvailableBudgetDto(scope.householdId, budgetName, scope.memberId, scope.role, scope.currency, scope.currencyVersion)) else emptyList())
         override suspend fun budget(authorization: String, budgetId: String): Response<CloudBudget> =
-            if (authorization == "Bearer synthetic-owner" && budgetId == scope.householdId) Response.success(CloudBudget(scope)) else Response.error(403, "{}".toResponseBody())
+            if (authorization == "Bearer synthetic-owner" && budgetId == scope.householdId) Response.success(CloudBudget(scope, capabilities = setOf("confirmedPlanLinkingV1"))) else Response.error(403, "{}".toResponseBody())
         override suspend fun changes(authorization: String, budgetId: String, cursor: String?): Response<SyncPageDto> {
             check(authorization == "Bearer synthetic-owner" && budgetId == scope.householdId)
             val records = categories.mapIndexed { i, c -> SyncChangeDto(i + 1L, "CATEGORY", false, category = SyncCategoryDto(c.id, c.name, c.kind, c.iconCode, c.iconEmoji, false, c.dictionaryKey)) } +

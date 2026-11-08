@@ -42,7 +42,7 @@ data class CreatePlannedExpenseRuleRequestDto(
     val categoryId: String,
     val amount: String,
     val frequency: String,
-    val scheduleValue: Int,
+    val scheduleValue: Int? = null,
     val startsOn: String,
 )
 

@@ -19,6 +19,8 @@ data class BudgetProfileEntity(
     val budgetId: String?,
     val role: String?,
     val activeCloudKey: String? = budgetId,
+    val name: String? = null,
+    @ColumnInfo(defaultValue = "0") val localCreationState: Int = 0,
 )
 
 @Entity(tableName = "budget_profile_selection")
@@ -26,6 +28,32 @@ data class BudgetProfileSelection(@PrimaryKey val accountKey: String, val profil
 
 @Dao
 interface BudgetProfileDao {
+    @Query("SELECT * FROM budget_profiles WHERE kind != 'CLOUD' AND localCreationState IN (0, 1)")
+    suspend fun localRecovery(): List<BudgetProfileEntity>
+
+    @Query("SELECT COUNT(*) FROM budget_profiles WHERE kind != 'CLOUD' AND localCreationState IN (1, 2)")
+    suspend fun localCount(): Int
+
+    @Query("SELECT COUNT(*) FROM budget_profiles WHERE kind != 'CLOUD' AND localCreationState IN (1, 2)")
+    fun observeLocalCount(): kotlinx.coroutines.flow.Flow<Int>
+
+    @Query("UPDATE budget_profiles SET localCreationState = :state WHERE id = :id")
+    suspend fun setLocalCreationState(id: String, state: Int)
+
+    @Query("SELECT * FROM budget_profiles WHERE firebaseUid = :uid")
+    suspend fun allCloud(uid: String): List<BudgetProfileEntity>
+    @Query("DELETE FROM local_budget_upload WHERE profileId = :id")
+    suspend fun deleteUpload(id: String)
+    @Query("UPDATE budget_profile_selection SET profileId = 'choose-budget' WHERE profileId = :id")
+    suspend fun markSelectionRequired(id: String)
+
+    @Query("DELETE FROM budget_profile_selection WHERE profileId = :id")
+    suspend fun deleteSelection(id: String)
+    @Query("DELETE FROM budget_profiles WHERE id = :id")
+    suspend fun deleteProfile(id: String)
+    @Query("DELETE FROM pending_budget_creation WHERE firebaseUid = :uid")
+    suspend fun deleteCreation(uid: String)
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(profile: BudgetProfileEntity)
 
@@ -48,8 +76,9 @@ interface BudgetProfileDao {
     suspend fun select(selection: BudgetProfileSelection)
 }
 
-@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class], version = 5, exportSchema = true)
+@Database(entities = [BudgetProfileEntity::class, BudgetProfileSelection::class, PendingBudgetCreationEntity::class, LocalBudgetUploadEntity::class, CachedCloudBudget::class, com.firkat.fillin.feature.budgetmanagement.data.BudgetManagementEntry::class], version = 9, exportSchema = true)
 abstract class BudgetProfileDatabase : RoomDatabase() {
+    abstract fun management(): com.firkat.fillin.feature.budgetmanagement.data.BudgetManagementDao
     abstract fun profiles(): BudgetProfileDao
     abstract fun creation(): BudgetCreationDao
     abstract fun uploads(): LocalBudgetUploadDao
@@ -82,3 +111,42 @@ val PROFILE_MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL("CREATE UNIQUE INDEX index_budget_profiles_firebaseUid_activeCloudKey ON budget_profiles(firebaseUid, activeCloudKey)")
     }
 }
+
+val PROFILE_MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE budget_profiles ADD COLUMN name TEXT")
+    }
+}
+
+val PROFILE_MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS budget_management (requestId TEXT NOT NULL PRIMARY KEY, profileId TEXT NOT NULL, uid TEXT, budgetId TEXT, name TEXT NOT NULL, deleting INTEGER NOT NULL, createdAt INTEGER NOT NULL, error TEXT)")
+    }
+}
+
+val PROFILE_MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE pending_budget_creation ADD COLUMN currency TEXT NOT NULL DEFAULT 'KZT'")
+        db.execSQL("ALTER TABLE cloud_budget_catalog ADD COLUMN currency TEXT NOT NULL DEFAULT 'KZT'")
+        db.execSQL("ALTER TABLE cloud_budget_catalog ADD COLUMN currencyVersion INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE budget_management ADD COLUMN currency TEXT")
+        db.execSQL("ALTER TABLE budget_management ADD COLUMN rename INTEGER NOT NULL DEFAULT 1")
+    }
+}
+
+val PROFILE_MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE budget_profiles ADD COLUMN localCreationState INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+internal val PROFILE_MIGRATIONS = arrayOf(
+    PROFILE_MIGRATION_1_2,
+    PROFILE_MIGRATION_2_3,
+    PROFILE_MIGRATION_3_4,
+    PROFILE_MIGRATION_4_5,
+    PROFILE_MIGRATION_5_6,
+    PROFILE_MIGRATION_6_7,
+    PROFILE_MIGRATION_7_8,
+    PROFILE_MIGRATION_8_9,
+)

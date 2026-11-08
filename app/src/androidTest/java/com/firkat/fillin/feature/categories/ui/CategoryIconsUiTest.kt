@@ -22,16 +22,17 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import com.firkat.fillin.feature.categories.domain.model.CATEGORY_INITIAL_ICON_CODE
+import com.firkat.fillin.feature.editcategory.ui.*
 import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.icon.CategoryIcons
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -53,9 +54,10 @@ class CategoryIconsUiTest {
                 FillinTheme(darkTheme = dark, dynamicColor = false) {
                     Surface {
                         Column {
+                            CategoryIconImage(CATEGORY_INITIAL_ICON_CODE, "Электроника", Modifier.testTag("initial"))
                             CategoryIcons.options.chunked(4).forEach { row ->
                                 Row {
-                                    row.forEach { CategoryIconImage(it.code, Modifier.testTag(it.code)) }
+                                    row.forEach { CategoryIconImage(it.code, "Категория", Modifier.testTag(it.code)) }
                                 }
                             }
                         }
@@ -68,6 +70,7 @@ class CategoryIconsUiTest {
             CategoryIcons.options.forEach {
                 compose.onNodeWithTag(it.code).assertWidthIsEqualTo(24.dp).assertHeightIsEqualTo(24.dp)
             }
+            compose.onNodeWithTag("initial").assertWidthIsEqualTo(24.dp).assertHeightIsEqualTo(24.dp)
             val context = ApplicationProvider.getApplicationContext<Context>()
             val output = File(context.getExternalFilesDir(null), "category-icons-$night-$scale.png")
             output.outputStream().use {
@@ -76,45 +79,62 @@ class CategoryIconsUiTest {
         }
     }
 
-    @Test fun unknownCodeRendersTheSamePngAsTheDefaultIcon() {
+    @Test fun unknownCodeMatchesAutomaticIconAndReactsToNameChanges() {
+        var name by mutableStateOf("")
         compose.setContent {
             FillinTheme {
-                Row {
-                    CategoryIconImage("custom.icon-v2", Modifier.testTag("unknown"))
-                    CategoryIconImage("HOUSEHOLD_GOODS", Modifier.testTag("default"))
+                Surface {
+                    Row {
+                        CategoryIconImage("custom.icon-v2", name, Modifier.testTag("unknown"))
+                        CategoryIconImage(CATEGORY_INITIAL_ICON_CODE, name, Modifier.testTag("automatic"))
+                    }
                 }
             }
         }
-        val unknown = compose.onNodeWithTag("unknown").captureToImage().asAndroidBitmap()
-        val default = compose.onNodeWithTag("default").captureToImage().asAndroidBitmap()
-        assertTrue(unknown.sameAs(default))
+        fun bitmap(tag: String) = compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
+        val placeholder = bitmap("unknown")
+        assertTrue(placeholder.sameAs(bitmap("automatic")))
+        compose.runOnIdle { name = "Кафе" }
+        val named = bitmap("unknown")
+        assertTrue(named.sameAs(bitmap("automatic")))
+        assertTrue(!placeholder.sameAs(named))
+        compose.runOnIdle { name = "  " }
+        assertTrue(placeholder.sameAs(bitmap("unknown")))
     }
 
     @Test fun unknownCodeIsReplacedOnlyAfterAnExplicitIconChoice() {
         var editor by mutableStateOf(CategoryEditorUiState(name = "Кафе", iconCode = "custom.icon-v2"))
         compose.setContent {
             FillinTheme {
-                CategoriesScreen(CategoriesUiState(editor = editor), { event ->
+                EditCategoryScreen(true, EditCategoryState.Ready(editor), true) { event ->
                     editor = when (event) {
-                        CategoriesEvent.IconPickerRequested -> editor.copy(isIconPickerVisible = true)
-                        is CategoriesEvent.IconSelected -> editor.copy(iconCode = event.iconCode, isIconPickerVisible = false)
+                        EditCategoryEvent.PickIcon -> editor.copy(overlay = CategoryEditorOverlay.IconPicker)
+                        is EditCategoryEvent.IconSelected -> editor.copy(iconCode = event.code, overlay = null)
                         else -> editor
                     }
-                })
+                }
             }
         }
-        compose.onNodeWithText("Другая иконка").assertIsEnabled().performClick()
+        compose.onNodeWithContentDescription("Выберите иконку").assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals("custom.icon-v2", editor.iconCode) }
-        compose.onNodeWithText("Продукты").assertIsNotSelected().performClick()
-        compose.runOnIdle { assertEquals("GROCERIES", editor.iconCode) }
-        compose.onNodeWithText("Продукты").assertExists()
+        compose.onNodeWithContentDescription("Продукты").assertIsNotSelected().performClick()
+        compose.runOnIdle {
+            assertEquals("GROCERIES", editor.iconCode)
+            editor = editor.copy(name = "Продукты и напитки")
+        }
+        compose.onNodeWithContentDescription("Выберите иконку").performClick()
+        compose.onNodeWithContentDescription("Продукты").assertIsSelected()
+        compose.onNodeWithText("Буква категории").performClick()
+        compose.runOnIdle { assertEquals(CATEGORY_INITIAL_ICON_CODE, editor.iconCode) }
     }
 
     @Test fun legacyIconIsHighlightedAndSavingDisablesTheSelector() {
-        var editor by mutableStateOf(CategoryEditorUiState(name = "Кафе", iconCode = "FOOD", isIconPickerVisible = true))
-        compose.setContent { FillinTheme { CategoriesScreen(CategoriesUiState(editor = editor), {}) } }
-        compose.onNode(hasText("Продукты") and isSelectable()).assertIsSelected()
-        compose.runOnIdle { editor = editor.copy(isIconPickerVisible = false, isSaving = true) }
-        compose.onNodeWithText("Продукты").assertIsNotEnabled()
+        var editor by mutableStateOf(CategoryEditorUiState(
+            name = "Кафе", iconCode = "FOOD", overlay = CategoryEditorOverlay.IconPicker,
+        ))
+        compose.setContent { FillinTheme { EditCategoryScreen(true, EditCategoryState.Ready(editor), true) {} } }
+        compose.onNodeWithContentDescription("Продукты").assertIsSelected()
+        compose.runOnIdle { editor = editor.copy(overlay = null, operation = CategoryEditorOperation.Save) }
+        compose.onNodeWithContentDescription("Выберите иконку").assertIsNotEnabled()
     }
 }

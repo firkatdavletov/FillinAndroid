@@ -1,14 +1,15 @@
 package com.firkat.fillin.feature.sync
 
+import com.firkat.fillin.core.database.BUDGET_MIGRATIONS
+import com.firkat.fillin.core.database.BUDGET_MIGRATION_1_2
 import android.content.Context
 import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.firkat.fillin.core.database.BUDGET_MIGRATION_1_2
-import com.firkat.fillin.core.database.BUDGET_MIGRATION_2_3
 import com.firkat.fillin.feature.categories.data.repository.OfflineCategoriesRepository
+import com.firkat.fillin.feature.categories.domain.model.CATEGORY_INITIAL_ICON_CODE
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.data.OfflineTestEnvironment
 import com.firkat.fillin.feature.operationhistory.data.SyntheticSyncApi
@@ -45,7 +46,7 @@ class BudgetOfflinePersistenceTest {
     @get:Rule val migrations =
         MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), OperationDatabase::class.java)
 
-    private fun open() = Room.databaseBuilder(context, OperationDatabase::class.java, name).addMigrations(BUDGET_MIGRATION_1_2, BUDGET_MIGRATION_2_3).build()
+    private fun open() = Room.databaseBuilder(context, OperationDatabase::class.java, name).addMigrations(*BUDGET_MIGRATIONS).build()
 
     @After fun cleanup() {
         database.close()
@@ -99,6 +100,55 @@ class BudgetOfflinePersistenceTest {
             }
             close()
         }
+    }
+
+    @Test fun fullExpenseRuleEditSurvivesRestart() = runBlocking {
+        val api = SyntheticSyncApi()
+        var store = store()
+        assertEquals(SyncResult.Completed, sync(api, store, Mutations(api)).synchronize())
+        val category = OfflineCategoriesRepository(store).createCategory("Правило", CategoryKind.Expense, "HOME")
+        val day = java.time.LocalDate.now(OfflineTestEnvironment.CLOCK)
+        val repository = com.firkat.fillin.feature.plannedexpenses.data.repository.OfflinePlannedExpensesRepository(store)
+        repository.saveDetails(null, "Покупка", category.id, "100".toBigDecimal(),
+            com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency.Once, null, day)
+        val original = store.observePlanningRules().first().single { it.name == "Покупка" }
+        repository.saveDetails(original, "Еженедельная покупка", category.id, "250".toBigDecimal(),
+            com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency.Weekly,
+            day.plusDays(1).dayOfWeek.value, day.plusDays(1))
+        database.close(); database = open(); store = store()
+        val restored = store.observePlanningRules().first().single { it.id == original.id }
+        assertEquals("Еженедельная покупка", restored.name)
+        assertEquals(PlanningFrequency.Weekly, restored.frequency)
+        assertEquals(day.plusDays(1), restored.startsOn)
+        assertEquals("250".toBigDecimal(), restored.amount)
+        val filter = PlannedOperationsFilter(period = PlannedOperationPeriod.Custom, dateFrom = day, dateTo = day.plusDays(8))
+        val expenses = store.observePlans(filter).first().items.filterIsInstance<PlannedOperation.Expense>().filter { it.expense.ruleId == original.id }
+        assertEquals(2, expenses.size)
+        assertTrue(expenses.all { it.expense.dueOn != day })
+    }
+
+    @Test fun onceExpenseSurvivesRestartAndValidatesDateAtCreation() = runBlocking {
+        val api = SyntheticSyncApi()
+        var store = store()
+        assertEquals(SyncResult.Completed, sync(api, store, Mutations(api)).synchronize())
+        val category = OfflineCategoriesRepository(store).createCategory("Разовый расход", CategoryKind.Expense, "HOME")
+        val expenses = com.firkat.fillin.feature.plannedexpenses.data.repository.OfflinePlannedExpensesRepository(store)
+        val day = java.time.LocalDate.now(OfflineTestEnvironment.CLOCK)
+        val frequency = com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency.Once
+        val rule = expenses.createRule(category.id, "100.00".toBigDecimal(), frequency, null, day)
+        val filter = PlannedOperationsFilter(period = PlannedOperationPeriod.Custom, dateFrom = day, dateTo = day.plusYears(2))
+        val first = store.observePlans(filter).first().items.filterIsInstance<PlannedOperation.Expense>().single()
+        assertEquals("${rule.id}@$day", first.id)
+        assertThrows(com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesException.InvalidRequest::class.java) {
+            runBlocking { expenses.createRule(category.id, "100".toBigDecimal(), frequency, null, day.minusDays(1)) }
+        }
+        database.close()
+        database = open()
+        store = BudgetStore(database, OperationSyncScheduler {}, json,
+            java.time.Clock.offset(OfflineTestEnvironment.CLOCK, java.time.Duration.ofDays(1)))
+        val restored = store.observePlans(filter).first().items.filterIsInstance<PlannedOperation.Expense>().single()
+        assertEquals(first.id, restored.id)
+        assertTrue(restored.expense.overdue)
     }
 
     @Test fun categoryIncomeAndEditsSurviveRestartAndLostResponse() =
@@ -208,6 +258,23 @@ class BudgetOfflinePersistenceTest {
                     .isEmpty(),
             )
         }
+
+    @Test fun onceRuleFromSyncAcceptsNullScheduleAndPastDate() = runBlocking {
+        val api = SyntheticSyncApi()
+        val rule = SyncPlanRecord(UUID.randomUUID().toString(), api.expenseCategory.id,
+            amount = "10.01", frequency = "ONCE", startsOn = "2026-10-01", active = true,
+            version = 0, createdAt = "2026-10-01T00:00:00Z", modifiedAt = "2026-10-01T00:00:00Z")
+        val wire = json.encodeToString(rule)
+        assertFalse(wire.contains("scheduleValue"))
+        assertEquals(rule, json.decodeFromString<SyncPlanRecord>(wire.dropLast(1) + ",\"scheduleValue\":null}"))
+        RoomOperationSyncStorage(database, json).apply(SyncPageDto(api.scope,
+            api.log + SyncChangeDto(3, "RECURRING_RULE", false, record = rule), "done", false, 3))
+        val filter = PlannedOperationsFilter(period = PlannedOperationPeriod.Custom,
+            dateFrom = java.time.LocalDate.parse("2026-10-01"), dateTo = java.time.LocalDate.parse("2028-10-01"))
+        val expense = store().observePlans(filter).first().items.filterIsInstance<PlannedOperation.Expense>().single().expense
+        assertTrue(expense.overdue)
+        assertEquals("${rule.id}@2026-10-01", expense.id)
+    }
 
     @Test fun stagedPagesPublishPlansOnlyAfterWholeSnapshot() =
         runBlocking {
@@ -403,12 +470,13 @@ class BudgetOfflinePersistenceTest {
         assertEquals(code, api.log.last { it.category?.id == created.id }.category!!.iconCode)
         assertEquals(code, repository.getCategories().single { it.id == created.id }.icon.code)
         val current = repository.getCategories().single { it.id == created.id }
-        repository.updateCategory(current, null, "next.icon-V3")
+        repository.updateCategory(current, null, CATEGORY_INITIAL_ICON_CODE)
         assertEquals(SyncResult.Completed, sync(api, store, remote).synchronize())
+        assertEquals(CATEGORY_INITIAL_ICON_CODE, api.log.last { it.category?.id == created.id }.category!!.iconCode)
         database.close()
         database = open()
         repository = OfflineCategoriesRepository(store())
-        assertEquals("next.icon-V3", repository.getCategories().single { it.id == created.id }.icon.code)
+        assertEquals(CATEGORY_INITIAL_ICON_CODE, repository.getCategories().single { it.id == created.id }.icon.code)
     }
 
     private class Mutations(

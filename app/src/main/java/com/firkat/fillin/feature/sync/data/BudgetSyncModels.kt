@@ -1,6 +1,8 @@
 package com.firkat.fillin.feature.sync.data
 
 import kotlinx.serialization.Serializable
+import com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkTarget
+import com.firkat.fillin.feature.operationhistory.domain.repository.SuggestedPlan
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.Header
@@ -22,6 +24,15 @@ data class SyncPlanRecord(
     val version: Long? = null,
     val createdAt: String? = null,
     val modifiedAt: String? = null,
+    val ruleName: String? = null,
+    val incomeName: String? = null,
+    val incomeFrequency: String? = null,
+    val incomeActive: Boolean? = null,
+    val scheduledOn: String? = null,
+    val remainderAmount: String? = null,
+    val remainderDueOn: String? = null,
+    val remainderReceived: String? = null,
+
 )
 
 @Serializable
@@ -47,6 +58,18 @@ data class BudgetSyncCommand(
     val description: String? = null,
     val refundId: String? = null,
     val replaceDetails: Boolean = false,
+    val planMatchingMode: String? = null,
+    val planTarget: PlanLinkTarget? = null,
+    val expectedPlanVersion: Long? = null,
+    val ruleName: String? = null,
+    val incomeName: String? = null,
+    val incomeFrequency: String? = null,
+    val incomeActive: Boolean? = null,
+    val scheduledOn: String? = null,
+    val remainderAmount: String? = null,
+    val remainderDueOn: String? = null,
+    val remainderReceived: String? = null,
+
 )
 
 @Serializable
@@ -54,6 +77,7 @@ data class BudgetCommandReceipt(
     val requestId: String,
     val revision: Long,
     val entityToken: Long? = null,
+    val suggestedPlan: SuggestedPlan? = null,
 )
 
 interface BudgetSyncApi {
@@ -66,7 +90,8 @@ interface BudgetSyncApi {
 
 internal fun BudgetSyncCommand.entityKind(): String =
     when {
-        type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION") -> "LEDGER"
+        type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION", "SET_OPERATION_PLAN_LINK", "REMOVE_OPERATION_PLAN_LINK") -> "LEDGER"
+        type.endsWith("INCOME_RULE") -> "INCOME_RULE"
         type.endsWith("CATEGORY") -> "CATEGORY"
         type.endsWith("RULE") -> "RECURRING_RULE"
         type.endsWith("INCOME") -> "EXPECTED_INCOME"

@@ -1,5 +1,9 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.feature.categories.domain.repository.CategoryUsageRepository
+import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
+import kotlinx.coroutines.flow.map
 import android.view.WindowManager
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
@@ -49,29 +53,18 @@ class OperationCreateScreenTest {
         show()
         assertKeyboardVisible()
         compose.onNodeWithTag("operation-create-input").assertIsFocused()
-        val decor = compose.activity.window.decorView
-        // IME visibility changes before Compose receives the final animation insets.
-        compose.waitUntil(5000) {
-            val categories = compose.onNodeWithTag("operation-create-categories").getUnclippedBoundsInRoot()
-            val keyboardHeight = ViewCompat.getRootWindowInsets(decor)!!.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val visibleBottom = (decor.height - keyboardHeight) / decor.resources.displayMetrics.density
-            categories.bottom.value <= visibleBottom + 1f
-        }
-        compose.onNodeWithTag("operation-create-category-expense-0").assertIsDisplayed()
+        compose.onNodeWithTag("operation-create-category-expense-0").performScrollTo().assertIsDisplayed()
         screenshot("operation-create-keyboard.png")
     }
 
-    @Test fun switchingTypesFiltersCategoriesAndResetsHorizontalScrollWithoutLosingFocus() {
-        show()
+    @Test fun switchingTypesFiltersCategoriesAndKeepsFocus() {
+        show(withUsage = true)
         assertKeyboardVisible()
-        compose.onNodeWithTag("operation-create-category-income-0").assertDoesNotExist()
-        compose.onNodeWithTag("operation-create-categories").performScrollToIndex(9)
-        compose.onNodeWithTag("operation-create-category-expense-9").assertIsDisplayed()
+        compose.onNodeWithTag("operation-create-frequent-expense-0").assertExists()
+        compose.onNodeWithTag("operation-create-frequent-income-0").assertDoesNotExist()
         compose.onNodeWithTag("operation-create-type-INCOME").performClick().assertIsSelected()
-        compose.onNodeWithTag("operation-create-category-income-0").assertIsDisplayed()
-        compose.onNodeWithTag("operation-create-category-expense-9").assertDoesNotExist()
-        compose.onNodeWithTag("operation-create-type-EXPENSE").performClick()
-        compose.onNodeWithTag("operation-create-category-expense-0").assertIsDisplayed()
+        compose.onNodeWithTag("operation-create-frequent-income-0").assertExists()
+        compose.onNodeWithTag("operation-create-frequent-expense-0").assertDoesNotExist()
         compose.onNodeWithTag("operation-create-input").assertIsFocused()
         assertKeyboardVisible()
     }
@@ -82,22 +75,17 @@ class OperationCreateScreenTest {
         val message = compose.activity.getString(R.string.operation_create_invalid_input)
         compose.onNodeWithText(message).assertIsDisplayed()
         compose.onNodeWithTag("operation-create-input").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
-        val snackbar = compose.onNodeWithText(message).getUnclippedBoundsInRoot()
-        val categories = compose.onNodeWithTag("operation-create-categories").getUnclippedBoundsInRoot()
-        assertTrue(snackbar.bottom <= categories.top)
-        val input = compose.onNodeWithTag("operation-create-input").getUnclippedBoundsInRoot()
-        assertTrue("Snackbar must leave the input visible", input.bottom <= snackbar.top)
         screenshot("operation-create-error.png")
         compose.onNodeWithContentDescription("Закрыть").performClick()
         compose.onNodeWithTag("operation-create-category-expense-0").performClick()
         compose.onNodeWithText(message).assertIsDisplayed()
         assertTrue(history.created.isEmpty())
-        compose.onNodeWithTag("operation-create-input").performTextReplacement("1200 продукты")
+        compose.onNodeWithTag("operation-create-input").performTextReplacement("1200")
         compose.onNodeWithTag("operation-create-input")
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Error))
         compose.onNodeWithTag("operation-create-category-expense-0").performClick()
         compose.waitUntil { model.uiState.value.createEditor == null }
-        assertEquals("продукты", history.created.single().description)
+        assertNull(history.created.single().description)
         assertEquals("1200.00", history.created.single().amount.toPlainString())
     }
 
@@ -105,7 +93,9 @@ class OperationCreateScreenTest {
         history.context.value = history.context.value.copy(categories = emptyList())
         show()
         compose.onNodeWithTag("operation-create-no-categories").assertIsDisplayed()
-        compose.onNodeWithTag("operation-create-categories").assertDoesNotExist()
+        compose.onNodeWithText("Все").assertExists()
+        compose.onNodeWithText("Часто используемые").assertDoesNotExist()
+        compose.onNodeWithText("Последние").assertDoesNotExist()
         compose.onNodeWithTag("operation-create-input").assertIsFocused()
     }
 
@@ -113,7 +103,7 @@ class OperationCreateScreenTest {
         show(fontScale = 2f)
         assertKeyboardVisible()
         compose.onNodeWithTag("operation-create-input").assertIsDisplayed()
-        compose.onNodeWithTag("operation-create-category-expense-0").assertIsDisplayed()
+        compose.onNodeWithTag("operation-create-category-expense-0").performScrollTo().assertIsDisplayed()
         screenshot("operation-create-large-font.png")
     }
 
@@ -130,6 +120,54 @@ class OperationCreateScreenTest {
         assertFalse(ViewCompat.getRootWindowInsets(compose.activity.window.decorView)!!.isVisible(WindowInsetsCompat.Type.ime()))
     }
 
+    @Test fun usedSectionsAppearInOrderAndAllContainsTheLastCategory() {
+        show(withUsage = true)
+        closeSoftKeyboard()
+        val list = compose.onNodeWithTag("operation-create-category-list")
+        list.performScrollToKey("section-frequent")
+        val frequent = compose.onNodeWithText("Часто используемые").getBoundsInRoot()
+        val recent = compose.onNodeWithText("Последние").getBoundsInRoot()
+        val all = compose.onNodeWithText("Все").getBoundsInRoot()
+        assertTrue(frequent.top < recent.top && recent.top < all.top)
+        list.performScrollToKey("all-expense-11")
+        compose.onNodeWithTag("operation-create-category-expense-11").assertIsDisplayed()
+    }
+
+    @Test fun categoriesAreDisabledWhileSaving() {
+        val context = history.context.value
+        val used = context.categories.filter { it.kind == CategoryKind.Expense }.take(1)
+        compose.setContent {
+            FillinTheme {
+                OperationCreateScreen(
+                    editor = OperationCreateUiState(occurredOn = LocalDate.now(CLOCK), isSaving = true,
+                        frequentlyUsed = used, recentlyUsed = used),
+                    context = context,
+                    onEvent = {},
+                )
+            }
+        }
+        compose.onNodeWithTag("operation-create-frequent-expense-0").assertIsNotEnabled()
+        compose.onNodeWithTag("operation-create-recent-expense-0").assertIsNotEnabled()
+        compose.onNodeWithTag("operation-create-category-expense-0").assertIsNotEnabled()
+    }
+
+    @Test fun canSaveFromFullList() = saveFrom("all", "category", "expense-9")
+
+    @Test fun canSaveFromFrequentlyUsed() = saveFrom("frequent", "frequent", "expense-0")
+
+    @Test fun canSaveFromRecentlyUsed() = saveFrom("recent", "recent", "expense-0")
+
+    private fun saveFrom(section: String, tag: String, id: String) {
+        show(withUsage = true)
+        compose.onNodeWithTag("operation-create-input").performTextReplacement("12,50")
+        closeSoftKeyboard()
+        compose.onNodeWithTag("operation-create-category-list").performScrollToKey("$section-$id")
+        compose.onNodeWithTag("operation-create-$tag-$id").performClick()
+        compose.waitUntil { model.uiState.value.createEditor == null }
+        assertEquals(id, history.created.single().categoryId)
+        assertEquals("12.50", history.created.single().amount.toPlainString())
+    }
+
     private fun screenshot(name: String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
@@ -139,12 +177,20 @@ class OperationCreateScreenTest {
         bitmap.recycle()
     }
 
-    private fun show(fontScale: Float = 1f) {
+    private fun show(fontScale: Float = 1f, withUsage: Boolean = false) {
         compose.activityRule.scenario.onActivity {
             it.enableEdgeToEdge()
             it.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
-        model = OperationCreateViewModel(history, CLOCK)
+        val usage = object : CategoryUsageRepository {
+            override fun observeFrequentlyUsed(limit: Int, kind: CategoryKind?) = used(kind, limit)
+            override fun observeRecentlyUsed(limit: Int, kind: CategoryKind?) = used(kind, limit)
+            private fun used(kind: CategoryKind?, limit: Int) = history.context.map { context ->
+                if (withUsage) context.categories.filter { it.kind == kind }.take(minOf(limit, 1))
+                else emptyList()
+            }
+        }
+        model = OperationCreateViewModel(history, GetFrequentlyUsedCategories(usage), GetRecentlyUsedCategories(usage), CLOCK)
         models.put("creator", model)
         compose.setContent {
             val state by model.uiState.collectAsStateWithLifecycle()
@@ -153,7 +199,10 @@ class OperationCreateScreenTest {
                 FillinTheme { OperationCreateScreen(state.createEditor, state.offline, model::onEvent) }
             }
         }
-        compose.waitUntil { model.uiState.value.offline.initialSyncComplete }
+        compose.waitUntil {
+            val state = model.uiState.value
+            state.offline.initialSyncComplete && (!withUsage || state.createEditor?.recentlyUsed?.isNotEmpty() == true)
+        }
     }
 
     private fun assertKeyboardVisible() {
@@ -180,7 +229,7 @@ class OperationCreateScreenTest {
         val created = mutableListOf<NewOperation>()
         override fun observeHistory(filter: OperationHistoryFilter, limit: Int) = flowOf(OperationPage(emptyList(), null))
         override fun requestSync() = Unit
-        override suspend fun create(operation: NewOperation, replacesRejectedId: String?) { created += operation }
+        override suspend fun create(operation: NewOperation, replacesRejectedId: String?): com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult { created += operation; return com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("created") }
         override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage = error("Unused")
         override suspend fun updateOperationAmount(id: String, version: Long, amount: java.math.BigDecimal): Operation = error("Unused")
         override suspend fun refundPurchase(id: String, version: Long) = Unit

@@ -4,16 +4,28 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.credentials.exceptions.GetCredentialCancellationException
-import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.Lifecycle
+import kotlinx.coroutines.awaitCancellation
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import com.firkat.fillin.feature.auth.domain.*
-import com.firkat.fillin.feature.auth.ui.AuthViewModel
+import com.firkat.fillin.feature.appaccess.domain.AppAccess
+import com.firkat.fillin.feature.appaccess.domain.AppMode
+import com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
+import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
+import com.firkat.fillin.feature.auth.ui.interactor.AuthState
+import com.firkat.fillin.feature.auth.ui.interactor.AuthReducer
+import com.firkat.fillin.feature.auth.ui.interactor.AuthInteractor
+import org.koin.compose.viewmodel.koinViewModel
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.budgetconnection.BudgetConnectionDeviceTest
 import com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionViewModel
@@ -39,6 +51,7 @@ import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsRepository
+import kotlinx.coroutines.Dispatchers
 import java.time.LocalDate
 import org.junit.After
 import org.junit.Assert.*
@@ -55,11 +68,21 @@ import org.koin.dsl.module
 class AppNavigationUiTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val env = BudgetConnectionDeviceTest.Environment()
-    private val models = ViewModelStore()
+    private val access = object : AppAccess {
+        override val mode = MutableStateFlow(AppMode.InternalFull)
+        override val checking = MutableStateFlow(false)
+        override fun installationId() = "a625153f-4be5-47b1-adfa-2c404603c034"
+        override suspend fun refresh(manual: Boolean) = true
+        override fun revoke() { mode.value = AppMode.OfflineFree }
+    }
     private var pickerCalls = 0
+    private var authModelsCreated = 0
+    private var profileCalls = 0
+    private var signInAction: suspend () -> Unit = { env.auth.login("owner") }
     private var launcher = GoogleSignInLauncher { pickerCalls++; "synthetic-credential" }
     private val auth = object : AuthRepository by env.auth {
-        override suspend fun signInWithGoogle(idToken: String) { env.auth.login("owner") }
+        override suspend fun signInWithGoogle(idToken: String) = signInAction()
+        override suspend fun reloadUser() {}
     }
     private lateinit var navigation: AppNavigationViewModel
     private lateinit var authModel: AuthViewModel
@@ -72,14 +95,123 @@ class AppNavigationUiTest {
         compose.onNodeWithText("Вступить в семейный бюджет").performScrollTo().performClick()
         compose.onNodeWithText("Код приглашения").assertExists()
         assertTrue(env.server.creations.isEmpty())
-        compose.onNodeWithText("К списку бюджетов").performScrollTo().performClick()
+        compose.onNodeWithTag("setup_back").performScrollTo().performClick()
         compose.onNodeWithText("Код приглашения").assertDoesNotExist()
+    }
+
+    @Test fun setupGoogleLoginReturnsToDraftInsteadOfReadyAccountBudget() {
+        runBlocking {
+            env.auth.login("owner"); env.manager.restore()
+            env.connection.connect("owner", env.connection.budgets("owner").single())
+            env.auth.logout(); env.manager.restore()
+        }
+        show()
+        compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
+        closeSoftKeyboard()
+        compose.onNodeWithTag("setup_cloud").performScrollTo().performClick()
+        compose.onNodeWithTag("setup_create").performScrollTo().performClick()
+        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("budget_setup_name").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Поездка").assertExists()
+        compose.onNodeWithTag("main_screen").assertDoesNotExist()
+        assertTrue(env.server.creations.isEmpty())
+    }
+
+    @Test fun cancelingAuthenticationFromSetupKeepsDraftAndDoesNotReopenAuth() {
+        show()
+        compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
+        closeSoftKeyboard(); compose.onNodeWithTag("setup_cloud").performScrollTo().performClick()
+        compose.onNodeWithTag("setup_create").performScrollTo().performClick()
+        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.runOnIdle { navigation.back() }
+        compose.onNodeWithText("Поездка").assertExists()
+        compose.onNodeWithTag("auth_screen").assertDoesNotExist()
+    }
+
+    @Test fun guestJoinAuthenticatesAndOpensTheInvitationPage() {
+        show()
+        compose.onNodeWithTag("setup_open_join").performScrollTo().performClick()
+        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("setup_code").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(AppRoute.BudgetSetupJoin, navigation.backStack.last())
+        assertTrue(env.server.creations.isEmpty())
+    }
+
+    @Test fun categoryEditorIsAFullScreenAndSavesToTheOfflineList() {
+        show(createdBudget = true)
+        compose.runOnIdle { navigation.openCategories() }
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("Новая категория", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Новая категория", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Новая категория").assertIsDisplayed()
+        compose.runOnIdle { assertNull((navigation.backStack.last() as AppRoute.EditCategory).categoryId) }
+        compose.onNodeWithText("Удалить").assertDoesNotExist()
+        compose.onNodeWithText("Сохранить").assertIsNotEnabled()
+        compose.onNodeWithText("Расход").assertIsSelected()
+        compose.onNodeWithText("Доход").performClick().assertIsSelected()
+        compose.onNode(hasSetTextAction()).performTextInput("Возврат за товар")
+        closeSoftKeyboard()
+        compose.onNodeWithText("Сохранить").assertIsEnabled().performClick()
+        compose.waitUntil(5000) { navigation.backStack.lastOrNull() == AppRoute.Categories }
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("Возврат за товар").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Возврат за товар").performScrollTo().performClick()
+        compose.onNodeWithText("Редактирование").assertIsDisplayed()
+        compose.onNodeWithText("Доход").assertIsSelected().assertIsNotEnabled()
+        compose.onNodeWithText("Сохранить").assertIsNotEnabled()
+        compose.onNodeWithText("Удалить").assertDoesNotExist()
+        compose.onNode(hasSetTextAction()).performTextReplacement("Возврат за билет")
+        closeSoftKeyboard()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Продолжить редактирование").performClick()
+        compose.onNodeWithText("Возврат за билет").assertExists()
+        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.onNodeWithText("Выйти без сохранения").performClick()
+        compose.onNodeWithText("Возврат за товар").assertExists()
+    }
+
+    @Test fun categoryDraftSurvivesRecreationAndClosesOnBudgetSwitch() {
+        show(createdBudget = true, fontScale = 2f)
+        val runtime = requireNotNull(env.manager.active.value)
+        val category = runBlocking {
+            runtime.scope.get<com.firkat.fillin.feature.categories.domain.usecase.CreateCategory>()(
+                "Поездки", CategoryKind.Expense, "CAR",
+            )
+        }
+        compose.runOnIdle {
+            navigation.openCategories()
+            navigation.openCategoryEditor(runtime.scope.id, category.id)
+        }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Сохранить").fetchSemanticsNodes().isNotEmpty() }
+        val delete = compose.onNodeWithText("Удалить").assertIsDisplayed()
+        val save = compose.onNodeWithText("Сохранить").assertIsDisplayed()
+        assertTrue(delete.getUnclippedBoundsInRoot().bottom <= save.getUnclippedBoundsInRoot().top)
+        compose.onNode(hasSetTextAction()).performTextReplacement("Черновик поездок")
+        closeSoftKeyboard()
+        save.assertIsEnabled()
+        compose.activityRule.scenario.recreate()
+        compose.setContent(hostContent)
+        compose.onNodeWithText("Черновик поездок").assertExists()
+        save.assertIsEnabled()
+
+        runBlocking {
+            env.manager.select(env.registry.createLocal().id)
+            val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
+            session.createLocal("900.00".toBigDecimal(), session.today)
+        }
+        compose.waitUntil(5000) { navigation.backStack.none { it is AppRoute.EditCategory } }
+        compose.onNodeWithText("Черновик поездок").assertDoesNotExist()
     }
 
     private fun show(
         createdBudget: Boolean = false,
         restoration: StateRestorationTester? = null,
         fontScale: Float = 1f,
+        expectMain: Boolean = createdBudget,
     ) {
         compose.runOnUiThread {
             compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -92,7 +224,25 @@ class AppNavigationUiTest {
             }
         }
         env.koin.loadModules(listOf(module {
-            viewModel { AuthViewModel(auth) }
+            single<AppAccess> { access }
+            viewModel { AboutAppViewModel(get()) }
+            viewModel {
+                authModelsCreated++
+                AuthViewModel(
+                    AuthState(session = auth.session.value), AuthReducer(),
+                    AuthInteractor(auth, object : ServerAuthRepository {
+                        override suspend fun authenticate(uid: String): ServerUser {
+                            profileCalls++
+                            return ServerUser("server-$uid", uid, null, null)
+                        }
+                    }, Dispatchers.Main.immediate),
+                )
+            }
+            viewModel {
+                AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager), access = access, activeBudget = env.manager)
+            }
+            viewModel { com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel(auth, env.connection, env.creation,
+                com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.koin.get()), env.sharing, get(), dispatcher = Dispatchers.IO, access = access) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(auth, env.sharing) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(env.sharing) }
             viewModel {
@@ -106,38 +256,59 @@ class AppNavigationUiTest {
             }
             viewModel { com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadViewModel(auth, env.uploadConnection) }
             single<com.firkat.fillin.feature.profile.domain.ProfileBudgetsRepository> {
-                com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, get(), env.uploads)
+                com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, get(), env.uploads, access = access)
             }
-            viewModel { com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, env.creation) }
+            viewModel { com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, env.creation, access, env.registry.observeLocalCount()) }
+            viewModel {
+                val store = object : com.firkat.fillin.feature.profile.domain.DeletionStore {
+                    override fun operations() = emptyList<com.firkat.fillin.feature.profile.domain.DeletionOperation>()
+                    override fun save(operation: com.firkat.fillin.feature.profile.domain.DeletionOperation) = Unit
+                    override fun blocked(uid: String) = false
+                    override fun block(uid: String) = Unit
+                    override fun finish(uid: String) = Unit
+                }
+                com.firkat.fillin.feature.profile.ui.ProfileDeletionViewModel(
+                    com.firkat.fillin.feature.profile.data.ProfileDeletionCoordinator(
+                        store, null, auth, token = { error("Unused") }, pause = {}, erase = {},
+                    ),
+                    auth,
+                )
+            }
+            viewModel {
+                com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel(
+                    com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement(
+                        env.context, env.registryDb, env.registry, env.manager, auth,
+                        env.requests, env.uploads, get(), enqueue = {},
+                    ),
+                    auth,
+                )
+            }
             single<GoogleSignInLauncher> { launcher }
             viewModel { parameters -> BudgetConnectionViewModel(auth, env.connection, env.creation, parameters.getOrNull<Boolean>() ?: false) }
         }))
-        authModel = AuthViewModel(auth).also { models.put("auth", it) }
-        navigation = AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager))
-            .also { models.put("navigation", it) }
         hostContent = {
             FillinTheme {
                 UnboundKoinScope(env.koin.scopeRegistry.rootScope) {
                     val density = LocalDensity.current
                     CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
-                        FillinNavHost(navigation, authModel, launcher)
+                        authModel = koinViewModel(viewModelStoreOwner = compose.activity)
+                        navigation = koinViewModel(viewModelStoreOwner = compose.activity)
+                        FillinNavHost()
                     }
                 }
             }
         }
         if (restoration == null) compose.setContent(hostContent) else restoration.setContent(hostContent)
-        if (auth.session.value != AuthSession.Loading) {
-            compose.waitUntil(5000) {
-                compose.onAllNodes(if (createdBudget) hasTestTag("main_screen") else if (auth.session.value is AuthSession.Authenticated) hasTestTag("budget_setup_screen") else hasTestTag("auth_screen"))
-                    .fetchSemanticsNodes().isNotEmpty()
-            }
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithTag(if (expectMain) "main_screen" else "budget_setup_screen")
+                .fetchSemanticsNodes().isNotEmpty()
         }
     }
 
     @After fun cleanup() {
         compose.activityRule.scenario.onActivity { it.setContentView(android.widget.FrameLayout(it)) }
         compose.waitForIdle()
-        models.clear()
+        compose.activityRule.scenario.onActivity { it.viewModelStore.clear() }
         env.close()
     }
 
@@ -152,10 +323,10 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("tab_Profile").assertIsSelected()
     }
 
-    @Test fun launchWaitsForFirebaseBeforeOpeningMainWithoutAnotherPicker() {
+    @Test fun localLaunchOpensMainWhileFirebaseRestores() {
         env.auth.session.value = AuthSession.Loading
         show(createdBudget = true)
-        compose.onNodeWithTag("launch_screen").assertIsDisplayed()
+        compose.onNodeWithTag("main_screen").assertIsDisplayed()
         compose.runOnIdle { env.auth.login("owner") }
         compose.waitUntil(5000) { compose.onAllNodesWithText("Профиль").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(listOf(AppRoute.Main), navigation.backStack)
@@ -178,28 +349,40 @@ class AppNavigationUiTest {
         show(createdBudget = true)
         compose.onNodeWithTag("tab_Profile").performClick()
         compose.onNodeWithContentDescription("Выйти из аккаунта").performClick()
-        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.onNodeWithTag("sign_out_confirm").performClick()
+        compose.onNodeWithTag("main_screen").assertIsDisplayed()
         compose.runOnIdle { navigation.back() }
-        assertEquals(listOf(AppRoute.Auth), navigation.backStack)
+        assertEquals(listOf(AppRoute.Main), navigation.backStack)
         assertEquals(AuthSession.Anonymous, auth.session.value)
         assertEquals(0, pickerCalls)
     }
 
-    @Test fun emptyDeviceShowsAuthAndEmailExplainsItsAvailability() {
+    @Test fun explicitCloudCreationOpensAuthAndEmailOpensLogin() {
         show()
+        openSetupAuth()
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
         compose.onNodeWithText("Профиль").assertDoesNotExist()
         compose.onNodeWithText("Продолжить с email").performClick()
-        compose.onNodeWithText("Вход по email пока недоступен").assertIsDisplayed()
+        compose.onNodeWithTag("email_input").assertIsDisplayed()
+    }
+
+    @Test fun pendingEmailCanReturnToLocalBudgetThroughProfile() {
+        env.auth.session.value = AuthSession.EmailVerificationRequired(AuthUser("pending", null, "pending@example.test", setOf("password"), false))
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Подтвердите email").performScrollTo().performClick()
+        compose.onNodeWithText("Я подтвердил email").assertExists()
+        compose.onNodeWithText("Продолжить локально").performScrollTo().performClick()
+        compose.onNodeWithTag("main_screen").assertIsDisplayed()
+        assertTrue(auth.session.value is AuthSession.EmailVerificationRequired)
+        assertEquals(listOf(AppRoute.Main), navigation.backStack)
     }
 
     @Test fun missingFirebaseConfigurationStillAllowsGuestSetup() {
         env.auth.session.value = AuthSession.Unavailable
         show()
-        compose.onNodeWithText("Продолжить с Google").assertIsNotEnabled()
-        compose.onNodeWithText("Продолжить без авторизации").performClick()
         compose.onNodeWithTag("auth_screen").assertDoesNotExist()
-        compose.onNodeWithText("Создание бюджета").assertIsDisplayed()
+        compose.onNodeWithText("Настройте свой бюджет").assertIsDisplayed()
         compose.onNodeWithText("Продолжить без авторизации").assertDoesNotExist()
         compose.onNodeWithTag("main_screen").assertDoesNotExist()
         assertEquals(0, pickerCalls)
@@ -209,6 +392,7 @@ class AppNavigationUiTest {
         val result = CompletableDeferred<String>()
         launcher = GoogleSignInLauncher { pickerCalls++; result.await() }
         show()
+        openSetupAuth()
         compose.onNodeWithText("Продолжить с Google").performClick()
         compose.waitUntil { pickerCalls == 1 }
         compose.onNodeWithText("Продолжить с email").assertIsNotEnabled()
@@ -219,6 +403,95 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("auth_screen").assertIsDisplayed()
         assertNull(authModel.state.value.error)
         assertEquals(1, pickerCalls)
+    }
+
+    @Test fun activityRecreationRetainsAuthModelAndDoesNotReloadRestoredProfile() {
+        env.auth.login("owner")
+        show()
+        compose.waitUntil { profileCalls == 1 }
+        val originalModel = authModel
+        compose.activityRule.scenario.recreate()
+        compose.setContent(hostContent)
+        compose.onNodeWithTag("budget_setup_screen").assertIsDisplayed()
+        assertSame(originalModel, authModel)
+        assertEquals(1, authModelsCreated)
+        assertEquals(1, profileCalls)
+    }
+
+    @Test fun stoppingAuthCancelsOnlyPickerAndRestartAllowsOneNewRequest() {
+        var cancellations = 0
+        launcher = GoogleSignInLauncher {
+            pickerCalls++
+            try { awaitCancellation() } finally { cancellations++ }
+        }
+        show()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil { pickerCalls == 1 }
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.waitUntil { !authModel.state.value.busy && cancellations == 1 }
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.onNodeWithText("Продолжить с Google").assertIsEnabled().performClick()
+        compose.waitUntil { pickerCalls == 2 }
+        assertEquals(1, authModelsCreated)
+    }
+
+    @Test fun leavingAuthCancelsPickerWithoutCancellingSharedModel() {
+        var cancelled = false
+        launcher = GoogleSignInLauncher {
+            pickerCalls++
+            try { awaitCancellation() } finally { cancelled = true }
+        }
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil { pickerCalls == 1 }
+        compose.runOnIdle { navigation.back() }
+        compose.onNodeWithTag("main_screen").assertIsDisplayed()
+        compose.waitUntil { cancelled && !authModel.state.value.busy }
+        compose.onNodeWithText("Авторизоваться").performClick()
+        compose.onNodeWithText("Продолжить с Google").assertIsEnabled()
+        assertEquals(1, authModelsCreated)
+    }
+
+    @Test fun FirebaseExchangeFinishesAfterNavigationWithOneSharedModelAndProfileLoad() {
+        val completed = CompletableDeferred<Unit>()
+        var cancelled = false
+        signInAction = {
+            env.auth.login("owner")
+            try { completed.await() } finally { cancelled = !completed.isCompleted }
+        }
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Авторизоваться").performClick()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        // Synchronize with composition before reading SnapshotStateList from the test thread.
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodesWithTag("main_screen").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.runOnIdle { assertEquals(listOf(AppRoute.Main), navigation.backStack) }
+        assertTrue(authModel.state.value.busy)
+        assertFalse(cancelled)
+        compose.runOnIdle { completed.complete(Unit) }
+        compose.waitUntil(timeoutMillis = 10_000) { !authModel.state.value.busy && profileCalls == 1 }
+        compose.onNodeWithContentDescription("Выйти из аккаунта").assertIsDisplayed()
+        assertEquals(1, authModelsCreated)
+    }
+
+    @Test fun errorWhileAuthStoppedIsShownOnceAfterRestart() {
+        show()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.runOnUiThread {
+            authModel.onAction(AuthAction.GoogleClicked)
+            authModel.onAction(AuthAction.CredentialFailed(authModel.state.value.operationId, AuthError.Network))
+        }
+        assertEquals(AuthError.Network, authModel.state.value.error)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.onNodeWithText("Не удалось выполнить вход. Проверьте интернет и повторите попытку.").assertIsDisplayed()
+        compose.waitUntil(10000) { authModel.state.value.error == null }
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.onNodeWithText("Не удалось выполнить вход. Проверьте интернет и повторите попытку.").assertDoesNotExist()
     }
 
     @Test fun GoogleFailureShowsSnackbarAndRetryReturnsToMain() {
@@ -251,12 +524,11 @@ class AppNavigationUiTest {
     }
     @Test fun guestCreatesBudgetAfterOneClickAndBackCannotReopenSetup() {
         show()
-        compose.onNodeWithText("Продолжить без авторизации").performClick()
-        compose.onNodeWithText("Создание бюджета").assertIsDisplayed()
+        compose.onNodeWithText("Настройте свой бюджет").assertIsDisplayed()
         compose.onNodeWithText("Продолжить без авторизации").assertDoesNotExist()
         compose.onNodeWithText("Профиль").assertDoesNotExist()
         assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Local), navigation.backStack.last())
-        compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("123,45")
+        compose.onNodeWithTag("budget_setup_balance").performScrollTo().performTextReplacement("123,45")
         closeSoftKeyboard()
         compose.onNodeWithText("Создать бюджет").performScrollTo().performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("main_screen").fetchSemanticsNodes().isNotEmpty() }
@@ -269,22 +541,21 @@ class AppNavigationUiTest {
         assertTrue(env.server.creations.isEmpty())
     }
 
-    @Test fun localSetupBackReturnsToAuthAndRotationRetainsInput() {
+    @Test fun localSetupRotationRetainsInput() {
         val restoration = StateRestorationTester(compose)
         show(restoration = restoration)
-        compose.onNodeWithText("Продолжить без авторизации").performClick()
-        compose.onNodeWithText("Начальный баланс, ₸").performTextReplacement("456,78")
+        compose.onNodeWithTag("budget_setup_balance").performScrollTo().performTextReplacement("456,78")
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithText("456,78").assertIsDisplayed()
         closeSoftKeyboard()
-        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
+        compose.onNodeWithTag("auth_screen").assertDoesNotExist()
         compose.onNodeWithTag("main_screen").assertDoesNotExist()
     }
 
     @Test fun GoogleLoginWithoutReadyBudgetOpensCloudSetupAndCreatesBudget() {
         env.server.budgetExists = false
         show()
+        openSetupAuth()
         compose.onNodeWithText("Продолжить с Google").performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithText("Название бюджета").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("main_screen").assertDoesNotExist()
@@ -292,7 +563,7 @@ class AppNavigationUiTest {
         assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Cloud), navigation.backStack.last())
         compose.onNodeWithText("Название бюджета").performTextReplacement("Семейный")
         closeSoftKeyboard()
-        compose.onNodeWithText("Создать облачный бюджет").performScrollTo().performClick()
+        compose.onNodeWithText("Создать бюджет").performScrollTo().performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("main_screen").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(listOf(AppRoute.Main), navigation.backStack)
         assertEquals(1, env.server.creations.size)
@@ -302,6 +573,7 @@ class AppNavigationUiTest {
     @Test fun restoredGoogleAccountSelectsExistingCloudBudgetBeforeMain() {
         env.auth.login("owner")
         show()
+        compose.onNodeWithText("Выберите бюджет").performScrollTo().performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithText("Тестовый бюджет · Владелец").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("main_screen").assertDoesNotExist()
         compose.onNodeWithText("Тестовый бюджет · Владелец").performClick()
@@ -310,16 +582,65 @@ class AppNavigationUiTest {
         assertEquals(0, pickerCalls)
     }
 
-    @Test fun cloudSetupBackReturnsToAuthAndResumesWithoutAnotherPicker() {
-        env.server.budgetExists = false
-        env.auth.login("owner")
+    @Test fun offlineSetupIsImmediateAndGrantPreservesDraft() {
+        access.revoke()
         show()
-        compose.waitUntil(5000) { compose.onAllNodesWithText("Название бюджета").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Назад").performScrollTo().performClick()
-        compose.onNodeWithTag("auth_screen").assertIsDisplayed()
-        compose.onNodeWithText("Продолжить с Google").performClick()
-        compose.onNodeWithTag("budget_setup_screen").assertIsDisplayed()
-        assertEquals(0, pickerCalls)
+        compose.onNodeWithTag("auth_screen").assertDoesNotExist()
+        compose.onNodeWithTag("setup_cloud").assertDoesNotExist()
+        compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
+        closeSoftKeyboard()
+        compose.runOnIdle { access.mode.value = AppMode.InternalFull }
+        compose.onNodeWithTag("setup_cloud").assertExists()
+        compose.onNodeWithText("Поездка").assertExists()
+        compose.onNodeWithTag("auth_screen").assertDoesNotExist()
+    }
+
+    @Test fun revocationClosesCloudRouteAndHidesProfileActions() {
+        show(createdBudget = true)
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.runOnIdle { navigation.openCloudSync() }
+        assertEquals(AppRoute.CloudSync, navigation.backStack.last())
+        compose.runOnIdle { access.revoke() }
+        compose.waitUntil(5000) { navigation.backStack.toList() == listOf(AppRoute.Main) }
+        compose.onNodeWithText("Авторизоваться").assertDoesNotExist()
+        compose.onNodeWithText("О приложении").assertExists()
+        compose.runOnIdle {
+            navigation.openAuthentication()
+            navigation.openCloudSync()
+            navigation.openFamilyAccess()
+            assertEquals(listOf(AppRoute.Main), navigation.backStack)
+        }
+    }
+
+    @Test fun revokedCloudBudgetStaysVisibleAndRejectsWrites() {
+        env.koin.loadModules(listOf(module { single<AppAccess> { access } }))
+        runBlocking {
+            env.auth.login("owner")
+            env.manager.restore()
+            env.connection.connect("owner", env.connection.budgets("owner").single())
+        }
+        show(createdBudget = false, expectMain = true)
+        compose.runOnIdle { access.revoke() }
+        compose.onNodeWithTag("tab_AddOperation").assertDoesNotExist()
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Облачный бюджет доступен только для чтения").assertExists()
+        compose.onNodeWithText("Тестовый бюджет").assertExists()
+        runBlocking {
+            val runtime = env.manager.active.value!!
+            val lease = env.manager.acquire(runtime.profile.syncIdentity)!!
+            lease.use {
+                val store = lease.scope.get<com.firkat.fillin.feature.sync.data.BudgetStore>()
+                val before = store.pending()
+                val error = runCatching { store.enqueue("CREATE_CATEGORY") }.exceptionOrNull()
+                assertEquals("access_denied", (error as? com.firkat.fillin.feature.sync.data.BudgetLocalFailure)?.code)
+                assertEquals(before, store.pending())
+            }
+        }
+    }
+
+    private fun openSetupAuth() {
+        compose.onNodeWithTag("setup_cloud").performScrollTo().performClick()
+        compose.onNodeWithTag("setup_create").performScrollTo().performClick()
     }
 
     @Test fun guestButtonFromCloudReturnsToExistingBudget() {
@@ -428,6 +749,23 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("history-type-INCOME").assertIsSelected()
     }
 
+    @Test fun forecastDetailsOpenFromDashboardAndRetainTabAcrossRestoration() {
+        val restoration = StateRestorationTester(compose)
+        show(createdBudget = true, restoration = restoration)
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("dashboard-grid").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("dashboard-grid").performScrollToNode(hasTestTag("dashboard-widget-balance-forecast"))
+        val details = compose.onNodeWithText("Подробный прогноз").performScrollTo()
+        scrollAboveMainNavigation("dashboard-grid", details)
+        details.performClick()
+        compose.waitUntil(5000) { navigation.backStack.lastOrNull() is AppRoute.ForecastDetails }
+        compose.onNodeWithText("Параметры").performClick().assertIsSelected()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("Параметры").assertIsSelected()
+        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.waitUntil(5000) { navigation.backStack.toList() == listOf(AppRoute.Main) }
+        compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
+    }
+
     @Test fun dashboardScrollSurvivesTabSwitchAndSavedStateRestoration() {
         val restoration = StateRestorationTester(compose)
         show(createdBudget = true, restoration = restoration, fontScale = 2f)
@@ -451,13 +789,11 @@ class AppNavigationUiTest {
         val dismissals: List<() -> Unit> = listOf(
             { compose.onNodeWithTag("edit_operation_close").performClick() },
             { androidx.test.espresso.Espresso.pressBack() },
-            { compose.onNode(isDialog()).performTouchInput { click(Offset(centerX, 1f)) } },
-            { compose.onNodeWithTag("edit_operation_bottom_sheet").performTouchInput { swipeDown() } },
         )
         dismissals.forEach { dismiss ->
             openSheet(operation)
             dismiss()
-            compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
             compose.onNodeWithTag("tab_History").assertIsSelected()
             compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
@@ -472,8 +808,8 @@ class AppNavigationUiTest {
             openSheet(operation)
             compose.onNodeWithTag("edit_operation_input").performTextReplacement("${50 + attempt}.00")
             closeSoftKeyboard()
-            compose.onNodeWithTag("edit_operation_save").performScrollTo().performClick()
-            compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithTag("edit_operation_save").performClick()
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
             compose.onNodeWithText("Изменения сохранены").assertIsDisplayed()
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
             compose.onNodeWithTag("operation-${operation.id}").assertExists()
@@ -488,16 +824,18 @@ class AppNavigationUiTest {
         val operation = operations[12]
         compose.onNodeWithTag("tab_History").performClick()
         compose.onNodeWithTag("operation_history_list").performScrollToNode(hasTestTag("operation-${operation.id}"))
-        val top = compose.onNodeWithTag("operation-${operation.id}").getUnclippedBoundsInRoot().top
+        val row = compose.onNodeWithTag("operation-${operation.id}")
+        scrollAboveMainNavigation("operation_history_list", row)
+        val top = row.getUnclippedBoundsInRoot().top
         openSheet(operation)
         val route = navigation.backStack.last()
         restoration.emulateSavedInstanceStateRestore()
-        compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("operation_details").assertIsDisplayed()
         assertEquals(route, navigation.backStack.last())
         compose.onNodeWithTag("edit_operation_close").performClick()
-        compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("tab_History").assertIsSelected()
-        assertEquals(top, compose.onNodeWithTag("operation-${operation.id}").getUnclippedBoundsInRoot().top)
+        assertEquals(top, row.getUnclippedBoundsInRoot().top)
     }
 
     @Test fun switchingBudgetDismissesAnOpenSheetWithoutOpeningAnEditorInTheNewBudget() {
@@ -510,8 +848,8 @@ class AppNavigationUiTest {
             val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
             session.createLocal("900.00".toBigDecimal(), session.today)
         }
-        compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
-        assertFalse(navigation.backStack.any { it is AppRoute.EditOperationBottomSheet })
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
+        assertFalse(navigation.backStack.any { it is AppRoute.OperationDetails })
         compose.onNodeWithText("Изменение расхода").assertDoesNotExist()
     }
 
@@ -527,12 +865,12 @@ class AppNavigationUiTest {
             activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         compose.setContent(hostContent)
-        compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
-        compose.onNodeWithTag("tab_History").assertIsSelected()
+        compose.onNodeWithTag("operation_details").assertIsDisplayed()
+        compose.onNodeWithTag("tab_History").assertDoesNotExist()
         assertEquals(route, navigation.backStack.last())
         compose.onNodeWithTag("edit_operation_input").performTextReplacement("55.00")
         compose.onNodeWithTag("edit_operation_save").performClick()
-        compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_bottom_sheet").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithText("Изменения сохранены").assertIsDisplayed()
         compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
     }
@@ -542,15 +880,15 @@ class AppNavigationUiTest {
         val operations = seedPlannedOperations()
         compose.onNodeWithTag("tab_Planned").performClick()
         for (operation in operations) {
-            compose.onNodeWithTag("planned-type-${operation.type.apiValue}").performClick()
+            compose.onNodeWithTag("planning-filter-${operation.type.name}").performClick()
             compose.onNodeWithText(plannedCategoryName(operation)).performClick()
-            compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
-            assertEquals(operation.type, (navigation.backStack.last() as AppRoute.PlannedOperationBottomSheet).type)
+            compose.onNodeWithTag("planning-rule-editor").assertIsDisplayed()
+            assertEquals(operation.type, (navigation.backStack.last() as AppRoute.PlanningRuleEditor).type)
             compose.onNodeWithTag("planned-editor-amount").performTextReplacement("450.00")
             closeSoftKeyboard()
-            compose.onNodeWithTag("planned-editor-save").performScrollTo().performClick()
+            compose.onNodeWithTag("planned-editor-save").performClick()
             waitForPlannedSheetToClose()
-            compose.onNodeWithTag("planned-type-${operation.type.apiValue}").assertIsSelected()
+            compose.onNodeWithTag("planning-filter-${operation.type.name}").assertIsSelected()
             compose.onNodeWithText(plannedCategoryName(operation)).assertIsDisplayed()
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
             val saved = runBlocking {
@@ -563,7 +901,7 @@ class AppNavigationUiTest {
                 is PlannedOperation.Income -> saved.income.plannedAmount
             }
             assertEquals(0, "450.00".toBigDecimal().compareTo(amount))
-            compose.onNodeWithTag("planned-type-reset").performClick()
+            compose.onNodeWithTag("planning-filter-All").performClick()
         }
     }
 
@@ -571,7 +909,7 @@ class AppNavigationUiTest {
         show(createdBudget = true)
         val operation = seedPlannedOperations().first { it.type == PlannedOperationType.Income }
         compose.onNodeWithTag("tab_Planned").performClick()
-        compose.onNodeWithTag("planned-type-INCOME").performClick()
+        compose.onNodeWithTag("planning-filter-Income").performClick()
         compose.onNodeWithText(plannedCategoryName(operation)).performClick()
         compose.onNodeWithTag("planned-editor-amount").performTextReplacement("999.00")
         closeSoftKeyboard()
@@ -581,17 +919,18 @@ class AppNavigationUiTest {
             activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         compose.setContent(hostContent)
-        compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("planning-rule-editor").assertIsDisplayed()
         compose.onNodeWithTag("planned-editor-amount").assertTextContains("999.00")
         assertEquals(route, navigation.backStack.last())
-        compose.onNodeWithTag("planned-editor-close").performScrollTo().performClick()
+        compose.onNodeWithTag("planned-editor-close").performClick()
+        compose.onNodeWithText("Подтвердить").performClick()
         waitForPlannedSheetToClose()
-        compose.onNodeWithTag("planned-type-INCOME").assertIsSelected()
+        compose.onNodeWithTag("planning-filter-Income").assertIsSelected()
         compose.onNodeWithText(plannedCategoryName(operation)).performClick()
         compose.onNodeWithTag("planned-editor-amount").assertTextContains("200.00")
         androidx.test.espresso.Espresso.pressBack()
         waitForPlannedSheetToClose()
-        compose.onNodeWithTag("planned-type-INCOME").assertIsSelected()
+        compose.onNodeWithTag("planning-filter-Income").assertIsSelected()
     }
 
     @Test fun plannedCreationUsesSheetsAndBudgetSwitchDismissesTheEditor() {
@@ -599,27 +938,28 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("tab_Planned").performClick()
         for (type in listOf("expense", "income")) {
             compose.onNodeWithTag("planned-create").performClick()
-            compose.onNodeWithTag("planned-create-$type").performClick()
-            compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
-            assertTrue(navigation.backStack.last() is AppRoute.PlannedOperationBottomSheet)
-            compose.onNodeWithTag("planned-editor-close").performScrollTo().performClick()
+            if (type == "income") compose.onNodeWithText("Доход").performClick()
+            compose.onNodeWithTag("planning-rule-editor").assertIsDisplayed()
+            assertTrue(navigation.backStack.last() is AppRoute.PlanningRuleEditor)
+            compose.onNodeWithTag("planned-editor-close").performClick()
+            if (type == "income") compose.onNodeWithText("Подтвердить").performClick()
             waitForPlannedSheetToClose()
         }
         val operation = seedPlannedOperations().first { it.type == PlannedOperationType.Expense }
         compose.onNodeWithText(plannedCategoryName(operation)).performClick()
-        compose.onNodeWithTag("planned-operation-bottom-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("planning-rule-editor").assertIsDisplayed()
         runBlocking {
             env.manager.select(env.registry.createLocal().id)
             val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
             session.createLocal("900.00".toBigDecimal(), session.today)
         }
         waitForPlannedSheetToClose()
-        assertFalse(navigation.backStack.any { it is AppRoute.PlannedOperationBottomSheet })
+        assertFalse(navigation.backStack.any { it is AppRoute.PlanningRuleEditor })
     }
 
     private fun waitForPlannedSheetToClose() {
         compose.waitUntil(5000) {
-            compose.onAllNodesWithTag("planned-operation-bottom-sheet").fetchSemanticsNodes().isEmpty()
+            compose.onAllNodesWithTag("planning-rule-editor").fetchSemanticsNodes().isEmpty()
         }
     }
 
@@ -655,12 +995,53 @@ class AppNavigationUiTest {
         }.items.first { it.description == description }
     }
 
+    private fun scrollAboveMainNavigation(scrollTag: String, item: SemanticsNodeInteraction) {
+        val barTop = compose.onNodeWithTag("tab_AddOperation").getUnclippedBoundsInRoot().top
+        // Compose's scroll helpers use the full viewport, including the area under the bar.
+        val coveredHeight = item.getUnclippedBoundsInRoot().bottom - barTop
+        if (coveredHeight >= 0.dp) {
+            val distance = with(compose.density) { (coveredHeight + 1.dp).toPx() }
+            compose.onNodeWithTag(scrollTag).performSemanticsAction(SemanticsActions.ScrollBy) {
+                it(0f, distance)
+            }
+        }
+        assertTrue(item.getUnclippedBoundsInRoot().bottom <= barTop)
+    }
+
     private fun openSheet(operation: Operation) {
         compose.waitUntil(5000) { compose.onAllNodesWithTag("operation-${operation.id}").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("operation-${operation.id}").performClick()
-        compose.onNodeWithTag("edit_operation_bottom_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("operation_details").assertIsDisplayed()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("edit_operation_input").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(2, navigation.backStack.size)
+    }
+
+    @Test fun switchingBudgetKeepsProfileScrollPosition() {
+        show(createdBudget = true)
+        val other = runBlocking {
+            val originalId = env.manager.active.value!!.profile.id
+            val profile = env.registry.createLocal("Резервный бюджет")
+            env.manager.select(profile.id)
+            val session = env.manager.active.value!!.scope.get<CloudBudgetSession>()
+            session.createLocal("900.00".toBigDecimal(), session.today)
+            env.manager.select(originalId)
+            profile
+        }
+        compose.onNodeWithTag("tab_Profile").performClick()
+        val card = compose.onNodeWithText("Резервный бюджет")
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("Резервный бюджет").fetchSemanticsNodes().isNotEmpty()
+        }
+        val sync = compose.onNodeWithText("Облачная синхронизация").performScrollTo()
+        val position = sync.fetchSemanticsNode().boundsInRoot
+        runBlocking { env.manager.select(other.id) }
+        compose.waitUntil(5000) {
+            compose.onAllNodes(hasText("Резервный бюджет") and isSelected()).fetchSemanticsNodes().isNotEmpty()
+        }
+        card.assertIsSelected()
+        compose.onNodeWithTag("tab_Profile").assertIsSelected()
+        sync.assertIsDisplayed()
+        assertEquals(position, sync.fetchSemanticsNode().boundsInRoot)
     }
 
     @Test fun switchingBudgetClearsMainModelsWithoutLeakingThePreviousFilter() {

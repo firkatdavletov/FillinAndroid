@@ -229,6 +229,7 @@ class BudgetProfilesDeviceTest {
             modules(budgetModule, module {
                 single { Json { ignoreUnknownKeys = true; explicitNulls = false } }
                 single { factory }
+                single { registryDb }
                 single<BudgetProfileRegistry> { registry }
                 single<AuthRepository> { auth }
                 single { ActiveBudgetManager(get(), get(), getKoin(), cancelWork = {}) }

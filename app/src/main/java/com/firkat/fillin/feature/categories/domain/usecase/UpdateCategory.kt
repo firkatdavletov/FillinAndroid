@@ -13,7 +13,7 @@ class UpdateCategory(
         iconCode: String,
     ): Category {
         val normalizedName = name.trim()
-        if (normalizedName.isEmpty() || iconCode.isBlank()) {
+        if (normalizedName.isEmpty() || (iconCode.isBlank() && iconCode != category.icon.code)) {
             throw CategoriesException.InvalidRequest
         }
 

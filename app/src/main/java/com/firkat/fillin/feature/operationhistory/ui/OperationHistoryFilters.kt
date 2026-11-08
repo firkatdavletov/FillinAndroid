@@ -1,16 +1,16 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -44,6 +44,7 @@ internal fun OperationHistoryFilters(
         )
         OperationTotalsRow(
             expenses = state.periodTotals?.expenses,
+            currency = state.periodTotals?.currency ?: "KZT",
             incomes = state.periodTotals?.incomes,
             selectedType = when (state.filters.type) {
                 OperationType.Expense -> OperationTotalsType.Expense
@@ -64,7 +65,7 @@ internal fun OperationHistoryFilters(
 }
 
 @Composable
-internal fun OperationPeriodFilterDialog(
+internal fun OperationPeriodFilterBottomSheet(
     filters: OperationHistoryFilter,
     onEvent: (OperationHistoryEvent) -> Unit,
 ) {
@@ -72,50 +73,65 @@ internal fun OperationPeriodFilterDialog(
         initialSelectedStartDateMillis = filters.dateFrom.toPickerMillis(),
         initialSelectedEndDateMillis = filters.dateTo.toPickerMillis(),
     )
-    DatePickerDialog(
+    SaldomiActionBottomSheet(
         onDismissRequest = { onEvent(OperationHistoryEvent.PeriodFilterClosed) },
         confirmButton = {
-            TextButton(
+            SaldomiButton(
                 enabled = picker.selectedStartDateMillis != null && picker.selectedEndDateMillis != null,
                 onClick = {
-                    val from = picker.selectedStartDateMillis ?: return@TextButton
-                    val to = picker.selectedEndDateMillis ?: return@TextButton
+                    val from = picker.selectedStartDateMillis ?: return@SaldomiButton
+                    val to = picker.selectedEndDateMillis ?: return@SaldomiButton
                     onEvent(OperationHistoryEvent.PeriodSelected(pickerMillisToDate(from), pickerMillisToDate(to)))
-                },
-            ) {
+                }, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.operation_history_apply))
             }
         },
         dismissButton = {
-            TextButton(onClick = { onEvent(OperationHistoryEvent.PeriodFilterClosed) }) {
+            SaldomiOutlinedButton(onClick = { onEvent(OperationHistoryEvent.PeriodFilterClosed) }, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.operation_history_refund_cancel))
             }
         },
-    ) {
-        DateRangePicker(
-            state = picker,
-            modifier = Modifier.heightIn(max = 500.dp),
-            headline = {
-                val start = picker.selectedStartDateMillis?.let { pickerMillisToDate(it).format(PERIOD_DATE_FORMAT) }
-                val end = picker.selectedEndDateMillis?.let { pickerMillisToDate(it).format(PERIOD_DATE_FORMAT) }
-                Text(
-                    text = stringResource(
-                        R.string.operation_history_period,
-                        start ?: stringResource(R.string.operation_history_period_start),
-                        end ?: stringResource(R.string.operation_history_period_end),
-                    ),
-                    modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 12.dp),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            },
-            title = {
-                Text(
-                    stringResource(R.string.operation_history_period_title),
-                    modifier = Modifier.padding(start = 24.dp, top = 16.dp),
-                )
-            },
-        )
-    }
+        edgeToEdgeContent = true,
+        text = {
+            DateRangePicker(
+                state = picker,
+                modifier = Modifier.heightIn(max = 500.dp),
+                headline = {
+                    val start = picker.selectedStartDateMillis?.let { pickerMillisToDate(it).format(PERIOD_DATE_FORMAT) }
+                    val end = picker.selectedEndDateMillis?.let { pickerMillisToDate(it).format(PERIOD_DATE_FORMAT) }
+                    Text(
+                        text = stringResource(
+                            R.string.operation_history_period,
+                            start ?: stringResource(R.string.operation_history_period_start),
+                            end ?: stringResource(R.string.operation_history_period_end),
+                        ),
+                        modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 12.dp),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                },
+                title = {
+                    Text(
+                        stringResource(R.string.operation_history_period_title),
+                        modifier = Modifier.padding(start = 24.dp, top = 16.dp),
+                    )
+                },
+            )
+        },
+    )
 }
 
 private val PERIOD_DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Period")
+@androidx.compose.ui.tooling.preview.Preview(name = "Period dark", uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@androidx.compose.ui.tooling.preview.Preview(name = "Period compact", widthDp = 320, heightDp = 600, fontScale = 2f)
+@androidx.compose.ui.tooling.preview.Preview(name = "Period wide", widthDp = 840)
+@Composable
+private fun PeriodFilterSheetPreview() {
+    com.firkat.fillin.ui.theme.FillinTheme {
+        OperationPeriodFilterBottomSheet(
+            filters = OperationHistoryFilter.currentMonth(java.time.LocalDate.of(2026, 11, 7)),
+            onEvent = {},
+        )
+    }
+}

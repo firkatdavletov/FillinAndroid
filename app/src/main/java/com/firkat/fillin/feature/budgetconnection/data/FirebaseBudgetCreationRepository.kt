@@ -16,33 +16,37 @@ class FirebaseBudgetCreationRepository(
     private val requests: FirebaseBudgetRequests,
     private val store: BudgetCreationStore,
     private val connection: BudgetConnectionRepository,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
 ) : BudgetCreationRepository {
     private val mutex = Mutex()
+    suspend fun awaitIdle() = mutex.withLock { }
     override suspend fun pending(uid: String): PendingBudgetCreation? {
         requests.ensureCurrent(uid)
         return store.pending(uid).also { requests.ensureCurrent(uid) }
     }
     override suspend fun create(uid: String, draft: BudgetCreationDraft) = mutex.withLock {
         requests.ensureCurrent(uid)
+        access?.requireCloud()
         val valid = draft.validated(LocalDate.now(clock))
         val saved = store.save(uid, PendingBudgetCreation(UUID.randomUUID().toString(), valid))
         if (saved.draft != valid) throw BudgetConnectionFailure("creation_pending")
         send(uid, saved)
     }
     override suspend fun resume(uid: String) = mutex.withLock {
+        access?.requireCloud()
         val saved = pending(uid) ?: throw BudgetConnectionFailure("creation_not_found")
         send(uid, saved)
     }
     private suspend fun send(uid: String, saved: PendingBudgetCreation) {
         try {
             val draft = saved.draft
-            val result = requests.create(uid, CreateFirebaseBudgetDto(saved.requestId, draft.name, draft.openingBalance, draft.accountingStartedOn)).budgetBody()
+            val result = requests.create(uid, CreateFirebaseBudgetDto(saved.requestId, draft.name, draft.openingBalance, draft.accountingStartedOn, draft.currency.name)).budgetBody()
             try {
                 UUID.fromString(result.id); UUID.fromString(result.memberId)
                 require(result.name == draft.name && result.role == "OWNER")
             } catch (_: IllegalArgumentException) { throw BudgetConnectionFailure("invalid_response") }
-            connection.connect(uid, AvailableBudget(result.id, result.name, result.memberId, result.role))
+            connection.connect(uid, AvailableBudget(result.id, result.name, result.memberId, result.role, result.currency, result.currencyVersion))
             // Selection replaces the budget ViewModelStore and can cancel the caller at this point.
             withContext(NonCancellable) { store.complete(uid, saved.requestId) }
         } catch (error: HttpException) {

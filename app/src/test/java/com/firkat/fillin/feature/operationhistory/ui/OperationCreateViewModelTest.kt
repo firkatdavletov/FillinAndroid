@@ -1,5 +1,11 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.feature.categories.domain.repository.CategoryUsageRepository
+import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.model.CategoryKind
+import com.firkat.fillin.feature.categories.domain.model.Category
+import kotlinx.coroutines.flow.flowOf
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.NewOperation
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
@@ -31,13 +37,13 @@ class OperationCreateViewModelTest {
         repository.context.value = repository.context.value.copy(isOnline = false)
         val model = model(repository)
         runCurrent()
-        model.onEvent(OperationCreateEvent.CreateInputChanged("подставка для ног 5000"))
+        model.onEvent(OperationCreateEvent.CreateInputChanged("5000"))
         model.onEvent(OperationCreateEvent.CreateCategoryClicked("expense-category"))
         assertTrue(model.uiState.value.createEditor!!.isSaving)
         runCurrent()
         assertNull(model.uiState.value.createEditor)
         assertEquals("5000.00", repository.created!!.amount.toPlainString())
-        assertEquals("подставка для ног", repository.created!!.description)
+        assertNull(repository.created!!.description)
         assertEquals(LocalDate.of(2026, 10, 24), repository.created!!.occurredOn)
     }
 
@@ -64,14 +70,14 @@ class OperationCreateViewModelTest {
         val repository = FakeOfflineHistory()
         val model = model(repository)
         runCurrent()
-        model.onEvent(OperationCreateEvent.CreateInputChanged("зарплата 1200,0"))
+        model.onEvent(OperationCreateEvent.CreateInputChanged("1200,0"))
         listOf("missing", "income-category").forEach {
             model.onEvent(OperationCreateEvent.CreateCategoryClicked(it))
             assertEquals(OperationCreateFeedback.InvalidCategory, model.uiState.value.createEditor!!.feedback)
             assertNull(repository.created)
         }
         model.onEvent(OperationCreateEvent.CreateTypeChanged(OperationType.Income))
-        assertEquals("зарплата 1200,0", model.uiState.value.createEditor!!.input)
+        assertEquals("1200,0", model.uiState.value.createEditor!!.input)
         model.onEvent(OperationCreateEvent.CreateCategoryClicked("income-category"))
         runCurrent()
         assertEquals(OperationType.Income, repository.created!!.type)
@@ -82,10 +88,10 @@ class OperationCreateViewModelTest {
         val gate = CompletableDeferred<Unit>()
         var attempts = 0
         val history = object : OperationHistoryStore by repository {
-            override suspend fun create(operation: NewOperation, replacesRejectedId: String?) {
+            override suspend fun create(operation: NewOperation, replacesRejectedId: String?): com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult {
                 attempts++
                 gate.await()
-                repository.create(operation, replacesRejectedId)
+                return repository.create(operation, replacesRejectedId)
             }
         }
         val model = model(repository, history)
@@ -109,11 +115,11 @@ class OperationCreateViewModelTest {
         val repository = FakeOfflineHistory().apply { creationError = OperationHistoryException.Unknown }
         val model = model(repository)
         runCurrent()
-        model.onEvent(OperationCreateEvent.CreateInputChanged("продукты 1200"))
+        model.onEvent(OperationCreateEvent.CreateInputChanged("1200"))
         model.onEvent(OperationCreateEvent.CreateCategoryClicked("expense-category"))
         runCurrent()
         val editor = model.uiState.value.createEditor!!
-        assertEquals("продукты 1200", editor.input)
+        assertEquals("1200", editor.input)
         assertFalse(editor.isSaving)
         assertNull(editor.inputError)
         assertEquals(OperationCreateFeedback.SaveFailed, editor.feedback)
@@ -157,9 +163,28 @@ class OperationCreateViewModelTest {
         assertEquals(LocalDate.of(2026, 10, 25), repository.created!!.occurredOn)
     }
 
+    @Test fun `amount rejects text and excess decimals and invalid selection shows an input error`() = runTest {
+        val model = model(FakeOfflineHistory())
+        runCurrent()
+        model.onEvent(OperationCreateEvent.CreateInputChanged("12,50"))
+        listOf("food 12", "12.345", "1,2.3", "-1").forEach {
+            model.onEvent(OperationCreateEvent.CreateInputChanged(it))
+            assertEquals("12,50", model.uiState.value.createEditor!!.input)
+        }
+        model.onEvent(OperationCreateEvent.CreateInputChanged(""))
+        model.onEvent(OperationCreateEvent.CreateCategoryClicked("expense-category"))
+        assertNotNull(model.uiState.value.createEditor!!.inputError)
+    }
+
     private fun model(
         repository: FakeOfflineHistory,
         history: OperationHistoryStore = repository,
         clock: Clock = Clock.fixed(Instant.parse("2026-10-24T05:00:00Z"), ZoneId.of("Asia/Almaty")),
-    ) = OperationCreateViewModel(history, clock)
+    ): OperationCreateViewModel {
+        val usage = object : CategoryUsageRepository {
+            override fun observeFrequentlyUsed(limit: Int, kind: CategoryKind?) = flowOf(emptyList<Category>())
+            override fun observeRecentlyUsed(limit: Int, kind: CategoryKind?) = flowOf(emptyList<Category>())
+        }
+        return OperationCreateViewModel(history, GetFrequentlyUsedCategories(usage), GetRecentlyUsedCategories(usage), clock)
+    }
 }

@@ -23,6 +23,18 @@ import org.junit.Test
 import retrofit2.Response
 
 class PlannedExpensesRepositoryImplTest {
+    @Test fun `once request maps frequency and omits schedule in JSON`() = runBlocking {
+        val api = RecordingPlannedExpensesApi(response(emptyList()))
+        val repository = PlannedExpensesRepositoryImpl(api, "test-token")
+        repository.createRule("category-id", BigDecimal("100.00"), PlannedExpenseFrequency.Once, null, LocalDate.parse("2026-11-04"))
+        val dto = requireNotNull(api.createRequest)
+        assertEquals("ONCE", dto.frequency)
+        val json = kotlinx.serialization.json.Json { explicitNulls = false }
+        val wire = json.encodeToString(CreatePlannedExpenseRuleRequestDto.serializer(), dto)
+        org.junit.Assert.assertFalse(wire.contains("scheduleValue"))
+        assertEquals(dto, json.decodeFromString(CreatePlannedExpenseRuleRequestDto.serializer(), wire))
+    }
+
     @Test
     fun `maps response without losing monetary precision and sends bearer token`() = runBlocking {
         val api = RecordingPlannedExpensesApi(

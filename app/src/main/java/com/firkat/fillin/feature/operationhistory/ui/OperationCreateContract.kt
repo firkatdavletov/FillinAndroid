@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
@@ -10,6 +11,8 @@ data class OperationCreateUiState(
     val input: String = "",
     val occurredOn: LocalDate,
     val isSaving: Boolean = false,
+    val frequentlyUsed: List<Category> = emptyList(),
+    val recentlyUsed: List<Category> = emptyList(),
     val error: OperationHistoryError? = null,
     val inputError: OperationInputError? = null,
     val feedback: OperationCreateFeedback? = null,
@@ -18,7 +21,7 @@ data class OperationCreateUiState(
 
 enum class OperationCreateFeedback { InvalidInput, InvalidCategory, Unavailable, SaveFailed }
 
-data class OperationCreateState(val createEditor: OperationCreateUiState?, val offline: OfflineHistoryContext = OfflineHistoryContext())
+data class OperationCreateState(val createEditor: OperationCreateUiState?, val offline: OfflineHistoryContext = OfflineHistoryContext(), val created: com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult? = null)
 
 sealed interface OperationCreateEvent {
     data object CreateClosed : OperationCreateEvent

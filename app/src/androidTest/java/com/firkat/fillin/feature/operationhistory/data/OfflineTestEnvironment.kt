@@ -35,7 +35,7 @@ internal class SyntheticConnectivity : OperationConnectivity {
 }
 
 internal class OfflineTestEnvironment(
-    database: OperationDatabase,
+    val database: OperationDatabase,
     val api: SyntheticSyncApi,
 ) {
     val connectivity = SyntheticConnectivity()

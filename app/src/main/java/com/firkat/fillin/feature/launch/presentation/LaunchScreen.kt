@@ -28,7 +28,10 @@ fun LaunchScreen(
         LaunchContent(isLoading = !failed)
         if (failed) {
             Column(
-                Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(24.dp),
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .systemBarsPadding()
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {

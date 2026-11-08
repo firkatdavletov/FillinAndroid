@@ -17,6 +17,26 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class PlannedExpenseRuleCommandsTest {
+    @Test fun `once accepts today without schedule and rejects past dates or schedule`() = runBlocking {
+        val repository = RecordingPlannedExpensesRepository()
+        val day = LocalDate.parse("2026-11-04")
+        val clock = java.time.Clock.fixed(Instant.parse("2026-11-03T20:00:00Z"), java.time.ZoneOffset.UTC)
+        val create = CreatePlannedExpenseRule(repository, clock)
+        create("category-id", BigDecimal("100"), PlannedExpenseFrequency.Once, null, day)
+        assertEquals(null, repository.createdScheduleValue)
+        create("category-id", BigDecimal("100"), PlannedExpenseFrequency.Once, null, day.plusDays(1))
+        for ((schedule, date) in listOf(null to day.minusDays(1), 1 to day)) {
+            assertThrows(PlannedExpensesException.InvalidRequest::class.java) {
+                runBlocking { create("category-id", BigDecimal("100"), PlannedExpenseFrequency.Once, schedule, date) }
+            }
+        }
+        for (frequency in listOf(PlannedExpenseFrequency.Monthly, PlannedExpenseFrequency.Weekly)) {
+            assertThrows(PlannedExpensesException.InvalidRequest::class.java) {
+                runBlocking { create("category-id", BigDecimal("100"), frequency, null, day) }
+            }
+        }
+    }
+
     @Test
     fun `monthly schedule accepts day 31`() = runBlocking {
         val repository = RecordingPlannedExpensesRepository()
@@ -145,7 +165,7 @@ private class RecordingPlannedExpensesRepository : PlannedExpensesRepository {
         categoryId: String,
         amount: BigDecimal,
         frequency: PlannedExpenseFrequency,
-        scheduleValue: Int,
+        scheduleValue: Int?,
         startsOn: LocalDate,
     ): PlannedExpenseRule {
         createdAmount = amount

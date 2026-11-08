@@ -15,6 +15,7 @@ data class Dashboard(
     val upcomingPayments: List<UpcomingPayment>,
     val todayVariableNetExpenses: Money,
     val balanceForecast: BalanceForecastProjection,
+    val dailyLimit: com.firkat.fillin.feature.dailylimit.domain.DailyLimitResult? = null,
 )
 
 data class Money(

@@ -7,7 +7,7 @@
     <string name="cloud_budget_member">Участник</string>
     <string name="cloud_budget_create_title">Новый облачный бюджет</string>
     <string name="cloud_budget_name">Название бюджета</string>
-    <string name="cloud_budget_opening_balance">Начальный баланс, ₸</string>
+    <string name="cloud_budget_opening_balance">Начальный баланс</string>
     <string name="cloud_budget_start_date">Дата начала учёта (ГГГГ-ММ-ДД)</string>
     <string name="cloud_budget_create">Создать облачный бюджет</string>
     <string name="cloud_budget_create_resume">Продолжить создание</string>

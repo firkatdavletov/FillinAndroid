@@ -47,7 +47,7 @@ class PlannedExpensesRepositoryImpl(
         categoryId: String,
         amount: BigDecimal,
         frequency: PlannedExpenseFrequency,
-        scheduleValue: Int,
+        scheduleValue: Int?,
         startsOn: LocalDate,
     ): PlannedExpenseRule = execute {
         api.createRule(
@@ -135,6 +135,7 @@ class PlannedExpensesRepositoryImpl(
 
 private val PlannedExpenseFrequency.apiValue: String
     get() = when (this) {
+        PlannedExpenseFrequency.Once -> "ONCE"
         PlannedExpenseFrequency.Monthly -> "MONTHLY"
         PlannedExpenseFrequency.Weekly -> "WEEKLY"
     }

@@ -1,5 +1,16 @@
 package com.firkat.fillin.feature.budgetprofile.di
 
+import com.firkat.fillin.feature.budgetconnection.data.FirebaseBudgetRequests
+import com.firkat.fillin.feature.categories.data.repository.OfflineCategoryUsageRepository
+import com.firkat.fillin.feature.categories.data.sync.CategoryUsageSync
+import com.firkat.fillin.feature.categories.domain.repository.CategoryUsageRepository
+import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
+import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
+import com.firkat.fillin.feature.appaccess.domain.AppAccess
+import com.firkat.fillin.feature.plannedoperations.data.repository.OfflinePlanningRulesRepository
+import com.firkat.fillin.feature.plannedoperations.domain.usecase.ObservePlanningRules
+import com.firkat.fillin.feature.plannedoperations.domain.repository.PlanningRulesRepository
 import com.firkat.fillin.feature.budgetconnection.data.FirebaseCloudBudgetApi
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory
@@ -12,6 +23,7 @@ import com.firkat.fillin.feature.categories.domain.usecase.DeleteCategory
 import com.firkat.fillin.feature.categories.domain.usecase.GetCategories
 import com.firkat.fillin.feature.categories.domain.usecase.UpdateCategory
 import com.firkat.fillin.feature.categories.ui.CategoriesViewModel
+import com.firkat.fillin.feature.editcategory.ui.EditCategoryViewModel
 import com.firkat.fillin.feature.dashboard.data.repository.OfflineDashboardRepository
 import com.firkat.fillin.feature.dashboard.domain.DashboardDataSource
 import com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository
@@ -61,6 +73,9 @@ import com.firkat.fillin.feature.sync.data.CloudBudgetApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.flowOf
+import com.firkat.fillin.feature.budgetprofile.data.BudgetProfileDatabase
+import com.firkat.fillin.feature.sync.data.BudgetCurrencyOverride
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.qualifier.named
@@ -72,7 +87,7 @@ val BUDGET_SCOPE = named("budget")
 val budgetModule = module {
     scope(BUDGET_SCOPE) {
         scoped { getSource<BudgetProfile>() }
-        scoped<DashboardRepository> { OfflineDashboardRepository(get(), get(), get()) }
+        scoped<DashboardRepository> { OfflineDashboardRepository(get(), get()) }
         scoped {
             DashboardDataSource(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default))
         } onClose { it?.close() }
@@ -85,6 +100,7 @@ val budgetModule = module {
         viewModel { DailyLimitViewModel(get()) }
         factory { ObserveBalanceForecast(get()) }
         viewModel { BalanceForecastViewModel(get()) }
+        viewModel { com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsViewModel(get(), androidx.lifecycle.SavedStateHandle()) }
         scoped<OperationHistoryRepository>(named("remoteOperations")) {
             com.firkat.fillin.feature.sync.data.RetiredOperationHistory
         }
@@ -99,6 +115,7 @@ val budgetModule = module {
                 .CloudBudgetSession(get(), get(), "",
                     get(), OperationSyncScheduler { get<OperationSyncScheduler>().schedule() },
                     checkAccess = {
+                        if (getOrNull<AppAccess>()?.cloudAllowed == false) throw com.firkat.fillin.feature.sync.data.CloudDisabledException()
                         if (!get<ActiveBudgetManager>().isCurrent(get<BudgetProfile>())) throw com.firkat.fillin.feature.sync.data.CloudDisabledException()
                         if (get<BudgetProfile>().kind != BudgetProfileKind.CLOUD) throw com.firkat.fillin.feature.operationhistory.data.sync.SyncBlockedException("sign_in_required")
                     }, firebase = get<BudgetProfile>().kind == BudgetProfileKind.CLOUD)
@@ -109,19 +126,24 @@ val budgetModule = module {
             com.firkat.fillin.feature.budgetsetup.domain
                 .CreateLocalBudget(get())
         }
-        factory {
-            com.firkat.fillin.feature.budgetsetup.domain
-                .ConnectExistingBudget(get())
-        }
-        viewModel { com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel(get(), get()) }
         scoped<OperationSyncStorage> { RoomOperationSyncStorage(get(), get()) }
         scoped {
+            val profile = get<BudgetProfile>()
+            val uid = profile.firebaseUid
+            val budgetId = profile.budgetId
+            val currencyOverride = if (uid == null || budgetId == null) {
+                flowOf(BudgetCurrencyOverride())
+            } else {
+                get<BudgetProfileDatabase>().management().observeCurrency(uid, budgetId)
+            }
             com.firkat.fillin.feature.sync.data.BudgetStore(
                 get(),
                 OperationSyncScheduler {
                     get<OperationSyncScheduler>().schedule()
                 },
                 get(),
+                canWrite = { profile.kind != BudgetProfileKind.CLOUD || getOrNull<AppAccess>()?.cloudAllowed != false },
+                currencyOverride = currencyOverride,
             )
         }
         scoped<com.firkat.fillin.feature.sync.domain.BudgetSyncControl> {
@@ -134,13 +156,24 @@ val budgetModule = module {
         scoped { OperationSyncRequests(synchronize = {
             val lease = get<ActiveBudgetManager>().acquire(get<BudgetProfile>().syncIdentity)
             if (lease == null) SyncResult.Completed else try {
-                lease.scope.get<OperationsSynchronizer>().synchronize()
+                if (getOrNull<AppAccess>()?.cloudAllowed == false) return@OperationSyncRequests SyncResult.Blocked
+                lease.scope.get<OperationsSynchronizer>().synchronize().also { getKoin().getOrNull<com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement>()?.schedule() }
             } finally { lease.close() }
         }) } onClose { it?.close() }
-        scoped<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get<BudgetProfile>().syncIdentity, get()) }
+        scoped<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get<BudgetProfile>().syncIdentity, get(), getOrNull<AppAccess>()) }
         scoped {
-            OperationsSynchronizer(get(), get(), "",
-                get(), budget = get(), budgetApi = get(), cloud = get(), cloudApi = get(), canSynchronize = { get<ActiveBudgetManager>().isCurrent(get<BudgetProfile>()) })
+            val profile = get<BudgetProfile>()
+            val usage = if (profile.kind == BudgetProfileKind.CLOUD) {
+                CategoryUsageSync(
+                    get(), requireNotNull(profile.firebaseUid), requireNotNull(profile.budgetId),
+                    get<FirebaseBudgetRequests>().categoryUsage,
+                )
+            } else null
+            OperationsSynchronizer(
+                get(), get(), "", get(), budget = get(), budgetApi = get(), cloud = get(), cloudApi = get(),
+                canSynchronize = { getOrNull<AppAccess>()?.cloudAllowed != false && get<ActiveBudgetManager>().isCurrent(profile) },
+                categoryUsage = usage,
+            )
         }
         scoped {
             OfflineOperationHistoryRepository(
@@ -153,15 +186,21 @@ val budgetModule = module {
                 budgetStore = get(),
             )
         }
+        scoped<com.firkat.fillin.feature.operationhistory.domain.repository.OperationPlanLinkStore> { get<com.firkat.fillin.feature.sync.data.BudgetStore>() }
+        viewModel { parameters -> com.firkat.fillin.feature.operationhistory.ui.OperationPlanLinkViewModel(parameters.get(), get(), get()) }
+        viewModel { parameters -> com.firkat.fillin.feature.operationhistory.ui.OperationPlanPickerViewModel(parameters.get(), get(), get(), get()) }
         scoped<OperationHistoryStore> { get<OfflineOperationHistoryRepository>() }
         scoped<OperationHistoryRepository> { get<OfflineOperationHistoryRepository>() }
         factory { UpdateOperationAmount(repository = get()) }
         factory { UpdateOperation(repository = get()) }
         factory { RefundPurchase(repository = get()) }
         viewModel { OperationHistoryViewModel(history = get()) }
-        viewModel { com.firkat.fillin.feature.operationhistory.ui.OperationCreateViewModel(history = get()) }
+        scoped<CategoryUsageRepository> { OfflineCategoryUsageRepository(get<OperationDatabase>().categoryUsage(), get()) }
+        factory { GetFrequentlyUsedCategories(get()) }
+        factory { GetRecentlyUsedCategories(get()) }
+        viewModel { com.firkat.fillin.feature.operationhistory.ui.OperationCreateViewModel(history = get(), frequent = get(), recent = get()) }
         viewModel { parameters ->
-            com.firkat.fillin.feature.operationhistory.ui.EditOperationViewModel(parameters.get(), get(), get(), get())
+            com.firkat.fillin.feature.operationhistory.ui.EditOperationViewModel(parameters.get(), get(), get(), get(), links = get(), rules = get())
         }
         scoped<PlannedExpensesRepository> {
             OfflinePlannedExpensesRepository(get())
@@ -191,6 +230,7 @@ val budgetModule = module {
         factory { DeletePlannedIncome(repository = get()) }
         viewModel { parameters ->
             PlannedIncomesViewModel(
+                repository = get(),
                 getPlannedIncomes = get(),
                 getCategories = get(),
                 createPlannedIncome = get(),
@@ -203,7 +243,12 @@ val budgetModule = module {
             OfflinePlannedOperationsRepository(get())
         }
         factory { GetPlannedOperations(repository = get()) }
-        viewModel { PlannedOperationsViewModel(getPlannedOperations = get()) }
+        scoped<PlanningRulesRepository> {
+            OfflinePlanningRulesRepository(get())
+        }
+        factory { ObservePlanningRules(get()) }
+        viewModel { (type: com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType, ruleId: String?) -> com.firkat.fillin.feature.plannedoperations.ui.PlanningRuleEditorViewModel(get(), get(), get(), get(), type, ruleId) }
+        viewModel { PlannedOperationsViewModel(observeRules = get(), savedStateHandle = get()) }
         scoped<CategoriesRepository> {
             OfflineCategoriesRepository(get())
         }
@@ -211,13 +256,7 @@ val budgetModule = module {
         factory { CreateCategory(repository = get()) }
         factory { UpdateCategory(repository = get()) }
         factory { DeleteCategory(repository = get()) }
-        viewModel {
-            CategoriesViewModel(
-                getCategories = get(),
-                createCategory = get(),
-                updateCategory = get(),
-                deleteCategory = get(),
-            )
-        }
+        viewModel { CategoriesViewModel(getCategories = get()) }
+        viewModel { params -> EditCategoryViewModel(params.getOrNull<String>(), get(), get(), get(), get()) }
     }
 }

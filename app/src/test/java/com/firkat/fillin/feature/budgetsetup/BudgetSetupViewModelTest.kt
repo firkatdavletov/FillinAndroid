@@ -1,101 +1,64 @@
 package com.firkat.fillin.feature.budgetsetup
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
-import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupRepository
+import com.firkat.fillin.feature.budgetconnection.domain.*
+import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
+import kotlinx.coroutines.*
 import kotlinx.coroutines.test.*
 import org.junit.*
 import org.junit.Assert.*
-import java.math.BigDecimal
-import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BudgetSetupViewModelTest {
+    private val dispatcher = StandardTestDispatcher()
     private val models = ViewModelStore()
-    private val repository = FakeSetup()
-    @Before fun setup() = Dispatchers.setMain(StandardTestDispatcher())
+    private val env = SetupTestEnvironment()
+    @Before fun setup() { Dispatchers.setMain(dispatcher) }
     @After fun cleanup() { models.clear(); Dispatchers.resetMain() }
-
-    @Test fun `creation normalizes decimal comma and waits for committed readiness`() = runTest {
-        val model = model()
-        model.create(" 123,45 ", "2026-10-21")
-        assertTrue(model.busy)
-        runCurrent()
-        assertEquals(BigDecimal("123.45"), repository.balance)
-        assertEquals(LocalDate.of(2026, 10, 21), repository.date)
-        assertEquals(false, model.ready.value)
-        repository.commit.complete(Unit)
-        runCurrent()
-        assertEquals(true, model.ready.value)
-        assertFalse(model.busy)
-        assertNull(model.error)
+    private fun model(saved: SavedStateHandle = SavedStateHandle()) = BudgetSetupViewModel(env.auth, env.connection, env.creation, env.local, env.family, saved, dispatcher).also {
+        models.put("model-${models.keys().size}", it); it.onAction(BudgetSetupAction.Start)
+    }
+    @Test fun guestDraftSurvivesLoginAndSavedState() = runTest(dispatcher) {
+        val saved = SavedStateHandle(); val m = model(saved); runCurrent()
+        m.onAction(BudgetSetupAction.NameChanged("Поездка")); m.onAction(BudgetSetupAction.BalanceChanged("125,50"))
+        m.onAction(BudgetSetupAction.StorageChanged(BudgetSetupMode.Cloud)); m.onAction(BudgetSetupAction.Create)
+        env.available = listOf(AvailableBudget("existing", "Семья", "member", "OWNER")); env.login(); runCurrent()
+        assertEquals("Поездка", m.state.value.name); assertEquals(SetupPage.Create, m.state.value.page)
+        assertEquals(0, env.creates)
+        val restored = model(SavedStateHandle(saved.keys().associateWith { saved.get<Any?>(it) })); runCurrent()
+        assertEquals("125,50", restored.state.value.balance)
+    }
+    @Test fun repeatTapsDoNotRepeatLocalCreation() = runTest(dispatcher) {
+        env.gate = CompletableDeferred(); val m = model(); runCurrent()
+        m.onAction(BudgetSetupAction.Create); m.onAction(BudgetSetupAction.Create); runCurrent()
+        assertEquals(1, env.localCreates); assertTrue(m.state.value.busy)
+        m.onAction(BudgetSetupAction.NameChanged("Другой")); assertEquals("Личный бюджет", m.state.value.name)
+        env.gate!!.complete(Unit); runCurrent(); assertTrue(m.state.value.completed)
+    }
+    @Test fun pendingRequestSurvivesModelRecreationAndResumes() = runTest(dispatcher) {
+        env.login(); env.fail = true; val m = model(); runCurrent()
+        m.onAction(BudgetSetupAction.Create); runCurrent(); assertNotNull(m.state.value.pending)
+        val restored = model(); runCurrent(); assertNotNull(restored.state.value.pending)
+        restored.onAction(BudgetSetupAction.Create); runCurrent()
+        assertTrue(restored.state.value.completed); assertEquals(1, env.creates); assertEquals(1, env.resumes)
+    }
+    @Test fun accountChangeCancelsOldOperationAndResetClearsSavedDraft() = runTest(dispatcher) {
+        env.gate = CompletableDeferred(); val saved = SavedStateHandle(); val m = model(saved); runCurrent()
+        m.onAction(BudgetSetupAction.NameChanged("Старый бюджет")); m.onAction(BudgetSetupAction.Create); runCurrent()
+        env.login("other"); runCurrent()
+        assertFalse(m.state.value.busy); assertFalse(m.state.value.completed)
+        assertEquals("Личный бюджет", m.state.value.name)
+        m.onAction(BudgetSetupAction.Reset)
+        assertFalse(saved.contains("budget_setup_draft"))
     }
 
-    @Test fun `repeated taps while saving and after success do not recreate budget`() = runTest {
-        val model = model()
-        model.create("0", "2026-10-22")
-        model.create("100", "2026-10-22")
-        runCurrent()
-        assertEquals(1, repository.calls)
-        repository.commit.complete(Unit)
-        runCurrent()
-        model.create("200", "2026-10-22")
-        runCurrent()
-        assertEquals(1, repository.calls)
-    }
-
-    @Test fun `invalid amount and date remain on form with validation error`() = runTest {
-        val model = model()
-        for ((amount, date) in listOf("abc" to "2026-10-21", "1.234" to "2026-10-21", "1" to "wrong", "1" to "2026-10-23")) {
-            model.create(amount, date)
-            runCurrent()
-            assertFalse(model.busy)
-            assertEquals("Проверьте баланс и дату начала учёта.", model.error)
-            assertEquals(0, repository.calls)
-        }
-        model.create("0", "2026-10-22")
-        assertNull(model.error)
-        repository.commit.complete(Unit)
-        runCurrent()
-        assertEquals(true, model.ready.value)
-    }
-
-    @Test fun `storage error permits retry without publishing readiness`() = runTest {
-        repository.fail = true
-        val model = model()
-        model.create("0", "2026-10-22")
-        runCurrent()
-        assertFalse(model.busy)
-        assertNotNull(model.error)
-        assertEquals(false, model.ready.value)
-        repository.fail = false
-        repository.commit.complete(Unit)
-        model.create("0", "2026-10-22")
-        runCurrent()
-        assertEquals(true, model.ready.value)
-    }
-
-    private fun model() = BudgetSetupViewModel(repository).also { models.put("setup", it) }
-    private class FakeSetup : BudgetSetupRepository {
-        override val ready = MutableStateFlow(false)
-        override val today = LocalDate.of(2026, 10, 22)
-        val commit = CompletableDeferred<Unit>()
-        var calls = 0
-        var balance: BigDecimal? = null
-        var date: LocalDate? = null
-        var fail = false
-        override suspend fun createLocal(openingBalance: BigDecimal, startedOn: LocalDate) {
-            calls++
-            if (fail) error("Storage unavailable")
-            balance = openingBalance
-            date = startedOn
-            commit.await()
-            ready.value = true
-        }
-        override suspend fun connectExisting() = error("Unused")
+    @Test fun existingCatalogShowsListAndBackReturnsToIt() = runTest(dispatcher) {
+        env.login(); env.available = listOf(AvailableBudget("budget", "Семья", "member", "OWNER"))
+        val m = model(); runCurrent(); assertEquals(SetupPage.List, m.state.value.page)
+        m.onAction(BudgetSetupAction.OpenCreate); m.onAction(BudgetSetupAction.Back)
+        assertEquals(SetupPage.List, m.state.value.page)
     }
 }

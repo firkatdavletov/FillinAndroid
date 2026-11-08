@@ -60,10 +60,14 @@ class OfflineOperationPersistenceTest {
             assertEquals(BigDecimal("10.01"), page.totals.expenses)
             assertEquals(BigDecimal("100.02"), page.totals.incomes)
             assertEquals(0, api.postCount)
+            val recorded = database.categoryUsage().pending(api.scope.key)
+            assertEquals(2, recorded.size)
+            assertEquals(setOf(api.expenseCategory.id, api.incomeCategory.id), recorded.map { it.categoryId }.toSet())
             env.storage.setRunning(true) // Simulate a process dying during a sync attempt.
             reopen()
             env = OfflineTestEnvironment(database, api)
             assertFalse(env.repository.context.first().isSyncing)
+            assertEquals(recorded, database.categoryUsage().pending(api.scope.key))
             assertEquals(2, env.storage.pending().size)
             assertEquals(SyncResult.Completed, env.synchronizer.synchronize())
             assertEquals(2, api.received.size)
@@ -170,6 +174,7 @@ class OfflineOperationPersistenceTest {
             assertEquals("category_unavailable", rejected.items.single().syncError)
             assertEquals(0, rejected.totals.expenses.signum())
             env.repository.create(draft(api, amount = "11.02"), original.operationId)
+            assertEquals(original.operationId, database.categoryUsage().pending(api.scope.key).single().operationId)
             assertNotEquals(
                 original.requestId,
                 env.storage

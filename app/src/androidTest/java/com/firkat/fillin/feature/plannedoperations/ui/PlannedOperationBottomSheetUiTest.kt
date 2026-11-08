@@ -85,6 +85,37 @@ class PlannedOperationBottomSheetUiTest {
         assertEquals(1, commands.deletions)
     }
 
+    @Test fun onceCreationShowsDateAndSwitchingRestoresScheduleValidation() {
+        compose.setContent {
+            var editor by remember { mutableStateOf(com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpenseRuleEditorUiState(
+                today = DAY, categoryId = "expense", amount = "100", startsOn = DAY.toString(),
+            )) }
+            FillinTheme {
+                com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpenseRuleEditor(
+                    categories = listOf(Category("expense", "Расход", CategoryKind.Expense, CategoryIcon("HOME", "🏠"))),
+                    isCategoriesLoading = false,
+                    editor = editor,
+                    onEvent = { event ->
+                        when (event) {
+                            is com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesEvent.FrequencyChanged -> editor = editor.copy(frequency = event.frequency, scheduleValue = "")
+                            is com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesEvent.StartsOnChanged -> editor = editor.copy(startsOn = event.startsOn)
+                            else -> Unit
+                        }
+                    },
+                )
+            }
+        }
+        compose.onNodeWithText("Одноразовая").assertIsSelected()
+        compose.onNodeWithTag("planned-editor-schedule").assertDoesNotExist()
+        compose.onNodeWithTag("planned-editor-save").performScrollTo().assertIsEnabled()
+        compose.onNodeWithText("Ежемесячно").performScrollTo().performClick()
+        compose.onNodeWithTag("planned-editor-schedule").assertExists()
+        compose.onNodeWithTag("planned-editor-save").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText("Одноразовая").performScrollTo().performClick()
+        compose.onNodeWithTag("planned-editor-starts-on").performTextReplacement(DAY.minusDays(1).toString())
+        compose.onNodeWithTag("planned-editor-save").performScrollTo().assertIsNotEnabled()
+    }
+
     private fun assertSavingBlocksDismissal() {
         compose.onNodeWithTag("planned-editor-amount").performTextReplacement("55.25")
         androidx.test.espresso.Espresso.closeSoftKeyboard()
@@ -153,7 +184,7 @@ class PlannedOperationBottomSheetUiTest {
         override suspend fun createCategory(name: String, kind: CategoryKind, iconCode: String): Category = error("Unused")
         override suspend fun updateCategory(id: String, name: String?, iconCode: String?): Category = error("Unused")
         override suspend fun deleteCategory(id: String) = error("Unused")
-        override suspend fun createRule(categoryId: String, amount: BigDecimal, frequency: PlannedExpenseFrequency, scheduleValue: Int, startsOn: LocalDate): PlannedExpenseRule = error("Unused")
+        override suspend fun createRule(categoryId: String, amount: BigDecimal, frequency: PlannedExpenseFrequency, scheduleValue: Int?, startsOn: LocalDate): PlannedExpenseRule = error("Unused")
         override suspend fun updateRule(id: String, version: Long, amount: BigDecimal): PlannedExpenseRule {
             save(amount)
             return PlannedExpenseRule(id, version + 1)

@@ -34,7 +34,7 @@ class FamilyProfileMigrationTest {
                 old.execSQL("INSERT INTO cloud_budget_catalog VALUES ('other','family','Семейный','member-id','MEMBER')")
                 old.version = 4
             }
-            val database = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, name).addMigrations(PROFILE_MIGRATION_4_5).build()
+            val database = Room.databaseBuilder(context, BudgetProfileDatabase::class.java, name).addMigrations(*PROFILE_MIGRATIONS).build()
             try {
                 val registry = RoomBudgetProfileRegistry(database, "https://migration.invalid/")
                 val original = registry.selected("other")

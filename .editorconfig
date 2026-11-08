@@ -1,0 +1,18 @@
+[*.{kt,kts}]
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+ktlint_standard_function-signature = enabled
+ktlint_standard_parameter-list-wrapping = enabled
+ktlint_function_signature_rule_force_multiline_when_parameter_count_greater_or_equal_than = 1
+
+ktlint_standard_argument-list-wrapping = enabled
+
+# Объявления функций
+ij_kotlin_method_parameters_wrap = on_every_item
+ij_kotlin_method_parameters_new_line_after_left_paren = true
+ij_kotlin_method_parameters_right_paren_on_new_line = true
+
+# Вызовы функций
+ij_kotlin_call_parameters_wrap = on_every_item
+ij_kotlin_call_parameters_new_line_after_left_paren = true
+ij_kotlin_call_parameters_right_paren_on_new_line = true

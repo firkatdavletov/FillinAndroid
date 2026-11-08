@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.firkat.fillin.R
+import com.firkat.fillin.ui.theme.saldomiDesignColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,7 +48,7 @@ fun FeatureScaffold(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.saldomiDesignColors.background
                 )
             )
         },

@@ -18,3 +18,5 @@ data class CategoryIcon(
     val code: String,
     val emoji: String = "📦",
 )
+
+internal const val CATEGORY_INITIAL_ICON_CODE = "CATEGORY_INITIAL"

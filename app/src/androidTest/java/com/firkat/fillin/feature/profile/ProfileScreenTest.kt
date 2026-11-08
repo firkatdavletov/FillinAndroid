@@ -1,6 +1,12 @@
 package com.firkat.fillin.feature.profile
 
 import android.graphics.Bitmap
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
@@ -28,6 +34,31 @@ import java.io.File
 class ProfileScreenTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun budgetActionsDoNotSelectAndDispatchBothForms() {
+        var selected = 0
+        val actions = mutableListOf<Boolean>()
+        val state = mutableStateOf(ProfileUiState(loading = false, budgets = listOf(
+            ProfileBudget("one", "Дом", false, true),
+            ProfileBudget("two", "Поездка", false, false),
+            ProfileBudget("shared", "Общий", true, false, canManage = false),
+        )))
+        compose.setContent { FillinTheme {
+            ProfileScreen(state.value, null, false, {}, { selected++ }, {}, {}, {}, {}, {},
+                onBudgetActionsClick = { id -> state.value = state.value.copy(expandedBudgetId = id.takeUnless { state.value.expandedBudgetId == id }) },
+                onManageBudget = { _, _, deleting -> actions.add(deleting) })
+        } }
+        compose.onAllNodesWithContentDescription("Действия с бюджетом").assertCountEquals(2)
+        compose.onAllNodesWithContentDescription("Действия с бюджетом")[0].performClick()
+        compose.onNodeWithText("Редактировать").performClick()
+        compose.onNodeWithText("Удалить").performClick()
+        assertEquals(listOf(false, true), actions)
+        assertEquals(0, selected)
+        compose.onAllNodesWithContentDescription("Действия с бюджетом")[1].performClick()
+        compose.onAllNodesWithText("Редактировать").assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("Действия с бюджетом")[1].performClick()
+        compose.onNodeWithText("Редактировать").assertDoesNotExist()
+    }
+
     @Test fun profileDisplaysAccountAndSelectionAndDispatchesActions() {
         var selected: String? = null
         var family = 0
@@ -49,10 +80,77 @@ class ProfileScreenTest {
         assertEquals(1, cloud)
     }
 
+    @Test fun switchingBudgetKeepsCardAndCreateButtonPositions() {
+        val state = mutableStateOf(profileState())
+        compose.setContent { FillinTheme {
+            ProfileScreen(state.value, null, false, {}, { state.value = state.value.copy(busy = true) },
+                {}, {}, {}, {}, {})
+        } }
+        val old = compose.onNodeWithText("Основной бюджет")
+        val next = compose.onNodeWithText("Накопления")
+        val create = compose.onNodeWithText("Создать новый")
+        val oldBounds = old.fetchSemanticsNode().boundsInRoot
+        val nextBounds = next.fetchSemanticsNode().boundsInRoot
+        val createBounds = create.fetchSemanticsNode().boundsInRoot
+        val progress = SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo)
+
+        next.performClick()
+        old.assertIsSelected()
+        next.assertIsNotSelected()
+        create.assertIsNotEnabled()
+        compose.onNode(progress).assertDoesNotExist()
+        assertEquals(createBounds, create.fetchSemanticsNode().boundsInRoot)
+
+        compose.runOnIdle {
+            state.value = state.value.copy(
+                busy = false,
+                budgets = state.value.budgets.map { it.copy(selected = it.id == "local") },
+            )
+        }
+        old.assertIsNotSelected()
+        next.assertIsSelected()
+        assertEquals(oldBounds, old.fetchSemanticsNode().boundsInRoot)
+        assertEquals(nextBounds, next.fetchSemanticsNode().boundsInRoot)
+        assertEquals(createBounds, create.fetchSemanticsNode().boundsInRoot)
+    }
+
+    @Test fun profileMethodsAndAccountActionsDispatch() {
+        var methods = 0
+        var signOut = 0
+        var deletion = 0
+        compose.setContent { FillinTheme(darkTheme = true) {
+            ProfileScreen(profileState(), USER, false, { signOut++ }, {}, {}, {}, {}, {}, {},
+                onMethodsClick = { methods++ }, onDeleteClick = { deletion++ })
+        } }
+        compose.onNodeWithText("Способы входа").performClick()
+        assertEquals(1, methods)
+        snapshot("profile-account-dark")
+        compose.onNodeWithText("Выйти из аккаунта").performScrollTo().performClick()
+        compose.onNodeWithTag("delete_profile").performScrollTo().performClick()
+        assertEquals(1, signOut)
+        assertEquals(1, deletion)
+        snapshot("profile-management-dark")
+    }
+
+    @Test fun narrowLargeFontKeepsProfileActionsReachable() {
+        var signOut = 0
+        compose.setContent { FillinTheme {
+            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
+                ProfileScreen(profileState(), USER.copy(displayName = "Анна Александровна Иванова", email = "anna.alexandrovna@example.com"), false,
+                    { signOut++ }, {}, {}, {}, {}, {}, {}, modifier = Modifier.requiredWidth(320.dp))
+            }
+        } }
+        snapshot("profile-large-font-light")
+        compose.onNodeWithText("Выйти из аккаунта").performScrollTo().assertIsDisplayed().performClick()
+        assertEquals(1, signOut)
+    }
+
     @Test fun guestCanSignInAndHasNoSignOutAction() {
         var signIn = 0
         compose.setContent { FillinTheme { ProfileScreen(profileState(), null, false, { signIn++ }, {}, {}, {}, {}, {}, {}) } }
-        compose.onNodeWithContentDescription("Выйти из аккаунта").assertDoesNotExist()
+        compose.onNodeWithText("Выйти из аккаунта").assertDoesNotExist()
+        compose.onNodeWithText("Управление аккаунтом").assertDoesNotExist()
+        compose.onNodeWithTag("delete_profile").assertDoesNotExist()
         compose.onNodeWithText("Авторизоваться").performClick()
         assertEquals(1, signIn)
         snapshot("profile-guest")
@@ -101,7 +199,10 @@ class ProfileScreenTest {
 
     private fun snapshot(name: String) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val file = File(context.getExternalFilesDir("profile-redesign"), "$name.png")
+        val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
+            ?: context.getExternalFilesDir("profile-redesign")!!
+        directory.mkdirs()
+        val file = File(directory, "$name.png")
         file.outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 

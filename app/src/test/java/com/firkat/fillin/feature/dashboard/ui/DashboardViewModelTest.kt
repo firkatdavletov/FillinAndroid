@@ -14,7 +14,7 @@ import com.firkat.fillin.feature.dashboard.widgets.availabletospend.domain.Obser
 import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.AvailableToSpendViewModel
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.domain.ObserveBalanceForecast
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastViewModel
-import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastUiState
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastUiState
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitUiState
@@ -112,7 +112,7 @@ class DashboardViewModelTest {
         assertNull(balance.uiState.value.amount)
         assertNull(available.uiState.value.amount)
         assertEquals(DailyLimitUiState(), daily.uiState.value)
-        assertEquals(BalanceForecastUiState(), forecast.uiState.value)
+        assertEquals(ForecastUiState(dataStatus = DashboardStatus.Forbidden), forecast.uiState.value)
         assertEquals(1, repository.subscriptions)
         sync.context.value = BudgetSyncContext(ready = true)
         runCurrent()
@@ -139,7 +139,7 @@ class DashboardViewModelTest {
         val category = "00000000-0000-0000-0000-000000000001"
         val input = DashboardCalculationInput(
             Instant.parse("2026-09-06T03:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"),
-            "250000.00".toBigDecimal(), BigDecimal.ZERO, BigDecimal.ZERO, emptyList(),
+            "600000.00".toBigDecimal(), BigDecimal.ZERO, BigDecimal.ZERO, emptyList(),
             listOf(DashboardCategory(category, "Продукты", true)), emptyList(), emptyList(), emptySet(),
             knownExpenseIds = setOf("expense"),
         )
@@ -200,7 +200,7 @@ class DashboardViewModelTest {
         assertEquals(DashboardStatus.WaitingForBudget, source.state.value.status)
     }
 
-    @Test fun `forecast hides its points and extrema until fourteen completed days are available`() = runTest {
+    @Test fun `forecast clears unavailable snapshots and restores fresh points`() = runTest {
         val repository = FakeRepository().also {
             it.data.value = EMPTY.copy(balanceForecast = EMPTY.balanceForecast.copy(points = emptyList(), insufficientHistory = true))
         }
@@ -217,6 +217,30 @@ class DashboardViewModelTest {
         runCurrent()
         assertEquals(EMPTY.balanceForecast.points, model.uiState.value.points)
         assertFalse(model.uiState.value.insufficientHistory)
+    }
+
+    @Test fun `forecast details retain tab and clear data on access loss`() = runTest {
+        val repository = FakeRepository().also { it.data.value = EMPTY }
+        val sync = FakeSync().also { it.context.value = BudgetSyncContext(ready = true) }
+        val source = DashboardDataSource(repository, sync, backgroundScope)
+        val saved = androidx.lifecycle.SavedStateHandle()
+        val model = keep("details", com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsViewModel(ObserveBalanceForecast(source), saved))
+        watch(model.uiState)
+        runCurrent()
+        assertEquals(EMPTY.balanceForecast, model.uiState.value.forecast.projection)
+        val tab = com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsTab.Events
+        model.onEvent(com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsEvent.SelectTab(tab))
+        runCurrent()
+        assertEquals(tab, model.uiState.value.tab)
+        val restored = keep("details-restored", com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsViewModel(ObserveBalanceForecast(source), saved))
+        watch(restored.uiState)
+        runCurrent()
+        assertEquals(tab, restored.uiState.value.tab)
+        sync.context.value = BudgetSyncContext(ready = true, error = "scope_changed")
+        runCurrent()
+        assertEquals(DashboardStatus.Forbidden, model.uiState.value.forecast.dataStatus)
+        assertNull(model.uiState.value.forecast.projection)
+        assertTrue(model.uiState.value.forecast.points.isEmpty())
     }
 
     private class FakeRepository : DashboardRepository {

@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.plannedexpenses.ui
 
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
@@ -30,9 +31,11 @@ enum class PlannedExpensesPeriod {
 
 data class PlannedExpenseRuleEditorUiState(
     val original: PlannedExpense? = null,
+    val originalRule: PlanningRule? = null,
+    val today: LocalDate = LocalDate.now(java.time.ZoneId.of("Asia/Almaty")),
     val categoryId: String = "",
     val amount: String = "",
-    val frequency: PlannedExpenseFrequency = PlannedExpenseFrequency.Monthly,
+    val frequency: PlannedExpenseFrequency = PlannedExpenseFrequency.Once,
     val scheduleValue: String = "",
     val startsOn: String = "",
     val isSaving: Boolean = false,
@@ -40,7 +43,7 @@ data class PlannedExpenseRuleEditorUiState(
     val isDeleteConfirmationVisible: Boolean = false,
 ) {
     val isCreating: Boolean
-        get() = original == null
+        get() = original == null && originalRule == null
 
     val parsedAmount: BigDecimal?
         get() = amount.trim()
@@ -51,6 +54,7 @@ data class PlannedExpenseRuleEditorUiState(
     val parsedScheduleValue: Int?
         get() = scheduleValue.toIntOrNull()?.takeIf {
             when (frequency) {
+                PlannedExpenseFrequency.Once -> false
                 PlannedExpenseFrequency.Monthly -> it in 1..31
                 PlannedExpenseFrequency.Weekly -> it in 1..7
             }
@@ -58,19 +62,22 @@ data class PlannedExpenseRuleEditorUiState(
 
     val parsedStartsOn: LocalDate?
         get() = runCatching { LocalDate.parse(startsOn) }.getOrNull()
+            ?.takeIf { frequency != PlannedExpenseFrequency.Once || it >= today }
 
     val canSave: Boolean
         get() {
             val validAmount = parsedAmount ?: return false
             return !isSaving && if (isCreating) {
-                categoryId.isNotBlank() && parsedScheduleValue != null && parsedStartsOn != null
+                categoryId.isNotBlank() &&
+                    (frequency == PlannedExpenseFrequency.Once || parsedScheduleValue != null) &&
+                    parsedStartsOn != null
             } else {
-                validAmount.compareTo(requireNotNull(original).plannedAmount) != 0
+                validAmount.compareTo((originalRule?.amount ?: requireNotNull(original).plannedAmount)) != 0
             }
         }
 
     val canDelete: Boolean
-        get() = !isSaving && original != null
+        get() = !isSaving && (original != null || originalRule != null)
 }
 
 enum class PlannedExpensesError {

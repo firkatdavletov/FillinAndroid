@@ -13,11 +13,11 @@
     <string name="auth_sign_out">Выйти из аккаунта</string>
     <string name="auth_budget_hint">Синхронизация бюджета настраивается отдельно.</string>
     <string name="auth_busy">Подождите…</string>
-    <string name="auth_not_configured">Вход через Google недоступен в этой сборке. Локальный бюджет продолжает работать.</string>
+    <string name="auth_not_configured">Вход недоступен в этой сборке. Локальный бюджет продолжает работать.</string>
     <string name="auth_no_google_account">Не найден доступный Google-аккаунт. Добавьте аккаунт в настройках устройства и повторите вход.</string>
     <string name="auth_network_error">Не удалось выполнить вход. Проверьте интернет и повторите попытку.</string>
-    <string name="auth_invalid_credential">Не удалось подтвердить Google-аккаунт. Повторите вход.</string>
-    <string name="auth_sign_in_unavailable">Вход через Google временно недоступен. Повторите попытку позже.</string>
+    <string name="auth_invalid_credential">Не удалось войти. Проверьте email и пароль либо используйте Google.</string>
+    <string name="auth_sign_in_unavailable">Этот способ входа недоступен. Проверьте настройки приложения.</string>
     <string name="auth_sign_in_failed">Не удалось войти. Повторите попытку.</string>
     <string name="auth_sign_out_failed">Не удалось выйти из аккаунта. Повторите попытку.</string>
     <string name="auth_credential_reset_failed">Вы вышли из аккаунта. Не удалось сбросить выбор аккаунта Google; при следующем входе выберите нужный аккаунт.</string>

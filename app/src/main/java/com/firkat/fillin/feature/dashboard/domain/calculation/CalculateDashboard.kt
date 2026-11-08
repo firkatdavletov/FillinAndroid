@@ -10,7 +10,7 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.UUID
 
-/** A single local snapshot. All amounts are the persisted KZT valuations. */
+/** A single local snapshot. All amounts use the budget denomination. */
 data class DashboardCalculationInput(
     val asOf: Instant,
     val accountingStartedAt: Instant,
@@ -25,6 +25,8 @@ data class DashboardCalculationInput(
     val knownExpenseIds: Set<String> = operations.filter {
         it.kind == DashboardOperationKind.Expense
     }.mapTo(hashSetOf()) { it.id },
+    val incomeWarnings: Set<com.firkat.fillin.feature.dailylimit.domain.ForecastWarning> = emptySet(),
+    val currency: String = "KZT",
 )
 
 enum class DashboardOperationKind { Income, Expense, Refund }
@@ -41,13 +43,14 @@ data class DashboardOperation(
 
 data class DashboardCategory(val id: String, val name: String, val isExpense: Boolean)
 data class DashboardPayment(val id: String, val categoryName: String, val dueOn: LocalDate, val remaining: BigDecimal)
-data class DashboardExpectedIncome(val dueOn: LocalDate, val amount: BigDecimal)
+data class DashboardExpectedIncome(val dueOn: LocalDate, val amount: BigDecimal, val id: String = dueOn.toString(), val name: String = "")
 
 /** Mirrors DashboardCalculator, BudgetCalculator and the summary fields of BudgetForecastCalculator. */
 object CalculateDashboard {
     private val zone = ZoneId.of("Asia/Almaty")
 
     fun calculate(input: DashboardCalculationInput): Dashboard {
+        fun money(amount: BigDecimal) = Money(amount.setScale(2), input.currency)
         val today = input.asOf.atZone(zone).toLocalDate()
         val monthStart = today.withDayOfMonth(1)
         val monthEnd = YearMonth.from(today).atEndOfMonth()
@@ -124,6 +127,16 @@ object CalculateDashboard {
         ).take(5).map {
             ExpenseCategory(categories.getValue(it.key).name, money(it.value), percent(it.value, shareBasis))
         }
+        val cashFlowForecast = com.firkat.fillin.feature.dailylimit.domain.CashFlowForecaster().forecast(
+                com.firkat.fillin.feature.dailylimit.domain.DailyLimitInput(
+                    money(balance), money(todayVariableNet),
+                    input.incomes.map { com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(it.id, it.name, it.dueOn, money(it.amount), true) } +
+                        input.payments.map { com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(it.id, it.categoryName, it.dueOn, money(it.remaining), false) },
+                    today, warnings = input.incomeWarnings,
+                ),
+                averageDailySpending = if (historyDays >= 30) money(daily) else null,
+            )
+        val dailyLimit = cashFlowForecast.dailyLimit
         return Dashboard(
             today,
             money(balance),
@@ -139,15 +152,14 @@ object CalculateDashboard {
                 money(input.goalReserve),
                 money(reserved),
                 days,
-                // Restore today's net variable spending before distributing the remaining funds.
-                money((free + todayVariableNet).max(BigDecimal.ZERO).divide(BigDecimal(days), 0, RoundingMode.FLOOR))
+                dailyLimit.dailyTarget
             ),
             MonthActuals(money(income), money(expenses), money(refunds), money(net)),
             CashFlow(money(income - net)),
             BudgetExecution(
                 BudgetBasis.Forecast,
-                progress(spent, spent + base.expectedExpenses.amount, today, complete),
-                progress(variableSpent, variableSpent + daily * BigDecimal(days), today, complete)
+                progress(spent, spent + base.expectedExpenses.amount, today, complete, input.currency),
+                progress(variableSpent, variableSpent + daily * BigDecimal(days), today, complete, input.currency)
             ),
             Forecast(monthEnd, if (complete) "HISTORICAL_AVERAGE" else "UNAVAILABLE", base, scenario(cautiousDaily, 3)),
             topCategories,
@@ -155,11 +167,13 @@ object CalculateDashboard {
                 UpcomingPayment(it.categoryName, it.dueOn, money(it.remaining))
             },
             money(todayVariableNet),
-            CalculateBalanceForecast.calculate(input, today, balance, daily, todayVariableNet, complete),
+            cashFlowForecast.projection,
+            dailyLimit,
         )
     }
 
-    private fun progress(spent: BigDecimal, planned: BigDecimal, date: LocalDate, complete: Boolean): BudgetProgress {
+    private fun progress(spent: BigDecimal, planned: BigDecimal, date: LocalDate, complete: Boolean, currency: String): BudgetProgress {
+        fun money(amount: BigDecimal) = Money(amount.setScale(2), currency)
         val comparison = (spent * BigDecimal(date.lengthOfMonth())).compareTo(planned * BigDecimal(date.dayOfMonth))
         val pace = when {
             !complete -> PaceStatus.InsufficientData
@@ -178,7 +192,6 @@ object CalculateDashboard {
         )
     }
 
-    private fun money(amount: BigDecimal) = Money(amount.setScale(2), "KZT")
     private fun percent(numerator: BigDecimal, denominator: BigDecimal) =
         numerator.multiply(BigDecimal(100)).divide(denominator, 1, RoundingMode.HALF_UP)
 }
