@@ -1,5 +1,12 @@
 package com.firkat.fillin.feature.budgetprofile.di
 
+import com.firkat.fillin.feature.budgetconnection.data.FirebaseBudgetRequests
+import com.firkat.fillin.feature.categories.data.repository.OfflineCategoryUsageRepository
+import com.firkat.fillin.feature.categories.data.sync.CategoryUsageSync
+import com.firkat.fillin.feature.categories.domain.repository.CategoryUsageRepository
+import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
+import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
 import com.firkat.fillin.feature.appaccess.domain.AppAccess
 import com.firkat.fillin.feature.plannedoperations.data.repository.OfflinePlanningRulesRepository
 import com.firkat.fillin.feature.plannedoperations.domain.usecase.ObservePlanningRules
@@ -155,8 +162,18 @@ val budgetModule = module {
         }) } onClose { it?.close() }
         scoped<OperationSyncScheduler> { WorkManagerOperationSyncScheduler(androidContext(), get<BudgetProfile>().syncIdentity, get(), getOrNull<AppAccess>()) }
         scoped {
-            OperationsSynchronizer(get(), get(), "",
-                get(), budget = get(), budgetApi = get(), cloud = get(), cloudApi = get(), canSynchronize = { getOrNull<AppAccess>()?.cloudAllowed != false && get<ActiveBudgetManager>().isCurrent(get<BudgetProfile>()) })
+            val profile = get<BudgetProfile>()
+            val usage = if (profile.kind == BudgetProfileKind.CLOUD) {
+                CategoryUsageSync(
+                    get(), requireNotNull(profile.firebaseUid), requireNotNull(profile.budgetId),
+                    get<FirebaseBudgetRequests>().categoryUsage,
+                )
+            } else null
+            OperationsSynchronizer(
+                get(), get(), "", get(), budget = get(), budgetApi = get(), cloud = get(), cloudApi = get(),
+                canSynchronize = { getOrNull<AppAccess>()?.cloudAllowed != false && get<ActiveBudgetManager>().isCurrent(profile) },
+                categoryUsage = usage,
+            )
         }
         scoped {
             OfflineOperationHistoryRepository(
@@ -178,7 +195,10 @@ val budgetModule = module {
         factory { UpdateOperation(repository = get()) }
         factory { RefundPurchase(repository = get()) }
         viewModel { OperationHistoryViewModel(history = get()) }
-        viewModel { com.firkat.fillin.feature.operationhistory.ui.OperationCreateViewModel(history = get()) }
+        scoped<CategoryUsageRepository> { OfflineCategoryUsageRepository(get<OperationDatabase>().categoryUsage(), get()) }
+        factory { GetFrequentlyUsedCategories(get()) }
+        factory { GetRecentlyUsedCategories(get()) }
+        viewModel { com.firkat.fillin.feature.operationhistory.ui.OperationCreateViewModel(history = get(), frequent = get(), recent = get()) }
         viewModel { parameters ->
             com.firkat.fillin.feature.operationhistory.ui.EditOperationViewModel(parameters.get(), get(), get(), get(), links = get(), rules = get())
         }

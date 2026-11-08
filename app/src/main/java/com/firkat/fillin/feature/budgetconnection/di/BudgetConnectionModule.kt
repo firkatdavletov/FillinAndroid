@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.budgetconnection.di
 
+import com.firkat.fillin.feature.categories.data.sync.CategoryUsageApi
 import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.feature.budgetconnection.data.*
 import com.firkat.fillin.feature.budgetconnection.domain.*
@@ -21,7 +22,13 @@ val budgetConnectionModule = module {
                 .connectTimeout(10, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).callTimeout(30, TimeUnit.SECONDS).build()).build()
         })
     }
-    single { FirebaseBudgetRequests(get<FirebaseBudgetBackend>().retrofit?.create(FirebaseBudgetApi::class.java), get(), get()) }
+    single {
+        val retrofit = get<FirebaseBudgetBackend>().retrofit
+        FirebaseBudgetRequests(
+            retrofit?.create(FirebaseBudgetApi::class.java), get(), get(),
+            categoryUsageApi = retrofit?.create(CategoryUsageApi::class.java),
+        )
+    }
     single<com.firkat.fillin.feature.budgetinvitation.domain.BudgetInvitationRepository> {
         com.firkat.fillin.feature.budgetinvitation.data.FirebaseBudgetInvitationRepository(
             get<FirebaseBudgetBackend>().retrofit?.create(com.firkat.fillin.feature.budgetinvitation.data.FirebaseBudgetInvitationApi::class.java), get(), get(), get())

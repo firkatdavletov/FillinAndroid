@@ -1,5 +1,9 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.feature.categories.domain.repository.CategoryUsageRepository
+import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
+import kotlinx.coroutines.flow.map
 import android.view.WindowManager
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
@@ -17,7 +21,6 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.espresso.Espresso.closeSoftKeyboard
-import androidx.test.espresso.Espresso.pressBack
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.Category
@@ -54,25 +57,14 @@ class OperationCreateScreenTest {
         screenshot("operation-create-keyboard.png")
     }
 
-    @Test fun switchingTypesFiltersCategoriesAndResetsHorizontalScrollWithoutLosingFocus() {
-        val context = history.context.value
-        history.context.value = context.copy(categories =
-            context.categories.filter { it.kind == CategoryKind.Expense } +
-                context.categories.filter { it.kind == CategoryKind.Income }.take(7),
-        )
-        show()
+    @Test fun switchingTypesFiltersCategoriesAndKeepsFocus() {
+        show(withUsage = true)
         assertKeyboardVisible()
-        compose.onNodeWithTag("operation-create-category-income-0").assertDoesNotExist()
-        compose.onNodeWithTag("operation-create-category-expense-6").assertExists()
-        compose.onNodeWithTag("operation-create-category-expense-7").assertDoesNotExist()
-        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertExists()
+        compose.onNodeWithTag("operation-create-frequent-expense-0").assertExists()
+        compose.onNodeWithTag("operation-create-frequent-income-0").assertDoesNotExist()
         compose.onNodeWithTag("operation-create-type-INCOME").performClick().assertIsSelected()
-        compose.onNodeWithTag("operation-create-category-income-0").assertIsDisplayed()
-        compose.onNodeWithTag("operation-create-category-income-6").assertExists()
-        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertDoesNotExist()
-        compose.onNodeWithTag("operation-create-category-expense-9").assertDoesNotExist()
-        compose.onNodeWithTag("operation-create-type-EXPENSE").performClick()
-        compose.onNodeWithTag("operation-create-category-expense-0").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("operation-create-frequent-income-0").assertExists()
+        compose.onNodeWithTag("operation-create-frequent-expense-0").assertDoesNotExist()
         compose.onNodeWithTag("operation-create-input").assertIsFocused()
         assertKeyboardVisible()
     }
@@ -101,8 +93,9 @@ class OperationCreateScreenTest {
         history.context.value = history.context.value.copy(categories = emptyList())
         show()
         compose.onNodeWithTag("operation-create-no-categories").assertIsDisplayed()
-        compose.onNodeWithTag("operation-create-categories").assertDoesNotExist()
-        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertDoesNotExist()
+        compose.onNodeWithText("Все").assertExists()
+        compose.onNodeWithText("Часто используемые").assertDoesNotExist()
+        compose.onNodeWithText("Последние").assertDoesNotExist()
         compose.onNodeWithTag("operation-create-input").assertIsFocused()
     }
 
@@ -127,51 +120,51 @@ class OperationCreateScreenTest {
         assertFalse(ViewCompat.getRootWindowInsets(compose.activity.window.decorView)!!.isVisible(WindowInsetsCompat.Type.ime()))
     }
 
-    @Test fun moreAppearsAtExactlyEightCategoriesButNotForASingleCategory() {
-        val context = history.context.value
-        history.context.value = context.copy(categories =
-            context.categories.filter { it.kind == CategoryKind.Expense }.take(8) +
-                context.categories.filter { it.kind == CategoryKind.Income }.take(1),
-        )
-        show()
-        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertExists()
-        compose.onNodeWithTag("operation-create-category-expense-7").assertDoesNotExist()
-        compose.onNodeWithTag("operation-create-type-INCOME").performClick()
-        compose.onNodeWithTag("operation-create-category-income-0").assertIsDisplayed()
-        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertDoesNotExist()
+    @Test fun usedSectionsAppearInOrderAndAllContainsTheLastCategory() {
+        show(withUsage = true)
+        closeSoftKeyboard()
+        val list = compose.onNodeWithTag("operation-create-category-list")
+        list.performScrollToKey("section-frequent")
+        val frequent = compose.onNodeWithText("Часто используемые").getBoundsInRoot()
+        val recent = compose.onNodeWithText("Последние").getBoundsInRoot()
+        val all = compose.onNodeWithText("Все").getBoundsInRoot()
+        assertTrue(frequent.top < recent.top && recent.top < all.top)
+        list.performScrollToKey("all-expense-11")
+        compose.onNodeWithTag("operation-create-category-expense-11").assertIsDisplayed()
     }
 
-    @Test fun moreIsDisabledWhileSaving() {
+    @Test fun categoriesAreDisabledWhileSaving() {
+        val context = history.context.value
+        val used = context.categories.filter { it.kind == CategoryKind.Expense }.take(1)
         compose.setContent {
             FillinTheme {
                 OperationCreateScreen(
-                    editor = OperationCreateUiState(occurredOn = LocalDate.now(CLOCK), isSaving = true),
-                    context = history.context.value,
+                    editor = OperationCreateUiState(occurredOn = LocalDate.now(CLOCK), isSaving = true,
+                        frequentlyUsed = used, recentlyUsed = used),
+                    context = context,
                     onEvent = {},
                 )
             }
         }
-        compose.onNodeWithTag(MORE_CATEGORIES_TAG).assertIsNotEnabled()
+        compose.onNodeWithTag("operation-create-frequent-expense-0").assertIsNotEnabled()
+        compose.onNodeWithTag("operation-create-recent-expense-0").assertIsNotEnabled()
+        compose.onNodeWithTag("operation-create-category-expense-0").assertIsNotEnabled()
     }
 
-    @Test fun moreCanBeDismissedOrUsedToCreateOperationWithHiddenCategory() {
-        show()
-        compose.onNodeWithTag("operation-create-input").performTextReplacement("12,50")
-        compose.onNodeWithTag(MORE_CATEGORIES_TAG).performScrollTo().performClick()
-        compose.onNodeWithText("Категория 7").assertExists()
-        compose.onNodeWithText("Зарплата").assertDoesNotExist()
-        pressBack()
-        compose.onNodeWithText("Категория 7").assertDoesNotExist()
-        compose.onNodeWithTag("operation-create-input").assertTextContains("12,50")
-        compose.onNodeWithTag("operation-create-input").assertIsFocused()
-        assertKeyboardVisible()
-        assertTrue(history.created.isEmpty())
+    @Test fun canSaveFromFullList() = saveFrom("all", "category", "expense-9")
 
-        compose.onNodeWithTag(MORE_CATEGORIES_TAG).performScrollTo().performClick()
-        compose.onNodeWithText("Категория 9").performScrollTo().performClick()
+    @Test fun canSaveFromFrequentlyUsed() = saveFrom("frequent", "frequent", "expense-0")
+
+    @Test fun canSaveFromRecentlyUsed() = saveFrom("recent", "recent", "expense-0")
+
+    private fun saveFrom(section: String, tag: String, id: String) {
+        show(withUsage = true)
+        compose.onNodeWithTag("operation-create-input").performTextReplacement("12,50")
+        closeSoftKeyboard()
+        compose.onNodeWithTag("operation-create-category-list").performScrollToKey("$section-$id")
+        compose.onNodeWithTag("operation-create-$tag-$id").performClick()
         compose.waitUntil { model.uiState.value.createEditor == null }
-        assertEquals(1, history.created.size)
-        assertEquals("expense-9", history.created.single().categoryId)
+        assertEquals(id, history.created.single().categoryId)
         assertEquals("12.50", history.created.single().amount.toPlainString())
     }
 
@@ -184,12 +177,20 @@ class OperationCreateScreenTest {
         bitmap.recycle()
     }
 
-    private fun show(fontScale: Float = 1f) {
+    private fun show(fontScale: Float = 1f, withUsage: Boolean = false) {
         compose.activityRule.scenario.onActivity {
             it.enableEdgeToEdge()
             it.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
-        model = OperationCreateViewModel(history, CLOCK)
+        val usage = object : CategoryUsageRepository {
+            override fun observeFrequentlyUsed(limit: Int, kind: CategoryKind?) = used(kind, limit)
+            override fun observeRecentlyUsed(limit: Int, kind: CategoryKind?) = used(kind, limit)
+            private fun used(kind: CategoryKind?, limit: Int) = history.context.map { context ->
+                if (withUsage) context.categories.filter { it.kind == kind }.take(minOf(limit, 1))
+                else emptyList()
+            }
+        }
+        model = OperationCreateViewModel(history, GetFrequentlyUsedCategories(usage), GetRecentlyUsedCategories(usage), CLOCK)
         models.put("creator", model)
         compose.setContent {
             val state by model.uiState.collectAsStateWithLifecycle()
@@ -198,7 +199,10 @@ class OperationCreateScreenTest {
                 FillinTheme { OperationCreateScreen(state.createEditor, state.offline, model::onEvent) }
             }
         }
-        compose.waitUntil { model.uiState.value.offline.initialSyncComplete }
+        compose.waitUntil {
+            val state = model.uiState.value
+            state.offline.initialSyncComplete && (!withUsage || state.createEditor?.recentlyUsed?.isNotEmpty() == true)
+        }
     }
 
     private fun assertKeyboardVisible() {
@@ -232,7 +236,6 @@ class OperationCreateScreenTest {
     }
 
     companion object {
-        private const val MORE_CATEGORIES_TAG = "operation-create-more-categories"
         private val CLOCK = Clock.fixed(Instant.parse("2026-10-24T05:00:00Z"), ZoneId.of("Asia/Almaty"))
     }
 }

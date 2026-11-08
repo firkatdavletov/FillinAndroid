@@ -1,5 +1,10 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import com.firkat.fillin.feature.categories.data.repository.OfflineCategoryUsageRepository
+import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -59,12 +64,12 @@ class OfflineOperationEntryTest {
                 }
             }
             compose.waitUntil { model.uiState.value.offline.initialSyncComplete }
-            compose.runOnIdle { creator = OperationCreateViewModel(env.repository, OfflineTestEnvironment.CLOCK).also { store.put("creator", it) } }
+            compose.runOnIdle { creator = creatorViewModel(env).also { store.put("creator", it) } }
             compose.onNodeWithTag("operation-create-input").performTextInput("10.01")
             compose.onNodeWithTag("operation-create-category-" + api.expenseCategory.id).performClick()
             compose.waitUntil { creator!!.uiState.value.createEditor == null && model.uiState.value.operations.size == 1 }
             compose.onNodeWithText("Ожидает отправки").assertIsDisplayed()
-            compose.runOnIdle { creator = OperationCreateViewModel(env.repository, OfflineTestEnvironment.CLOCK).also { store.put("creator", it) } }
+            compose.runOnIdle { creator = creatorViewModel(env).also { store.put("creator", it) } }
             compose.onNodeWithTag("operation-create-type-INCOME").performScrollTo().performClick().assertIsSelected()
             compose.onNodeWithTag("operation-create-input").performTextInput("100.02")
             compose.onNodeWithTag("operation-create-category-" + api.incomeCategory.id).performClick()
@@ -85,4 +90,16 @@ class OfflineOperationEntryTest {
             db.close()
         }
     }
+}
+
+private fun creatorViewModel(env: OfflineTestEnvironment): OperationCreateViewModel {
+    val categories = object : com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository {
+        override fun observeCategories() = env.repository.context.map { it.categories }
+        override suspend fun getCategories() = observeCategories().first()
+        override suspend fun createCategory(name: String, kind: com.firkat.fillin.feature.categories.domain.model.CategoryKind, iconCode: String) = error("Unused")
+        override suspend fun updateCategory(id: String, name: String?, iconCode: String?) = error("Unused")
+        override suspend fun deleteCategory(id: String) = error("Unused")
+    }
+    val usage = OfflineCategoryUsageRepository(env.database.categoryUsage(), categories)
+    return OperationCreateViewModel(env.repository, GetFrequentlyUsedCategories(usage), GetRecentlyUsedCategories(usage), OfflineTestEnvironment.CLOCK)
 }

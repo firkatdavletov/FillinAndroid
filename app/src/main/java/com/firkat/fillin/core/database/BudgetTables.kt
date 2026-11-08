@@ -174,10 +174,26 @@ val BUDGET_MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+val BUDGET_MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE category_usage_events (
+                scopeKey TEXT NOT NULL, id TEXT NOT NULL, operationId TEXT NOT NULL,
+                categoryId TEXT NOT NULL, usedAtMillis INTEGER NOT NULL, delivered INTEGER NOT NULL,
+                PRIMARY KEY(scopeKey, id)
+            )
+        """.trimIndent())
+        db.execSQL("CREATE UNIQUE INDEX index_category_usage_events_scopeKey_operationId ON category_usage_events(scopeKey, operationId)")
+        db.execSQL("CREATE INDEX index_category_usage_events_scopeKey_categoryId_usedAtMillis_id ON category_usage_events(scopeKey, categoryId, usedAtMillis, id)")
+        db.execSQL("CREATE TABLE category_usage_cursors (scopeKey TEXT NOT NULL PRIMARY KEY, cursor TEXT NOT NULL)")
+    }
+}
+
 internal val BUDGET_MIGRATIONS = arrayOf(
     BUDGET_MIGRATION_1_2,
     BUDGET_MIGRATION_2_3,
     BUDGET_MIGRATION_3_4,
     BUDGET_MIGRATION_4_5,
     BUDGET_MIGRATION_5_6,
+    BUDGET_MIGRATION_6_7,
 )

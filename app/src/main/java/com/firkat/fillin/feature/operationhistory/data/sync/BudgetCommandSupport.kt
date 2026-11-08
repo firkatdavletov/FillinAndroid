@@ -14,6 +14,8 @@ internal class BudgetCommandSupport(
         capabilities = null
     }
 
+    suspend fun capabilities() = capabilities ?: readCapabilities().also { capabilities = it }
+
     suspend fun ensure(command: BudgetSyncCommand) {
         val linking = command.planMatchingMode == "CONFIRM_REQUIRED" ||
             command.type in BudgetProjection.LINK_COMMANDS || command.planTarget != null
@@ -23,7 +25,7 @@ internal class BudgetCommandSupport(
             command.remainderAmount != null || command.remainderDueOn != null || command.remainderReceived != null
         if (!linking && !incomeEditing && !remainder) return
 
-        val supported = capabilities ?: readCapabilities().also { capabilities = it }
+        val supported = capabilities()
         val dailyPlanning = BudgetCapabilities.DAILY_LIMIT_PLANNING in supported
         if (linking && BudgetCapabilities.CONFIRMED_PLAN_LINKING !in supported ||
             incomeEditing && BudgetCapabilities.INCOME_RULE_EDITING !in supported && !dailyPlanning ||

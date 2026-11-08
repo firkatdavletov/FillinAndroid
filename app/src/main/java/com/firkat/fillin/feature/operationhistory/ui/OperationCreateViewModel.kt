@@ -3,6 +3,9 @@ package com.firkat.fillin.feature.operationhistory.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
+import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.DEFAULT_USED_CATEGORY_LIMIT
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.NewOperation
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
@@ -11,6 +14,10 @@ import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputR
 import com.firkat.fillin.feature.operationhistory.domain.usecase.parseOperationInput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -20,6 +27,8 @@ import java.time.ZoneId
 
 class OperationCreateViewModel(
     private val history: OperationHistoryStore,
+    frequent: GetFrequentlyUsedCategories,
+    recent: GetRecentlyUsedCategories,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(OperationCreateState(OperationCreateUiState(occurredOn = LocalDate.now(clock))))
@@ -27,19 +36,35 @@ class OperationCreateViewModel(
 
     init {
         viewModelScope.launch { history.context.collect { context -> _uiState.update { it.copy(offline = context) } } }
+        viewModelScope.launch {
+            uiState.map { it.createEditor?.type }.distinctUntilChanged().collectLatest { type ->
+                if (type == null) return@collectLatest
+                val kind = if (type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
+                combine(
+                    frequent(limit = FREQUENT_LIMIT, kind = kind),
+                    recent(limit = RECENT_LIMIT, kind = kind),
+                ) { frequentCategories, recentCategories -> frequentCategories to recentCategories }
+                    .collect { (frequentCategories, recentCategories) ->
+                        updateCreator {
+                            if (this.type != type) this else copy(
+                                frequentlyUsed = frequentCategories,
+                                recentlyUsed = recentCategories,
+                            )
+                        }
+                    }
+            }
+        }
     }
 
     fun onEvent(event: OperationCreateEvent) {
         when (event) {
             OperationCreateEvent.CreateClosed -> if (_uiState.value.createEditor?.isSaving != true) _uiState.update { it.copy(createEditor = null) }
             is OperationCreateEvent.CreateInputChanged -> updateCreator { if (isSaving || !Regex("[0-9]*([.,][0-9]{0,2})?").matches(event.value)) this else copy(input = event.value, inputError = null, error = null) }
-            is OperationCreateEvent.CreateTypeChanged -> updateCreator { if (isSaving) this else copy(type = event.type, error = null) }
-            OperationCreateEvent.CategoriesOpened -> updateCreator { if (isSaving) this else copy(categoriesOpen = true) }
-            OperationCreateEvent.CategoriesDismissed -> updateCreator { copy(categoriesOpen = false) }
-            is OperationCreateEvent.CreateCategoryClicked -> {
-                updateCreator { copy(categoriesOpen = false) }
-                create(event.id)
+            is OperationCreateEvent.CreateTypeChanged -> updateCreator {
+                if (isSaving || type == event.type) this
+                else copy(type = event.type, error = null, frequentlyUsed = emptyList(), recentlyUsed = emptyList())
             }
+            is OperationCreateEvent.CreateCategoryClicked -> create(event.id)
             is OperationCreateEvent.CreateFeedbackShown -> updateCreator { if (feedbackSequence == event.sequence) copy(feedback = null) else this }
         }
     }
@@ -106,3 +131,6 @@ class OperationCreateViewModel(
         _uiState.update { it.copy(createEditor = it.createEditor?.update()) }
     }
 }
+
+private const val FREQUENT_LIMIT = DEFAULT_USED_CATEGORY_LIMIT
+private const val RECENT_LIMIT = DEFAULT_USED_CATEGORY_LIMIT

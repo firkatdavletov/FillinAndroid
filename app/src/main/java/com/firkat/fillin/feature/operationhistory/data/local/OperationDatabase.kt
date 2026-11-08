@@ -14,6 +14,9 @@ import androidx.room.Relation
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import com.firkat.fillin.core.database.*
+import com.firkat.fillin.feature.categories.data.local.CategoryUsageCursor
+import com.firkat.fillin.feature.categories.data.local.CategoryUsageDao
+import com.firkat.fillin.feature.categories.data.local.CategoryUsageEvent
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "local_operations", indices = [Index("scopeKey"), Index("requestId", unique = true)])
@@ -159,12 +162,15 @@ interface OperationDao {
     entities = [
         LocalOperation::class, LocalCategory::class, OperationOutbox::class, OperationSyncState::class,
         LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class, OperationPlanProposal::class,
+        CategoryUsageEvent::class, CategoryUsageCursor::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class OperationDatabase : RoomDatabase() {
     abstract fun operations(): OperationDao
+
+    abstract fun categoryUsage(): CategoryUsageDao
 
     abstract fun budget(): BudgetDao
 }

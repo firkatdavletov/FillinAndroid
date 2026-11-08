@@ -270,6 +270,9 @@
     <string name="operation_create_description">Описание (необязательно)</string>
     <string name="operation_create_save">Сохранить</string>
     <string name="operation_create_error">Проверьте сумму, категорию и дату. Если данные верны, повторите сохранение.</string>
+    <string name="operation_create_frequent">Часто используемые</string>
+    <string name="operation_create_recent">Последние</string>
+    <string name="operation_create_all">Все</string>
     <string name="operation_create_no_categories">Для этого типа нет категорий. Добавьте категорию на экране категорий.</string>
     <string name="operation_sync_pending">Ожидает отправки</string>
     <string name="operation_sync_rejected">Ошибка отправки: сервер отклонил запись. Проверьте категорию, сумму и дату.</string>

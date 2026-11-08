@@ -1,6 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.data.repository
 
 import androidx.room.withTransaction
+import com.firkat.fillin.feature.categories.data.local.CategoryUsageEvent
 import com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
@@ -138,6 +139,7 @@ class OfflineOperationHistoryRepository(
                 previous.requestId?.let { dao.complete(it) }
             }
             val id = UUID.randomUUID().toString()
+            val savedAt = clock.instant()
             val amount = operation.amount.setScale(2).toPlainString()
             val request =
                 CreateOperationDto(
@@ -160,7 +162,7 @@ class OfflineOperationHistoryRepository(
                     "KZT",
                     amount,
                     operation.occurredOn.toString(),
-                    clock.instant().toString(),
+                    savedAt.toString(),
                     "POSTED",
                     0,
                     0,
@@ -177,6 +179,11 @@ class OfflineOperationHistoryRepository(
                 }
             } else {
                 dao.enqueue(OperationOutbox(id, state.scopeKey, id, json.encodeToString(request)))
+            }
+            if (replacesRejectedId == null) {
+                database.categoryUsage().record(
+                    CategoryUsageEvent(state.scopeKey, id, id, operation.categoryId, savedAt.toEpochMilli()),
+                )
             }
             CreateOperationResult(id, budgetStore?.suggest(id))
         }

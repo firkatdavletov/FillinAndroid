@@ -1,5 +1,11 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.feature.categories.domain.repository.CategoryUsageRepository
+import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.model.CategoryKind
+import com.firkat.fillin.feature.categories.domain.model.Category
+import kotlinx.coroutines.flow.flowOf
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.NewOperation
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
@@ -157,7 +163,7 @@ class OperationCreateViewModelTest {
         assertEquals(LocalDate.of(2026, 10, 25), repository.created!!.occurredOn)
     }
 
-    @Test fun `amount rejects text and excess decimals and sheet closes on invalid selection`() = runTest {
+    @Test fun `amount rejects text and excess decimals and invalid selection shows an input error`() = runTest {
         val model = model(FakeOfflineHistory())
         runCurrent()
         model.onEvent(OperationCreateEvent.CreateInputChanged("12,50"))
@@ -166,10 +172,7 @@ class OperationCreateViewModelTest {
             assertEquals("12,50", model.uiState.value.createEditor!!.input)
         }
         model.onEvent(OperationCreateEvent.CreateInputChanged(""))
-        model.onEvent(OperationCreateEvent.CategoriesOpened)
-        assertTrue(model.uiState.value.createEditor!!.categoriesOpen)
         model.onEvent(OperationCreateEvent.CreateCategoryClicked("expense-category"))
-        assertFalse(model.uiState.value.createEditor!!.categoriesOpen)
         assertNotNull(model.uiState.value.createEditor!!.inputError)
     }
 
@@ -177,5 +180,11 @@ class OperationCreateViewModelTest {
         repository: FakeOfflineHistory,
         history: OperationHistoryStore = repository,
         clock: Clock = Clock.fixed(Instant.parse("2026-10-24T05:00:00Z"), ZoneId.of("Asia/Almaty")),
-    ) = OperationCreateViewModel(history, clock)
+    ): OperationCreateViewModel {
+        val usage = object : CategoryUsageRepository {
+            override fun observeFrequentlyUsed(limit: Int, kind: CategoryKind?) = flowOf(emptyList<Category>())
+            override fun observeRecentlyUsed(limit: Int, kind: CategoryKind?) = flowOf(emptyList<Category>())
+        }
+        return OperationCreateViewModel(history, GetFrequentlyUsedCategories(usage), GetRecentlyUsedCategories(usage), clock)
+    }
 }
