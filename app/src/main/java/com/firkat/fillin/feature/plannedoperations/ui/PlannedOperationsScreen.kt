@@ -142,12 +142,15 @@ fun PlannedOperationsScreen(
                             ?: if (state.rules.isEmpty()) R.string.planning_empty else R.string.planning_filtered_empty,
                     ),
                 )
-                if (state.error !=
-                    null
-                ) {
+                if (state.error != null) {
                     TextButton(
                         { onEvent(PlannedOperationsEvent.Retry) },
                     ) { Text(stringResource(R.string.planned_operations_retry)) }
+                } else {
+                    SaldomiOutlinedButton(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        onClick = onCreateExpense,
+                    ) { Text(stringResource(R.string.app_add_plan)) }
                 }
             }
         } else {
