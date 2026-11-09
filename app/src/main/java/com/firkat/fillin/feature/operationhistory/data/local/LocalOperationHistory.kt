@@ -72,9 +72,11 @@ private fun operationToDomain(
 ): Operation = record.let {
     val budgetCurrency = content?.sync?.currency ?: "KZT"
     val historicalValuation = it.hasOriginalValuation
+    val category = categories[it.categoryId]
     Operation(
         id = it.id,
-        categoryName = categories[it.categoryId]?.name ?: "Категория недоступна",
+        categoryName = category?.name ?: "Категория недоступна",
+        categoryIconCode = category?.iconCode.orEmpty(),
         description = it.description,
         amount = it.accountingAmount.toBigDecimal(),
         currency = budgetCurrency,

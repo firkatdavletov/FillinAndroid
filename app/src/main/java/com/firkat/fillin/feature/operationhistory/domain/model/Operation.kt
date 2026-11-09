@@ -21,6 +21,7 @@ data class Operation(
     val refundedAmount: BigDecimal = BigDecimal.ZERO,
     val legacyConversion: Boolean = false,
     val rubKztRate: BigDecimal? = null,
+    val categoryIconCode: String = "",
 ) {
     val hasOriginalValuation: Boolean get() = legacyConversion || originalCurrency != currency
 }

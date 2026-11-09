@@ -19,47 +19,39 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.ui.component.DatePeriodChip
-import com.firkat.fillin.ui.component.OperationTotalsRow
-import com.firkat.fillin.ui.component.OperationTotalsType
 import java.time.format.DateTimeFormatter
 
 @Composable
 internal fun OperationHistoryFilters(
-    state: OperationHistoryUiState,
-    onEvent: (OperationHistoryEvent) -> Unit,
+    filters: OperationHistoryFilter,
+    isCustomPeriod: Boolean,
+    totals: OperationPeriodTotals?,
+    isLoading: Boolean,
+    onPeriodClick: () -> Unit,
+    onPeriodReset: () -> Unit,
+    onTypeSelected: (OperationType?) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         DatePeriodChip(
-            dateFrom = state.filters.dateFrom,
-            dateTo = state.filters.dateTo,
-            isDefaultPeriod = !state.isCustomPeriod,
-            onClick = { onEvent(OperationHistoryEvent.PeriodFilterOpened) },
-            onReset = { onEvent(OperationHistoryEvent.PeriodFilterReset) },
+            dateFrom = filters.dateFrom,
+            dateTo = filters.dateTo,
+            isDefaultPeriod = !isCustomPeriod,
+            onClick = onPeriodClick,
+            onReset = onPeriodReset,
             modifier = Modifier.testTag("history-period-filter"),
         )
-        OperationTotalsRow(
-            expenses = state.periodTotals?.expenses,
-            currency = state.periodTotals?.currency ?: "KZT",
-            incomes = state.periodTotals?.incomes,
-            selectedType = when (state.filters.type) {
-                OperationType.Expense -> OperationTotalsType.Expense
-                OperationType.Income -> OperationTotalsType.Income
-                null -> null
-            },
-            isLoading = state.isInitialLoading,
-            onTypeSelected = { type ->
-                onEvent(OperationHistoryEvent.TypeSelected(when (type) {
-                    OperationTotalsType.Expense -> OperationType.Expense
-                    OperationTotalsType.Income -> OperationType.Income
-                    null -> null
-                }))
-            },
-            testTagPrefix = "history",
+        OperationHistoryTotals(
+            totals = totals,
+            selectedType = filters.type,
+            isLoading = isLoading,
+            onTypeSelected = onTypeSelected,
         )
     }
 }

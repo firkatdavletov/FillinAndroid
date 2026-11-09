@@ -1,7 +1,8 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,15 +22,24 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,13 +54,13 @@ import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
-import com.firkat.fillin.feature.plannedoperations.ui.components.OperationItem
-import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.koin.compose.viewmodel.koinViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -105,47 +115,26 @@ fun OperationHistoryScreen(
                 .statusBarsPadding(),
             title = stringResource(R.string.operation_history_title)
         )
-        OperationHistoryFilters(state = state, onEvent = onEvent)
+        OperationHistoryFilters(
+            filters = state.filters,
+            isCustomPeriod = state.isCustomPeriod,
+            totals = state.periodTotals,
+            isLoading = state.isInitialLoading,
+            onPeriodClick = { onEvent(OperationHistoryEvent.PeriodFilterOpened) },
+            onPeriodReset = { onEvent(OperationHistoryEvent.PeriodFilterReset) },
+            onTypeSelected = { onEvent(OperationHistoryEvent.TypeSelected(it)) },
+        )
 
-        Box(Modifier.weight(1f)) {
-            key(state.filters) {
-                val hasOperations = state.operations.isNotEmpty() && !state.isInitialLoading
-                RefreshableContent(
-                    isRefreshing = state.isRefreshing,
-                    onRefresh = { onEvent(OperationHistoryEvent.Refresh) },
-                    hasScrollableContent = hasOperations,
-                    modifier = Modifier.padding(bottom = if (hasOperations) 0.dp else bottomBarOverlap),
-                ) {
-                    when {
-                        state.isInitialLoading -> {
-                            LoadingContent()
-                        }
-
-                        state.error != null && state.operations.isEmpty() -> {
-                            ErrorContent(
-                                error = state.error,
-                                onRetry = { onEvent(OperationHistoryEvent.Retry) },
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-
-                        state.operations.isEmpty() -> {
-                            EmptyContent()
-                        }
-
-                        else -> {
-                            OperationList(
-                                state = state,
-                                onOperationClick = onOperationClick,
-                                onCorrectClick = onOperationClick,
-                                onLoadNextPage = { onEvent(OperationHistoryEvent.LoadNextPage) },
-                                onRetry = { onEvent(OperationHistoryEvent.Retry) },
-                                bottomBarOverlap = bottomBarOverlap,
-                            )
-                        }
-                    }
-                }
-            }
+        key(state.filters.dateFrom, state.filters.dateTo) {
+            OperationHistoryContent(
+                state = state,
+                onOperationClick = onOperationClick,
+                onRefresh = { onEvent(OperationHistoryEvent.Refresh) },
+                onRetry = { onEvent(OperationHistoryEvent.Retry) },
+                onLoadNextPage = { onEvent(OperationHistoryEvent.LoadNextPage) },
+                bottomBarOverlap = bottomBarOverlap,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
     if (state.isPeriodFilterVisible) {
@@ -153,19 +142,109 @@ fun OperationHistoryScreen(
     }
 }
 
+private const val HistoryLoadingDelayMillis = 300L
+
 @Composable
-private fun OperationList(
+private fun OperationHistoryContent(
     state: OperationHistoryUiState,
     onOperationClick: (String) -> Unit,
-    onCorrectClick: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onRetry: () -> Unit,
+    onLoadNextPage: () -> Unit,
+    bottomBarOverlap: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val latestState by rememberUpdatedState(state)
+    var displayedSnapshot by remember { mutableStateOf(state) }
+    var contentVisible by remember { mutableStateOf(true) }
+    val opacity = remember { Animatable(1f) }
+    val switching = displayedSnapshot.requestId != state.requestId
+    var showDelayedLoading by remember(state.requestId) { mutableStateOf(false) }
+
+    // Keep the last displayed result available even if Room answers before the next frame.
+    if (!switching) SideEffect { displayedSnapshot = state }
+
+    LaunchedEffect(state.requestId) {
+        if (switching) {
+            if (opacity.value > 0f) opacity.animateTo(0f, tween(HistoryFadeOutMillis))
+            contentVisible = false
+            displayedSnapshot = snapshotFlow { latestState }.first {
+                it.requestId == state.requestId && it.resultRequestId == state.requestId
+            }
+            contentVisible = true
+            opacity.animateTo(1f, tween(HistoryFadeInMillis))
+        }
+    }
+
+    LaunchedEffect(state.requestId) {
+        if (switching && state.resultRequestId != state.requestId) {
+            delay(HistoryLoadingDelayMillis)
+            showDelayedLoading = true
+        }
+    }
+
+    Box(modifier.fillMaxWidth()) {
+        if (contentVisible) {
+            val displayed = if (switching) displayedSnapshot else state
+            val hasOperations = displayed.operations.isNotEmpty() && !displayed.isInitialLoading
+            key(displayed.requestId) {
+                RefreshableContent(
+                    isRefreshing = !switching && displayed.isRefreshing,
+                    onRefresh = { if (!switching) onRefresh() },
+                    hasScrollableContent = hasOperations,
+                    modifier = Modifier
+                        .graphicsLayer { alpha = opacity.value }
+                        .semantics { if (switching) hideFromAccessibility() }
+                        .padding(bottom = if (hasOperations) 0.dp else bottomBarOverlap),
+                ) {
+                    when {
+                        displayed.isInitialLoading -> LoadingContent()
+                        displayed.error != null && displayed.operations.isEmpty() -> ErrorContent(
+                            error = displayed.error,
+                            onRetry = onRetry,
+                            modifier = Modifier.fillMaxSize(),
+                            enabled = !switching,
+                        )
+                        displayed.operations.isEmpty() -> EmptyContent()
+                        else -> OperationList(
+                            operations = displayed.operations,
+                            isLoadingNextPage = displayed.isLoadingNextPage,
+                            isRefreshing = displayed.isRefreshing,
+                            canLoadMore = displayed.canLoadMore,
+                            error = displayed.error,
+                            enabled = !switching,
+                            onOperationClick = onOperationClick,
+                            onLoadNextPage = onLoadNextPage,
+                            onRetry = onRetry,
+                            bottomBarOverlap = bottomBarOverlap,
+                        )
+                    }
+                }
+            }
+        } else if (showDelayedLoading && state.resultRequestId != state.requestId) {
+            LoadingContent(Modifier.padding(bottom = bottomBarOverlap))
+        }
+    }
+}
+
+@Composable
+private fun OperationList(
+    operations: List<Operation>,
+    isLoadingNextPage: Boolean,
+    isRefreshing: Boolean,
+    canLoadMore: Boolean,
+    error: OperationHistoryError?,
+    enabled: Boolean,
+    onOperationClick: (String) -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     bottomBarOverlap: Dp,
+    modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
     val operationDayGroups =
-        remember(state.operations) {
-            groupOperationsByDate(state.operations)
+        remember(operations) {
+            groupOperationsByDate(operations)
         }
     val reachedListEnd by remember {
         derivedStateOf {
@@ -180,25 +259,28 @@ private fun OperationList(
 
     LaunchedEffect(
         reachedListEnd,
-        state.isLoadingNextPage,
-        state.isRefreshing,
-        state.canLoadMore,
-        state.error,
+        isLoadingNextPage,
+        isRefreshing,
+        canLoadMore,
+        error,
+        enabled,
     ) {
         if (
             reachedListEnd &&
-            !state.isLoadingNextPage &&
-            !state.isRefreshing &&
-            state.canLoadMore &&
-            state.error == null
+            !isLoadingNextPage &&
+            !isRefreshing &&
+            canLoadMore &&
+            error == null &&
+            enabled
         ) {
             onLoadNextPage()
         }
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().testTag("operation_history_list"),
+        modifier = modifier.fillMaxSize().testTag("operation_history_list"),
         state = listState,
+        userScrollEnabled = enabled,
         contentPadding =
             PaddingValues(
                 top = 4.dp,
@@ -206,12 +288,12 @@ private fun OperationList(
             ),
     ) {
         operationDayGroups.forEach { group ->
-            stickyHeader(key = "date-${group.date}") {
+            item(key = "date-${group.date}", contentType = "day-header") {
                 Row(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface)
+                            .semantics { heading() }
                             .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -219,13 +301,13 @@ private fun OperationList(
                     Text(
                         text = formatDateHeader(group.date),
                         modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         text = formatDayTotals(group.totals),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.End,
@@ -236,17 +318,18 @@ private fun OperationList(
             items(
                 items = group.operations,
                 key = Operation::id,
-            ) { purchase ->
+                contentType = { "operation" },
+            ) { operation ->
                 OperationItem(
-                    purchase = purchase,
-                    onClick = { onOperationClick(purchase.id) },
-                    onCorrectClick = { onCorrectClick(purchase.id) },
-                    modifier = Modifier.testTag("operation-${purchase.id}"),
+                    operation = operation,
+                    onClick = { onOperationClick(operation.id) },
+                    modifier = Modifier.testTag("operation-${operation.id}"),
+                    enabled = enabled,
                 )
             }
         }
 
-        if (state.isLoadingNextPage) {
+        if (isLoadingNextPage) {
             item(key = "next-page-loading") {
                 Box(
                     modifier =
@@ -260,11 +343,12 @@ private fun OperationList(
             }
         }
 
-        state.error?.let { error ->
+        if (error != null) {
             item(key = "next-page-error") {
                 ErrorContent(
                     error = error,
                     onRetry = onRetry,
+                    enabled = enabled,
                     modifier =
                         Modifier
                             .fillMaxWidth()
@@ -281,7 +365,7 @@ private fun LoadingContent(modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator()
+        CircularProgressIndicator(Modifier.testTag("history-list-loading"))
     }
 }
 
@@ -304,6 +388,7 @@ private fun ErrorContent(
     error: OperationHistoryError,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     Column(
         modifier =
@@ -319,6 +404,7 @@ private fun ErrorContent(
         )
         Button(
             onClick = onRetry,
+            enabled = enabled,
             modifier = Modifier.padding(top = 16.dp),
         ) {
             Text(stringResource(R.string.operation_history_retry))

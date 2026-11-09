@@ -3,9 +3,13 @@ package com.firkat.fillin.feature.operationhistory.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
@@ -14,6 +18,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.R
@@ -23,13 +29,10 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTo
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
-import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
-import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.io.FileInputStream
 import java.math.BigDecimal
-import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -43,44 +46,15 @@ class OperationHistoryScreenTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun syncReplacesLastSyncTimeWithoutMovingContent() {
-        assertSyncDoesNotMoveContent(Instant.parse("2026-10-18T05:00:00Z"))
-    }
-
-    @Test
-    fun syncStatusReservesItsLineBeforeTheFirstTimestamp() {
-        assertSyncDoesNotMoveContent(null)
-    }
-
-    private fun assertSyncDoesNotMoveContent(lastSyncedAt: Instant?) {
-        var state by mutableStateOf(
-            OperationHistoryUiState(
-                filters = FILTER,
-                offline = OfflineHistoryContext(initialSyncComplete = true, isOnline = true, lastSyncedAt = lastSyncedAt),
-            ),
-        )
-        composeRule.setContent {
-            FillinTheme(dynamicColor = false) {
-                FeatureScaffold(titleResource = R.string.operation_history_title) {
-                    OperationHistoryScreen(state, onEvent = {})
-                }
-            }
-        }
-        val contentBounds = composeRule.onNodeWithTag("history-type-totals").fetchSemanticsNode().boundsInRoot
-        val resources = InstrumentationRegistry.getInstrumentation().targetContext.resources
-        val running = resources.getString(R.string.operation_sync_running)
-        val lastSync = resources.getString(R.string.operation_sync_last, "18.10 10:00")
+    fun refreshKeepsTotalsAndTheCurrentListInPlace() {
+        val initial = transitionState(0, null, listOf(operation("old")))
+        val setState = showTransition(initial)
+        val totalsBounds = composeRule.onNodeWithTag("history-type-totals").fetchSemanticsNode().boundsInRoot
+        val rowBounds = composeRule.onNodeWithTag("operation-old").fetchSemanticsNode().boundsInRoot
         listOf(true, false, true, false).forEach { syncing ->
-            composeRule.runOnIdle { state = state.copy(offline = state.offline.copy(isSyncing = syncing)) }
-            val updatedBounds = composeRule.onNodeWithTag("history-type-totals").fetchSemanticsNode().boundsInRoot
-            assertEquals(contentBounds, updatedBounds)
-            if (syncing) {
-                composeRule.onNodeWithText(running).assertIsDisplayed()
-                composeRule.onNodeWithText(lastSync).assertDoesNotExist()
-            } else {
-                composeRule.onNodeWithText(running).assertDoesNotExist()
-                if (lastSyncedAt != null) composeRule.onNodeWithText(lastSync).assertIsDisplayed()
-            }
+            setState(initial.copy(isRefreshing = syncing))
+            assertEquals(totalsBounds, composeRule.onNodeWithTag("history-type-totals").fetchSemanticsNode().boundsInRoot)
+            assertEquals(rowBounds, composeRule.onNodeWithTag("operation-old").fetchSemanticsNode().boundsInRoot)
         }
     }
 
@@ -157,9 +131,16 @@ class OperationHistoryScreenTest {
     }
 
     @Test
-    fun choosingEitherBlockExpandsItAndItsCrossRestoresTwoEqualBlocks() {
+    fun choosingEitherBlockShowsItsSummaryAndResetRestoresTwoEqualBlocks() {
         val events = mutableListOf<OperationHistoryEvent>()
-        show(OperationHistoryUiState(filters = FILTER, periodTotals = TOTALS), events)
+        show(
+            OperationHistoryUiState(
+                filters = FILTER.copy(dateFrom = LocalDate.of(2026, 9, 16)),
+                periodTotals = TOTALS,
+                isCustomPeriod = true,
+            ),
+            events,
+        )
         val rowBounds = composeRule.onNodeWithTag("history-type-totals").fetchSemanticsNode().boundsInRoot
         val initialBounds = composeRule.onNodeWithTag("history-type-EXPENSE").fetchSemanticsNode().boundsInRoot
         val otherBounds = composeRule.onNodeWithTag("history-type-INCOME").fetchSemanticsNode().boundsInRoot
@@ -168,13 +149,20 @@ class OperationHistoryScreenTest {
         assertTrue(initialBounds.width < rowBounds.width)
 
         OperationType.entries.forEach { type ->
-            val hiddenType = if (type == OperationType.Expense) OperationType.Income else OperationType.Expense
-            composeRule.onNodeWithTag("history-type-${type.apiValue}").performClick().assertIsSelected()
-            composeRule.onNodeWithTag("history-type-${hiddenType.apiValue}").assertDoesNotExist()
-            val expanded = composeRule.onNodeWithTag("history-type-${type.apiValue}").fetchSemanticsNode().boundsInRoot
-            assertEquals(rowBounds.width, expanded.width, 1f)
+            composeRule.onNodeWithTag("history-type-${type.apiValue}").performClick()
+            composeRule.onNodeWithTag("history-type-EXPENSE").assertDoesNotExist()
+            composeRule.onNodeWithTag("history-type-INCOME").assertDoesNotExist()
+            val summary = composeRule.onNodeWithTag("history-selected-total").fetchSemanticsNode().boundsInRoot
+            assertEquals(rowBounds.width, summary.width, 1f)
+            assertEquals(rowBounds.height, summary.height, 1f)
+            val label = if (type == OperationType.Expense) "Расход" else "Доход"
+            val amount = if (type == OperationType.Expense) TOTALS.expenses else TOTALS.incomes
+            val amountNode = composeRule.onNodeWithTag("history-total-${type.apiValue}")
+                .assertTextEquals(formatMoney(amount, "KZT")).fetchSemanticsNode().boundsInRoot
+            val labelNode = composeRule.onNodeWithText(label).fetchSemanticsNode().boundsInRoot
+            assertTrue(amountNode.bottom <= labelNode.top)
             val reset = composeRule.onNodeWithTag("history-type-reset").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            assertTrue(reset.center.x > expanded.center.x)
+            assertTrue(reset.center.x > summary.center.x)
             screenshot("history-selected-${type.apiValue}.png")
             composeRule.onNodeWithTag("history-type-reset").performClick()
             composeRule.onNodeWithTag("history-type-EXPENSE").assertIsDisplayed().assertIsNotSelected()
@@ -182,6 +170,7 @@ class OperationHistoryScreenTest {
             val restored = composeRule.onNodeWithTag("history-type-${type.apiValue}").fetchSemanticsNode().boundsInRoot
             assertEquals(initialBounds.width, restored.width, 1f)
             composeRule.onNodeWithTag("history-type-reset").assertDoesNotExist()
+            composeRule.onNodeWithText("16 Снт - 17 Окт").assertIsDisplayed()
         }
         composeRule.runOnIdle {
             assertEquals(
@@ -253,52 +242,145 @@ class OperationHistoryScreenTest {
         composeRule.runOnIdle { assertEquals(listOf("income"), opened) }
     }
 
-    @Test fun rejectedRowOpensSheetWhileCorrectionButtonKeepsItsOwnAction() {
+    @Test fun rejectedAndPendingRowsHideTheirSyncStateAndStillOpenDetails() {
         val opened = mutableListOf<String>()
         val events = mutableListOf<OperationHistoryEvent>()
-        val operation = Operation(
-            id = "rejected", categoryName = "Продукты", description = "Отклонённая операция",
-            amount = BigDecimal("42.00"), currency = "KZT", originalAmount = BigDecimal("42.00"),
-            originalCurrency = "KZT", occurredOn = FILTER.dateTo, status = OperationStatus.Posted,
-            version = 0, syncStatus = OperationSyncStatus.Rejected,
+        val operations = listOf(
+            operation("rejected").copy(syncStatus = OperationSyncStatus.Rejected, syncError = "invalid_amount"),
+            operation("pending").copy(syncStatus = OperationSyncStatus.Pending),
         )
-        composeRule.setContent {
-            FillinTheme {
-                OperationHistoryScreen(
-                    state = OperationHistoryUiState(filters = FILTER, operations = listOf(operation), canLoadMore = false),
-                    onEvent = events::add,
-                    onOperationClick = opened::add,
-                )
-            }
-        }
+        show(OperationHistoryUiState(filters = FILTER, operations = operations, canLoadMore = false), events, opened::add)
+        composeRule.onNodeWithText("Ожидает отправки").assertDoesNotExist()
+        composeRule.onNodeWithText("Исправить и отправить снова").assertDoesNotExist()
+        composeRule.onNodeWithText("Ошибка отправки", substring = true).assertDoesNotExist()
         composeRule.onNodeWithTag("operation-rejected").performClick()
+        composeRule.onNodeWithTag("operation-pending").performClick()
         composeRule.runOnIdle {
-            assertEquals(listOf("rejected"), opened)
-            assertTrue(events.isEmpty())
-        }
-        composeRule.onNodeWithText("Исправить и отправить снова").performClick()
-        composeRule.runOnIdle {
-            assertEquals(listOf("rejected", "rejected"), opened)
+            assertEquals(listOf("rejected", "pending"), opened)
             assertTrue(events.isEmpty())
         }
     }
+
+    @Test fun descriptionUsesOneLineWithEllipsis() {
+        val description = "Продукты для семейного ужина и завтрака на выходных. ".repeat(4)
+        val operation = operation("long").copy(description = description)
+        showTransition(transitionState(0, null, listOf(operation)))
+        val layouts = mutableListOf<TextLayoutResult>()
+        composeRule.onNodeWithText(description, useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(1, layouts.single().lineCount)
+        assertTrue(layouts.single().isLineEllipsized(0))
+    }
+
+    @Test fun fastTypeResultWaitsForOutgoingListToFade() {
+        val setState = showTransition()
+        composeRule.onNodeWithTag("operation-old").assertIsDisplayed()
+        composeRule.mainClock.autoAdvance = false
+        setState(transitionState(1, OperationType.Income, listOf(operation("new", OperationType.Income))))
+        composeRule.mainClock.advanceTimeBy(80)
+        composeRule.onNodeWithTag("operation-old").assertIsNotEnabled()
+        composeRule.onNodeWithTag("operation-new").assertDoesNotExist()
+        composeRule.onNodeWithTag("history-list-loading").assertDoesNotExist()
+        composeRule.mainClock.advanceTimeBy(320)
+        composeRule.onNodeWithTag("operation-old").assertDoesNotExist()
+        composeRule.onNodeWithTag("operation-new").assertIsDisplayed().assertIsEnabled()
+    }
+
+    @Test fun slowTypeResultShowsDelayedProgressThenFadesInEmptyState() {
+        val setState = showTransition()
+        composeRule.mainClock.autoAdvance = false
+        setState(transitionState(1, OperationType.Expense))
+        composeRule.mainClock.advanceTimeBy(240)
+        composeRule.onNodeWithTag("operation-old").assertDoesNotExist()
+        composeRule.onNodeWithTag("history-list-loading").assertDoesNotExist()
+        composeRule.mainClock.advanceTimeBy(120)
+        composeRule.onNodeWithTag("history-list-loading").assertIsDisplayed()
+        setState(transitionState(1, OperationType.Expense, emptyList()))
+        composeRule.mainClock.advanceTimeBy(250)
+        composeRule.onNodeWithTag("history-list-loading").assertDoesNotExist()
+        composeRule.onNodeWithText("Нет операций по выбранным фильтрам").assertIsDisplayed()
+    }
+
+    @Test fun rapidTypeChangesIgnoreOlderResultAndShowLatestError() {
+        val setState = showTransition()
+        composeRule.mainClock.autoAdvance = false
+        setState(transitionState(1, OperationType.Income))
+        composeRule.mainClock.advanceTimeBy(80)
+        val pending = transitionState(2, null)
+        setState(pending)
+        composeRule.mainClock.advanceTimeBy(240)
+        setState(pending.copy(operations = listOf(operation("stale")), resultRequestId = 1))
+        composeRule.mainClock.advanceTimeBy(120)
+        composeRule.onNodeWithTag("operation-stale").assertDoesNotExist()
+        composeRule.onNodeWithTag("history-list-loading").assertIsDisplayed()
+        setState(transitionState(2, null, emptyList()).copy(error = OperationHistoryError.Unknown))
+        composeRule.mainClock.advanceTimeBy(260)
+        val resources = InstrumentationRegistry.getInstrumentation().targetContext.resources
+        composeRule.onNodeWithText(resources.getString(R.string.operation_history_retry)).assertIsDisplayed()
+        composeRule.onNodeWithTag("history-list-loading").assertDoesNotExist()
+    }
+
+    @Test fun dateHeaderScrollsAwayAndSameQueryUpdatesKeepTheScrollPosition() {
+        val operations = (1..30).map { operation("row-$it") }
+        val initial = transitionState(0, null, operations)
+        val setState = showTransition(initial)
+        val header = formatDateHeader(FILTER.dateTo)
+        composeRule.onNodeWithText(header).assertIsDisplayed()
+        composeRule.onNodeWithTag("operation_history_list").performScrollToIndex(20)
+        composeRule.onNodeWithText(header).assertIsNotDisplayed()
+        composeRule.onNodeWithTag("operation-row-20").assertIsDisplayed()
+        setState(initial.copy(operations = operations + operation("added")))
+        composeRule.onNodeWithTag("operation-row-20").assertIsDisplayed()
+        composeRule.onNodeWithText(header).assertIsNotDisplayed()
+    }
+
+    private fun showTransition(
+        initial: OperationHistoryUiState = transitionState(0, null, listOf(operation("old"))),
+    ): (OperationHistoryUiState) -> Unit {
+        var current by mutableStateOf(initial)
+        composeRule.setContent {
+            FillinTheme(dynamicColor = false) {
+                OperationHistoryScreen(current, onEvent = {})
+            }
+        }
+        return { next -> composeRule.runOnUiThread { current = next } }
+    }
+
+    private fun transitionState(
+        requestId: Long,
+        type: OperationType?,
+        operations: List<Operation>? = null,
+    ) = OperationHistoryUiState(
+        filters = FILTER.copy(type = type),
+        periodTotals = TOTALS,
+        operations = operations.orEmpty(),
+        isInitialLoading = operations == null,
+        requestId = requestId,
+        resultRequestId = requestId.takeIf { operations != null },
+        canLoadMore = false,
+    )
+
+    private fun operation(id: String, type: OperationType = OperationType.Expense) = Operation(
+        id = id, categoryName = "Продукты", description = "Описание операции",
+        amount = BigDecimal("42.00"), currency = "KZT", originalAmount = BigDecimal("42.00"),
+        originalCurrency = "KZT", occurredOn = FILTER.dateTo, status = OperationStatus.Posted,
+        version = 0, type = type,
+    )
 
     private fun show(state: OperationHistoryUiState, events: MutableList<OperationHistoryEvent>, onOperationClick: (String) -> Unit = {}) {
         var currentState by mutableStateOf(state)
         composeRule.setContent {
             FillinTheme(dynamicColor = false) {
-                FeatureScaffold(titleResource = R.string.operation_history_title) {
-                    OperationHistoryScreen(
-                        state = currentState,
-                        onOperationClick = onOperationClick,
-                        onEvent = { event ->
-                            events += event
-                            if (event is OperationHistoryEvent.TypeSelected) {
-                                currentState = currentState.copy(filters = currentState.filters.copy(type = event.type))
-                            }
-                        },
-                    )
-                }
+                OperationHistoryScreen(
+                    state = currentState,
+                    onOperationClick = onOperationClick,
+                    onEvent = { event ->
+                        events += event
+                        if (event is OperationHistoryEvent.TypeSelected) {
+                            currentState = currentState.copy(filters = currentState.filters.copy(type = event.type))
+                        }
+                    },
+                )
             }
         }
     }

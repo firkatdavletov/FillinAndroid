@@ -37,6 +37,15 @@ class LocalOperationHistoryTest {
     }
 
     @Test
+    fun `history uses the stored icon for archived categories and falls back for missing categories`() {
+        val archived = row("archived", "EXPENSE", "10.00")
+        val missing = row("missing", "EXPENSE", "1.00").copy(categoryId = "unknown")
+        val operations = localHistory(content(listOf(archived, missing)), FILTER, 20).items.associateBy { it.id }
+        assertEquals("OTHER", operations.getValue("archived").categoryIconCode)
+        assertEquals("", operations.getValue("missing").categoryIconCode)
+    }
+
+    @Test
     fun `large decimal values are exact and RUB uses saved KZT valuation`() {
         val max = row("max", "EXPENSE", "99999999999999999.99")
         val rub = row("rub", "EXPENSE", "6.01").copy(originalCurrency = "RUB", originalAmount = "1.00")

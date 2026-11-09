@@ -97,8 +97,12 @@ class OperationHistoryFiltersTest {
                 listOf(FakeOfflineHistory.purchase("expense"), FakeOfflineHistory.purchase("income", OperationType.Income))
             val model = model(repository)
             runCurrent()
+            val initialRequestId = model.uiState.value.requestId
             model.onEvent(OperationHistoryEvent.TypeSelected(OperationType.Expense))
+            assertNull(model.uiState.value.resultRequestId)
             model.onEvent(OperationHistoryEvent.TypeSelected(OperationType.Income))
+            val latestRequestId = model.uiState.value.requestId
+            assertTrue(latestRequestId > initialRequestId + 1)
             runCurrent()
             repository.operations.value += FakeOfflineHistory.purchase("new-expense")
             runCurrent()
@@ -107,6 +111,9 @@ class OperationHistoryFiltersTest {
                 model.uiState.value.operations
                     .map { it.id },
             )
+            assertEquals(latestRequestId, model.uiState.value.resultRequestId)
+            assertEquals(repository.totals.value, model.uiState.value.periodTotals)
+            assertEquals(0, repository.syncRequests)
         }
 
     @Test fun `online corrections and refunds arrive through local observation with their totals`() =
