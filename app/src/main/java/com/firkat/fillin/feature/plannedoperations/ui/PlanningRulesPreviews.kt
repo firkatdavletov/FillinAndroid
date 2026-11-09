@@ -22,9 +22,7 @@ private val previewIncome = previewExpense.copy(id = "salary", type = PlannedOpe
 @Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable private fun LoadingPreview() { FillinTheme { PlannedOperationsScreen(PlannedOperationsUiState(), {}, {}, {}, {}) } }
 @Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable private fun CollapsedPreview() { FillinTheme { PlanningGroupCard(PlanningFrequency.Monthly, listOf(previewExpense), false, {}, {}, true, previewDate) } }
-@Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable private fun ExpandedPreview() { FillinTheme { PlanningGroupCard(PlanningFrequency.Monthly, listOf(previewExpense, previewIncome), true, {}, {}, true, previewDate) } }
+@Composable private fun ReadOnlyCatalogPreview() { FillinTheme { PlannedOperationsScreen(PlannedOperationsUiState(rules = listOf(previewExpense), isLoading = false), {}, {}, {}, {}, canWrite = false) } }
 @Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable private fun ExpensePreview() { FillinTheme { PlanningRuleRow(previewExpense, previewDate, {}, true) } }
 @Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
@@ -38,10 +36,29 @@ private val previewIncome = previewExpense.copy(id = "salary", type = PlannedOpe
 @Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable private fun BiweeklyPreview() { FillinTheme { PlanningRuleRow(previewIncome.copy(frequency = PlanningFrequency.Biweekly), previewDate, {}, true) } }
 @Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable private fun AllTypesPreview() { FillinTheme { PlanningTypeFilters(null, {}) } }
+@Preview(widthDp = 320, fontScale = 2f) @Preview(widthDp = 840)
+@Composable private fun AllTypesPreview() { PreviewTypeFilters() }
 @Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable private fun ExpensesFilterPreview() { FillinTheme { PlanningTypeFilters(PlannedOperationType.Expense, {}) } }
+@Composable private fun ExpensesFilterPreview() { PreviewTypeFilters(type = PlannedOperationType.Expense) }
 @Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable private fun IncomesFilterPreview() { FillinTheme { PlanningTypeFilters(PlannedOperationType.Income, {}) } }
+@Composable private fun IncomesFilterPreview() { PreviewTypeFilters(type = PlannedOperationType.Income) }
 @Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable private fun AddPreview() { FillinTheme { PlanningAddButton({}, {}) } }
+@Composable private fun EmptyFiltersPreview() { PreviewTypeFilters(expenses = 0, incomes = 0) }
+@Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable private fun EmptySelectedTypePreview() { PreviewTypeFilters(type = PlannedOperationType.Income, incomes = 0) }
+@Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable private fun LoadingFiltersPreview() { PreviewTypeFilters(isLoading = true) }
+@Preview @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable private fun LoadingSelectedTypePreview() { PreviewTypeFilters(type = PlannedOperationType.Expense, isLoading = true) }
+
+@Composable
+private fun PreviewTypeFilters(
+    type: PlannedOperationType? = null,
+    expenses: Int = 12,
+    incomes: Int = 2,
+    isLoading: Boolean = false,
+) {
+    FillinTheme {
+        PlanningTypeFilters(expenses, incomes, type, isLoading, onTypeSelected = {})
+    }
+}

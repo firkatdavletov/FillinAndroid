@@ -21,20 +21,22 @@ class PlannedOperationsViewModelTest {
         PlanningRule(id, 2, type, "cat", "Category", "HOME", id, BigDecimal.TEN,
             frequency = frequency, startsOn = today.withDayOfMonth(1), scheduleValue = 31)
 
-    @Test fun `filters and collapsed groups restore independently of repository updates`() = runTest {
+    @Test fun `type filter restores independently of repository updates and can be reset`() = runTest {
         val repository = FakeRepository()
-        val saved = SavedStateHandle()
+        val saved = SavedStateHandle(mapOf("planning-collapsed" to arrayListOf(PlanningFrequency.Monthly.name)))
         val model = PlannedOperationsViewModel(ObservePlanningRules(repository), saved)
         runCurrent()
         model.onEvent(PlannedOperationsEvent.TypeSelected(PlannedOperationType.Income))
-        model.onEvent(PlannedOperationsEvent.GroupToggled(PlanningFrequency.Monthly))
         repository.rules.value = listOf(rule("expense"), rule("salary", type = PlannedOperationType.Income))
         runCurrent()
         assertEquals(listOf("salary"), model.uiState.value.groups.single().rules.map { it.id })
-        assertEquals(setOf(PlanningFrequency.Monthly), model.uiState.value.collapsed)
         val restored = PlannedOperationsViewModel(ObservePlanningRules(repository), saved)
+        runCurrent()
         assertEquals(PlannedOperationType.Income, restored.uiState.value.selectedType)
-        assertEquals(model.uiState.value.collapsed, restored.uiState.value.collapsed)
+        assertEquals(listOf("salary"), restored.uiState.value.groups.single().rules.map { it.id })
+        restored.onEvent(PlannedOperationsEvent.TypeSelected(null))
+        assertEquals(listOf("expense", "salary"), restored.uiState.value.groups.single().rules.map { it.id })
+        assertNull(PlannedOperationsViewModel(ObservePlanningRules(repository), saved).uiState.value.selectedType)
     }
 
     @Test fun `groups sort by frequency and date before name and stable key`() {

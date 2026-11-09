@@ -18,7 +18,6 @@ data class PlanningRuleGroup(val frequency: PlanningFrequency, val rules: List<P
 data class PlannedOperationsUiState(
     val rules: List<PlanningRule> = emptyList(),
     val selectedType: PlannedOperationType? = null,
-    val collapsed: Set<PlanningFrequency> = emptySet(),
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val error: PlannedOperationsException? = null,
@@ -33,7 +32,6 @@ data class PlannedOperationsUiState(
 
 sealed interface PlannedOperationsEvent {
     data class TypeSelected(val type: PlannedOperationType?) : PlannedOperationsEvent
-    data class GroupToggled(val frequency: PlanningFrequency) : PlannedOperationsEvent
     data object Refresh : PlannedOperationsEvent
     data object Retry : PlannedOperationsEvent
 }
@@ -44,7 +42,6 @@ class PlannedOperationsViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlannedOperationsUiState(
         selectedType = savedStateHandle.get<String>("planning-type")?.let(PlannedOperationType::valueOf),
-        collapsed = savedStateHandle.get<ArrayList<String>>("planning-collapsed").orEmpty().map(PlanningFrequency::valueOf).toSet(),
     ))
     val uiState = _uiState.asStateFlow()
     private var loadJob: Job? = null
@@ -55,11 +52,6 @@ class PlannedOperationsViewModel(
             is PlannedOperationsEvent.TypeSelected -> {
                 savedStateHandle["planning-type"] = event.type?.name
                 _uiState.update { it.copy(selectedType = event.type) }
-            }
-            is PlannedOperationsEvent.GroupToggled -> {
-                val collapsed = _uiState.value.collapsed.let { if (event.frequency in it) it - event.frequency else it + event.frequency }
-                savedStateHandle["planning-collapsed"] = ArrayList(collapsed.map { it.name })
-                _uiState.update { it.copy(collapsed = collapsed) }
             }
             PlannedOperationsEvent.Refresh -> if (!_uiState.value.isRefreshing) {
                 observeRules.requestSync()
