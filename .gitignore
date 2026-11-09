@@ -1,7 +1,7 @@
 *.iml
 .gradle
 /local.properties
-/.idea
+.idea
 .DS_Store
 /build
 /captures
@@ -12,4 +12,5 @@ local.properties
 # Firebase Admin credentials belong outside the repository.
 **/*firebase-adminsdk*.json
 **/service-account*.json
-/keystore
+keystore
+app/release
