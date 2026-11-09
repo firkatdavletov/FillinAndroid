@@ -74,6 +74,8 @@
     <string name="operation_history_refund_message">Будет возвращена вся ещё не возвращённая сумма расхода. Запись останется в финансовой истории.</string>
     <string name="operation_history_refund_confirm">Оформить возврат</string>
     <string name="operation_history_refund_cancel">Отмена</string>
+    <string name="operation_history_fully_refunded">Возвращено</string>
+    <string name="operation_history_partially_refunded">Частично возвращено</string>
     <string name="operation_history_error_network">Не удалось подключиться к серверу</string>
     <string name="operation_history_error_unauthorized">Войдите через Google и повторите синхронизацию</string>
     <string name="operation_history_error_forbidden">Доступ к истории операций отозван</string>

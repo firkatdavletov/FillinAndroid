@@ -17,10 +17,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.firkat.fillin.R
 import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
@@ -38,11 +41,18 @@ internal fun OperationItem(
     enabled: Boolean = true,
 ) {
     val isIncome = operation.type == OperationType.Income
+    val hasRefund = operation.type == OperationType.Expense && operation.refundedAmount.signum() > 0
+    val isFullyRefunded = hasRefund && operation.refundedAmount >= operation.originalAmount
     val amount = formatOperationAmount(operation.amount, operation.currency, operation.type)
-    val amountColor = if (isIncome) MaterialTheme.saldomiColors.income else MaterialTheme.colorScheme.onSurface
+    val amountColor = when {
+        isFullyRefunded -> MaterialTheme.colorScheme.onSurfaceVariant
+        isIncome -> MaterialTheme.saldomiColors.income
+        else -> MaterialTheme.colorScheme.onSurface
+    }
     val amountStyle = MaterialTheme.typography.titleMedium.copy(
         color = amountColor,
         fontWeight = FontWeight.Bold,
+        textDecoration = if (isFullyRefunded) TextDecoration.LineThrough else TextDecoration.None,
     )
 
     BoxWithConstraints(modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick)) {
@@ -77,12 +87,44 @@ internal fun OperationItem(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                if (hasRefund) {
+                    Text(
+                        text = stringResource(
+                            if (isFullyRefunded) R.string.operation_history_fully_refunded
+                            else R.string.operation_history_partially_refunded,
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (compact) Text(amount, style = amountStyle)
             }
             if (!compact) {
                 Text(amount, modifier = Modifier.widthIn(max = 160.dp), style = amountStyle)
             }
         }
+    }
+}
+
+@Preview(name = "Fully refunded")
+@Preview(name = "Fully refunded, dark", uiMode = UI_MODE_NIGHT_YES)
+@Preview(name = "Fully refunded, compact", widthDp = 320)
+@Preview(name = "Fully refunded, large font", widthDp = 320, fontScale = 2f)
+@Composable
+private fun OperationItemFullyRefundedPreview() {
+    FillinTheme {
+        Surface { OperationItem(previewOperation.copy(refundedAmount = previewOperation.originalAmount), onClick = {}) }
+    }
+}
+
+@Preview(name = "Partially refunded")
+@Preview(name = "Partially refunded, dark", uiMode = UI_MODE_NIGHT_YES)
+@Preview(name = "Partially refunded, compact", widthDp = 320)
+@Preview(name = "Partially refunded, large font", widthDp = 320, fontScale = 2f)
+@Composable
+private fun OperationItemPartiallyRefundedPreview() {
+    FillinTheme {
+        Surface { OperationItem(previewOperation.copy(refundedAmount = BigDecimal("300.00")), onClick = {}) }
     }
 }
 

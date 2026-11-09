@@ -56,6 +56,19 @@ class LocalOperationHistoryTest {
         assertEquals(BigDecimal("-7.03"), localHistory(content(listOf(refund)), FILTER, 20).totals.expenses)
     }
 
+    @Test
+    fun `history attaches a refund outside the period but excludes rejected refunds`() {
+        val expense = row("expense", "EXPENSE", "10.00")
+        val refund = row("refund", "EXPENSE_REFUND", "10.00").copy(
+            refundOf = expense.id, occurredOn = "2026-11-01", syncStatus = "PENDING",
+        )
+        val rejected = refund.copy(id = "rejected", syncStatus = "REJECTED")
+        val page = localHistory(content(listOf(expense, refund, rejected)), FILTER, 20)
+        assertEquals(expense.id, page.items.single().id)
+        assertEquals(BigDecimal("10.00"), page.items.single().refundedAmount)
+        assertEquals(BigDecimal("10.00"), page.totals.expenses)
+    }
+
     @Test fun `lookup by id is independent of period and pagination and includes all posted refunds`() {
         val old = row("old", "EXPENSE", "10.00").copy(occurredOn = "2026-09-01", syncStatus = "PENDING")
         val refund = row("refund", "EXPENSE_REFUND", "2.00").copy(refundOf = "old")

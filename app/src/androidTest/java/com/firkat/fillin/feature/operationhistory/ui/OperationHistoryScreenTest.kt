@@ -5,6 +5,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -13,6 +15,8 @@ import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -44,6 +48,43 @@ import org.junit.runner.RunWith
 class OperationHistoryScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun historyDistinguishesFullAndPartialRefundsAndKeepsDetailsAvailable() {
+        val full = operation("full").copy(
+            originalAmount = BigDecimal("7.00"), originalCurrency = "RUB", refundedAmount = BigDecimal("7"),
+        )
+        val partial = operation("partial").copy(refundedAmount = BigDecimal("7"))
+        val expense = operation("expense")
+        val income = operation("income", OperationType.Income)
+        val operations = listOf(full, partial, expense, income)
+        val opened = mutableListOf<String>()
+        show(transitionState(0, null, operations), mutableListOf(), opened::add)
+
+        val resources = InstrumentationRegistry.getInstrumentation().targetContext.resources
+        val fullLabel = resources.getString(R.string.operation_history_fully_refunded)
+        val partialLabel = resources.getString(R.string.operation_history_partially_refunded)
+        composeRule.onNodeWithTag("operation-full").assert(hasText(fullLabel)).performClick()
+        composeRule.onNodeWithTag("operation-partial").assert(hasText(partialLabel))
+        for (operation in listOf(expense, income)) {
+            composeRule.onNodeWithTag("operation-${operation.id}").assert(!hasText(fullLabel) and !hasText(partialLabel))
+        }
+
+        for (operation in operations) {
+            val amount = formatOperationAmount(operation.amount, operation.currency, operation.type)
+            val layouts = mutableListOf<TextLayoutResult>()
+            composeRule.onNode(
+                hasText(amount) and hasAnyAncestor(hasTestTag("operation-${operation.id}")),
+                useUnmergedTree = true,
+            ).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertEquals(
+                if (operation == full) TextDecoration.LineThrough else TextDecoration.None,
+                layouts.single().layoutInput.style.textDecoration,
+            )
+        }
+        composeRule.runOnIdle { assertEquals(listOf(full.id), opened) }
+        screenshot("history-refunds.png")
+    }
 
     @Test
     fun refreshKeepsTotalsAndTheCurrentListInPlace() {
