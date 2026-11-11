@@ -32,10 +32,11 @@ class ProfileBudgetsRepositoryTest {
 
     @Test fun namedLocalBudgetIsStoredAndShownInTheProfile() = runBlocking {
         env.manager.restore()
-        repository.createLocal("Поездка", "25.50".toBigDecimal(), LocalDate.now().minusDays(1))
+        repository.createLocal("Поездка", "25.50".toBigDecimal(), LocalDate.now().minusDays(1), com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency.EUR)
         val budget = repository.observe().first().single()
         assertEquals("Поездка", budget.name)
         assertEquals("Поездка", env.registry.find(budget.id)?.name)
+        env.database(env.manager.active.value!!.profile) { assertEquals("EUR", it.operations().state()?.currency) }
         env.manager.restore()
         assertEquals("Поездка", repository.observe().first().single().name)
         assertTrue(env.server.creations.isEmpty())

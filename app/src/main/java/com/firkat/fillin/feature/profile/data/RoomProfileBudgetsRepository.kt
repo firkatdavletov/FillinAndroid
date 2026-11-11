@@ -117,6 +117,10 @@ class RoomProfileBudgetsRepository(
         createLocalInternal(name, balance, startedOn)
     }
 
+    override suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate, currency: BudgetCurrency) {
+        localCreator.createLocal(name, balance, startedOn, currency)
+    }
+
     private suspend fun createLocalInternal(name: String?, balance: BigDecimal, startedOn: LocalDate) {
         localCreator.createLocal(name, balance, startedOn)
     }

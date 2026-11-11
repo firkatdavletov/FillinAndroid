@@ -4,12 +4,16 @@ import com.firkat.fillin.core.mvi.Reducer
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.budgetsharing.domain.FamilyInvitationCode
-import java.math.BigDecimal
+import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationDraft
+import com.firkat.fillin.feature.budgetconnection.domain.validationErrors
+import java.time.LocalDate
+import java.time.ZoneId
 
 class BudgetSetupReducer : Reducer<BudgetSetupState, BudgetSetupAction, BudgetSetupEvent> {
     override fun reduceAction(state: BudgetSetupState, action: BudgetSetupAction): BudgetSetupState = with(state) {
         when (action) {
             BudgetSetupAction.Start -> this
+            is BudgetSetupAction.DateChanged -> if (editable) copy(accountingStartedOn = action.value, dateInvalid = false, formOpened = true) else this
             is BudgetSetupAction.NameChanged -> if (editable) copy(name = action.value, nameInvalid = false, formOpened = true) else this
             is BudgetSetupAction.BalanceChanged -> if (editable) copy(balance = action.value, balanceInvalid = false, formOpened = true) else this
             BudgetSetupAction.OpenCurrencyPicker -> if (editable) copy(currencyPickerOpen = true) else this
@@ -20,11 +24,11 @@ class BudgetSetupReducer : Reducer<BudgetSetupState, BudgetSetupAction, BudgetSe
             is BudgetSetupAction.StorageChanged -> if (editable && (cloudAllowed || action.mode == BudgetSetupMode.Local)) copy(mode = action.mode, formOpened = true) else this
             is BudgetSetupAction.CodeChanged -> if (!busy && action.value.length <= 80) copy(code = action.value, codeInvalid = false) else this
             BudgetSetupAction.Create -> if (busy || completed || session == AuthSession.Loading) this else {
-                val invalidName = name.trim().let { it.length !in 1..80 || it.any(Char::isISOControl) }
-                val invalidBalance = !validBalance(balance)
+                val errors = BudgetCreationDraft(name, balance, accountingStartedOn, currency)
+                    .validationErrors(LocalDate.now(ZoneId.of("Asia/Almaty")))
                 when {
                     pending != null -> copy(busy = true, operationId = operationId + 1, error = null)
-                    invalidName || invalidBalance -> copy(nameInvalid = invalidName, balanceInvalid = invalidBalance)
+                    !errors.isEmpty -> copy(nameInvalid = errors.name, balanceInvalid = errors.balance, dateInvalid = errors.date)
                     mode == BudgetSetupMode.Cloud && uid == null -> copy(authTarget = SetupAuthTarget.Create, authLaunched = false, formOpened = true)
                     mode == BudgetSetupMode.Cloud && (!loaded || loading) -> this
                     else -> copy(busy = true, operationId = operationId + 1, error = null)
@@ -81,7 +85,7 @@ class BudgetSetupReducer : Reducer<BudgetSetupState, BudgetSetupAction, BudgetSe
                         val base = if (preserve) this else BudgetSetupState()
                         base.copy(session = event.session, ownerUid = nextUid, initialized = true, cloudAllowed = true, localFirst = event.localFirst,
                             formOpened = event.localFirst || base.formOpened,
-                            mode = if (!preserve) { if (nextUid == null || event.localFirst) BudgetSetupMode.Local else BudgetSetupMode.Cloud } else base.mode,
+                            mode = if (!preserve) BudgetSetupMode.Local else base.mode,
                             page = if (preserve && authTarget == SetupAuthTarget.Join && nextUid != null) SetupPage.Join else base.page,
                             generation = generation + 1, operationId = operationId + 1,
                             budgets = emptyList(), pending = null, loading = nextUid != null, loaded = false, busy = false, error = null)
@@ -92,6 +96,7 @@ class BudgetSetupReducer : Reducer<BudgetSetupState, BudgetSetupAction, BudgetSe
                 val request = event.pending
                 copy(budgets = event.budgets, pending = request, showingSaved = event.cached,
                     name = request?.draft?.name ?: name, balance = request?.draft?.openingBalance ?: balance,
+                    accountingStartedOn = request?.draft?.accountingStartedOn ?: accountingStartedOn,
                     currency = request?.draft?.currency ?: currency, currencyPickerOpen = currencyPickerOpen && request == null,
                     mode = if (request != null) BudgetSetupMode.Cloud else mode,
                     page = when { request != null -> SetupPage.Create; !formOpened && event.budgets.isNotEmpty() -> SetupPage.List; else -> page })
@@ -100,11 +105,8 @@ class BudgetSetupReducer : Reducer<BudgetSetupState, BudgetSetupAction, BudgetSe
             is BudgetSetupEvent.Finished -> if (generation != event.generation || operationId != event.operationId || !busy) this else copy(
                 busy = false, completed = event.error == null, error = event.error, pending = event.pending,
                 name = event.pending?.draft?.name ?: name, balance = event.pending?.draft?.openingBalance ?: balance,
+                accountingStartedOn = event.pending?.draft?.accountingStartedOn ?: accountingStartedOn,
                 currency = event.pending?.draft?.currency ?: currency)
         }
     }
 }
-internal fun validBalance(value: String): Boolean = value.length <= 64 && runCatching {
-    val amount = value.trim().replace(',', '.').toBigDecimal()
-    amount.scale() <= 2 && amount.abs() <= BigDecimal("99999999999999999.99")
-}.getOrDefault(false)

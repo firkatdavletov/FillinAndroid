@@ -79,10 +79,12 @@ class ProfileViewModelTest {
         runCurrent()
         model.openCreation()
         runCurrent()
-        model.editCreation(model.state.value.creation!!.copy(openingBalance = "1500,50", accountingStartedOn = "2026-10-01"))
+        model.editCreation(model.state.value.creation!!.copy(name = " Поездка ", openingBalance = "1500,50", accountingStartedOn = "2026-10-01", currency = com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency.KZT))
         model.createLocal()
         runCurrent()
         assertEquals(BigDecimal("1500.50") to LocalDate.of(2026, 10, 1), budgets.local)
+        assertEquals("Поездка", budgets.localName)
+        assertEquals(com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency.KZT, budgets.localCurrency)
         assertNull(model.state.value.creation)
         assertFalse(creation.created)
     }
@@ -126,6 +128,62 @@ class ProfileViewModelTest {
         assertNull(model.state.value.expandedBudgetId)
     }
 
+    @Test fun `invalid fields prevent submission and edits clear only their own errors`() = runTest {
+        val budgets = Budgets()
+        val model = model(budgets)
+        runCurrent()
+        model.openCreation()
+        runCurrent()
+        model.editCreation(model.state.value.creation!!.copy(name = " ", openingBalance = "1.234", accountingStartedOn = "9999-01-01"))
+        model.createLocal()
+        assertTrue(model.state.value.creationErrors.name)
+        assertTrue(model.state.value.creationErrors.balance)
+        assertTrue(model.state.value.creationErrors.date)
+        assertNull(budgets.local)
+        model.editCreation(model.state.value.creation!!.copy(name = "Семейный"))
+        assertFalse(model.state.value.creationErrors.name)
+        assertTrue(model.state.value.creationErrors.balance)
+        assertTrue(model.state.value.creationErrors.date)
+    }
+
+    @Test fun `signed in user can create named local budget and switching mode preserves draft`() = runTest {
+        val budgets = Budgets()
+        val model = model(budgets, Auth(AuthSession.Authenticated(AuthUser("uid", null, null))))
+        runCurrent()
+        model.openCreation()
+        runCurrent()
+        assertEquals(com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode.Local, model.state.value.creationMode)
+        model.editCreation(model.state.value.creation!!.copy(name = "Отпуск"))
+        val draft = model.state.value.creation
+        model.selectCreationMode(com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode.Cloud)
+        model.selectCreationMode(com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode.Local)
+        assertEquals(draft, model.state.value.creation)
+        model.createLocal()
+        runCurrent()
+        assertEquals("Отпуск", budgets.localName)
+    }
+
+    @Test fun `draft and currency picker survive recreation and explicit close clears draft`() = runTest {
+        val saved = androidx.lifecycle.SavedStateHandle()
+        val model = ProfileViewModel(Budgets(), Auth(), Creation(), savedState = saved).also { store.put("first", it) }
+        runCurrent()
+        model.openCreation()
+        runCurrent()
+        model.editCreation(model.state.value.creation!!.copy(name = "Отпуск", accountingStartedOn = "2026-10-01"))
+        model.openCurrencyPicker()
+        runCurrent()
+        val restored = ProfileViewModel(Budgets(), Auth(), Creation(), savedState = androidx.lifecycle.SavedStateHandle(saved.keys().associateWith { saved.get<Any?>(it) }))
+            .also { store.put("restored", it) }
+        runCurrent()
+        assertEquals(model.state.value.creation, restored.state.value.creation)
+        assertTrue(restored.state.value.currencyPickerOpen)
+        restored.closeCurrencyPicker()
+        assertEquals("Отпуск", restored.state.value.creation!!.name)
+        restored.closeCreation()
+        runCurrent()
+        assertNull(restored.state.value.creation)
+    }
+
     private fun model(budgets: Budgets = Budgets(), auth: Auth = Auth(), creation: Creation = Creation()) =
         ProfileViewModel(budgets, auth, creation).also { store.put("profile", it) }
 
@@ -146,6 +204,13 @@ class ProfileViewModelTest {
         override suspend fun select(id: String) { selections += id; selectionResult?.await() }
         override suspend fun createLocal(balance: BigDecimal, startedOn: LocalDate) { local = balance to startedOn }
         override suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate) { local = balance to startedOn }
+        var localName: String? = null
+        var localCurrency: com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency? = null
+        override suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate, currency: com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency) {
+            localName = name
+            localCurrency = currency
+            local = balance to startedOn
+        }
     }
 
     private class Creation : BudgetCreationRepository {

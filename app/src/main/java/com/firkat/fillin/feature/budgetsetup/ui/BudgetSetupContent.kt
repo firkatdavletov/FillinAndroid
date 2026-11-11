@@ -1,10 +1,10 @@
 package com.firkat.fillin.feature.budgetsetup.ui
 
+import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationErrors
+import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationDraft
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -15,13 +15,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
-import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
 import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyPicker
-import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyRow
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
 import com.firkat.fillin.ui.component.*
@@ -60,19 +56,25 @@ internal fun BudgetSetupContent(
             when (state.page) {
                 SetupPage.Create -> {
                     BudgetCreationForm(
-                    name = state.name, balance = state.balance, currency = state.currency, mode = state.mode, enabled = state.editable,
-                    nameInvalid = state.nameInvalid, balanceInvalid = state.balanceInvalid,
-                    pending = state.pending != null, busy = state.busy,
-                    canCreate = state.canCreate && (state.mode != BudgetSetupMode.Local || !localLimitReached),
-                    cloudAllowed = state.cloudAllowed,
-                    localLimitReached = localLimitReached,
-                    onNameChange = { onAction(BudgetSetupAction.NameChanged(it)) },
-                    onBalanceChange = { onAction(BudgetSetupAction.BalanceChanged(it)) },
-                    onCurrencyClick = { onAction(BudgetSetupAction.OpenCurrencyPicker) },
-                    onStorageChange = { onAction(BudgetSetupAction.StorageChanged(it)) },
-                    onCreateClick = { onAction(BudgetSetupAction.Create) },
-                    onJoinClick = { onAction(BudgetSetupAction.OpenJoin) },
+                        draft = BudgetCreationDraft(state.name, state.balance, state.accountingStartedOn, state.currency),
+                        mode = state.mode, enabled = state.editable,
+                        errors = BudgetCreationErrors(state.nameInvalid, state.balanceInvalid, state.dateInvalid),
+                        cloudAllowed = state.cloudAllowed, pending = state.pending != null, busy = state.busy,
+                        canCreate = state.canCreate && (state.mode != BudgetSetupMode.Local || !localLimitReached),
+                        localLimitReached = localLimitReached,
+                        onDraftChange = { draft ->
+                            if (draft.name != state.name) onAction(BudgetSetupAction.NameChanged(draft.name))
+                            if (draft.openingBalance != state.balance) onAction(BudgetSetupAction.BalanceChanged(draft.openingBalance))
+                            if (draft.accountingStartedOn != state.accountingStartedOn) onAction(BudgetSetupAction.DateChanged(draft.accountingStartedOn))
+                        },
+                        onCurrencyClick = { onAction(BudgetSetupAction.OpenCurrencyPicker) },
+                        onStorageChange = { onAction(BudgetSetupAction.StorageChanged(it)) },
+                        onCreateClick = { onAction(BudgetSetupAction.Create) },
                     )
+                    if (state.cloudAllowed) SaldomiOutlinedButton(
+                        onClick = { onAction(BudgetSetupAction.OpenJoin) }, enabled = state.editable,
+                        modifier = Modifier.fillMaxWidth().testTag("setup_open_join"), large = true, leadingIcon = FillinIcons.FamilyAccess,
+                    ) { Text(stringResource(R.string.family_join_title)) }
                     if (state.cloudAllowed && state.budgets.isNotEmpty() && state.pending == null) {
                         SaldomiTextButton(onClick = { onAction(BudgetSetupAction.OpenList) }, enabled = !state.busy) {
                             Text(stringResource(R.string.setup_list_title))
@@ -98,43 +100,6 @@ internal fun BudgetSetupContent(
             Spacer(Modifier.height(16.dp))
         }
         SaldomiSnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding())
-    }
-}
-
-@Composable
-private fun BudgetCreationForm(
-    name: String, balance: String, currency: BudgetCurrency, mode: BudgetSetupMode, enabled: Boolean,
-    nameInvalid: Boolean, balanceInvalid: Boolean, pending: Boolean, busy: Boolean, canCreate: Boolean,
-    cloudAllowed: Boolean, localLimitReached: Boolean,
-    onNameChange: (String) -> Unit, onBalanceChange: (String) -> Unit,
-    onCurrencyClick: () -> Unit, onStorageChange: (BudgetSetupMode) -> Unit, onCreateClick: () -> Unit, onJoinClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(R.string.setup_subtitle), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(12.dp))
-        SaldomiFormTextField(name, onNameChange, stringResource(R.string.setup_name), FillinIcons.Folder,
-            Modifier.fillMaxWidth().testTag("budget_setup_name"), enabled, if (nameInvalid) stringResource(R.string.setup_name_error) else null,
-            KeyboardOptions(imeAction = ImeAction.Next))
-        BudgetCurrencyRow(currency, enabled, onCurrencyClick, Modifier.fillMaxWidth().testTag("budget_setup_currency"))
-        SaldomiFormTextField(balance, onBalanceChange, stringResource(R.string.setup_balance), FillinIcons.Wallet,
-            Modifier.fillMaxWidth().testTag("budget_setup_balance"), enabled, if (balanceInvalid) stringResource(R.string.setup_balance_error) else null,
-            KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done))
-        Spacer(Modifier.height(8.dp))
-        if (cloudAllowed) {
-        Text(stringResource(R.string.setup_storage), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SaldomiRadioCard(mode == BudgetSetupMode.Cloud, { onStorageChange(BudgetSetupMode.Cloud) }, stringResource(R.string.setup_cloud), stringResource(R.string.setup_cloud_hint), FillinIcons.Cloud, Modifier.fillMaxWidth().testTag("setup_cloud"), enabled)
-            SaldomiRadioCard(mode == BudgetSetupMode.Local, { onStorageChange(BudgetSetupMode.Local) }, stringResource(R.string.setup_local), stringResource(R.string.setup_local_hint), FillinIcons.Device, Modifier.fillMaxWidth().testTag("setup_local"), enabled)
-        }
-        }
-        if (localLimitReached && mode == BudgetSetupMode.Local) Text(stringResource(R.string.local_budget_limit))
-        if (pending) Text(stringResource(R.string.setup_pending))
-        Spacer(Modifier.height(8.dp))
-        SaldomiButton(onCreateClick, Modifier.fillMaxWidth().testTag("setup_create"), enabled = canCreate, large = true, isLoading = busy) {
-            Text(stringResource(if (pending) R.string.cloud_budget_create_resume else R.string.budget_setup_create))
-        }
-        if (cloudAllowed) SaldomiOutlinedButton(onJoinClick, Modifier.fillMaxWidth().testTag("setup_open_join"), enabled = enabled, large = true, leadingIcon = FillinIcons.FamilyAccess) { Text(stringResource(R.string.family_join_title)) }
     }
 }
 

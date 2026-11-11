@@ -13,6 +13,8 @@ enum class SetupAuthTarget { Create, Join }
 data class BudgetSetupState(
     val name: String = "Личный бюджет",
     val balance: String = "0",
+    val accountingStartedOn: String = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).toString(),
+    val dateInvalid: Boolean = false,
     val currency: BudgetCurrency = BudgetCurrency.RUB,
     val currencyPickerOpen: Boolean = false,
     val mode: BudgetSetupMode = BudgetSetupMode.Local,
@@ -48,6 +50,7 @@ data class BudgetSetupState(
 sealed interface BudgetSetupAction : Action {
     data object Start : BudgetSetupAction
     data class NameChanged(val value: String) : BudgetSetupAction
+    data class DateChanged(val value: String) : BudgetSetupAction
     data class BalanceChanged(val value: String) : BudgetSetupAction
     data object OpenCurrencyPicker : BudgetSetupAction
     data object CloseCurrencyPicker : BudgetSetupAction

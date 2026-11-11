@@ -88,7 +88,7 @@ class BudgetSetupViewModel(
         val s = state.value
         if (!s.initialized) return
         savedState[SNAPSHOT] = arrayListOf(s.name, s.balance, s.mode.name, s.page.name,
-            s.ownerUid.orEmpty(), s.authTarget?.name.orEmpty(), s.formOpened.toString(), s.code, s.authLaunched.toString(), s.currency.name, s.currencyPickerOpen.toString())
+            s.ownerUid.orEmpty(), s.authTarget?.name.orEmpty(), s.formOpened.toString(), s.code, s.authLaunched.toString(), s.currency.name, s.currencyPickerOpen.toString(), s.accountingStartedOn)
     }
     companion object {
         private const val SNAPSHOT = "budget_setup_draft"
@@ -99,7 +99,8 @@ class BudgetSetupViewModel(
                 authTarget = v[5].takeIf { it.isNotEmpty() }?.let(SetupAuthTarget::valueOf),
                 formOpened = v[6].toBoolean(), code = v[7], authLaunched = v.getOrNull(8).toBoolean(), initialized = true,
                 currency = v.getOrNull(9)?.let(BudgetCurrency::valueOf) ?: BudgetCurrency.RUB,
-                currencyPickerOpen = v.getOrNull(10).toBoolean()) }.getOrDefault(BudgetSetupState())
+                currencyPickerOpen = v.getOrNull(10).toBoolean(),
+                accountingStartedOn = v.getOrNull(11) ?: BudgetSetupState().accountingStartedOn) }.getOrDefault(BudgetSetupState())
         }
     }
 }

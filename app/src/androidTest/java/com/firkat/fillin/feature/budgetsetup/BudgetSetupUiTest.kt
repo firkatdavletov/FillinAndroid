@@ -76,6 +76,7 @@ class BudgetSetupUiTest {
         show()
         compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
         compose.onNodeWithTag("budget_setup_balance").performScrollTo().performTextReplacement("123,45")
+        compose.onNodeWithTag("budget_setup_date").performScrollTo().performTextReplacement("2026-10-01")
         closeSoftKeyboard()
         compose.onNodeWithText("Российский рубль · RUB").assertExists()
         compose.onNodeWithTag("budget_setup_currency").performScrollTo().performClick()
@@ -125,7 +126,9 @@ class BudgetSetupUiTest {
     @Test fun cloudCreationUsesSameForm() {
         show(signedIn = true)
         compose.onNodeWithTag("budget_setup_balance").performScrollTo().performTextReplacement("125,50")
-        closeSoftKeyboard(); compose.onNodeWithTag("setup_create").performScrollTo().performClick()
+        closeSoftKeyboard()
+        compose.onNodeWithTag("setup_cloud").performScrollTo().performClick()
+        compose.onNodeWithTag("setup_create").performScrollTo().performClick()
         waitForCompletion()
         assertEquals(BudgetProfileKind.CLOUD, env.manager.active.value!!.profile.kind)
         assertEquals(1, server.creations.size); assertEquals("125.50", server.openingBalance)
@@ -140,6 +143,7 @@ class BudgetSetupUiTest {
     }
     @Test fun pendingCreationLocksFieldsAndResumesWithoutDuplicate() {
         server.loseCreationResponse = true; show(signedIn = true)
+        compose.onNodeWithTag("setup_cloud").performScrollTo().performClick()
         compose.onNodeWithTag("setup_create").performScrollTo().performClick()
         compose.waitUntil(10000) { model.state.value.pending != null && !model.state.value.busy }
         compose.onNodeWithTag("budget_setup_name").performScrollTo().assertIsNotEnabled()

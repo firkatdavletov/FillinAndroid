@@ -24,12 +24,14 @@ class BudgetSetupViewModelTest {
     @Test fun guestDraftSurvivesLoginAndSavedState() = runTest(dispatcher) {
         val saved = SavedStateHandle(); val m = model(saved); runCurrent()
         m.onAction(BudgetSetupAction.NameChanged("Поездка")); m.onAction(BudgetSetupAction.BalanceChanged("125,50"))
+        m.onAction(BudgetSetupAction.DateChanged("2026-10-01"))
         m.onAction(BudgetSetupAction.StorageChanged(BudgetSetupMode.Cloud)); m.onAction(BudgetSetupAction.Create)
         env.available = listOf(AvailableBudget("existing", "Семья", "member", "OWNER")); env.login(); runCurrent()
         assertEquals("Поездка", m.state.value.name); assertEquals(SetupPage.Create, m.state.value.page)
         assertEquals(0, env.creates)
         val restored = model(SavedStateHandle(saved.keys().associateWith { saved.get<Any?>(it) })); runCurrent()
         assertEquals("125,50", restored.state.value.balance)
+        assertEquals("2026-10-01", restored.state.value.accountingStartedOn)
     }
     @Test fun repeatTapsDoNotRepeatLocalCreation() = runTest(dispatcher) {
         env.gate = CompletableDeferred(); val m = model(); runCurrent()
@@ -40,6 +42,7 @@ class BudgetSetupViewModelTest {
     }
     @Test fun pendingRequestSurvivesModelRecreationAndResumes() = runTest(dispatcher) {
         env.login(); env.fail = true; val m = model(); runCurrent()
+        m.onAction(BudgetSetupAction.StorageChanged(BudgetSetupMode.Cloud))
         m.onAction(BudgetSetupAction.Create); runCurrent(); assertNotNull(m.state.value.pending)
         val restored = model(); runCurrent(); assertNotNull(restored.state.value.pending)
         restored.onAction(BudgetSetupAction.Create); runCurrent()

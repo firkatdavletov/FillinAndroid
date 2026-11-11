@@ -24,4 +24,5 @@ interface ProfileBudgetsRepository {
     suspend fun createLocal(balance: BigDecimal, startedOn: LocalDate, currency: BudgetCurrency) =
         createLocal(balance, startedOn)
     suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate)
+    suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate, currency: BudgetCurrency)
 }

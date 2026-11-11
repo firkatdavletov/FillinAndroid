@@ -21,10 +21,19 @@ class BudgetSetupReducerTest {
         assertTrue(invalid.nameInvalid); assertTrue(invalid.balanceInvalid); assertNull(invalid.authTarget)
         assertFalse(invalid.busy)
     }
+    @Test fun validatesDateAndClearsOnlyDateErrorWhenEdited() {
+        val invalid = reducer.reduceAction(guest.copy(accountingStartedOn = "9999-01-01"), BudgetSetupAction.Create)
+        assertTrue(invalid.dateInvalid)
+        assertFalse(invalid.busy)
+        val corrected = reducer.reduceAction(invalid, BudgetSetupAction.DateChanged("2026-10-01"))
+        assertFalse(corrected.dateInvalid)
+        assertEquals("2026-10-01", corrected.accountingStartedOn)
+    }
     @Test fun pendingRequestLocksFormAndOverridesDraft() {
         val pending = PendingBudgetCreation("request", BudgetCreationDraft("Сохранённый", "20", "2026-10-01"))
         val restored = reducer.reduceEvent(guest, BudgetSetupEvent.Catalog(0, emptyList(), pending, true))
         assertEquals(pending.draft.name, restored.name)
+        assertEquals(pending.draft.accountingStartedOn, restored.accountingStartedOn)
         assertEquals(restored, reducer.reduceAction(restored, BudgetSetupAction.NameChanged("Другой")))
         assertEquals(restored, reducer.reduceAction(restored, BudgetSetupAction.StorageChanged(BudgetSetupMode.Local)))
     }
