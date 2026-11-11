@@ -18,6 +18,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.platform.app.InstrumentationRegistry
+import com.firkat.fillin.R
 import com.firkat.fillin.feature.appaccess.domain.AppAccess
 import com.firkat.fillin.feature.appaccess.domain.AppMode
 import com.firkat.fillin.feature.budgetconnection.BudgetConnectionDeviceTest
@@ -57,7 +58,7 @@ class BudgetSetupUiTest {
                 val density = LocalDensity.current
                 CompositionLocalProvider(LocalDensity provides Density(density.density, if (compact) 2f else 1f)) {
                     Box(if (compact) Modifier.fillMaxWidth().height(300.dp) else Modifier.fillMaxSize()) {
-                        BudgetSetupScreen(model, { backs++ }, { signIns++ }, { completed++ }, {})
+                        BudgetSetupScreen(model, { backs++ }, { signIns++ }, { completed++ }, {}, fromProfile = false)
                     }
                 }
             }
@@ -76,11 +77,11 @@ class BudgetSetupUiTest {
         show()
         compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
         compose.onNodeWithTag("budget_setup_balance").performScrollTo().performTextReplacement("123,45")
-        compose.onNodeWithTag("budget_setup_date").performScrollTo().performTextReplacement("2026-10-01")
+        compose.onNodeWithTag("budget_setup_date").assertDoesNotExist()
         closeSoftKeyboard()
-        compose.onNodeWithText("Российский рубль · RUB").assertExists()
+        compose.onNodeWithTag("budget_setup_currency").assertTextContains(compose.activity.getString(R.string.budget_currency_rub))
         compose.onNodeWithTag("budget_setup_currency").performScrollTo().performClick()
-        compose.onNodeWithText("Евро · EUR").performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.budget_currency_eur)).performClick()
         compose.onNodeWithTag("setup_create").performScrollTo().performClick()
         waitForCompletion()
         assertEquals("Поездка", env.manager.active.value!!.profile.name)

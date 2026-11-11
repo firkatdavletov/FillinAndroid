@@ -14,8 +14,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
-import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationDraft
 import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationErrors
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
 import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyRow
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.ui.component.*
@@ -24,7 +24,9 @@ import com.firkat.fillin.ui.theme.FillinTheme
 
 @Composable
 internal fun BudgetCreationForm(
-    draft: BudgetCreationDraft,
+    name: String,
+    balance: String,
+    currency: BudgetCurrency,
     mode: BudgetSetupMode,
     enabled: Boolean,
     errors: BudgetCreationErrors,
@@ -33,7 +35,8 @@ internal fun BudgetCreationForm(
     busy: Boolean,
     canCreate: Boolean,
     localLimitReached: Boolean,
-    onDraftChange: (BudgetCreationDraft) -> Unit,
+    onNameChange: (String) -> Unit,
+    onBalanceChange: (String) -> Unit,
     onCurrencyClick: () -> Unit,
     onStorageChange: (BudgetSetupMode) -> Unit,
     onCreateClick: () -> Unit,
@@ -41,28 +44,17 @@ internal fun BudgetCreationForm(
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SaldomiFormTextField(
-            draft.name, { onDraftChange(draft.copy(name = it)) }, stringResource(R.string.setup_name), FillinIcons.Folder,
+            name, onNameChange, stringResource(R.string.setup_name), FillinIcons.Folder,
             Modifier.fillMaxWidth().testTag("budget_setup_name"), enabled,
             if (errors.name) stringResource(R.string.setup_name_error) else null,
             KeyboardOptions(imeAction = ImeAction.Next),
         )
-        BudgetCurrencyRow(draft.currency, enabled, onCurrencyClick, Modifier.fillMaxWidth().testTag("budget_setup_currency"))
+        BudgetCurrencyRow(currency, enabled, onCurrencyClick, Modifier.fillMaxWidth().testTag("budget_setup_currency"))
         SaldomiFormTextField(
-            draft.openingBalance, { onDraftChange(draft.copy(openingBalance = it)) }, stringResource(R.string.setup_balance), FillinIcons.Wallet,
+            balance, onBalanceChange, stringResource(R.string.setup_balance), FillinIcons.Wallet,
             Modifier.fillMaxWidth().testTag("budget_setup_balance"), enabled,
             if (errors.balance) stringResource(R.string.setup_balance_error) else null,
-            KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-        )
-        OutlinedTextField(
-            value = draft.accountingStartedOn,
-            onValueChange = { onDraftChange(draft.copy(accountingStartedOn = it)) },
-            label = { Text(stringResource(R.string.cloud_budget_start_date)) },
-            supportingText = { Text(stringResource(if (errors.date) R.string.setup_date_error else R.string.setup_date_hint)) },
-            isError = errors.date,
-            enabled = enabled,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            modifier = Modifier.fillMaxWidth().testTag("budget_setup_date"),
+            KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
         )
         if (cloudAllowed) {
             Text(stringResource(R.string.setup_storage), style = MaterialTheme.typography.titleLarge)
@@ -95,8 +87,8 @@ private fun FormPreview(
 ) {
     FillinTheme {
         Surface {
-            BudgetCreationForm(BudgetCreationDraft(name, "0", "2026-11-11"), mode, !busy && !pending, errors,
-                cloudAllowed, pending, busy, !busy && !(limit && mode == BudgetSetupMode.Local), limit, {}, {}, {}, {})
+            BudgetCreationForm(name, "0", BudgetCurrency.RUB, mode, !busy && !pending, errors,
+                cloudAllowed, pending, busy, !busy && !(limit && mode == BudgetSetupMode.Local), limit, {}, {}, {}, {}, {})
         }
     }
 }
@@ -120,7 +112,7 @@ private fun FormPreview(
 @Composable private fun BusyPreview() = FormPreview(busy = true)
 @Preview(name = "Invalid")
 @Preview(name = "Invalid dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun InvalidPreview() = FormPreview(errors = BudgetCreationErrors(true, true, true), name = "")
+@Composable private fun InvalidPreview() = FormPreview(errors = BudgetCreationErrors(name = true, balance = true), name = "")
 @Preview(name = "Local limit")
 @Preview(name = "Local limit dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable private fun LimitPreview() = FormPreview(limit = true)

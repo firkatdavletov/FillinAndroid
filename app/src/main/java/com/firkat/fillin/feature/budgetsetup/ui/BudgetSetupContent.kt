@@ -1,7 +1,6 @@
 package com.firkat.fillin.feature.budgetsetup.ui
 
 import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationErrors
-import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationDraft
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,7 +28,7 @@ internal fun BudgetSetupContent(
     onAction: (BudgetSetupAction) -> Unit,
     snackbar: SnackbarHostState,
     modifier: Modifier = Modifier,
-    localLimitReached: Boolean = false,
+    fromProfile: Boolean = false,
 ) {
     if (state.currencyPickerOpen && state.editable && state.page == SetupPage.Create) {
         BudgetCurrencyPicker(state.currency,
@@ -45,7 +44,7 @@ internal fun BudgetSetupContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (state.cloudAllowed) IconButton(onClick = { onAction(BudgetSetupAction.Back) }, enabled = !state.busy, modifier = Modifier.testTag("setup_back")) {
+                if (state.cloudAllowed || fromProfile) IconButton(onClick = { onAction(BudgetSetupAction.Back) }, enabled = !state.busy, modifier = Modifier.testTag("setup_back")) {
                     Icon(FillinIcons.Back, stringResource(R.string.navigation_back))
                 }
                 Image(painterResource(R.drawable.saldomi_logo), stringResource(R.string.app_name), Modifier.widthIn(max = 180.dp).heightIn(max = 56.dp), contentScale = ContentScale.Fit)
@@ -56,17 +55,14 @@ internal fun BudgetSetupContent(
             when (state.page) {
                 SetupPage.Create -> {
                     BudgetCreationForm(
-                        draft = BudgetCreationDraft(state.name, state.balance, state.accountingStartedOn, state.currency),
+                        name = state.name, balance = state.balance, currency = state.currency,
                         mode = state.mode, enabled = state.editable,
-                        errors = BudgetCreationErrors(state.nameInvalid, state.balanceInvalid, state.dateInvalid),
+                        errors = BudgetCreationErrors(name = state.nameInvalid, balance = state.balanceInvalid),
                         cloudAllowed = state.cloudAllowed, pending = state.pending != null, busy = state.busy,
-                        canCreate = state.canCreate && (state.mode != BudgetSetupMode.Local || !localLimitReached),
-                        localLimitReached = localLimitReached,
-                        onDraftChange = { draft ->
-                            if (draft.name != state.name) onAction(BudgetSetupAction.NameChanged(draft.name))
-                            if (draft.openingBalance != state.balance) onAction(BudgetSetupAction.BalanceChanged(draft.openingBalance))
-                            if (draft.accountingStartedOn != state.accountingStartedOn) onAction(BudgetSetupAction.DateChanged(draft.accountingStartedOn))
-                        },
+                        canCreate = state.canCreate,
+                        localLimitReached = state.localLimitReached,
+                        onNameChange = { onAction(BudgetSetupAction.NameChanged(it)) },
+                        onBalanceChange = { onAction(BudgetSetupAction.BalanceChanged(it)) },
                         onCurrencyClick = { onAction(BudgetSetupAction.OpenCurrencyPicker) },
                         onStorageChange = { onAction(BudgetSetupAction.StorageChanged(it)) },
                         onCreateClick = { onAction(BudgetSetupAction.Create) },

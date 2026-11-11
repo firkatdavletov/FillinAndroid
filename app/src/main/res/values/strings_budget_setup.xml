@@ -3,6 +3,4 @@
     <string name="budget_setup_local_hint">Бюджет сохраняется на устройстве. Облачную синхронизацию можно включить позже.</string>
     <string name="budget_setup_create">Создать бюджет</string>
     <string name="budget_setup_loading">Загрузка бюджета…</string>
-    <string name="setup_date_hint">ГГГГ-ММ-ДД</string>
-    <string name="setup_date_error">Введите дату в формате ГГГГ-ММ-ДД, не позднее сегодняшней.</string>
 </resources>

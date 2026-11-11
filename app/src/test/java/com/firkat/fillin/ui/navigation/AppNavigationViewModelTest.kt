@@ -1,12 +1,18 @@
 package com.firkat.fillin.ui.navigation
 
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.SavedStateHandle
+import com.firkat.fillin.feature.appaccess.domain.AppAccess
+import com.firkat.fillin.feature.appaccess.domain.AppMode
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupPage
 import com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer
+import com.firkat.fillin.feature.main.ui.AppDestination
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -161,6 +167,85 @@ class AppNavigationViewModelTest {
         assertEquals(listOf(AppRoute.Main, AppRoute.OperationCreate), model.backStack)
         model.back()
         assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
+
+    @Test fun `profile setup stays open with a ready budget and only success selects dashboard`() = runTest {
+        val ready = MutableStateFlow(true)
+        val model = model(FakeAuth(), ready) { true }
+        model.onLaunchShown()
+        runCurrent()
+        val stack = listOf(AppRoute.Main, AppRoute.BudgetSetup(BudgetSetupMode.Local))
+        model.openBudgetCreation()
+        model.openBudgetCreation()
+        ready.value = false
+        runCurrent()
+        ready.value = true
+        runCurrent()
+        assertEquals(stack, model.backStack)
+        assertFalse(model.exitSetup())
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        assertEquals(AppDestination.Profile, model.mainDestination)
+
+        model.openBudgetCreation()
+        model.finishSetup()
+        model.back()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        assertEquals(AppDestination.Dashboard, model.mainDestination)
+    }
+
+    @Test fun `profile setup keeps its origin after restored authentication`() = runTest {
+        val auth = FakeAuth()
+        val saved = SavedStateHandle()
+        fun newNavigation() =
+            AppNavigationViewModel(auth, LocalBudgetRestorer { true }, ActiveBudgetReadiness { MutableStateFlow(true) }, saved)
+                .also { models.put("setup-${models.keys().size}", it) }
+
+        val original = newNavigation()
+        original.onLaunchShown()
+        runCurrent()
+        original.openBudgetCreation()
+        original.authenticateForSetup(SetupAuthTarget.Create)
+        assertEquals(AppRoute.Auth, original.backStack.last())
+
+        models.clear()
+        auth.signInWithGoogle("synthetic")
+        val restored = newNavigation()
+        restored.onLaunchShown()
+        runCurrent()
+        assertTrue(restored.setupFromProfile)
+        assertEquals(AppRoute.Main, restored.backStack.first())
+        assertTrue(restored.backStack.last().isBudgetSetup())
+        assertFalse(restored.exitSetup())
+        assertEquals(listOf(AppRoute.Main), restored.backStack)
+        assertEquals(AppDestination.Profile, restored.mainDestination)
+    }
+
+    @Test fun `losing cloud access inside profile setup returns to the local form`() = runTest {
+        val access = object : AppAccess {
+            override val mode = MutableStateFlow(AppMode.InternalFull)
+            override val checking = MutableStateFlow(false)
+            override fun installationId() = "test"
+            override suspend fun refresh(manual: Boolean) = false
+            override fun revoke() { mode.value = AppMode.OfflineFree }
+        }
+        val model = AppNavigationViewModel(
+            FakeAuth(AuthSession.Authenticated(USER)),
+            LocalBudgetRestorer { true },
+            ActiveBudgetReadiness { MutableStateFlow(true) },
+            access = access,
+        ).also { models.put("access", it) }
+        model.onLaunchShown()
+        runCurrent()
+        model.openBudgetCreation()
+        model.showSetupPage(SetupPage.Join)
+        assertEquals(AppRoute.BudgetSetupJoin, model.backStack.last())
+
+        access.revoke()
+        model.closeRestrictedRoutes()
+        assertEquals(listOf(AppRoute.Main, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
+        assertTrue(model.setupFromProfile)
+        assertFalse(model.exitSetup())
+        assertFalse(model.configuringBudget)
     }
 
     @Test fun `operation creation cannot bypass setup and closes when budget becomes unavailable`() = runTest {

@@ -21,6 +21,7 @@ internal class SetupTestEnvironment {
     var saved: PendingBudgetCreation? = null
     var creates = 0
     var resumes = 0
+    var resumed: PendingBudgetCreation? = null
     var localCreates = 0
     var submitted: BudgetCreationDraft? = null
     var gate: CompletableDeferred<Unit>? = null
@@ -36,7 +37,11 @@ internal class SetupTestEnvironment {
             gate?.await()
             if (fail) { saved = PendingBudgetCreation("same-request", draft); error("offline") }
         }
-        override suspend fun resume(uid: String) { resumes++; saved = null }
+        override suspend fun resume(uid: String) {
+            resumes++
+            resumed = requireNotNull(saved)
+            saved = null
+        }
     }
     val local = com.firkat.fillin.feature.budgetsetup.domain.LocalBudgetCreator { name, balance, startedOn ->
         localCreates++; submitted = BudgetCreationDraft(requireNotNull(name), balance.toPlainString(), startedOn.toString()); gate?.await()

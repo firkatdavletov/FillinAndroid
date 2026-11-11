@@ -11,7 +11,13 @@ import com.firkat.fillin.feature.budgetsharing.domain.FamilyBudgetRepository
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
 import com.firkat.fillin.feature.budgetsetup.domain.LocalBudgetCreator
+import com.firkat.fillin.feature.budgetprofile.data.LOCAL_BUDGET_LIMIT
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneId
 
 class BudgetSetupViewModel(
     auth: AuthRepository,
@@ -22,7 +28,8 @@ class BudgetSetupViewModel(
     private val savedState: SavedStateHandle = SavedStateHandle(),
     dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
     access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
-    val localCount: kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.flowOf(0),
+    localCount: Flow<Int> = flowOf(0),
+    private val clock: Clock = Clock.systemUTC(),
     interactor: Interactor<BudgetSetupCommand, BudgetSetupEvent> = BudgetSetupInteractor(auth, connection, creation, local, family, dispatcher, access = access),
 ) : BaseViewModel<BudgetSetupState, BudgetSetupAction, BudgetSetupCommand, BudgetSetupEvent, BudgetSetupEffect>(
     restore(savedState).let { restored ->
@@ -36,6 +43,12 @@ class BudgetSetupViewModel(
     private var startedId: Long? = null
     private var generation = state.value.generation
     private var previousPage = state.value.page
+
+    init {
+        viewModelScope.launch {
+            localCount.collect { onAction(BudgetSetupAction.LocalLimitChanged(it >= LOCAL_BUDGET_LIMIT)) }
+        }
+    }
 
     override fun handleAction(action: BudgetSetupAction) {
         val current = state.value
@@ -75,7 +88,10 @@ class BudgetSetupViewModel(
         val current = state.value
         if (startedId == current.operationId) return
         startedId = current.operationId
-        operation = execute(BudgetSetupCommand.Submit(current, kind, budget)).also { job ->
+        val startedOn = if (kind == SubmitKind.Local || kind == SubmitKind.Cloud && current.pending == null) {
+            LocalDate.now(clock.withZone(ZoneId.of("Asia/Almaty")))
+        } else null
+        operation = execute(BudgetSetupCommand.Submit(current, kind, budget, startedOn)).also { job ->
             job.invokeOnCompletion { cause ->
                 if (cause is CancellationException) viewModelScope.launch {
                     onAction(BudgetSetupAction.Cancelled(current.generation, current.operationId))
@@ -88,7 +104,7 @@ class BudgetSetupViewModel(
         val s = state.value
         if (!s.initialized) return
         savedState[SNAPSHOT] = arrayListOf(s.name, s.balance, s.mode.name, s.page.name,
-            s.ownerUid.orEmpty(), s.authTarget?.name.orEmpty(), s.formOpened.toString(), s.code, s.authLaunched.toString(), s.currency.name, s.currencyPickerOpen.toString(), s.accountingStartedOn)
+            s.ownerUid.orEmpty(), s.authTarget?.name.orEmpty(), s.formOpened.toString(), s.code, s.authLaunched.toString(), s.currency.name, s.currencyPickerOpen.toString())
     }
     companion object {
         private const val SNAPSHOT = "budget_setup_draft"
@@ -99,8 +115,7 @@ class BudgetSetupViewModel(
                 authTarget = v[5].takeIf { it.isNotEmpty() }?.let(SetupAuthTarget::valueOf),
                 formOpened = v[6].toBoolean(), code = v[7], authLaunched = v.getOrNull(8).toBoolean(), initialized = true,
                 currency = v.getOrNull(9)?.let(BudgetCurrency::valueOf) ?: BudgetCurrency.RUB,
-                currencyPickerOpen = v.getOrNull(10).toBoolean(),
-                accountingStartedOn = v.getOrNull(11) ?: BudgetSetupState().accountingStartedOn) }.getOrDefault(BudgetSetupState())
+                currencyPickerOpen = v.getOrNull(10).toBoolean()) }.getOrDefault(BudgetSetupState())
         }
     }
 }

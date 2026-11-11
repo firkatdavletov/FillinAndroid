@@ -23,17 +23,19 @@ data class BudgetCreationErrors(
     val isEmpty get() = !name && !balance && !date
 }
 
-fun BudgetCreationDraft.validationErrors(today: LocalDate): BudgetCreationErrors = BudgetCreationErrors(
+internal fun budgetCreationFieldErrors(name: String, openingBalance: String): BudgetCreationErrors = BudgetCreationErrors(
     name = name.trim().let { it.length !in 1..80 || it.any(Char::isISOControl) },
     balance = openingBalance.length > 64 || !runCatching {
         val amount = openingBalance.trim().replace(',', '.').toBigDecimal()
         amount.scale() <= 2 && amount.abs() <= BigDecimal("99999999999999999.99")
     }.getOrDefault(false),
-    date = !runCatching {
+)
+
+fun BudgetCreationDraft.validationErrors(today: LocalDate): BudgetCreationErrors =
+    budgetCreationFieldErrors(name, openingBalance).copy(date = !runCatching {
         val date = LocalDate.parse(accountingStartedOn.trim())
         date.year >= 1 && date <= today
-    }.getOrDefault(false),
-)
+    }.getOrDefault(false))
 
 data class PendingBudgetCreation(val requestId: String, val draft: BudgetCreationDraft)
 

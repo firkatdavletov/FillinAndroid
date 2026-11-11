@@ -239,10 +239,10 @@ class AppNavigationUiTest {
                 )
             }
             viewModel {
-                AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager), access = access, activeBudget = env.manager)
+                AppNavigationViewModel(auth, RoomLocalBudgetRestorer(env.registry, BudgetDatabaseFactory(env.context), env.manager), RoomActiveBudgetReadiness(env.manager), get(), access = access, activeBudget = env.manager)
             }
             viewModel { com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel(auth, env.connection, env.creation,
-                com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.koin.get()), env.sharing, get(), dispatcher = Dispatchers.IO, access = access) }
+                com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.koin.get()), env.sharing, get(), dispatcher = Dispatchers.IO, access = access, localCount = env.registry.observeLocalCount()) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyBudgetJoinViewModel(auth, env.sharing) }
             viewModel { com.firkat.fillin.feature.budgetsharing.ui.FamilyMembersViewModel(env.sharing) }
             viewModel {
@@ -258,7 +258,7 @@ class AppNavigationUiTest {
             single<com.firkat.fillin.feature.profile.domain.ProfileBudgetsRepository> {
                 com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository(auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, get(), env.uploads, access = access)
             }
-            viewModel { com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, env.creation, access, env.registry.observeLocalCount()) }
+            viewModel { com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, access) }
             viewModel {
                 val store = object : com.firkat.fillin.feature.profile.domain.DeletionStore {
                     override fun operations() = emptyList<com.firkat.fillin.feature.profile.domain.DeletionOperation>()
@@ -539,6 +539,64 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("main_screen").assertIsDisplayed()
         assertEquals(0, pickerCalls)
         assertTrue(env.server.creations.isEmpty())
+    }
+
+    @Test fun offlineProfileOpensSharedSetupAndBackKeepsSelectedBudget() {
+        access.revoke()
+        show(createdBudget = true)
+        val original = env.manager.active.value!!.profile.id
+        openProfileBudgetCreation()
+        compose.onNodeWithTag("setup_cloud").assertDoesNotExist()
+        compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Черновик")
+        closeSoftKeyboard()
+        compose.onNodeWithTag("setup_back").performScrollTo().performClick()
+        compose.onNodeWithTag("tab_Profile").assertIsSelected()
+        compose.onNodeWithTag("budget_setup_screen").assertDoesNotExist()
+        assertEquals(original, env.manager.active.value!!.profile.id)
+        compose.onNodeWithText("Создать новый").performScrollTo().performClick()
+        compose.onNodeWithTag("budget_setup_name").assertTextContains("Личный бюджет")
+    }
+
+    @Test fun creatingFromProfileSelectsTheNewBudgetAndOpensDashboard() {
+        show(createdBudget = true)
+        openProfileBudgetCreation()
+        compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Отпуск")
+        closeSoftKeyboard()
+        compose.onNodeWithTag("setup_create").performScrollTo().performClick()
+        compose.waitUntil(5000) { navigation.backStack.toList() == listOf(AppRoute.Main) }
+        compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
+        assertEquals("Отпуск", env.manager.active.value!!.profile.name)
+        compose.runOnIdle { navigation.back() }
+        compose.onNodeWithTag("budget_setup_screen").assertDoesNotExist()
+        assertTrue(env.server.creations.isEmpty())
+    }
+
+    @Test fun profileCloudCreationSurvivesAuthenticationAndActivityRecreation() {
+        env.server.budgetExists = false
+        show(createdBudget = true)
+        openProfileBudgetCreation()
+        compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Поездка")
+        closeSoftKeyboard()
+        openSetupAuth()
+        compose.onNodeWithText("Продолжить с Google").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("budget_setup_name").fetchSemanticsNodes().isNotEmpty() }
+        compose.activityRule.scenario.recreate()
+        compose.setContent(hostContent)
+        compose.onNodeWithTag("budget_setup_name").assertTextContains("Поездка")
+        compose.waitUntil(5000) { compose.onAllNodes(hasTestTag("setup_create") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("setup_create").performScrollTo().performClick()
+        compose.waitUntil(5000) { navigation.backStack.toList() == listOf(AppRoute.Main) }
+        compose.onNodeWithTag("tab_Dashboard").assertIsSelected()
+        val (request, createdBudget) = env.server.creations.values.single()
+        assertEquals("Поездка", request.name)
+        assertEquals(createdBudget.id, env.manager.active.value!!.profile.budgetId)
+    }
+
+    private fun openProfileBudgetCreation() {
+        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithText("Создать новый").performScrollTo().performClick()
+        compose.onNodeWithTag("budget_setup_screen").assertIsDisplayed()
+        compose.onNodeWithTag("budget_setup_date").assertDoesNotExist()
     }
 
     @Test fun localSetupRotationRetainsInput() {

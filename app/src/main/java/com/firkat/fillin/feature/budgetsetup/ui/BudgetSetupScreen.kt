@@ -18,14 +18,14 @@ internal fun BudgetSetupScreen(
     onSignIn: (SetupAuthTarget) -> Unit,
     onComplete: () -> Unit,
     onPageChange: (SetupPage) -> Unit,
+    fromProfile: Boolean,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val localCount by viewModel.localCount.collectAsStateWithLifecycle(initialValue = 0)
     val snackbar = remember { SnackbarHostState() }
     val resources = LocalResources.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val back by rememberUpdatedState(onBack)
-    LaunchedEffect(viewModel) { viewModel.onAction(BudgetSetupAction.Start) }
+    LaunchedEffect(viewModel, fromProfile) { viewModel.onAction(BudgetSetupAction.Start) }
     LaunchedEffect(viewModel, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             viewModel.effects.collect { if (it == BudgetSetupEffect.Exit) { viewModel.onAction(BudgetSetupAction.Reset); back() } }
@@ -55,5 +55,5 @@ internal fun BudgetSetupScreen(
     BackHandler {
         viewModel.onAction(if (state.currencyPickerOpen) BudgetSetupAction.CloseCurrencyPicker else BudgetSetupAction.Back)
     }
-    BudgetSetupContent(state, viewModel::onAction, snackbar, localLimitReached = localCount >= com.firkat.fillin.feature.budgetprofile.data.LOCAL_BUDGET_LIMIT)
+    BudgetSetupContent(state, viewModel::onAction, snackbar, fromProfile = fromProfile)
 }

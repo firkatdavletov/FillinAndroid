@@ -6,6 +6,7 @@ import com.firkat.fillin.core.mvi.*
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetconnection.domain.*
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
+import java.time.LocalDate
 
 enum class SetupPage { Create, List, Join }
 enum class SetupAuthTarget { Create, Join }
@@ -13,8 +14,6 @@ enum class SetupAuthTarget { Create, Join }
 data class BudgetSetupState(
     val name: String = "Личный бюджет",
     val balance: String = "0",
-    val accountingStartedOn: String = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).toString(),
-    val dateInvalid: Boolean = false,
     val currency: BudgetCurrency = BudgetCurrency.RUB,
     val currencyPickerOpen: Boolean = false,
     val mode: BudgetSetupMode = BudgetSetupMode.Local,
@@ -29,6 +28,8 @@ data class BudgetSetupState(
     val authLaunched: Boolean = false,
     val budgets: List<AvailableBudget> = emptyList(),
     val pending: PendingBudgetCreation? = null,
+    val pendingChecked: Boolean = false,
+    val localLimitReached: Boolean = false,
     val loading: Boolean = false,
     val loaded: Boolean = false,
     val showingSaved: Boolean = false,
@@ -43,14 +44,16 @@ data class BudgetSetupState(
     val error: String? = null,
 ) : State {
     val uid get() = (session as? AuthSession.Authenticated)?.user?.uid
-    val canCreate get() = initialized && session != AuthSession.Loading && !busy && !completed &&
-        (mode == BudgetSetupMode.Local || uid == null || pending != null || loaded && !loading)
+    val canCreate get() = initialized && session != AuthSession.Loading && !busy && !completed && when (mode) {
+        BudgetSetupMode.Local -> !localLimitReached && (!cloudAllowed || uid == null || pendingChecked)
+        BudgetSetupMode.Cloud -> cloudAllowed && (uid == null || pending != null || loaded && !loading)
+    }
     val editable get() = initialized && session != AuthSession.Loading && !busy && pending == null && !completed
 }
 sealed interface BudgetSetupAction : Action {
     data object Start : BudgetSetupAction
     data class NameChanged(val value: String) : BudgetSetupAction
-    data class DateChanged(val value: String) : BudgetSetupAction
+    data class LocalLimitChanged(val reached: Boolean) : BudgetSetupAction
     data class BalanceChanged(val value: String) : BudgetSetupAction
     data object OpenCurrencyPicker : BudgetSetupAction
     data object CloseCurrencyPicker : BudgetSetupAction
@@ -74,7 +77,12 @@ sealed interface BudgetSetupAction : Action {
 sealed interface BudgetSetupCommand : Command {
     data object ObserveSession : BudgetSetupCommand
     data class Load(val uid: String, val generation: Long) : BudgetSetupCommand
-    data class Submit(val state: BudgetSetupState, val kind: SubmitKind, val budget: AvailableBudget? = null) : BudgetSetupCommand
+    data class Submit(
+        val state: BudgetSetupState,
+        val kind: SubmitKind,
+        val budget: AvailableBudget? = null,
+        val startedOn: LocalDate? = null,
+    ) : BudgetSetupCommand
 }
 enum class SubmitKind { Local, Cloud, Connect, Join }
 sealed interface BudgetSetupEvent : Event {

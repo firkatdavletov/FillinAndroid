@@ -49,8 +49,6 @@ val profileModule = module {
     single<ProfileBudgetsRepository> { RoomProfileBudgetsRepository(get(), get(), get(), get(), get(), get(), get(), get(), access = get(), management = get()) }
     viewModel { ProfileDeletionViewModel(get(), get()) }
     viewModel { com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel(get(), get()) }
-    viewModel { ProfileViewModel(get(), get(), get(), get(),
-        (get<com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileRegistry>()
-            as com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry).observeLocalCount(), savedState = get()) }
+    viewModel { ProfileViewModel(get(), get(), get()) }
     viewModel { com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel(get()) }
 }
