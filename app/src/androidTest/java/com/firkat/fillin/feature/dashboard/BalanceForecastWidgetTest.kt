@@ -69,15 +69,16 @@ class BalanceForecastWidgetTest {
     }
     @Test fun insufficientHistoryKeepsOnlyLimit() {
         show(projection.copy(currentPacePoints = null, insufficientHistory = true))
-        compose.onNodeWithText("Недостаточно операций для прогноза привычных расходов").assertExists()
+        assertNoHistoryHints()
         compose.onNodeWithText("Текущий темп").assertDoesNotExist()
+        compose.onAllNodesWithText("По дневному лимиту").assertCountEquals(2)
         compose.onNodeWithTag("forecast-chart").assertExists()
         screenshot("forecast-insufficient-dark.png")
     }
     @Test fun structuralDeficitWinsWithoutHistory() {
         show(projection.copy(currentPacePoints = null, insufficientHistory = true, points = points(10000, -40000, -10000), structuralDeficitDate = start.plusDays(1)))
         compose.onNodeWithText("Не хватит денег на обязательные платежи").assertExists()
-        compose.onNodeWithText("Недостаточно операций для прогноза привычных расходов").assertExists()
+        assertNoHistoryHints()
         screenshot("forecast-structural-dark.png")
     }
     @Test fun loadingDoesNotInventAmounts() {
@@ -85,32 +86,36 @@ class BalanceForecastWidgetTest {
         compose.onNodeWithText("Загружаем прогноз…").assertExists()
         compose.onNodeWithTag("forecast-chart").assertDoesNotExist()
     }
-    @Test fun selectionIsClearedAfterRelease() {
+    @Test fun widgetChartIgnoresTouchAndHasNoSelectionActions() {
         show()
-        compose.onNodeWithTag("forecast-chart").performScrollTo().performTouchInput { down(center); advanceEventTime(100) }
+        val chart = compose.onNodeWithTag("forecast-chart").performScrollTo()
+        chart.assert(hasContentDescription("Прогноз остатка на конец дня"))
+        chart.assert(SemanticsMatcher.keyNotDefined(SemanticsActions.CustomActions))
+        chart.performTouchInput { down(center); moveTo(centerRight) }
+        compose.onNodeWithTag("forecast-selection").assertDoesNotExist()
+        chart.performTouchInput { up() }
+    }
+    @Test fun detailsSelectionIsClearedAfterRelease() {
+        showDetails()
+        compose.onNodeWithTag("forecast-chart").performTouchInput { down(center); advanceEventTime(100) }
         compose.onNodeWithTag("forecast-selection").assertExists()
         compose.onNodeWithTag("forecast-chart").performTouchInput { up() }
         compose.onNodeWithTag("forecast-selection").assertDoesNotExist()
     }
-    @Test fun accessibilityCanSelectCalendarDay() {
-        show()
+    @Test fun detailsAccessibilityCanSelectCalendarDay() {
+        showDetails()
         compose.onNodeWithTag("forecast-chart").performCustomAccessibilityActionWithLabel("Следующий день")
         compose.onNodeWithTag("forecast-selection").assertExists()
         compose.onNodeWithText("3 ноября 2026").assertExists()
     }
     @Test fun detailsTabsAndRecommendation() {
-        compose.setContent {
-            var tab by remember { mutableStateOf(ForecastDetailsTab.Forecast) }
-            FillinTheme(darkTheme = true, dynamicColor = false) {
-                ForecastDetailsScreen(ForecastDetailsUiState(ForecastUiState.from(projection.copy(events = listOf(ForecastEvent("salary", "Зарплата", start, money(100000), true)))), tab), { if (it is ForecastDetailsEvent.SelectTab) tab = it.tab }, Modifier.testTag("forecast-details"))
-            }
-        }
+        showDetails(projection.copy(events = listOf(ForecastEvent("salary", "Зарплата", start, money(100000), true))))
         compose.onAllNodesWithText("Минимум").assertCountEquals(2)
         compose.onNodeWithText("События").performClick()
         compose.onNodeWithText("Зарплата").assertExists()
         compose.onNodeWithText("Доступен в прогнозе: 4 ноября 2026").assertExists()
         compose.onNodeWithText("Параметры").performClick()
-        compose.onNodeWithText("Средние расходы в день (30 дней)").assertExists()
+        compose.onNodeWithText("Средние расходы в день").assertExists()
         compose.onNodeWithText("Прогноз").performClick()
         compose.onNodeWithTag("forecast-details-list").performScrollToNode(hasText("Чтобы придерживаться финансового плана", substring = true))
         compose.onNodeWithText("Чтобы придерживаться финансового плана", substring = true).assertIsDisplayed()
@@ -124,6 +129,24 @@ class BalanceForecastWidgetTest {
         assertNoTextOverflow()
     }
     @Test fun lightTheme() { show(dark = false); assertNoTextOverflow(); screenshot("forecast-risk-light.png") }
+    private fun showDetails(value: BalanceForecastProjection = projection) {
+        compose.setContent {
+            var tab by remember { mutableStateOf(ForecastDetailsTab.Forecast) }
+            FillinTheme(darkTheme = true, dynamicColor = false) {
+                ForecastDetailsScreen(
+                    ForecastDetailsUiState(ForecastUiState.from(value), tab),
+                    { if (it is ForecastDetailsEvent.SelectTab) tab = it.tab },
+                    Modifier.testTag("forecast-details"),
+                )
+            }
+        }
+    }
+
+    private fun assertNoHistoryHints() {
+        compose.onNodeWithText("Прогноз текущего темпа появится на второй день учёта").assertDoesNotExist()
+        compose.onNodeWithText("Показываем прогноз по дневному лимиту").assertDoesNotExist()
+    }
+
     private fun screenshot(name: String, tag: String = "forecast-widget") {
         val file = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("forecast-screenshots"), name)
         file.outputStream().use { compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }

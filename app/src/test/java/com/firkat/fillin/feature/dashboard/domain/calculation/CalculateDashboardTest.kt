@@ -106,13 +106,16 @@ class CalculateDashboardTest {
 
     @Test fun `zero budgets have no percent and missing history has no confident pace`() {
         val fresh = CalculateDashboard.calculate(
-            input().copy(accountingStartedAt = Instant.parse("2026-08-24T19:00:00Z"))
+            input().copy(accountingStartedAt = Instant.parse("2026-09-05T19:00:00Z"))
         )
         assertEquals("UNAVAILABLE", fresh.forecast.estimateSource)
         assertEquals(PaceStatus.InsufficientData, fresh.budgetExecution.total.paceStatus)
         assertNull(fresh.budgetExecution.total.usedPercent)
         assertEquals(FreeMoneyState.NoFreeFunds, fresh.freeMoney.state)
-        val complete = CalculateDashboard.calculate(input())
+        val complete = CalculateDashboard.calculate(
+            input().copy(accountingStartedAt = Instant.parse("2026-09-04T19:00:00Z"))
+        )
+        assertEquals("HISTORICAL_AVERAGE", complete.forecast.estimateSource)
         assertEquals(PaceStatus.OnPlan, complete.budgetExecution.total.paceStatus)
     }
 

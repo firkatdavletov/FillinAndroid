@@ -71,8 +71,8 @@ android {
         applicationId = "com.firkat.fillin"
         minSdk = 33
         targetSdk = 37
-        versionCode = 3
-        versionName = "0.2"
+        versionCode = 4
+        versionName = "0.3"
 
         testInstrumentationRunner = "com.firkat.fillin.FillinTestRunner"
 

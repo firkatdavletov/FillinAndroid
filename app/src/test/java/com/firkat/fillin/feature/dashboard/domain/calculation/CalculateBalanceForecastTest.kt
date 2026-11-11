@@ -50,27 +50,54 @@ class CalculateBalanceForecastTest {
         }
     }
 
-    @Test fun `twenty nine days keep limit available and thirty days unlock pace`() {
-        val fresh = forecast(input().copy(accountingStartedAt = today.minusDays(29).atStartOfDay(zone).toInstant()))
-        assertTrue(fresh.insufficientHistory)
-        assertEquals(60, fresh.points.size)
-        assertNull(fresh.currentPace)
-        val ready = forecast(input().copy(accountingStartedAt = today.minusDays(30).atStartOfDay(zone).toInstant()))
-        assertFalse(ready.insufficientHistory)
-        assertEquals(amount("9900"), ready.currentPacePoints!!.first().balance.amount)
+    @Test fun `pace starts at the first Almaty midnight and includes days without spending`() {
+        val source = input().copy(
+            asOf = today.atTime(23, 59, 59).atZone(zone).toInstant(),
+            accountingStartedAt = today.atStartOfDay(zone).toInstant(),
+            operations = listOf(expense("first-day", "1000", today)),
+        )
+        val firstDay = forecast(source)
+        assertTrue(firstDay.insufficientHistory)
+        assertEquals(60, firstDay.points.size)
+        assertNull(firstDay.averageDailyExpenses)
+        assertNull(firstDay.currentPacePoints)
+
+        val secondDay = forecast(source.copy(asOf = source.asOf.plusSeconds(1)))
+        assertFalse(secondDay.insufficientHistory)
+        assertEquals(amount("1000"), secondDay.averageDailyExpenses!!.amount)
+        assertNotNull(secondDay.currentPace)
+
+        val thirdDay = forecast(source.copy(asOf = today.plusDays(2).atStartOfDay(zone).toInstant()))
+        assertEquals(amount("500"), thirdDay.averageDailyExpenses!!.amount)
     }
 
-    @Test fun `thirty tracked days without operations give a real zero average`() {
-        val result = forecast(input().copy(operations = emptyList(), accountingStartedAt = today.minusDays(30).atStartOfDay(zone).toInstant()))
+    @Test fun `one tracked day without operations gives a real zero average`() {
+        val result = forecast(input().copy(operations = emptyList(), accountingStartedAt = today.minusDays(1).atStartOfDay(zone).toInstant()))
         assertFalse(result.insufficientHistory)
         assertEquals(amount("0"), result.averageDailyExpenses!!.amount)
         assertNotNull(result.currentPace)
+    }
+
+    @Test fun `history window grows to thirty days and excludes older spending`() {
+        val source = input()
+        val operations = source.operations + listOf(
+            expense("thirty-days-ago", "300", today.minusDays(30)),
+            expense("thirty-one-days-ago", "600", today.minusDays(31)),
+        )
+        for ((days, expected) in listOf(29L to "103.45", 30L to "110", 31L to "110")) {
+            val result = forecast(source.copy(
+                accountingStartedAt = today.minusDays(days).atStartOfDay(zone).toInstant(),
+                operations = operations,
+            ))
+            assertEquals(amount(expected), result.averageDailyExpenses!!.amount)
+        }
     }
 
     @Test fun `today spending is not subtracted twice and excess refunds do not raise spending estimate`() {
         for (spent in listOf("40", "100", "150")) {
             val source = input()
             val result = forecast(source.copy(operations = source.operations + expense("today", spent, today)))
+            assertEquals(amount("100"), result.averageDailyExpenses!!.amount)
             assertEquals(amount("10000") - maxOf(amount("100"), amount(spent)), result.currentPacePoints!!.first().balance.amount)
         }
         val source = input()

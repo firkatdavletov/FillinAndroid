@@ -4,7 +4,6 @@
     <string name="forecast_current_pace">Текущий темп</string>
     <string name="forecast_ending">Остаток к концу периода</string>
     <string name="forecast_no_deficit">Дефицит не ожидается</string>
-    <string name="forecast_pace_unavailable">Для прогноза привычных расходов нужны 30 полных дней истории</string>
     <string name="forecast_deficit">Дефицит %1$s к %2$s</string>
     <string name="forecast_details">Подробный прогноз</string>
     <string name="forecast_chevron">›</string>
@@ -14,7 +13,7 @@
     <string name="forecast_pace_risk">При текущем темпе возможен дефицит с %1$s</string>
     <string name="forecast_structural">Не хватит денег на обязательные платежи</string>
     <string name="forecast_structural_date">Даже при нулевых повседневных расходах прогноз отрицательный с %1$s</string>
-    <string name="forecast_insufficient">Недостаточно операций для прогноза привычных расходов</string>
+    <string name="forecast_insufficient">Прогноз текущего темпа появится на второй день учёта</string>
     <string name="forecast_limit_only">Показываем прогноз по дневному лимиту</string>
     <string name="forecast_limit_helps">Соблюдение дневного лимита поможет избежать дефицита</string>
     <string name="forecast_loading">Загружаем прогноз…</string>
@@ -29,7 +28,7 @@
     <string name="forecast_reduction">Чтобы придерживаться финансового плана, сократите повседневные расходы примерно на %1$s в день.</string>
     <string name="forecast_key_parameters">Ключевые параметры прогноза</string>
     <string name="forecast_daily_limit">Дневной лимит</string>
-    <string name="forecast_average">Средние расходы в день (30 дней)</string>
+    <string name="forecast_average">Средние расходы в день</string>
     <string name="forecast_current_balance">Текущий баланс</string>
     <string name="forecast_remaining_today">Остаток лимита на сегодня</string>
     <string name="forecast_next_limit">Лимит следующих дней</string>
@@ -39,7 +38,7 @@
     <string name="forecast_due_on">Ожидаемая дата: %1$s</string>
     <string name="forecast_available_on">Доступен в прогнозе: %1$s</string>
     <string name="forecast_first_deficit">Дефицит с %1$s</string>
-    <string name="forecast_method_explanation">Текущий темп рассчитан по последним 30 завершённым календарным дням. Обязательные платежи и внутренние переводы исключены из среднего; возвраты учитываются. До накопления 30 дней истории доступен только прогноз по лимиту.</string>
+    <string name="forecast_method_explanation">Текущий темп доступен со второго дня учёта. Среднее рассчитывается за завершённые календарные дни, максимум за последние 30. Дни без трат учитываются. Обязательные платежи и внутренние переводы исключены из среднего, а возвраты его уменьшают.</string>
     <string name="forecast_distribution_explanation">Оба сценария начинаются от актуального баланса и используют общий календарь событий. Уже потраченные сегодня деньги повторно не вычитаются. По дневному лимиту учитываются остаток на сегодня и рассчитанный лимит следующих дней.</string>
     <string name="forecast_days_one">%d день</string>
     <string name="forecast_days_few">%d дня</string>
