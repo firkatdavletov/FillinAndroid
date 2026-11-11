@@ -99,7 +99,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w \
   -e class com.firkat.fillin.feature.budgetconnection.BudgetConnectionDeviceTest \
-  com.firkat.fillin.test/com.firkat.fillin.FillinTestRunner
+  com.firkat.fillin.debug.test/com.firkat.fillin.FillinTestRunner
 ```
 
 Установку выполнять поверх приложения после приватной резервной копии. Не использовать

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:paddingMode="stack">
+    <item>
+        <inset
+            android:drawable="@drawable/saldomi_ic_foreground"
+            android:insetLeft="9.26%"
+            android:insetRight="9.26%"
+            android:insetBottom="18.52%" />
+    </item>
+    <item android:drawable="@drawable/ic_launcher_debug_badge" />
+</layer-list>

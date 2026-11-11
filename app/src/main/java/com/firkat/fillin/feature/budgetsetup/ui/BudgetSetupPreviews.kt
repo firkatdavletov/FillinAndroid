@@ -10,8 +10,8 @@ import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
 import com.firkat.fillin.ui.theme.FillinTheme
 
-@Composable private fun SetupPreview(state: BudgetSetupState = BudgetSetupState(), localLimitReached: Boolean = false) {
-    FillinTheme { BudgetSetupContent(state.copy(initialized = true, session = com.firkat.fillin.feature.auth.domain.AuthSession.Anonymous), {}, remember { SnackbarHostState() }, localLimitReached = localLimitReached) }
+@Composable private fun SetupPreview(state: BudgetSetupState = BudgetSetupState(), fromProfile: Boolean = false) {
+    FillinTheme { BudgetSetupContent(state.copy(initialized = true, session = com.firkat.fillin.feature.auth.domain.AuthSession.Anonymous), {}, remember { SnackbarHostState() }, fromProfile = fromProfile) }
 }
 @Preview(widthDp = 393, heightDp = 900) @Preview(widthDp = 393, heightDp = 900, uiMode = UI_MODE_NIGHT_YES)
 @Composable private fun LocalPreview() { SetupPreview() }
@@ -41,4 +41,7 @@ import com.firkat.fillin.ui.theme.FillinTheme
 @Composable private fun OfflineSetupPreview() { SetupPreview(BudgetSetupState(cloudAllowed = false)) }
 
 @Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun OfflineSetupLimitPreview() { SetupPreview(BudgetSetupState(cloudAllowed = false), localLimitReached = true) }
+@Composable private fun OfflineSetupLimitPreview() { SetupPreview(BudgetSetupState(cloudAllowed = false, localLimitReached = true)) }
+
+@Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable private fun OfflineSetupFromProfilePreview() { SetupPreview(BudgetSetupState(cloudAllowed = false), fromProfile = true) }

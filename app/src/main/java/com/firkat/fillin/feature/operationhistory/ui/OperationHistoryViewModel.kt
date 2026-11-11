@@ -22,6 +22,7 @@ class OperationHistoryViewModel(
     private data class Query(
         val filter: OperationHistoryFilter,
         val limit: Int = 20,
+        val id: Long = 0,
     )
 
     private val initialFilter = OperationHistoryFilter.currentMonth(LocalDate.now(clock))
@@ -49,7 +50,7 @@ class OperationHistoryViewModel(
             query.collectLatest { requested ->
                 try {
                     history.observeHistory(requested.filter, requested.limit).collect { page ->
-                        _uiState.update {
+                        updateForQuery(requested) {
                             it.copy(
                                 operations = page.items,
                                 periodTotals = page.totals.takeIf { page.isComplete },
@@ -57,21 +58,29 @@ class OperationHistoryViewModel(
                                 isInitialLoading = false,
                                 isLoadingNextPage = false,
                                 error = null,
+                                resultRequestId = requested.id,
                             )
                         }
                     }
                 } catch (exception: CancellationException) {
                     throw exception
                 } catch (exception: Exception) {
-                    _uiState.update {
+                    updateForQuery(requested) {
                         it.copy(
                             isInitialLoading = false,
                             isLoadingNextPage = false,
                             error = OperationHistoryError.Unknown,
+                            resultRequestId = requested.id,
                         )
                     }
                 }
             }
+        }
+    }
+
+    private fun updateForQuery(requested: Query, update: (OperationHistoryUiState) -> OperationHistoryUiState) {
+        _uiState.update { state ->
+            if (state.requestId == requested.id && query.value == requested) update(state) else state
         }
     }
 
@@ -99,7 +108,8 @@ class OperationHistoryViewModel(
             }
 
             OperationHistoryEvent.LoadNextPage -> {
-                if (_uiState.value.canLoadMore && !_uiState.value.isLoadingNextPage) {
+                val state = _uiState.value
+                if (state.canLoadMore && !state.isInitialLoading && !state.isLoadingNextPage && state.error == null) {
                     _uiState.update { it.copy(isLoadingNextPage = true) }
                     query.update { it.copy(limit = it.limit + 20) }
                 }
@@ -126,16 +136,21 @@ class OperationHistoryViewModel(
         val state = _uiState.value
         if (state.filters == filter) return
         val changedPeriod = state.filters.dateFrom != filter.dateFrom || state.filters.dateTo != filter.dateTo
+        val request = Query(filter, id = state.requestId + 1)
         _uiState.update {
             it.copy(
                 filters = filter,
                 operations = emptyList(),
                 isInitialLoading = true,
+                isLoadingNextPage = false,
+                canLoadMore = false,
                 periodTotals = if (changedPeriod) null else it.periodTotals,
                 error = null,
+                requestId = request.id,
+                resultRequestId = null,
             )
         }
-        query.value = Query(filter)
+        query.value = request
     }
 
 }

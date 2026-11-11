@@ -9,7 +9,8 @@ Android-часть этапа реализована и установлена �
 перевод облачной синхронизации на Firebase относится к следующим задачам.
 
 Проект Firebase: `fillin-77e97` (Fillin), план Spark.
-Android application ID: `com.firkat.fillin`.
+Android application ID релиза: `com.firkat.fillin`. У debug-сборки свой ID `com.firkat.fillin.debug`,
+поэтому её можно установить рядом с релизом. У каждой установки свои локальные данные.
 Google Analytics и Gemini при создании проекта выключены; Analytics SDK не подключается.
 Google provider включён; публичное имя приложения — Fillin, адрес поддержки выбран пользователем.
 Android-приложение зарегистрировано, оба debug-отпечатка добавлены;
@@ -24,11 +25,12 @@ Android-приложение зарегистрировано, оба debug-от
 - Credential Manager и Play services adapter `1.6.0`;
 - Google ID `1.2.1`.
 
-Актуальный `google-services.json` нужно загрузить **после** включения Google provider
-и поместить в `app/google-services.json`. Файл исключён из Git.
-Google Services plugin применяется только при наличии этого файла;
-`BuildConfig.FIREBASE_CONFIGURED` отражает его наличие при сборке.
-Без файла приложение по-прежнему собирается для локальной работы, а Firebase не инициализируется.
+Файл для релиза хранится в `app/google-services.json`. Debug по умолчанию работает локально.
+Чтобы включить Firebase в debug, зарегистрируйте `com.firkat.fillin.debug` в проекте
+`fillin-77e97`, добавьте отпечатки сертификата debug и после включения Google provider
+скачайте конфигурацию в `app/src/debug/google-services.json`. Оба файла исключены из Git.
+`BuildConfig.FIREBASE_CONFIGURED` отражает наличие конфигурации текущего варианта.
+Без своей конфигурации вариант собирается для локальной работы и не инициализирует Firebase.
 В конфигурации для Google-входа должен присутствовать Web OAuth client
 (`default_web_client_id` в сгенерированных ресурсах).
 
@@ -67,10 +69,10 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w \
   -e package com.firkat.fillin.feature.budgetsetup \
-  com.firkat.fillin.test/com.firkat.fillin.FillinTestRunner
+  com.firkat.fillin.debug.test/com.firkat.fillin.FillinTestRunner
 adb shell am instrument -w \
   -e class com.firkat.fillin.FirebaseConfigurationTest,com.firkat.fillin.feature.sync.BudgetOfflinePersistenceTest \
-  com.firkat.fillin.test/com.firkat.fillin.FillinTestRunner
+  com.firkat.fillin.debug.test/com.firkat.fillin.FillinTestRunner
 ```
 
 Для основной установки с пользовательскими данными сначала нужна проверенная резервная копия.

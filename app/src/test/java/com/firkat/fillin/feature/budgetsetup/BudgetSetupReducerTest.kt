@@ -21,10 +21,20 @@ class BudgetSetupReducerTest {
         assertTrue(invalid.nameInvalid); assertTrue(invalid.balanceInvalid); assertNull(invalid.authTarget)
         assertFalse(invalid.busy)
     }
+    @Test fun localLimitBlocksTheActionButCloudRemainsAvailable() {
+        val limited = reducer.reduceAction(guest, BudgetSetupAction.LocalLimitChanged(true))
+        assertFalse(limited.canCreate)
+        assertEquals(limited, reducer.reduceAction(limited, BudgetSetupAction.Create))
+
+        val cloud = reducer.reduceAction(limited, BudgetSetupAction.StorageChanged(BudgetSetupMode.Cloud))
+        assertTrue(cloud.canCreate)
+        assertEquals(SetupAuthTarget.Create, reducer.reduceAction(cloud, BudgetSetupAction.Create).authTarget)
+    }
     @Test fun pendingRequestLocksFormAndOverridesDraft() {
         val pending = PendingBudgetCreation("request", BudgetCreationDraft("Сохранённый", "20", "2026-10-01"))
         val restored = reducer.reduceEvent(guest, BudgetSetupEvent.Catalog(0, emptyList(), pending, true))
         assertEquals(pending.draft.name, restored.name)
+        assertEquals(pending, restored.pending)
         assertEquals(restored, reducer.reduceAction(restored, BudgetSetupAction.NameChanged("Другой")))
         assertEquals(restored, reducer.reduceAction(restored, BudgetSetupAction.StorageChanged(BudgetSetupMode.Local)))
     }

@@ -39,6 +39,7 @@ internal fun MainContent(
     onCategoriesClick: () -> Unit,
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
+    onCreateBudgetClick: () -> Unit,
     onOperationClick: (String, String) -> Unit,
     onForecastClick: () -> Unit,
     readOnly: Boolean = false,
@@ -107,6 +108,7 @@ internal fun MainContent(
                         budgetReadOnly = readOnly,
                         onFamilyAccessClick = onFamilyAccessClick,
                         onCloudSyncClick = onCloudSyncClick,
+                        onCreateBudgetClick = onCreateBudgetClick,
                         bottomBarOverlap = bottomBarOverlap,
                     )
                 }

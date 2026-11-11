@@ -20,6 +20,8 @@ data class OperationHistoryUiState(
     val canLoadMore: Boolean = true,
     val error: OperationHistoryError? = null,
     val offline: OfflineHistoryContext = OfflineHistoryContext(),
+    val requestId: Long = 0,
+    val resultRequestId: Long? = null,
 )
 
 enum class OperationHistoryError {

@@ -74,6 +74,8 @@
     <string name="operation_history_refund_message">Будет возвращена вся ещё не возвращённая сумма расхода. Запись останется в финансовой истории.</string>
     <string name="operation_history_refund_confirm">Оформить возврат</string>
     <string name="operation_history_refund_cancel">Отмена</string>
+    <string name="operation_history_fully_refunded">Возвращено</string>
+    <string name="operation_history_partially_refunded">Частично возвращено</string>
     <string name="operation_history_error_network">Не удалось подключиться к серверу</string>
     <string name="operation_history_error_unauthorized">Войдите через Google и повторите синхронизацию</string>
     <string name="operation_history_error_forbidden">Доступ к истории операций отозван</string>
@@ -273,8 +275,6 @@
     <string name="operation_create_recent">Последние</string>
     <string name="operation_create_all">Все</string>
     <string name="operation_create_no_categories">Для этого типа нет категорий. Добавьте категорию на экране категорий.</string>
-    <string name="operation_sync_pending">Ожидает отправки</string>
-    <string name="operation_sync_rejected">Ошибка отправки: сервер отклонил запись. Проверьте категорию, сумму и дату.</string>
     <string name="operation_sync_correct">Исправить и отправить снова</string>
     <string name="operation_sync_initial">История загружена не полностью. Для первого офлайн-ввода дождитесь загрузки с интернетом.</string>
     <string name="operation_sync_running">Синхронизация…</string>
@@ -286,10 +286,6 @@
     <string name="operation_sync_retry_error">Не удалось синхронизировать. Данные сохранены; потяните список вниз для повтора.</string>
     <string name="operation_sync_pending_count">Ожидают отправки: %1$d. Они включены в локальные итоги.</string>
     <string name="operation_sync_rejected_count">Отклонено записей: %1$d. Они не включены в итоги.</string>
-    <string name="operation_sync_invalid_category">Ошибка отправки: категория больше недоступна. Выберите другую.</string>
-    <string name="operation_sync_invalid_amount">Ошибка отправки: недопустимая сумма.</string>
-    <string name="operation_sync_invalid_date">Ошибка отправки: дата вне периода учёта.</string>
-    <string name="operation_sync_invalid_description">Ошибка отправки: проверьте описание.</string>
     <string name="navigation_cloud">Облако</string>
     <string name="sync_title">Синхронизация</string>
     <string name="navigation_profile">Профиль</string>

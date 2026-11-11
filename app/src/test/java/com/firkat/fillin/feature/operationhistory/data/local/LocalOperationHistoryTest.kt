@@ -37,6 +37,15 @@ class LocalOperationHistoryTest {
     }
 
     @Test
+    fun `history uses the stored icon for archived categories and falls back for missing categories`() {
+        val archived = row("archived", "EXPENSE", "10.00")
+        val missing = row("missing", "EXPENSE", "1.00").copy(categoryId = "unknown")
+        val operations = localHistory(content(listOf(archived, missing)), FILTER, 20).items.associateBy { it.id }
+        assertEquals("OTHER", operations.getValue("archived").categoryIconCode)
+        assertEquals("", operations.getValue("missing").categoryIconCode)
+    }
+
+    @Test
     fun `large decimal values are exact and RUB uses saved KZT valuation`() {
         val max = row("max", "EXPENSE", "99999999999999999.99")
         val rub = row("rub", "EXPENSE", "6.01").copy(originalCurrency = "RUB", originalAmount = "1.00")
@@ -45,6 +54,19 @@ class LocalOperationHistoryTest {
         assertEquals(BigDecimal("99999999999999998.97"), page.totals.expenses)
         assertEquals("RUB", page.items.first { it.id == "rub" }.originalCurrency)
         assertEquals(BigDecimal("-7.03"), localHistory(content(listOf(refund)), FILTER, 20).totals.expenses)
+    }
+
+    @Test
+    fun `history attaches a refund outside the period but excludes rejected refunds`() {
+        val expense = row("expense", "EXPENSE", "10.00")
+        val refund = row("refund", "EXPENSE_REFUND", "10.00").copy(
+            refundOf = expense.id, occurredOn = "2026-11-01", syncStatus = "PENDING",
+        )
+        val rejected = refund.copy(id = "rejected", syncStatus = "REJECTED")
+        val page = localHistory(content(listOf(expense, refund, rejected)), FILTER, 20)
+        assertEquals(expense.id, page.items.single().id)
+        assertEquals(BigDecimal("10.00"), page.items.single().refundedAmount)
+        assertEquals(BigDecimal("10.00"), page.totals.expenses)
     }
 
     @Test fun `lookup by id is independent of period and pagination and includes all posted refunds`() {

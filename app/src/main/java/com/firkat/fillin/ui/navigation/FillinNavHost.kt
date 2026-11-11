@@ -259,6 +259,9 @@ fun FillinNavHost(
                         onMethodsClick = navigation::openAccountMethods,
                         snackbarHostState = snackbar,
                         budgetViewModelStoreOwner = mainModels,
+                        selectedDestination = navigation.mainDestination,
+                        onSelectDestination = navigation::selectMainDestination,
+                        onCreateBudgetClick = navigation::openBudgetCreation,
                         user = state.session.userOrNull,
                         onForecastClick = { runtime?.scope?.id?.let(navigation::openForecast) },
                         onCategoriesClick = navigation::openCategories,
@@ -399,36 +402,36 @@ fun FillinNavHost(
                     BudgetSetupRoute(
                         setup,
                         {
-                            navigation.exitSetup()
-                            (context as? Activity)?.finish()
+                            if (navigation.exitSetup()) (context as? Activity)?.finish()
                         },
                         navigation::authenticateForSetup,
                         navigation::finishSetup,
                         navigation::showSetupPage,
+                        fromProfile = navigation.setupFromProfile,
                     )
                 }
                 entry<AppRoute.BudgetSetupList> {
                     BudgetSetupRoute(
                         setup,
                         {
-                            navigation.exitSetup()
-                            (context as? Activity)?.finish()
+                            if (navigation.exitSetup()) (context as? Activity)?.finish()
                         },
                         navigation::authenticateForSetup,
                         navigation::finishSetup,
                         navigation::showSetupPage,
+                        fromProfile = navigation.setupFromProfile,
                     )
                 }
                 entry<AppRoute.BudgetSetupJoin> {
                     BudgetSetupRoute(
                         setup,
                         {
-                            navigation.exitSetup()
-                            (context as? Activity)?.finish()
+                            if (navigation.exitSetup()) (context as? Activity)?.finish()
                         },
                         navigation::authenticateForSetup,
                         navigation::finishSetup,
                         navigation::showSetupPage,
+                        fromProfile = navigation.setupFromProfile,
                     )
                 }
             },

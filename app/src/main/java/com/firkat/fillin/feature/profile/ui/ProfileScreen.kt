@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
@@ -41,13 +40,12 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,7 +59,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -71,13 +68,11 @@ import com.firkat.fillin.feature.appaccess.ui.AboutAppRoute
 import com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel
 import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
-import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationDraft
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetCurrencyConfirmation
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementSheet
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel
 import com.firkat.fillin.feature.budgetmanagement.ui.PendingBudgetDeletion
 import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyPicker
-import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyRow
 import com.firkat.fillin.feature.budgetsetup.ui.accessErrorResource
 import com.firkat.fillin.feature.dashboard.ui.MainScreenHeader
 import com.firkat.fillin.feature.profile.domain.DeletionPhase
@@ -85,9 +80,7 @@ import com.firkat.fillin.feature.profile.domain.ProfileBudget
 import com.firkat.fillin.feature.profile.domain.ProfileDeletionState
 import com.firkat.fillin.ui.component.AccountIdentity
 import com.firkat.fillin.ui.component.PrimaryButton
-import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import com.firkat.fillin.ui.component.SaldomiButton
-import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.icon.FillinIcons
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.theme.saldomiDesignColors
@@ -102,6 +95,7 @@ fun ProfileRoute(
     onCategoriesClick: () -> Unit,
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
+    onCreateBudgetClick: () -> Unit,
     viewModel: ProfileViewModel = koinViewModel(),
     onMethodsClick: () -> Unit = onAccountClick,
     deletionViewModel: ProfileDeletionViewModel = koinViewModel(),
@@ -211,7 +205,7 @@ fun ProfileRoute(
         onAccountClick = { if (user == null) onAccountClick() else deletionViewModel.openSignOut() },
         onMethodsClick = onMethodsClick,
         onBudgetClick = viewModel::selectBudget,
-        onCreateBudgetClick = viewModel::openCreation,
+        onCreateBudgetClick = onCreateBudgetClick,
         onCategoriesClick = onCategoriesClick,
         onFamilyAccessClick = onFamilyAccessClick,
         onCloudSyncClick = onCloudSyncClick,
@@ -219,25 +213,6 @@ fun ProfileRoute(
         bottomBarOverlap = bottomBarOverlap,
         budgetReadOnly = budgetReadOnly,
     )
-    state.creation?.let { draft ->
-        if (state.currencyPickerOpen) {
-            BudgetCurrencyPicker(draft.currency, viewModel::selectCurrency, viewModel::closeCurrencyPicker)
-        } else {
-            ProfileBudgetCreationBottomSheet(
-                draft = draft,
-                busy = state.busy,
-                pending = state.pendingCreation,
-                error = state.error,
-                onDraftChange = viewModel::editCreation,
-                onCurrencyClick = viewModel::openCurrencyPicker,
-                onCreateCloudClick = viewModel::createCloud,
-                onCreateLocalClick = viewModel::createLocal,
-                onDismiss = viewModel::closeCreation,
-                signedIn = state.cloudAllowed,
-                localLimitReached = state.localLimitReached,
-            )
-        }
-    }
 }
 
 @Composable
@@ -265,8 +240,9 @@ fun ProfileScreen(
     budgetReadOnly: Boolean = false,
 ) {
     Box(
-        modifier = modifier
-            .fillMaxSize()
+        modifier =
+            modifier
+                .fillMaxSize(),
     ) {
         Column(
             modifier =
@@ -326,13 +302,16 @@ fun ProfileScreen(
                     }
                 }
             } else if (state.fullAccess) {
-                PrimaryButton(
-                    stringResource(R.string.profile_sign_in),
-                    onAccountClick,
-                    Modifier.fillMaxWidth(),
+                SaldomiButton(
+                    onClick = onAccountClick,
+                    modifier = Modifier.fillMaxWidth(),
                     enabled = !authBusy,
                     isLoading = authBusy,
-                )
+                ) {
+                    Text(
+                        text = stringResource(R.string.profile_sign_in),
+                    )
+                }
             }
             Spacer(Modifier.height(20.dp))
             Text(stringResource(R.string.profile_budgets), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -370,24 +349,15 @@ fun ProfileScreen(
                 }
             }
             managementContent()
+
             PrimaryButton(
-                stringResource(
-                    if (state.localLimitReached &&
-                        state.fullAccess
-                    ) {
-                        R.string.cloud_budget_create
-                    } else {
-                        R.string.profile_create_budget
-                    },
-                ),
-                if (state.localLimitReached && state.fullAccess && !state.cloudAllowed) onAccountClick else onCreateBudgetClick,
-                Modifier.fillMaxWidth(),
-                enabled = !state.busy && (!state.localLimitReached || state.fullAccess),
+                stringResource(R.string.profile_create_budget),
+                onCreateBudgetClick,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.busy,
             )
-            if (state.localLimitReached) {
-                Text(stringResource(R.string.local_budget_limit), style = MaterialTheme.typography.bodyMedium)
-            }
-            if (state.error != null && state.creation == null) {
+
+            if (state.error != null) {
                 Text(
                     accessErrorResource(state.error)?.let {
                         stringResource(it)
@@ -454,13 +424,13 @@ fun ProfileScreen(
                 Modifier
                     .fillMaxWidth()
                     .background(
-                        brush = Brush.verticalGradient(
-                            0f to MaterialTheme.saldomiDesignColors.background,
-                            0.7f to MaterialTheme.saldomiDesignColors.background,
-                            1f to MaterialTheme.saldomiDesignColors.background.copy(alpha = 0f)
-                        ),
-                    )
-                    .padding(horizontal = 16.dp)
+                        brush =
+                            Brush.verticalGradient(
+                                0f to MaterialTheme.saldomiDesignColors.background,
+                                0.7f to MaterialTheme.saldomiDesignColors.background,
+                                1f to MaterialTheme.saldomiDesignColors.background.copy(alpha = 0f),
+                            ),
+                    ).padding(horizontal = 16.dp)
                     .padding(bottom = 16.dp)
                     .statusBarsPadding(),
             title = stringResource(R.string.navigation_profile),
@@ -544,12 +514,7 @@ private fun ProfileBudgetCard(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-//            Icon(
-//                Icons.Filled.CheckCircle,
-//                contentDescription = null,
-//                modifier = Modifier.graphicsLayer { alpha = checkAlpha },
-//                tint = colors.primary,
-//            )
+
             if (canManage) {
                 IconButton(onClick = onActionsClick, enabled = enabled) {
                     Icon(Icons.Filled.MoreVert, stringResource(R.string.budget_manage_actions))
@@ -636,113 +601,6 @@ private fun ProfileAccountAction(
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
         }
     }
-}
-
-@Composable
-private fun ProfileBudgetCreationBottomSheet(
-    draft: BudgetCreationDraft,
-    busy: Boolean,
-    pending: Boolean,
-    error: String?,
-    onDraftChange: (BudgetCreationDraft) -> Unit,
-    onCreateCloudClick: () -> Unit,
-    onCreateLocalClick: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-    signedIn: Boolean = true,
-    localLimitReached: Boolean = false,
-    onCurrencyClick: () -> Unit = {},
-) {
-    SaldomiActionBottomSheet(
-        dismissEnabled = !busy,
-        onDismissRequest = { if (!busy) onDismiss() },
-        modifier = modifier,
-        title = { Text(stringResource(R.string.profile_new_budget)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (signedIn) {
-                    OutlinedTextField(
-                        draft.name,
-                        { onDraftChange(draft.copy(name = it)) },
-                        label = { Text(stringResource(R.string.cloud_budget_name)) },
-                        enabled =
-                            !busy && !pending,
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                OutlinedTextField(
-                    draft.openingBalance,
-                    {
-                        onDraftChange(draft.copy(openingBalance = it))
-                    },
-                    label = { Text(stringResource(R.string.cloud_budget_opening_balance)) },
-                    enabled =
-                        !busy && !pending,
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    draft.accountingStartedOn,
-                    {
-                        onDraftChange(draft.copy(accountingStartedOn = it))
-                    },
-                    label = { Text(stringResource(R.string.cloud_budget_start_date)) },
-                    enabled =
-                        !busy && !pending,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                BudgetCurrencyRow(draft.currency, !busy && !pending, onCurrencyClick, Modifier.testTag("profile_creation_currency"))
-                if (pending) Text(stringResource(R.string.cloud_budget_create_pending))
-                if (localLimitReached) Text(stringResource(R.string.local_budget_limit))
-                error?.let {
-                    Text(
-                        accessErrorResource(it)?.let { res ->
-                            stringResource(res)
-                        } ?: it,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (signedIn &&
-                    !pending
-                ) {
-                    TextButton(
-                        onClick = onCreateLocalClick,
-                        enabled = !busy && !localLimitReached,
-                    ) { Text(stringResource(R.string.profile_create_local)) }
-                }
-            }
-        },
-        confirmButton = {
-            SaldomiButton(
-                onClick = if (signedIn) onCreateCloudClick else onCreateLocalClick,
-                enabled =
-                    !busy && (signedIn || !localLimitReached),
-                modifier = Modifier.fillMaxWidth(),
-                large = true,
-            ) {
-                Text(
-                    stringResource(
-                        if (!signedIn) {
-                            R.string.budget_setup_create
-                        } else if (pending) {
-                            R.string.cloud_budget_create_resume
-                        } else {
-                            R.string.cloud_budget_create
-                        },
-                    ),
-                )
-            }
-        },
-        dismissButton = {
-            SaldomiOutlinedButton(onClick = onDismiss, enabled = !busy, modifier = Modifier.fillMaxWidth(), large = true) {
-                Text(stringResource(R.string.cloud_budget_create_cancel))
-            }
-        },
-    )
 }
 
 @Preview(name = "Account")
@@ -878,89 +736,6 @@ private fun ProfileExpandedPreview() {
     FillinTheme { ProfileScreen(previewProfileState(), null, false, {}, {}, {}, {}, {}, {}, {}) }
 }
 
-@Preview(name = "Create cloud budget")
-@Preview(name = "Create cloud budget dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable
-private fun ProfileCreationPreview() {
-    FillinTheme {
-        ProfileBudgetCreationBottomSheet(
-            BudgetCreationDraft("Семейный бюджет", "0", "2026-10-24"),
-            false,
-            false,
-            null,
-            {},
-            {},
-            {},
-            {},
-        )
-    }
-}
-
-@Preview(name = "Resume creation")
-@Composable
-private fun ProfileCreationPendingPreview() {
-    FillinTheme {
-        ProfileBudgetCreationBottomSheet(
-            BudgetCreationDraft("Семейный бюджет", "0", "2026-10-24"),
-            false,
-            true,
-            null,
-            {},
-            {},
-            {},
-            {},
-        )
-    }
-}
-
-@Preview(name = "Creating budget")
-@Composable
-private fun ProfileCreationBusyPreview() {
-    FillinTheme {
-        ProfileBudgetCreationBottomSheet(
-            BudgetCreationDraft("Семейный бюджет", "0", "2026-10-24"),
-            true,
-            false,
-            null,
-            {},
-            {},
-            {},
-            {},
-        )
-    }
-}
-
-@Preview(name = "Creation error")
-@Composable
-private fun ProfileCreationErrorPreview() {
-    FillinTheme {
-        ProfileBudgetCreationBottomSheet(
-            BudgetCreationDraft(
-                "",
-                "0",
-                "2026-10-24",
-            ),
-            false,
-            false,
-            stringResource(R.string.cloud_budget_create_pending),
-            {
-            },
-            {},
-            {},
-            {},
-        )
-    }
-}
-
-@Preview(name = "Create personal budget")
-@Preview(name = "Create personal budget dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable
-private fun ProfileLocalCreationPreview() {
-    FillinTheme {
-        ProfileBudgetCreationBottomSheet(BudgetCreationDraft("", "0", "2026-10-24"), false, false, null, {}, {}, {}, {}, signedIn = false)
-    }
-}
-
 @Preview(name = "Selected disabled budget")
 @Composable
 private fun ProfileBudgetSelectedDisabledPreview() {
@@ -1012,6 +787,7 @@ private fun DisabledAccountActionsPreview() {
 @Composable
 internal fun BudgetPickerRoute(
     onSignIn: () -> Unit = {},
+    onCreateBudgetClick: () -> Unit,
     viewModel: ProfileViewModel = koinViewModel(),
     management: BudgetManagementViewModel = koinViewModel(),
 ) {
@@ -1036,7 +812,7 @@ internal fun BudgetPickerRoute(
         }
         PrimaryButton(
             stringResource(R.string.profile_create_budget),
-            viewModel::openCreation,
+            onCreateBudgetClick,
             Modifier.fillMaxWidth(),
             enabled = !state.busy,
         )
@@ -1055,19 +831,6 @@ internal fun BudgetPickerRoute(
             )
         }
     }
-    state.creation?.let { draft ->
-        ProfileBudgetCreationBottomSheet(
-            draft,
-            state.busy,
-            state.pendingCreation,
-            state.error,
-            viewModel::editCreation,
-            viewModel::createCloud,
-            viewModel::createLocal,
-            viewModel::closeCreation,
-            signedIn = state.cloudAllowed,
-        )
-    }
 }
 
 @Preview(name = "Budget actions")
@@ -1077,44 +840,4 @@ internal fun BudgetPickerRoute(
 @Composable
 private fun ProfileBudgetActionsPreview() {
     FillinTheme { ProfileBudgetCard("Большой семейный бюджет", true, true, true, {}, canManage = true, expanded = true) }
-}
-
-@Preview
-@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable
-private fun ProfileOfflineLimitPreview() {
-    FillinTheme {
-        ProfileScreen(
-            previewProfileState().copy(fullAccess = false, localLimitReached = true),
-            null,
-            false,
-            {},
-            {},
-            {},
-            {},
-            {},
-            {},
-            {},
-            onAboutClick = {},
-        )
-    }
-}
-
-@Preview
-@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable
-private fun ProfileCloudAtLocalLimitPreview() {
-    FillinTheme {
-        ProfileBudgetCreationBottomSheet(
-            BudgetCreationDraft("Семейный бюджет", "0", "2026-11-06"),
-            false,
-            false,
-            null,
-            {},
-            {},
-            {},
-            {},
-            localLimitReached = true,
-        )
-    }
 }

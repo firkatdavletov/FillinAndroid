@@ -16,7 +16,7 @@ Credential Manager `clearCredentialState`. Следующий вход пред�
 Уход с экрана отменяет незавершённый выбор; результат старого запроса не может завершить новый.
 Firebase-обмен после получения Google credential выполняется в ViewModel, без сохранения Activity.
 
-При отсутствии `google-services.json` локальная сборка продолжает работать, а вход отключён.
+Без [Firebase-конфигурации для варианта сборки](firebase-setup.md#android) локальный бюджет доступен, а вход отключён.
 Ошибки настройки, сети и credentials показаны понятным текстом без содержимого токенов.
 Если сброс Credential Manager не удался, Firebase-сессия всё равно остаётся завершённой.
 
@@ -57,7 +57,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w \
   -e class com.firkat.fillin.feature.auth.AuthAccountSectionTest,com.firkat.fillin.feature.sync.BudgetSyncPanelTest,com.firkat.fillin.FirebaseConfigurationTest,com.firkat.fillin.feature.budgetsetup.BudgetSetupUiTest,com.firkat.fillin.feature.budgetsetup.CloudBudgetLifecycleTest,com.firkat.fillin.feature.sync.BudgetOfflinePersistenceTest \
-  com.firkat.fillin.test/com.firkat.fillin.FillinTestRunner
+  com.firkat.fillin.debug.test/com.firkat.fillin.FillinTestRunner
 ```
 
 На основной установке с пользовательскими данными сначала нужна проверенная резервная копия.

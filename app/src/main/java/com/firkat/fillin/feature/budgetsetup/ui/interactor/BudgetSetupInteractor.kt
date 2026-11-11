@@ -10,9 +10,7 @@ import com.firkat.fillin.feature.budgetsetup.domain.LocalBudgetCreator
 import com.firkat.fillin.feature.budgetsetup.ui.setupError
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import java.time.Clock
 import java.time.LocalDate
-import java.time.ZoneId
 
 class BudgetSetupInteractor(
     private val auth: AuthRepository,
@@ -21,7 +19,6 @@ class BudgetSetupInteractor(
     private val local: LocalBudgetCreator,
     private val family: FamilyBudgetRepository,
     private val dispatcher: CoroutineDispatcher,
-    private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
     private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
 ) : Interactor<BudgetSetupCommand, BudgetSetupEvent> {
     override fun execute(command: BudgetSetupCommand): Flow<BudgetSetupEvent> = flow {
@@ -40,11 +37,11 @@ class BudgetSetupInteractor(
                     pending = creation.pending(command.uid)
                     val cached = connection.cachedBudgets(command.uid)
                     access?.requireCloud()
-                checkUid(command.uid)
+                    checkUid(command.uid)
                     emit(BudgetSetupEvent.Catalog(command.generation, cached, pending, true))
                     val budgets = connection.budgets(command.uid)
                     access?.requireCloud()
-                checkUid(command.uid)
+                    checkUid(command.uid)
                     emit(BudgetSetupEvent.Catalog(command.generation, budgets, pending, false))
                     null
                 } catch (e: CancellationException) { throw e }
@@ -59,14 +56,13 @@ class BudgetSetupInteractor(
                 var pending = state.pending
                 val error = try {
                     if (command.kind != SubmitKind.Local) access?.requireCloud()
-                    val today = LocalDate.now(clock.withZone(ZoneId.of("Asia/Almaty")))
                     when (command.kind) {
                         SubmitKind.Local -> {
-                            val draft = BudgetCreationDraft(state.name, state.balance, today.toString(), state.currency).validated(today)
-                            local.createLocal(draft.name, draft.openingBalance.toBigDecimal(), today, draft.currency)
+                            val draft = command.creationDraft()
+                            local.createLocal(draft.name, draft.openingBalance.toBigDecimal(), LocalDate.parse(draft.accountingStartedOn), draft.currency)
                         }
                         SubmitKind.Cloud -> if (pending != null) creation.resume(requireNotNull(state.uid)) else {
-                            creation.create(requireNotNull(state.uid), BudgetCreationDraft(state.name, state.balance, today.toString(), state.currency))
+                            creation.create(requireNotNull(state.uid), command.creationDraft())
                         }
                         SubmitKind.Connect -> connection.connect(requireNotNull(state.uid), requireNotNull(command.budget))
                         SubmitKind.Join -> family.join(requireNotNull(state.uid), FamilyInvitationCode.normalize(state.code))
@@ -87,6 +83,12 @@ class BudgetSetupInteractor(
             }
         }
     }.flowOn(dispatcher)
+
+    private fun BudgetSetupCommand.Submit.creationDraft(): BudgetCreationDraft {
+        val date = requireNotNull(startedOn)
+        return BudgetCreationDraft(state.name, state.balance, date.toString(), state.currency).validated(date)
+    }
+
     private suspend fun checkUid(uid: String?) {
         currentCoroutineContext().ensureActive()
         if ((auth.session.value as? AuthSession.Authenticated)?.user?.uid != uid) throw CancellationException("Account changed")
