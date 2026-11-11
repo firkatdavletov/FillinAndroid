@@ -1,3 +1,5 @@
+import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import com.google.gms.googleservices.GoogleServicesTask
 import java.util.Properties
 import java.net.URI
 
@@ -10,9 +12,32 @@ plugins {
 }
 
 // A checkout without Firebase configuration must still support the local budget.
-val firebaseConfigured = layout.projectDirectory.file("google-services.json").asFile.isFile
-if (firebaseConfigured) {
+val debugFirebaseConfigured = layout.projectDirectory.file("src/debug/google-services.json").asFile.isFile
+val releaseFirebaseConfigured = layout.projectDirectory.file("google-services.json").asFile.isFile
+if (debugFirebaseConfigured || releaseFirebaseConfigured) {
     pluginManager.apply("com.google.gms.google-services")
+
+    androidComponents.onVariants { variant ->
+        val hasConfig = when (variant.buildType) {
+            "debug" -> debugFirebaseConfigured
+            "release" -> releaseFirebaseConfigured
+            else -> return@onVariants
+        }
+        if (!hasConfig) {
+            val variantName = variant.name.replaceFirstChar { it.uppercaseChar() }
+            tasks.named<GoogleServicesTask>("process${variantName}GoogleServices") {
+                // Prevent fallback to another variant's JSON and clear any output from an earlier build.
+                googleServicesJsonFiles.set(emptyList())
+                missingGoogleServicesStrategy.set(MissingGoogleServicesStrategy.IGNORE)
+                val generatedResources = outputDirectory
+                val generatedAppId = gmpAppId
+                doLast {
+                    generatedResources.get().asFile.deleteRecursively()
+                    generatedAppId.get().asFile.delete()
+                }
+            }
+        }
+    }
 }
 
 val localPropertiesFile = rootProject.layout.projectDirectory.file("local.properties")
@@ -56,14 +81,19 @@ android {
             "API_BASE_URL",
             "\"$apiBaseUrl\"",
         )
-        buildConfigField("boolean", "FIREBASE_CONFIGURED", firebaseConfigured.toString())
         buildConfigField("String", "FIREBASE_API_BASE_URL", "\"$firebaseApiBaseUrl\"")
     }
 
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            buildConfigField("boolean", "FIREBASE_CONFIGURED", debugFirebaseConfigured.toString())
+        }
         release {
+            buildConfigField("boolean", "FIREBASE_CONFIGURED", releaseFirebaseConfigured.toString())
+            signingConfig = signingConfigs.getByName("debug")
             if (firebaseApiBaseUrl.startsWith("http://")) {
                 buildConfigField("String", "FIREBASE_API_BASE_URL", "\"\"")
             }

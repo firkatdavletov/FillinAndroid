@@ -89,7 +89,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w \
   -e class com.firkat.fillin.feature.auth.ServerAuthenticationDeviceTest,com.firkat.fillin.feature.auth.AuthAccountSectionTest,com.firkat.fillin.feature.sync.BudgetSyncPanelTest,com.firkat.fillin.FirebaseConfigurationTest,com.firkat.fillin.feature.budgetsetup.BudgetSetupUiTest,com.firkat.fillin.feature.budgetsetup.CloudBudgetLifecycleTest,com.firkat.fillin.feature.sync.BudgetOfflinePersistenceTest \
-  com.firkat.fillin.test/com.firkat.fillin.FillinTestRunner
+  com.firkat.fillin.debug.test/com.firkat.fillin.FillinTestRunner
 ```
 
 `connectedDebugAndroidTest` на устройстве с пользовательскими данными не использовать:
@@ -101,7 +101,7 @@ adb shell am instrument -w \
 adb shell am instrument -w \
   -e class com.firkat.fillin.feature.auth.FirebaseServerLiveTest \
   -e liveFirebaseAuth true \
-  com.firkat.fillin.test/com.firkat.fillin.FillinTestRunner
+  com.firkat.fillin.debug.test/com.firkat.fillin.FillinTestRunner
 ```
 
 Без явного `liveFirebaseAuth=true` эти два теста пропускаются: обычные тесты не должны

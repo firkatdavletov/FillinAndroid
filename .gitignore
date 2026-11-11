@@ -9,6 +9,7 @@
 .cxx
 local.properties
 /app/google-services.json
+/app/src/debug/google-services.json
 # Firebase Admin credentials belong outside the repository.
 **/*firebase-adminsdk*.json
 **/service-account*.json

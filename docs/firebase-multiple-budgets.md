@@ -82,7 +82,7 @@ requestId. Пока запрос не завершён, форма не позв
 ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
 adb -s DEVICE install -r app/build/outputs/apk/debug/app-debug.apk
 adb -s DEVICE install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-adb -s DEVICE shell am instrument -w com.firkat.fillin.test/com.firkat.fillin.FillinTestRunner
+adb -s DEVICE shell am instrument -w com.firkat.fillin.debug.test/com.firkat.fillin.FillinTestRunner
 ```
 
 Не использовать connectedDebugAndroidTest на личном устройстве: он может удалить
