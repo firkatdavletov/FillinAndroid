@@ -89,8 +89,8 @@ object CalculateDashboard {
         val todayVariableNet = variableNet(input.operations.filter {
             it.occurredOn == today && it.occurredAt <= input.asOf
         })
-        val complete = historyDays >= 14
-        val daily = if (complete) {
+        val hasExpenseHistory = historyDays > 0
+        val daily = if (hasExpenseHistory) {
             variableNet(input.operations.filter { it.occurredOn >= historyStart && it.occurredOn < today })
                 .max(BigDecimal.ZERO)
                 .divide(BigDecimal(historyDays), 2, RoundingMode.HALF_UP)
@@ -134,7 +134,7 @@ object CalculateDashboard {
                         input.payments.map { com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(it.id, it.categoryName, it.dueOn, money(it.remaining), false) },
                     today, warnings = input.incomeWarnings,
                 ),
-                averageDailySpending = if (historyDays >= 30) money(daily) else null,
+                averageDailySpending = if (hasExpenseHistory) money(daily) else null,
             )
         val dailyLimit = cashFlowForecast.dailyLimit
         return Dashboard(
@@ -158,10 +158,10 @@ object CalculateDashboard {
             CashFlow(money(income - net)),
             BudgetExecution(
                 BudgetBasis.Forecast,
-                progress(spent, spent + base.expectedExpenses.amount, today, complete, input.currency),
-                progress(variableSpent, variableSpent + daily * BigDecimal(days), today, complete, input.currency)
+                progress(spent, spent + base.expectedExpenses.amount, today, hasExpenseHistory, input.currency),
+                progress(variableSpent, variableSpent + daily * BigDecimal(days), today, hasExpenseHistory, input.currency)
             ),
-            Forecast(monthEnd, if (complete) "HISTORICAL_AVERAGE" else "UNAVAILABLE", base, scenario(cautiousDaily, 3)),
+            Forecast(monthEnd, if (hasExpenseHistory) "HISTORICAL_AVERAGE" else "UNAVAILABLE", base, scenario(cautiousDaily, 3)),
             topCategories,
             input.payments.sortedWith(compareBy({ it.dueOn }, { it.id })).take(5).map {
                 UpcomingPayment(it.categoryName, it.dueOn, money(it.remaining))
@@ -172,11 +172,11 @@ object CalculateDashboard {
         )
     }
 
-    private fun progress(spent: BigDecimal, planned: BigDecimal, date: LocalDate, complete: Boolean, currency: String): BudgetProgress {
+    private fun progress(spent: BigDecimal, planned: BigDecimal, date: LocalDate, hasExpenseHistory: Boolean, currency: String): BudgetProgress {
         fun money(amount: BigDecimal) = Money(amount.setScale(2), currency)
         val comparison = (spent * BigDecimal(date.lengthOfMonth())).compareTo(planned * BigDecimal(date.dayOfMonth))
         val pace = when {
-            !complete -> PaceStatus.InsufficientData
+            !hasExpenseHistory -> PaceStatus.InsufficientData
             planned.signum() == 0 -> PaceStatus.OnPlan
             comparison > 0 -> PaceStatus.AheadOfPlan
             comparison < 0 -> PaceStatus.BelowPlan

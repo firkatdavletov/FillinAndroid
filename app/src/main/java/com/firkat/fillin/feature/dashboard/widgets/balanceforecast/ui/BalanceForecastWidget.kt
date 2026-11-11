@@ -4,13 +4,8 @@ import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,7 +18,6 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.drawText
@@ -74,9 +68,9 @@ internal fun BalanceForecastWidget(
             if (state.points.isEmpty()) {
                 ForecastUnavailable(state.dataStatus)
             } else {
-                ForecastStatusMessage(state)
+                ForecastStatusMessage(state, showHistoryHints = false)
                 ForecastLegend(state.currentPace != null)
-                ForecastChart(state, Modifier.fillMaxWidth())
+                ForecastChart(state, Modifier.fillMaxWidth(), interactive = false)
                 HorizontalDivider()
                 Text(
                     stringResource(R.string.forecast_ending_on, forecastDate(requireNotNull(state.endDate), "d MMMM")),
@@ -160,8 +154,11 @@ internal fun ForecastUnavailable(
 internal fun ForecastStatusMessage(
     state: ForecastUiState,
     modifier: Modifier = Modifier,
+    showHistoryHints: Boolean = true,
 ) {
     val status = state.financialStatus
+    if (status == BalanceForecastStatus.INSUFFICIENT_DATA && !showHistoryHints) return
+
     val color =
         when (status) {
             BalanceForecastStatus.STRUCTURAL_DEFICIT -> MaterialTheme.saldomiColors.expense
@@ -171,31 +168,19 @@ internal fun ForecastStatusMessage(
         }
     val date = state.projection?.structuralDeficitDate ?: state.currentPace?.firstDeficitDate ?: state.byLimit.firstDeficitDate
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-//            Icon(
-//                imageVector =
-//                    when (status) {
-//                        BalanceForecastStatus.NORMAL -> Icons.Default.CheckCircle
-//                        BalanceForecastStatus.INSUFFICIENT_DATA -> Icons.Default.Info
-//                        else -> Icons.Default.Warning
-//                    },
-//                contentDescription = null,
-//                tint = color,
-//            )
-            Text(
-                stringResource(
-                    when (status) {
-                        BalanceForecastStatus.NORMAL -> R.string.forecast_normal
-                        BalanceForecastStatus.CURRENT_PACE_RISK -> R.string.forecast_pace_risk
-                        BalanceForecastStatus.STRUCTURAL_DEFICIT -> R.string.forecast_structural
-                        BalanceForecastStatus.INSUFFICIENT_DATA -> R.string.forecast_insufficient
-                    },
-                    date?.let { forecastDate(it, "d MMMM") }.orEmpty(),
-                ),
-                color = color,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
+        Text(
+            stringResource(
+                when (status) {
+                    BalanceForecastStatus.NORMAL -> R.string.forecast_normal
+                    BalanceForecastStatus.CURRENT_PACE_RISK -> R.string.forecast_pace_risk
+                    BalanceForecastStatus.STRUCTURAL_DEFICIT -> R.string.forecast_structural
+                    BalanceForecastStatus.INSUFFICIENT_DATA -> R.string.forecast_insufficient
+                },
+                date?.let { forecastDate(it, "d MMMM") }.orEmpty(),
+            ),
+            color = color,
+            fontWeight = FontWeight.SemiBold,
+        )
         when (status) {
             BalanceForecastStatus.CURRENT_PACE_RISK -> {
                 Text(
@@ -228,7 +213,8 @@ internal fun ForecastStatusMessage(
                 Unit
             }
         }
-        if (status == BalanceForecastStatus.STRUCTURAL_DEFICIT &&
+        if (showHistoryHints &&
+            status == BalanceForecastStatus.STRUCTURAL_DEFICIT &&
             state.currentPace == null
         ) {
             Text(stringResource(R.string.forecast_insufficient), style = MaterialTheme.typography.bodySmall)
@@ -335,13 +321,14 @@ internal fun ForecastAmount(
 internal fun ForecastChart(
     state: ForecastUiState,
     modifier: Modifier = Modifier,
+    interactive: Boolean = true,
 ) {
     val start = state.startDate ?: return
     val end = state.endDate ?: return
     val all = state.points + state.currentPacePoints.orEmpty()
     val geometry = remember(all, start, end) { ForecastChartGeometry(all, start, end) }
     val days = geometry.days
-    var selected by remember(start, end, state.points, state.currentPacePoints) { mutableStateOf<Int?>(null) }
+    var selected by remember(interactive, start, end, state.points, state.currentPacePoints) { mutableStateOf<Int?>(null) }
     val paceColor = MaterialTheme.saldomiColors.forecastPace
     val limitColor = MaterialTheme.saldomiColors.income
     val negative = MaterialTheme.saldomiColors.expense
@@ -368,6 +355,31 @@ internal fun ForecastChart(
                     signedForecastMoney(it)
             },
         ).joinToString("; ")
+    val selectionInput = if (interactive) {
+        Modifier.pointerInput(geometry) {
+            fun select(x: Float) {
+                selected = geometry.nearestDay((x - 32.dp.toPx()) / (size.width - 40.dp.toPx()).coerceAtLeast(1f))
+            }
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                select(down.position.x)
+                try {
+                    val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
+                    if (drag != null) {
+                        select(drag.position.x)
+                        horizontalDrag(drag.id) { change ->
+                            select(change.position.x)
+                            change.consume()
+                        }
+                    }
+                } finally {
+                    selected = null
+                }
+            }
+        }
+    } else {
+        Modifier
+    }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Canvas(
             Modifier
@@ -389,8 +401,8 @@ internal fun ForecastChart(
                                 state.points.find { it.date == date }?.let { limitLabel + ": " + signedForecastMoney(it.balance) },
                             ).joinToString("; ")
                     } ?: (zero + "; " + summary)
-                    customActions =
-                        listOf(
+                    if (interactive) {
+                        customActions = listOf(
                             CustomAccessibilityAction(previous) {
                                 selected = ((selected ?: days) - 1).coerceAtLeast(0)
                                 true
@@ -400,29 +412,8 @@ internal fun ForecastChart(
                                 true
                             },
                         )
-                }.pointerInput(start, end, state.points, state.currentPacePoints) {
-                    fun select(
-                        x: Float,
-                    ) {
-                        selected = geometry.nearestDay((x - 32.dp.toPx()) / (size.width - 40.dp.toPx()).coerceAtLeast(1f))
                     }
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        select(down.position.x)
-                        try {
-                            val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
-                            if (drag != null) {
-                                select(drag.position.x)
-                                horizontalDrag(drag.id) { change ->
-                                    select(change.position.x)
-                                    change.consume()
-                                }
-                            }
-                        } finally {
-                            selected = null
-                        }
-                    }
-                },
+                }.then(selectionInput),
         ) {
             val left = 32.dp.toPx()
             val width = (size.width - left - 8.dp.toPx()).coerceAtLeast(1f)
@@ -499,9 +490,14 @@ internal fun ForecastChart(
             }
         }
 
+        val axisDays = if (LocalDensity.current.fontScale > 1.3f) {
+            listOf(0, days)
+        } else {
+            listOf(0, days / 3, days * 2 / 3, days)
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf(0, days / 3, days * 2 / 3, days).distinct().forEach {
-                Text(forecastDate(start.plusDays(it.toLong())), style = MaterialTheme.typography.labelSmall)
+            axisDays.distinct().forEach { day ->
+                Text(forecastDate(start.plusDays(day.toLong())), style = MaterialTheme.typography.labelSmall)
             }
         }
         selected?.let { day ->
