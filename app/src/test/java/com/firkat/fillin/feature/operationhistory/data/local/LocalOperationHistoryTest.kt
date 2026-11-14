@@ -2,13 +2,13 @@ package com.firkat.fillin.feature.operationhistory.data.local
 
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
+import java.math.BigDecimal
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
-import java.math.BigDecimal
-import java.time.LocalDate
 
 class LocalOperationHistoryTest {
     @Test
@@ -22,8 +22,8 @@ class LocalOperationHistoryTest {
                     row("void", "EXPENSE", "5.00").copy(status = "VOIDED"),
                     row("pending", "EXPENSE", "1.01").copy(syncStatus = "PENDING"),
                     row("rejected", "EXPENSE", "50.00").copy(syncStatus = "REJECTED"),
-                    row("old-refund", "EXPENSE_REFUND", "9.00").copy(occurredOn = "2026-09-30"),
-                ),
+                    row("old-refund", "EXPENSE_REFUND", "9.00").copy(occurredOn = "2026-09-30")
+                )
             )
         val page = localHistory(content, FILTER.copy(type = OperationType.Income), 1)
         assertEquals(BigDecimal("8.99"), page.totals.expenses)
@@ -33,7 +33,13 @@ class LocalOperationHistoryTest {
         val all = localHistory(content, FILTER, 1)
         assertEquals(page.totals, all.totals)
         assertNotNull(all.nextCursor)
-        assertFalse(localHistory(content.copy(sync = content.sync.copy(initialSyncComplete = false, localReady = false)), FILTER, 1).isComplete)
+        assertFalse(
+            localHistory(
+                content.copy(sync = content.sync.copy(initialSyncComplete = false, localReady = false)),
+                FILTER,
+                1
+            ).isComplete
+        )
     }
 
     @Test
@@ -60,7 +66,9 @@ class LocalOperationHistoryTest {
     fun `history attaches a refund outside the period but excludes rejected refunds`() {
         val expense = row("expense", "EXPENSE", "10.00")
         val refund = row("refund", "EXPENSE_REFUND", "10.00").copy(
-            refundOf = expense.id, occurredOn = "2026-11-01", syncStatus = "PENDING",
+            refundOf = expense.id,
+            occurredOn = "2026-11-01",
+            syncStatus = "PENDING"
         )
         val rejected = refund.copy(id = "rejected", syncStatus = "REJECTED")
         val page = localHistory(content(listOf(expense, refund, rejected)), FILTER, 20)
@@ -72,33 +80,42 @@ class LocalOperationHistoryTest {
     @Test fun `lookup by id is independent of period and pagination and includes all posted refunds`() {
         val old = row("old", "EXPENSE", "10.00").copy(occurredOn = "2026-09-01", syncStatus = "PENDING")
         val refund = row("refund", "EXPENSE_REFUND", "2.00").copy(refundOf = "old")
-        val rejectedRefund = row("rejected-refund", "EXPENSE_REFUND", "3.00").copy(refundOf = "old", syncStatus = "REJECTED")
+        val rejectedRefund = row(
+            "rejected-refund",
+            "EXPENSE_REFUND",
+            "3.00"
+        ).copy(refundOf = "old", syncStatus = "REJECTED")
         val data = content(listOf(old, row("new", "EXPENSE", "40.00"), refund, rejectedRefund))
         assertEquals(listOf("new"), localHistory(data, FILTER, 1).items.map { it.id })
         val operation = localOperation(data, "old")!!
         assertEquals("Категория", operation.categoryName)
         assertEquals(LocalDate.parse("2026-09-01"), operation.occurredOn)
         assertEquals(BigDecimal("2.00"), operation.refundedAmount)
-        assertEquals(com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus.Pending, operation.syncStatus)
+        assertEquals(
+            com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus.Pending,
+            operation.syncStatus
+        )
         assertNull(localOperation(data, "refund"))
         assertNull(localOperation(data, "missing"))
         assertNull(localOperation(null, "old"))
     }
 
     companion object {
-        private val FILTER = OperationHistoryFilter(dateFrom = LocalDate.parse("2026-10-01"), dateTo = LocalDate.parse("2026-10-31"))
+        private val FILTER =
+            OperationHistoryFilter(dateFrom = LocalDate.parse("2026-10-01"), dateTo = LocalDate.parse("2026-10-31"))
 
-        private fun content(rows: List<LocalOperation>) =
-            LocalHistoryContent(
-                OperationSyncState(scopeKey = "scope", initialSyncComplete = true),
-                rows,
-                listOf(LocalCategory("scope", "category", "Категория", "EXPENSE", "OTHER", "📦", true, 1)),
-            )
+        private fun content(
+            rows: List<LocalOperation>
+        ) = LocalHistoryContent(
+            OperationSyncState(scopeKey = "scope", initialSyncComplete = true),
+            rows,
+            listOf(LocalCategory("scope", "category", "Категория", "EXPENSE", "OTHER", "📦", true, 1))
+        )
 
         private fun row(
             id: String,
             type: String,
-            amount: String,
+            amount: String
         ) = LocalOperation(
             id,
             "scope",
@@ -114,7 +131,7 @@ class LocalOperationHistoryTest {
             1,
             null,
             null,
-            null,
+            null
         )
     }
 }

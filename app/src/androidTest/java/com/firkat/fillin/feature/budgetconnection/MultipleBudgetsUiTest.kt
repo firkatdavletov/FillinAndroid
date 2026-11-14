@@ -11,27 +11,37 @@ import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationDraft
 import com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionSection
 import com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionViewModel
 import com.firkat.fillin.ui.theme.FillinTheme
+import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.Assert.*
-import java.time.LocalDate
 
 class MultipleBudgetsUiTest {
     @get:Rule val compose = createComposeRule()
     private val server = MultipleBudgetsDeviceTest.MultiServer()
     private val env = BudgetConnectionDeviceTest.Environment(apiOverride = server)
     private val models = ViewModelStore()
-    @After fun cleanup() { models.clear(); env.close() }
+
+    @After fun cleanup() {
+        models.clear()
+        env.close()
+    }
 
     @Test fun createsAnAdditionalBudgetAndSelectsTheFirstBudgetFromTheSavedOfflineList() {
         runBlocking {
-            env.auth.login("owner"); env.manager.restore()
-            env.creation.create("owner", BudgetCreationDraft("Первый", "100.00", LocalDate.now().minusDays(1).toString()))
+            env.auth.login("owner")
+            env.manager.restore()
+            env.creation.create(
+                "owner",
+                BudgetCreationDraft("Первый", "100.00", LocalDate.now().minusDays(1).toString())
+            )
         }
         val original = env.manager.active.value!!.profile
         val model = BudgetConnectionViewModel(env.auth, env.connection, env.creation)
         models.put("connection", model)
-        compose.setContent { FillinTheme { Column(Modifier.verticalScroll(rememberScrollState())) { BudgetConnectionSection(model) } } }
+        compose.setContent {
+            FillinTheme { Column(Modifier.verticalScroll(rememberScrollState())) { BudgetConnectionSection(model) } }
+        }
         compose.waitUntil(5000) { model.state.value.loaded && !model.state.value.busy }
         compose.onNodeWithText("Первый · Владелец").assertIsSelected()
         compose.onNodeWithText("Создать ещё бюджет").performScrollTo().performClick()

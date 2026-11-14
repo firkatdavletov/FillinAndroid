@@ -3,10 +3,10 @@ package com.firkat.fillin.feature.operationhistory.data.sync
 import com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkTarget
 import com.firkat.fillin.feature.sync.data.BudgetCapabilities
 import com.firkat.fillin.feature.sync.data.BudgetSyncCommand
+import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
-import java.io.IOException
 
 class BudgetCommandSupportTest {
     private val command = BudgetSyncCommand("request", "household", "member", "CREATE_INCOME", "income", "2026-11-04")
@@ -16,13 +16,13 @@ class BudgetCommandSupportTest {
         command.copy(type = "DELETE_INCOME_RULE"),
         command.copy(incomeName = "Зарплата"),
         command.copy(type = "UPDATE_INCOME", incomeFrequency = "ONCE"),
-        command.copy(type = "UPDATE_INCOME", incomeActive = false),
+        command.copy(type = "UPDATE_INCOME", incomeActive = false)
     )
     private val remainderCommands = listOf(
         command.copy(type = "CONFIRM_REMAINDER_INCOME"),
         command.copy(remainderAmount = "10.00"),
         command.copy(remainderDueOn = "2026-11-05"),
-        command.copy(remainderReceived = "20.00"),
+        command.copy(remainderReceived = "20.00")
     )
 
     @Test fun `income editing works with narrow capability or full daily planning`() = runTest {
@@ -54,8 +54,19 @@ class BudgetCommandSupportTest {
 
     @Test fun `recurring income links only need confirmed linking`() = runTest {
         val support = BudgetCommandSupport { setOf(BudgetCapabilities.CONFIRMED_PLAN_LINKING) }
-        support.ensure(command.copy(type = "SET_OPERATION_PLAN_LINK", planTarget =
-            PlanLinkTarget("INCOME", planId = "occurrence", ruleId = "rule", dueOn = "2026-11-04", scheduledOn = "2026-11-04")))
+        support.ensure(
+            command.copy(
+                type = "SET_OPERATION_PLAN_LINK",
+                planTarget =
+                PlanLinkTarget(
+                    "INCOME",
+                    planId = "occurrence",
+                    ruleId = "rule",
+                    dueOn = "2026-11-04",
+                    scheduledOn = "2026-11-04"
+                )
+            )
+        )
         support.ensure(command.copy(type = "REMOVE_OPERATION_PLAN_LINK"))
         support.ensure(command.copy(type = "CREATE_OPERATION", planMatchingMode = "CONFIRM_REQUIRED"))
     }
@@ -71,7 +82,14 @@ class BudgetCommandSupportTest {
 
     @Test fun `legacy commands and expense editing do not require new capabilities`() = runTest {
         val support = BudgetCommandSupport { error("Unexpected capability request") }
-        for (type in listOf("CREATE_INCOME", "UPDATE_INCOME", "DELETE_INCOME", "CREATE_RULE", "UPDATE_RULE", "DELETE_RULE")) {
+        for (type in listOf(
+            "CREATE_INCOME",
+            "UPDATE_INCOME",
+            "DELETE_INCOME",
+            "CREATE_RULE",
+            "UPDATE_RULE",
+            "DELETE_RULE"
+        )) {
             support.ensure(command.copy(type = type))
         }
         support.ensure(command.copy(type = "UPDATE_RULE", replaceDetails = true, ruleName = "Квартира"))
@@ -80,7 +98,10 @@ class BudgetCommandSupportTest {
     @Test fun `one capability read serves mixed commands and reset rechecks backend`() = runTest {
         var reads = 0
         var capabilities = setOf(BudgetCapabilities.INCOME_RULE_EDITING, BudgetCapabilities.CONFIRMED_PLAN_LINKING)
-        val support = BudgetCommandSupport { reads++; capabilities }
+        val support = BudgetCommandSupport {
+            reads++
+            capabilities
+        }
         incomeCommands.forEach { support.ensure(it) }
         support.ensure(command.copy(type = "SET_OPERATION_PLAN_LINK"))
         assertBlocked { support.ensure(remainderCommands.first()) }
@@ -108,7 +129,9 @@ class BudgetCommandSupportTest {
         assertEquals(2, reads)
     }
 
-    private suspend fun assertBlocked(action: suspend () -> Unit) {
+    private suspend fun assertBlocked(
+        action: suspend () -> Unit
+    ) {
         try {
             action()
             fail("Expected unsupported backend to block delivery")

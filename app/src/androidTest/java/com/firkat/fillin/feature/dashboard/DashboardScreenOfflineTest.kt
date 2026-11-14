@@ -19,15 +19,14 @@ import com.firkat.fillin.feature.dashboard.domain.model.*
 import com.firkat.fillin.feature.dashboard.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.*
-import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.DailyLimitSummary
+import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.*
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.*
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.io.FileInputStream
 import java.math.BigDecimal
 import java.time.Instant
-import java.time.LocalDate
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -52,8 +51,12 @@ class DashboardScreenOfflineTest {
         checkMissingHistory(2f)
     }
 
-    private fun checkMissingHistory(fontScale: Float) {
-        val empty = calculate().let { it.copy(balanceForecast = it.balanceForecast.copy(points = emptyList(), insufficientHistory = true)) }
+    private fun checkMissingHistory(
+        fontScale: Float
+    ) {
+        val empty = calculate().let {
+            it.copy(balanceForecast = it.balanceForecast.copy(points = emptyList(), insufficientHistory = true))
+        }
         show(DashboardUiState(empty.date, DashboardStatus.Ready), empty, fontScale = fontScale)
         compose.onNodeWithText("Общий баланс").assertIsDisplayed()
         scrollTo("balance-forecast")
@@ -90,12 +93,14 @@ class DashboardScreenOfflineTest {
         compose.setContent {
             FillinTheme(dynamicColor = false) {
                 Box(Modifier.width(320.dp).fillMaxHeight()) {
-                    DashboardGrid(widgets = listOf(
-                        DashboardWidget("one", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.OneByOne),
-                        DashboardWidget("second", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.OneByOne),
-                        DashboardWidget("wide", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
-                        DashboardWidget("large", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByTwo),
-                    )) { Text(it.id) }
+                    DashboardGrid(
+                        widgets = listOf(
+                            DashboardWidget("one", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.OneByOne),
+                            DashboardWidget("second", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.OneByOne),
+                            DashboardWidget("wide", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
+                            DashboardWidget("large", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByTwo)
+                        )
+                    ) { Text(it.id) }
                 }
             }
         }
@@ -112,27 +117,40 @@ class DashboardScreenOfflineTest {
         assertEquals(4, DefaultDashboardWidgets.size)
     }
 
-    @Test fun lightThemeShowsLargeAndNegativeAmountsWithoutOverflow() = checkAppearance(false, 1f, "dashboard-light.png")
+    @Test fun lightThemeShowsLargeAndNegativeAmountsWithoutOverflow() = checkAppearance(
+        false,
+        1f,
+        "dashboard-light.png"
+    )
+
     @Test fun darkThemeShowsLargeAndNegativeAmountsWithoutOverflow() = checkAppearance(true, 1f, "dashboard-dark.png")
+
     @Test fun largeFontKeepsAllTextVisibleInLightTheme() = checkAppearance(false, 2f, "dashboard-large-font-light.png")
+
     @Test fun largeFontKeepsAllTextVisibleInDarkTheme() = checkAppearance(true, 2f, "dashboard-large-font-dark.png")
 
     @Test fun forecastShowsUnavailableMessageForForbiddenBudget() {
         compose.setContent {
             FillinTheme {
                 com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastWidget(
-                    com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastUiState(dataStatus = DashboardStatus.Forbidden),
+                    com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastUiState(
+                        dataStatus = DashboardStatus.Forbidden
+                    )
                 )
             }
         }
         compose.onNodeWithText("Доступ к семейному бюджету отозван").assertIsDisplayed()
     }
 
-    private fun checkAppearance(dark: Boolean, fontScale: Float, screenshotName: String) {
+    private fun checkAppearance(
+        dark: Boolean,
+        fontScale: Float,
+        screenshotName: String
+    ) {
         showReady(dark, fontScale)
         compose.onNode(
             hasText(formatMoney(SAMPLE.availableMoney.amount, "KZT")) and
-                hasAnyAncestor(hasTestTag("dashboard-widget-total-balance")),
+                hasAnyAncestor(hasTestTag("dashboard-widget-total-balance"))
         ).assertIsDisplayed()
         screenshot("initial-$screenshotName")
         assertNoTextOverflow()
@@ -148,7 +166,10 @@ class DashboardScreenOfflineTest {
     }
 
     private fun assertNoTextOverflow() {
-        val nodes = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult), useUnmergedTree = true).fetchSemanticsNodes()
+        val nodes = compose.onAllNodes(
+            SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult),
+            useUnmergedTree = true
+        ).fetchSemanticsNodes()
         nodes.forEach { node ->
             val results = mutableListOf<TextLayoutResult>()
             compose.runOnIdle { node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results) }
@@ -156,16 +177,30 @@ class DashboardScreenOfflineTest {
                 assertFalse("Truncated text: ${result.layoutInput.text}", result.multiParagraph.didExceedMaxLines)
                 // Paragraph width can include unused constraint width. Inspect the glyph lines.
                 for (line in 0 until result.lineCount) {
-                    assertTrue("Text exceeds width: ${result.layoutInput.text}", result.getLineRight(line) <= result.size.width + 1f)
-                    assertTrue("Text exceeds height: ${result.layoutInput.text}", result.getLineBottom(line) <= result.size.height + 1f)
+                    assertTrue(
+                        "Text exceeds width: ${result.layoutInput.text}",
+                        result.getLineRight(line) <= result.size.width + 1f
+                    )
+                    assertTrue(
+                        "Text exceeds height: ${result.layoutInput.text}",
+                        result.getLineBottom(line) <= result.size.height + 1f
+                    )
                 }
             }
         }
     }
 
-    private fun showReady(dark: Boolean = false, fontScale: Float = 1f) = show(DashboardUiState(SAMPLE.date, DashboardStatus.Ready), SAMPLE, dark, fontScale)
+    private fun showReady(
+        dark: Boolean = false,
+        fontScale: Float = 1f
+    ) = show(DashboardUiState(SAMPLE.date, DashboardStatus.Ready), SAMPLE, dark, fontScale)
 
-    private fun show(state: DashboardUiState, dashboard: Dashboard = calculate(), dark: Boolean = false, fontScale: Float = 1f) {
+    private fun show(
+        state: DashboardUiState,
+        dashboard: Dashboard = calculate(),
+        dark: Boolean = false,
+        fontScale: Float = 1f
+    ) {
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
@@ -179,37 +214,64 @@ class DashboardScreenOfflineTest {
     }
 
     @Composable
-    private fun SampleWidget(widget: DashboardWidget, dashboard: Dashboard) {
+    private fun SampleWidget(
+        widget: DashboardWidget,
+        dashboard: Dashboard
+    ) {
         when (widget.kind) {
             DashboardWidgetKind.TotalBalance -> TotalBalanceWidget(TotalBalanceUiState(dashboard.availableMoney))
-            DashboardWidgetKind.AvailableToSpend -> AvailableToSpendWidget(AvailableToSpendUiState(dashboard.freeMoney.amount))
-            DashboardWidgetKind.DailyLimit -> DailyLimitWidget(DailyLimitUiState.from(DailyLimitSummary.from(dashboard)))
-            DashboardWidgetKind.BalanceForecast -> BalanceForecastWidget(ForecastUiState.from(dashboard.balanceForecast))
+            DashboardWidgetKind.AvailableToSpend -> AvailableToSpendWidget(
+                AvailableToSpendUiState(dashboard.freeMoney.amount)
+            )
+            DashboardWidgetKind.DailyLimit -> DailyLimitWidget(
+                DailyLimitUiState.from(DailyLimitSummary.from(dashboard))
+            )
+            DashboardWidgetKind.BalanceForecast -> BalanceForecastWidget(
+                ForecastUiState.from(dashboard.balanceForecast)
+            )
         }
     }
 
-    private fun bounds(id: String) = compose.onNodeWithTag("dashboard-widget-$id").fetchSemanticsNode().boundsInRoot
-    private fun scrollTo(id: String) { compose.onNodeWithTag("dashboard-grid").performScrollToNode(hasTestTag("dashboard-widget-$id")) }
-    private fun screenshot(name: String) {
+    private fun bounds(
+        id: String
+    ) = compose.onNodeWithTag("dashboard-widget-$id").fetchSemanticsNode().boundsInRoot
+    private fun scrollTo(
+        id: String
+    ) {
+        compose.onNodeWithTag("dashboard-grid").performScrollToNode(hasTestTag("dashboard-widget-$id"))
+    }
+    private fun screenshot(
+        name: String
+    ) {
         compose.waitForIdle()
-        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("screencap -p /data/local/tmp/$name").use { descriptor ->
+        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(
+            "screencap -p /data/local/tmp/$name"
+        ).use { descriptor ->
             FileInputStream(descriptor.fileDescriptor).use { it.readBytes() }
         }
     }
 
     companion object {
-        private fun money(value: String) = Money(value.toBigDecimal().setScale(2), "KZT")
-        private fun calculate() = CalculateDashboard.calculate(DashboardCalculationInput(
-            Instant.parse("2026-10-19T00:00:00Z"), Instant.parse("2026-09-01T00:00:00Z"),
-            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, emptyList(), emptyList(), emptyList(), emptyList(), emptySet(),
-        ))
-        private val SAMPLE = calculate().let { empty -> empty.copy(
-            availableMoney = money("12345678.90"),
-            freeMoney = empty.freeMoney.copy(amount = money("-12345.67"), safeDailyLimit = money("123456.78")),
-            balanceForecast = empty.balanceForecast.copy(points = (0L..30L).map { day ->
-                ForecastPoint(empty.date.plusDays(day), money(if (day < 15) "12345678.90" else "-98765.43"))
-            }),
-            todayVariableNetExpenses = money("30864.19"),
-        ) }
+        private fun money(
+            value: String
+        ) = Money(value.toBigDecimal().setScale(2), "KZT")
+        private fun calculate() = CalculateDashboard.calculate(
+            DashboardCalculationInput(
+                Instant.parse("2026-10-19T00:00:00Z"), Instant.parse("2026-09-01T00:00:00Z"),
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, emptyList(), emptyList(), emptyList(), emptyList(), emptySet()
+            )
+        )
+        private val SAMPLE = calculate().let { empty ->
+            empty.copy(
+                availableMoney = money("12345678.90"),
+                freeMoney = empty.freeMoney.copy(amount = money("-12345.67"), safeDailyLimit = money("123456.78")),
+                balanceForecast = empty.balanceForecast.copy(
+                    points = (0L..30L).map { day ->
+                        ForecastPoint(empty.date.plusDays(day), money(if (day < 15) "12345678.90" else "-98765.43"))
+                    }
+                ),
+                todayVariableNetExpenses = money("30864.19")
+            )
+        }
     }
 }

@@ -19,14 +19,14 @@ interface PlannedIncomesApi {
     @Headers("Accept: application/json")
     @GET("api/v1/planned-incomes")
     suspend fun getPlannedIncomes(
-        @Header("Authorization") authorization: String,
+        @Header("Authorization") authorization: String
     ): PlannedIncomesResponseDto
 
     @Headers("Accept: application/json")
     @POST("api/v1/planned-incomes")
     suspend fun createPlannedIncome(
         @Header("Authorization") authorization: String,
-        @Body request: CreatePlannedIncomeRequestDto,
+        @Body request: CreatePlannedIncomeRequestDto
     ): Response<PlannedIncomeDto>
 
     @Headers("Accept: application/json")
@@ -34,13 +34,13 @@ interface PlannedIncomesApi {
     suspend fun updatePlannedIncome(
         @Header("Authorization") authorization: String,
         @Path("incomeId") incomeId: String,
-        @Body request: UpdatePlannedIncomeRequestDto,
+        @Body request: UpdatePlannedIncomeRequestDto
     ): Response<PlannedIncomeDto>
 
     @DELETE("api/v1/planned-incomes/{incomeId}")
     suspend fun deletePlannedIncome(
         @Header("Authorization") authorization: String,
         @Path("incomeId") incomeId: String,
-        @Query("version") version: Long,
+        @Query("version") version: Long
     ): Response<Unit>
 }

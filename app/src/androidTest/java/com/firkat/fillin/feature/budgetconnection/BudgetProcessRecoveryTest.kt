@@ -9,6 +9,9 @@ import com.firkat.fillin.feature.operationhistory.data.local.*
 import com.firkat.fillin.feature.operationhistory.data.remote.SyncPageDto
 import com.firkat.fillin.feature.operationhistory.data.sync.SyncResult
 import com.firkat.fillin.feature.sync.data.*
+import java.io.File
+import java.io.IOException
+import java.util.UUID
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
@@ -16,9 +19,6 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.*
 import org.junit.Test
 import retrofit2.Response
-import java.io.File
-import java.io.IOException
-import java.util.UUID
 
 /** The optional prepare/recover phases allow the host to kill the real app process between them. */
 class BudgetProcessRecoveryTest {
@@ -33,17 +33,31 @@ class BudgetProcessRecoveryTest {
         recover(journal, phase == "recover")
     }
 
-    private suspend fun prepare(journal: File, waitForKill: Boolean) {
+    private suspend fun prepare(
+        journal: File,
+        waitForKill: Boolean
+    ) {
         val server = BudgetConnectionDeviceTest.Server()
         lateinit var env: BudgetConnectionDeviceTest.Environment
         val api = object : FirebaseBudgetApi by server {
-            override suspend fun command(authorization: String, budgetId: String, command: BudgetSyncCommand): Response<BudgetCommandReceipt> {
+            override suspend fun command(
+                authorization: String,
+                budgetId: String,
+                command: BudgetSyncCommand
+            ): Response<BudgetCommandReceipt> {
                 val response = server.command(authorization, budgetId, command)
                 // Synthetic remote state survives the app process in a private test-only journal.
                 // A real backend persists this transaction independently of the Android process.
                 val page = server.changes(authorization, budgetId, null).body()!!
-                val fixture = Fixture(env.registryName, env.backend, env.manager.active.value!!.profile.id,
-                    page, command, response.body()!!, Process.myPid())
+                val fixture = Fixture(
+                    env.registryName,
+                    env.backend,
+                    env.manager.active.value!!.profile.id,
+                    page,
+                    command,
+                    response.body()!!,
+                    Process.myPid()
+                )
                 journal.writeText(json.encodeToString(fixture))
                 assertTrue(env.manager.active.value!!.scope.get<OperationDatabase>().operations().state()!!.isSyncing)
                 if (waitForKill) awaitCancellation()
@@ -52,7 +66,8 @@ class BudgetProcessRecoveryTest {
         }
         env = BudgetConnectionDeviceTest.Environment(server = server, apiOverride = api, deleteOnClose = false)
         try {
-            env.auth.login("owner"); env.manager.restore()
+            env.auth.login("owner")
+            env.manager.restore()
             env.connection.connect("owner", env.connection.budgets("owner").single())
             BudgetRecoveryDeviceTest.expense(env, "12.34")
             assertEquals(SyncResult.Retry, BudgetRecoveryDeviceTest.sync(env))
@@ -60,10 +75,15 @@ class BudgetProcessRecoveryTest {
             env.manager.active.value!!.scope.get<OperationDatabase>().operations().let { dao ->
                 dao.putState(dao.state()!!.copy(isSyncing = true))
             }
-        } finally { env.close() }
+        } finally {
+            env.close()
+        }
     }
 
-    private suspend fun recover(journal: File, requireNewProcess: Boolean) {
+    private suspend fun recover(
+        journal: File,
+        requireNewProcess: Boolean
+    ) {
         val saved = json.decodeFromString<Fixture>(journal.readText())
         if (requireNewProcess) assertNotEquals(saved.processId, Process.myPid())
         val server = BudgetConnectionDeviceTest.Server().apply {
@@ -76,12 +96,21 @@ class BudgetProcessRecoveryTest {
             receipts[saved.command.requestId] = saved.receipt
         }
         val api = object : FirebaseBudgetApi by server {
-            override suspend fun command(authorization: String, budgetId: String, command: BudgetSyncCommand): Response<BudgetCommandReceipt> {
+            override suspend fun command(
+                authorization: String,
+                budgetId: String,
+                command: BudgetSyncCommand
+            ): Response<BudgetCommandReceipt> {
                 assertEquals(saved.command, command)
                 return server.command(authorization, budgetId, command)
             }
         }
-        BudgetConnectionDeviceTest.Environment(server = server, registryName = saved.registryName, backend = saved.backend, apiOverride = api).use { env ->
+        BudgetConnectionDeviceTest.Environment(
+            server = server,
+            registryName = saved.registryName,
+            backend = saved.backend,
+            apiOverride = api
+        ).use { env ->
             val profile = env.registry.find(saved.profileId)!!
             env.database(profile) { db ->
                 assertTrue(db.operations().state()!!.isSyncing)
@@ -89,7 +118,8 @@ class BudgetProcessRecoveryTest {
                 assertEquals(saved.command.requestId, queued.requestId)
                 assertEquals(saved.command, json.decodeFromString<BudgetSyncCommand>(queued.wirePayload!!))
             }
-            env.auth.login("owner"); env.manager.restore()
+            env.auth.login("owner")
+            env.manager.restore()
             env.manager.acquire(profile.syncIdentity)!!.use { lease ->
                 val db = lease.scope.get<OperationDatabase>()
                 assertFalse(db.operations().state()!!.isSyncing)
@@ -112,7 +142,17 @@ class BudgetProcessRecoveryTest {
         check(journal.delete())
     }
 
-    @Serializable private data class Fixture(val registryName: String, val backend: String, val profileId: String,
-        val page: SyncPageDto, val command: BudgetSyncCommand, val receipt: BudgetCommandReceipt, val processId: Int)
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    @Serializable private data class Fixture(
+        val registryName: String,
+        val backend: String,
+        val profileId: String,
+        val page: SyncPageDto,
+        val command: BudgetSyncCommand,
+        val receipt: BudgetCommandReceipt,
+        val processId: Int
+    )
+    private val json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
 }

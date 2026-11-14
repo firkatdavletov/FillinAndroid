@@ -6,17 +6,14 @@ data class Category(
     val kind: CategoryKind,
     val icon: CategoryIcon,
     val dictionaryKey: String? = null,
-    val revision: Long = 0,
+    val revision: Long = 0
 )
 
 enum class CategoryKind {
     Expense,
-    Income,
+    Income
 }
 
-data class CategoryIcon(
-    val code: String,
-    val emoji: String = "📦",
-)
+data class CategoryIcon(val code: String, val emoji: String = "📦")
 
 internal const val CATEGORY_INITIAL_ICON_CODE = "CATEGORY_INITIAL"

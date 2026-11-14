@@ -20,20 +20,40 @@ class FamilyBudgetUiTest {
     private val server = FamilyBudgetDeviceTest.Server()
     private val env = BudgetConnectionDeviceTest.Environment(apiOverride = server, familyApi = server)
     private val models = ViewModelStore()
-    @After fun cleanup() { models.clear(); env.close() }
+
+    @After fun cleanup() {
+        models.clear()
+        env.close()
+    }
 
     @Test fun joiningByCodeShowsTheFamilyBudgetAndMemberCannotRevokeParticipants() {
-        runBlocking { env.auth.login("other"); env.manager.restore() }
+        runBlocking {
+            env.auth.login("other")
+            env.manager.restore()
+        }
         val join = FamilyBudgetJoinViewModel(env.auth, env.sharing).also { models.put("join", it) }
         val members = FamilyMembersViewModel(env.sharing).also { models.put("members", it) }
-        compose.setContent { FillinTheme { Column(Modifier.verticalScroll(rememberScrollState())) { FamilyBudgetJoinSection(join); FamilyMembersSection(members) } } }
-        compose.waitUntil(5000) { join.state.value.session is com.firkat.fillin.feature.auth.domain.AuthSession.Authenticated }
+        compose.setContent {
+            FillinTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    FamilyBudgetJoinSection(join)
+                    FamilyMembersSection(members)
+                }
+            }
+        }
+        compose.waitUntil(5000) {
+            join.state.value.session is com.firkat.fillin.feature.auth.domain.AuthSession.Authenticated
+        }
         compose.onNodeWithText("Код приглашения").performTextReplacement("bad")
         compose.onNodeWithText("Присоединиться по коду").performClick()
         assertEquals(0, server.newMemberships)
         compose.onNodeWithText("Код приглашения").performTextReplacement(server.issue().lowercase())
         compose.onNodeWithText("Присоединиться по коду").performClick()
-        compose.waitUntil(5000) { !join.state.value.busy && join.state.value.joinedName != null && members.state.value.members.size == 2 }
+        compose.waitUntil(5000) {
+            !join.state.value.busy &&
+                join.state.value.joinedName != null &&
+                members.state.value.members.size == 2
+        }
         compose.onNodeWithText("Подключён бюджет «Семейный»").assertExists()
         compose.onNodeWithText("Guest · Участник · Вы").performScrollTo().assertIsDisplayed()
         compose.onAllNodes(hasText("Отозвать доступ:", substring = true)).assertCountEquals(0)
@@ -44,11 +64,14 @@ class FamilyBudgetUiTest {
     @Test fun ownerSeesMembersAndRevokesOnlyTheSelectedMember() {
         runBlocking {
             server.join("Bearer synthetic-other", AcceptInvitationDto(server.issue()))
-            env.auth.login("owner"); env.manager.restore()
+            env.auth.login("owner")
+            env.manager.restore()
             env.connection.connect("owner", env.connection.budgets("owner").single())
         }
         val members = FamilyMembersViewModel(env.sharing).also { models.put("members", it) }
-        compose.setContent { FillinTheme { Column(Modifier.verticalScroll(rememberScrollState())) { FamilyMembersSection(members) } } }
+        compose.setContent {
+            FillinTheme { Column(Modifier.verticalScroll(rememberScrollState())) { FamilyMembersSection(members) } }
+        }
         compose.waitUntil(5000) { !members.state.value.busy && members.state.value.members.size == 2 }
         compose.onNodeWithText("Owner · Владелец · Вы").assertExists()
         compose.onNodeWithText("Отозвать доступ: Guest").performScrollTo().performClick()

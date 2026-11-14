@@ -26,16 +26,20 @@ internal class BottomSheetDismissController {
     var canDismiss: () -> Boolean = { true }
 }
 
-private class BottomSheetRemovalGuard { var removing = false }
+private class BottomSheetRemovalGuard {
+    var removing = false
+}
 
 internal val LocalBottomSheetDismissController = staticCompositionLocalOf { BottomSheetDismissController() }
 
 /** Register before non-overlay strategies; any entry can opt in through [bottomSheet]. */
 @OptIn(ExperimentalMaterial3Api::class)
 internal class BottomSheetSceneStrategy<T : Any>(
-    private val dismissController: BottomSheetDismissController = BottomSheetDismissController(),
+    private val dismissController: BottomSheetDismissController = BottomSheetDismissController()
 ) : SceneStrategy<T> {
-    override fun SceneStrategyScope<T>.calculateScene(entries: List<NavEntry<T>>): Scene<T>? {
+    override fun SceneStrategyScope<T>.calculateScene(
+        entries: List<NavEntry<T>>
+    ): Scene<T>? {
         // An overlay must always have a destination underneath it.
         if (entries.size < 2) return null
         val entry = entries.last()
@@ -45,15 +49,16 @@ internal class BottomSheetSceneStrategy<T : Any>(
             previousEntries = entries.dropLast(1),
             properties = properties,
             onBack = onBack,
-            dismissController = dismissController,
+            dismissController = dismissController
         )
     }
 
     companion object {
         private object BottomSheetKey : NavMetadataKey<ModalBottomSheetProperties>
 
-        fun bottomSheet(properties: ModalBottomSheetProperties = ModalBottomSheetProperties()) =
-            metadata { put(BottomSheetKey, properties) }
+        fun bottomSheet(
+            properties: ModalBottomSheetProperties = ModalBottomSheetProperties()
+        ) = metadata { put(BottomSheetKey, properties) }
     }
 }
 
@@ -63,7 +68,7 @@ internal class BottomSheetScene<T : Any>(
     override val previousEntries: List<NavEntry<T>>,
     private val properties: ModalBottomSheetProperties,
     private val onBack: () -> Unit,
-    private val dismissController: BottomSheetDismissController = BottomSheetDismissController(),
+    private val dismissController: BottomSheetDismissController = BottomSheetDismissController()
 ) : OverlayScene<T> {
     override val key: Any = entry.contentKey
     override val entries = listOf(entry)
@@ -77,13 +82,18 @@ internal class BottomSheetScene<T : Any>(
         removalGuard = removal
         val state = rememberModalBottomSheetState(
             skipPartiallyExpanded = true,
-            confirmValueChange = { it != SheetValue.Hidden || removal.removing || dismissController.canDismiss() },
+            confirmValueChange = { it != SheetValue.Hidden || removal.removing || dismissController.canDismiss() }
         )
         sheetState = state
         // A dialog window would otherwise resume the entry independently of its parent scene.
         val lifecycleOwner = rememberLifecycleOwner()
-        SaldomiBottomSheet(onDismissRequest = { if (dismissController.canDismiss()) onBack() }, sheetState = state, properties = properties) {
-            CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner, LocalBottomSheetDismissController provides dismissController) {
+        SaldomiBottomSheet(onDismissRequest = {
+            if (dismissController.canDismiss()) onBack()
+        }, sheetState = state, properties = properties) {
+            CompositionLocalProvider(
+                LocalLifecycleOwner provides lifecycleOwner,
+                LocalBottomSheetDismissController provides dismissController
+            ) {
                 entry.Content()
             }
         }
@@ -95,8 +105,12 @@ internal class BottomSheetScene<T : Any>(
     }
 
     // Animation state and callbacks do not change the logical identity of a scene.
-    override fun equals(other: Any?): Boolean = other is BottomSheetScene<*> &&
-        entry == other.entry && previousEntries == other.previousEntries && properties == other.properties
+    override fun equals(
+        other: Any?
+    ): Boolean = other is BottomSheetScene<*> &&
+        entry == other.entry &&
+        previousEntries == other.previousEntries &&
+        properties == other.properties
 
     override fun hashCode(): Int = 31 * (31 * entry.hashCode() + previousEntries.hashCode()) + properties.hashCode()
 }

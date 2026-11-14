@@ -104,17 +104,19 @@ class BaseViewModelTest {
     @Test
     fun `parallel commands reduce interleaved events without losing changes`() = runTest {
         val releaseFirst = CompletableDeferred<Unit>()
-        val model = model(RecordingInteractor { command ->
-            flow {
-                if (command.amount == 1) {
-                    emit(CounterEvent.Added(1))
-                    releaseFirst.await()
-                    emit(CounterEvent.Added(100))
-                } else {
-                    emit(CounterEvent.Added(10))
+        val model = model(
+            RecordingInteractor { command ->
+                flow {
+                    if (command.amount == 1) {
+                        emit(CounterEvent.Added(1))
+                        releaseFirst.await()
+                        emit(CounterEvent.Added(100))
+                    } else {
+                        emit(CounterEvent.Added(10))
+                    }
                 }
             }
-        })
+        )
 
         model.onAction(CounterAction.Run(CounterCommand(1)))
         runCurrent()
@@ -135,9 +137,11 @@ class BaseViewModelTest {
     @Test
     fun `long running observation does not block other commands and can be cancelled separately`() = runTest {
         val updates = MutableSharedFlow<CounterEvent>()
-        val model = model(RecordingInteractor { command ->
-            if (command.amount == 0) updates else flowOf(CounterEvent.Added(command.amount))
-        })
+        val model = model(
+            RecordingInteractor { command ->
+                if (command.amount == 0) updates else flowOf(CounterEvent.Added(command.amount))
+            }
+        )
         model.onAction(CounterAction.Run(CounterCommand(0)))
         runCurrent()
         val observation = model.commandJobs.single()
@@ -164,16 +168,18 @@ class BaseViewModelTest {
     fun `clearing ViewModel cancels every command and a suspended effect emission`() = runTest {
         var started = 0
         var cancelled = 0
-        val model = model(RecordingInteractor {
-            flow {
-                started++
-                try {
-                    awaitCancellation()
-                } finally {
-                    cancelled++
+        val model = model(
+            RecordingInteractor {
+                flow {
+                    started++
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        cancelled++
+                    }
                 }
             }
-        })
+        )
         val holdSubscriber = CompletableDeferred<Unit>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             model.effects.collect { holdSubscriber.await() }
@@ -279,16 +285,21 @@ class BaseViewModelTest {
         assertTrue(pendingEffect.isCompleted)
         assertEquals(
             listOf(CounterEffect.Message("first"), CounterEffect.Message("second"), CounterEffect.TotalChanged(4)),
-            received,
+            received
         )
     }
 
     @Test
     fun `expected business failure arrives as an event and retry succeeds`() = runTest {
-        val model = model(RecordingInteractor { command ->
-            if (command.amount < 0) flowOf(CounterEvent.Failed("invalid amount"))
-            else flowOf(CounterEvent.Added(command.amount))
-        })
+        val model = model(
+            RecordingInteractor { command ->
+                if (command.amount < 0) {
+                    flowOf(CounterEvent.Failed("invalid amount"))
+                } else {
+                    flowOf(CounterEvent.Added(command.amount))
+                }
+            }
+        )
         val received = mutableListOf<CounterEffect>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             model.effects.collect { received += it }
@@ -313,7 +324,7 @@ class BaseViewModelTest {
         val failure = IllegalStateException("unexpected")
         val interactors = listOf(
             Interactor<CounterCommand, CounterEvent> { throw failure },
-            Interactor<CounterCommand, CounterEvent> { flow { throw failure } },
+            Interactor<CounterCommand, CounterEvent> { flow { throw failure } }
         )
 
         interactors.forEach { interactor ->
@@ -336,12 +347,14 @@ class BaseViewModelTest {
 
     @Test
     fun `interactor cancellation does not become an event or cancel a sibling command`() = runTest {
-        val model = model(RecordingInteractor { command ->
-            flow {
-                if (command.amount == 0) throw CancellationException("cancelled")
-                emit(CounterEvent.Added(command.amount))
+        val model = model(
+            RecordingInteractor { command ->
+                flow {
+                    if (command.amount == 0) throw CancellationException("cancelled")
+                    emit(CounterEvent.Added(command.amount))
+                }
             }
-        })
+        )
 
         model.onAction(CounterAction.Run(CounterCommand(0)))
         model.onAction(CounterAction.Run(CounterCommand(8)))
@@ -356,9 +369,13 @@ class BaseViewModelTest {
     @Test
     fun `events are reduced when subclass uses default event handler`() = runTest {
         val model = object : BaseViewModel<CounterState, CounterAction, CounterCommand, CounterEvent, CounterEffect>(
-            CounterState(), CounterReducer, RecordingInteractor(),
+            CounterState(),
+            CounterReducer,
+            RecordingInteractor()
         ) {
-            override fun handleAction(action: CounterAction) {
+            override fun handleAction(
+                action: CounterAction
+            ) {
                 if (action is CounterAction.Run) execute(action.command)
             }
         }
@@ -372,14 +389,14 @@ class BaseViewModelTest {
 
     private fun model(
         interactor: Interactor<CounterCommand, CounterEvent> = RecordingInteractor(),
-        initialState: CounterState = CounterState(),
+        initialState: CounterState = CounterState()
     ) = CounterViewModel(interactor, initialState).also { models.put("counter", it) }
 
     private data class CounterState(
         val total: Int = 0,
         val input: String = "",
         val requests: Int = 0,
-        val error: String? = null,
+        val error: String? = null
     ) : State
 
     private sealed interface CounterAction : Action {
@@ -401,41 +418,51 @@ class BaseViewModelTest {
     }
 
     private object CounterReducer : Reducer<CounterState, CounterAction, CounterEvent> {
-        override fun reduceAction(state: CounterState, action: CounterAction): CounterState = when (action) {
+        override fun reduceAction(
+            state: CounterState,
+            action: CounterAction
+        ): CounterState = when (action) {
             is CounterAction.InputChanged -> state.copy(input = action.input)
             is CounterAction.Run -> state.copy(requests = state.requests + 1, error = null)
             is CounterAction.Notify -> state
         }
 
-        override fun reduceEvent(state: CounterState, event: CounterEvent): CounterState = when (event) {
+        override fun reduceEvent(
+            state: CounterState,
+            event: CounterEvent
+        ): CounterState = when (event) {
             is CounterEvent.Added -> state.copy(total = state.total + event.amount)
             is CounterEvent.Failed -> state.copy(error = event.message)
         }
     }
 
     private class RecordingInteractor(
-        private val events: (CounterCommand) -> Flow<CounterEvent> = { flowOf(CounterEvent.Added(it.amount)) },
+        private val events: (CounterCommand) -> Flow<CounterEvent> = { flowOf(CounterEvent.Added(it.amount)) }
     ) : Interactor<CounterCommand, CounterEvent> {
         val commands = mutableListOf<CounterCommand>()
 
-        override fun execute(command: CounterCommand): Flow<CounterEvent> {
+        override fun execute(
+            command: CounterCommand
+        ): Flow<CounterEvent> {
             commands += command
             return events(command)
         }
     }
 
-    private class CounterViewModel(
-        interactor: Interactor<CounterCommand, CounterEvent>,
-        initialState: CounterState,
-    ) : BaseViewModel<CounterState, CounterAction, CounterCommand, CounterEvent, CounterEffect>(
-        initialState, CounterReducer, interactor,
-    ) {
+    private class CounterViewModel(interactor: Interactor<CounterCommand, CounterEvent>, initialState: CounterState) :
+        BaseViewModel<CounterState, CounterAction, CounterCommand, CounterEvent, CounterEffect>(
+            initialState,
+            CounterReducer,
+            interactor
+        ) {
         val actionStates = mutableListOf<Pair<CounterAction, CounterState>>()
         val eventStates = mutableListOf<Pair<CounterEvent, CounterState>>()
         val commandJobs = mutableListOf<Job>()
         val effectJobs = mutableListOf<Job>()
 
-        override fun handleAction(action: CounterAction) {
+        override fun handleAction(
+            action: CounterAction
+        ) {
             actionStates += action to state.value
             when (action) {
                 is CounterAction.Run -> commandJobs += execute(action.command)
@@ -444,13 +471,15 @@ class BaseViewModelTest {
             }
         }
 
-        override fun handleEvent(event: CounterEvent) {
+        override fun handleEvent(
+            event: CounterEvent
+        ) {
             eventStates += event to state.value
             effectJobs += emitEffect(
                 when (event) {
                     is CounterEvent.Added -> CounterEffect.TotalChanged(state.value.total)
                     is CounterEvent.Failed -> CounterEffect.Message(event.message)
-                },
+                }
             )
         }
     }

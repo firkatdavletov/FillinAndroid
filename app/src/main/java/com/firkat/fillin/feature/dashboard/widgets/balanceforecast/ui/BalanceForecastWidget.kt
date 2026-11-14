@@ -35,17 +35,17 @@ import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.theme.saldomiColors
-import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun BalanceForecastRoute(
     modifier: Modifier = Modifier,
     onDetailsClick: () -> Unit = {},
-    viewModel: BalanceForecastViewModel = koinViewModel(),
+    viewModel: BalanceForecastViewModel = koinViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     BalanceForecastWidget(state, modifier, onDetailsClick)
@@ -55,10 +55,10 @@ fun BalanceForecastRoute(
 internal fun BalanceForecastWidget(
     state: ForecastUiState,
     modifier: Modifier = Modifier,
-    onDetailsClick: () -> Unit = {},
+    onDetailsClick: () -> Unit = {}
 ) {
     WidgetCard(
-        modifier.fillMaxWidth(),
+        modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(4.dp),
@@ -74,15 +74,15 @@ internal fun BalanceForecastWidget(
                 HorizontalDivider()
                 Text(
                     stringResource(R.string.forecast_ending_on, forecastDate(requireNotNull(state.endDate), "d MMMM")),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium
                 )
                 ForecastEndings(state)
-                SaldomiOutlinedButton (
+                SaldomiOutlinedButton(
                     onClick = onDetailsClick,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = stringResource(R.string.forecast_details),
+                        text = stringResource(R.string.forecast_details)
                     )
                 }
             }
@@ -93,7 +93,7 @@ internal fun BalanceForecastWidget(
 @Composable
 internal fun ForecastHeading(
     state: ForecastUiState,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Column(modifier) {
         WidgetHeading(
@@ -124,10 +124,10 @@ internal fun ForecastHeading(
 
                             else -> R.string.forecast_days_many
                         },
-                        count,
-                    ),
+                        count
+                    )
                 ),
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall
             )
         }
     }
@@ -136,7 +136,7 @@ internal fun ForecastHeading(
 @Composable
 internal fun ForecastUnavailable(
     status: DashboardStatus,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Text(
         stringResource(
@@ -144,9 +144,9 @@ internal fun ForecastUnavailable(
                 DashboardStatus.Forbidden -> R.string.dashboard_error_forbidden
                 DashboardStatus.LocalError -> R.string.dashboard_error_local_data
                 else -> R.string.forecast_loading
-            },
+            }
         ),
-        modifier,
+        modifier
     )
 }
 
@@ -154,7 +154,7 @@ internal fun ForecastUnavailable(
 internal fun ForecastStatusMessage(
     state: ForecastUiState,
     modifier: Modifier = Modifier,
-    showHistoryHints: Boolean = true,
+    showHistoryHints: Boolean = true
 ) {
     val status = state.financialStatus
     if (status == BalanceForecastStatus.INSUFFICIENT_DATA && !showHistoryHints) return
@@ -166,7 +166,8 @@ internal fun ForecastStatusMessage(
             BalanceForecastStatus.NORMAL -> MaterialTheme.saldomiColors.income
             else -> MaterialTheme.colorScheme.tertiary
         }
-    val date = state.projection?.structuralDeficitDate ?: state.currentPace?.firstDeficitDate ?: state.byLimit.firstDeficitDate
+    val date =
+        state.projection?.structuralDeficitDate ?: state.currentPace?.firstDeficitDate ?: state.byLimit.firstDeficitDate
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             stringResource(
@@ -176,16 +177,16 @@ internal fun ForecastStatusMessage(
                     BalanceForecastStatus.STRUCTURAL_DEFICIT -> R.string.forecast_structural
                     BalanceForecastStatus.INSUFFICIENT_DATA -> R.string.forecast_insufficient
                 },
-                date?.let { forecastDate(it, "d MMMM") }.orEmpty(),
+                date?.let { forecastDate(it, "d MMMM") }.orEmpty()
             ),
             color = color,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.SemiBold
         )
         when (status) {
             BalanceForecastStatus.CURRENT_PACE_RISK -> {
                 Text(
                     stringResource(R.string.forecast_limit_helps),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
@@ -196,16 +197,16 @@ internal fun ForecastStatusMessage(
                         date
                             ?.let {
                                 forecastDate(it, "d MMMM")
-                            }.orEmpty(),
+                            }.orEmpty()
                     ),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
             BalanceForecastStatus.INSUFFICIENT_DATA -> {
                 Text(
                     stringResource(R.string.forecast_limit_only),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
@@ -225,7 +226,7 @@ internal fun ForecastStatusMessage(
 @Composable
 internal fun ForecastLegend(
     hasPace: Boolean,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     ForecastAdaptiveRow(modifier) {
         if (hasPace) ForecastLegendItem(true)
@@ -236,7 +237,7 @@ internal fun ForecastLegend(
 @Composable
 private fun ForecastLegendItem(
     pace: Boolean,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val color = if (pace) MaterialTheme.saldomiColors.forecastPace else MaterialTheme.saldomiColors.income
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -246,12 +247,12 @@ private fun ForecastLegendItem(
                 Offset(0f, size.height / 2),
                 Offset(size.width, size.height / 2),
                 3.dp.toPx(),
-                pathEffect = if (pace) PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 3.dp.toPx())) else null,
+                pathEffect = if (pace) PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 3.dp.toPx())) else null
             )
         }
         Text(
             stringResource(if (pace) R.string.forecast_current_pace else R.string.forecast_by_limit),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall
         )
     }
 }
@@ -259,7 +260,7 @@ private fun ForecastLegendItem(
 @Composable
 internal fun ForecastAdaptiveRow(
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
+    content: @Composable () -> Unit
 ) {
     val fontScale = LocalDensity.current.fontScale
     BoxWithConstraints(modifier.fillMaxWidth()) {
@@ -270,7 +271,7 @@ internal fun ForecastAdaptiveRow(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                maxItemsInEachRow = 2,
+                maxItemsInEachRow = 2
             ) {
                 content()
             }
@@ -281,7 +282,7 @@ internal fun ForecastAdaptiveRow(
 @Composable
 internal fun ForecastEndings(
     state: ForecastUiState,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     ForecastAdaptiveRow(modifier) {
         state.currentPace?.let { ForecastAmount(R.string.forecast_current_pace, it.endingBalance) }
@@ -293,26 +294,26 @@ internal fun ForecastEndings(
 internal fun ForecastAmount(
     label: Int,
     money: Money?,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Column(modifier) {
         Text(stringResource(label), style = MaterialTheme.typography.bodySmall)
         BasicText(
             money?.let { signedForecastMoney(it) } ?: stringResource(R.string.dashboard_value_unavailable),
             style =
-                MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color =
-                        if (money != null &&
-                            money.amount.signum() < 0
-                        ) {
-                            MaterialTheme.saldomiColors.expense
-                        } else {
-                            MaterialTheme.saldomiColors.income
-                        },
-                ),
+            MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color =
+                if (money != null &&
+                    money.amount.signum() < 0
+                ) {
+                    MaterialTheme.saldomiColors.expense
+                } else {
+                    MaterialTheme.saldomiColors.income
+                }
+            ),
             maxLines = 1,
-            autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = 24.sp),
+            autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = 24.sp)
         )
     }
 }
@@ -321,14 +322,16 @@ internal fun ForecastAmount(
 internal fun ForecastChart(
     state: ForecastUiState,
     modifier: Modifier = Modifier,
-    interactive: Boolean = true,
+    interactive: Boolean = true
 ) {
     val start = state.startDate ?: return
     val end = state.endDate ?: return
     val all = state.points + state.currentPacePoints.orEmpty()
     val geometry = remember(all, start, end) { ForecastChartGeometry(all, start, end) }
     val days = geometry.days
-    var selected by remember(interactive, start, end, state.points, state.currentPacePoints) { mutableStateOf<Int?>(null) }
+    var selected by remember(interactive, start, end, state.points, state.currentPacePoints) {
+        mutableStateOf<Int?>(null)
+    }
     val paceColor = MaterialTheme.saldomiColors.forecastPace
     val limitColor = MaterialTheme.saldomiColors.income
     val negative = MaterialTheme.saldomiColors.expense
@@ -343,7 +346,10 @@ internal fun ForecastChart(
             .symbol
     val zero = stringResource(R.string.forecast_zero, symbol)
     val textMeasurer = rememberTextMeasurer()
-    val zeroLayout = textMeasurer.measure(zero, MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface))
+    val zeroLayout = textMeasurer.measure(
+        zero,
+        MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface)
+    )
     val paceLabel = stringResource(R.string.forecast_current_pace)
     val limitLabel = stringResource(R.string.forecast_by_limit)
     val summary =
@@ -353,11 +359,13 @@ internal fun ForecastChart(
                 limitLabel +
                     ": " +
                     signedForecastMoney(it)
-            },
+            }
         ).joinToString("; ")
     val selectionInput = if (interactive) {
         Modifier.pointerInput(geometry) {
-            fun select(x: Float) {
+            fun select(
+                x: Float
+            ) {
                 selected = geometry.nearestDay((x - 32.dp.toPx()) / (size.width - 40.dp.toPx()).coerceAtLeast(1f))
             }
             awaitEachGesture {
@@ -395,10 +403,13 @@ internal fun ForecastChart(
                                 state.currentPacePoints?.find { it.date == date }?.let {
                                     paceLabel + ": " +
                                         signedForecastMoney(
-                                            it.balance,
+                                            it.balance
                                         )
                                 },
-                                state.points.find { it.date == date }?.let { limitLabel + ": " + signedForecastMoney(it.balance) },
+                                state.points.find { it.date == date }?.let {
+                                    limitLabel + ": " +
+                                        signedForecastMoney(it.balance)
+                                }
                             ).joinToString("; ")
                     } ?: (zero + "; " + summary)
                     if (interactive) {
@@ -410,16 +421,16 @@ internal fun ForecastChart(
                             CustomAccessibilityAction(next) {
                                 selected = ((selected ?: -1) + 1).coerceAtMost(days)
                                 true
-                            },
+                            }
                         )
                     }
-                }.then(selectionInput),
+                }.then(selectionInput)
         ) {
             val left = 32.dp.toPx()
             val width = (size.width - left - 8.dp.toPx()).coerceAtLeast(1f)
 
             fun x(
-                date: LocalDate,
+                date: LocalDate
             ) = left + geometry.x(date) * width
             val zeroY = geometry.zeroY * size.height
             drawText(zeroLayout, topLeft = Offset(0f, (zeroY - zeroLayout.size.height).coerceAtLeast(0f)))
@@ -427,42 +438,51 @@ internal fun ForecastChart(
                 outline,
                 Offset(left, zeroY),
                 Offset(left + width, zeroY),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 5.dp.toPx())),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 5.dp.toPx()))
             )
             listOfNotNull(state.currentPacePoints?.let { it to paceColor }, state.points to limitColor).forEachIndexed {
-                index,
-                (points, color),
+                    index,
+                    (points, color)
                 ->
                 fun drawSeries(
-                    tint: androidx.compose.ui.graphics.Color,
+                    tint: androidx.compose.ui.graphics.Color
                 ) {
                     if (points.size > 1) {
                         val path =
                             Path().apply {
                                 moveTo(x(points.first().date), geometry.y(points.first().balance.amount) * size.height)
-                                points.drop(1).forEach { lineTo(x(it.date), geometry.y(it.balance.amount) * size.height) }
+                                points.drop(1).forEach {
+                                    lineTo(x(it.date), geometry.y(it.balance.amount) * size.height)
+                                }
                             }
                         drawPath(
                             path,
                             tint,
                             style =
-                                Stroke(
-                                    width = 2.5.dp.toPx(),
-                                    pathEffect =
-                                        if (state.currentPacePoints != null &&
-                                            index == 0
-                                        ) {
-                                            PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 3.dp.toPx()))
-                                        } else {
-                                            null
-                                        },
-                                ),
+                            Stroke(
+                                width = 2.5.dp.toPx(),
+                                pathEffect =
+                                if (state.currentPacePoints != null &&
+                                    index == 0
+                                ) {
+                                    PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 3.dp.toPx()))
+                                } else {
+                                    null
+                                }
+                            )
                         )
                     }
                     if (points.size ==
                         1
                     ) {
-                        drawCircle(tint, 3.dp.toPx(), Offset(x(points[0].date), geometry.y(points[0].balance.amount) * size.height))
+                        drawCircle(
+                            tint,
+                            3.dp.toPx(),
+                            Offset(
+                                x(points[0].date),
+                                geometry.y(points[0].balance.amount) * size.height
+                            )
+                        )
                     }
                 }
                 clipRect(bottom = zeroY) { drawSeries(color) }
@@ -476,15 +496,15 @@ internal fun ForecastChart(
                     state.currentPacePoints?.find {
                         it.date ==
                             start.plusDays(day.toLong())
-                    },
+                    }
                 ).forEach {
                     drawCircle(
                         outline,
                         4.dp.toPx(),
                         Offset(
                             cursorX,
-                            geometry.y(it.balance.amount) * size.height,
-                        ),
+                            geometry.y(it.balance.amount) * size.height
+                        )
                     )
                 }
             }
@@ -504,9 +524,15 @@ internal fun ForecastChart(
             val date = start.plusDays(day.toLong())
             Column(Modifier.testTag("forecast-selection")) {
                 Text(forecastDate(date, "d MMMM yyyy"), fontWeight = FontWeight.Bold)
-                state.currentPacePoints?.find { it.date == date }?.let { Text(paceLabel + ": " + signedForecastMoney(it.balance)) }
+                state.currentPacePoints?.find { it.date == date }?.let {
+                    Text(
+                        paceLabel + ": " + signedForecastMoney(it.balance)
+                    )
+                }
                 state.points.find { it.date == date }?.let { Text(limitLabel + ": " + signedForecastMoney(it.balance)) }
-                state.projection?.events?.filter { (if (it.income) it.availableOn else maxOf(start, it.dueOn)) == date }?.forEach {
+                state.projection?.events?.filter {
+                    (if (it.income) it.availableOn else maxOf(start, it.dueOn)) == date
+                }?.forEach {
                     Text(it.name + ": " + formatMoney(it.amount.amount, it.amount.currency))
                 }
             }
@@ -516,11 +542,11 @@ internal fun ForecastChart(
 
 internal fun forecastDate(
     date: LocalDate,
-    pattern: String = "d MMM",
+    pattern: String = "d MMM"
 ) = date.format(DateTimeFormatter.ofPattern(pattern, Locale.forLanguageTag("ru-KZ")))
 
 internal fun signedForecastMoney(
-    money: Money,
+    money: Money
 ) = (if (money.amount.signum() > 0) "+" else "") + formatMoney(money.amount, money.currency)
 
 internal val forecastPreviewState: ForecastUiState =
@@ -528,7 +554,7 @@ internal val forecastPreviewState: ForecastUiState =
         val start = LocalDate.of(2026, 11, 3)
 
         fun points(
-            pace: Boolean,
+            pace: Boolean
         ) = (0L..42L).map { day ->
             ForecastPoint(
                 start.plusDays(day),
@@ -536,9 +562,9 @@ internal val forecastPreviewState: ForecastUiState =
                     (
                         100000L - day * (if (pace) 5000 else 2000) +
                             (if (day >= 14) 50000 else 0)
-                    ).toBigDecimal(),
-                    "KZT",
-                ),
+                        ).toBigDecimal(),
+                    "KZT"
+                )
             )
         }
         ForecastUiState.from(
@@ -555,16 +581,16 @@ internal val forecastPreviewState: ForecastUiState =
                 nextDaysLimit = Money(2000.toBigDecimal(), "KZT"),
                 dependsOnPlannedIncome = true,
                 events =
-                    listOf(
-                        com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(
-                            "salary",
-                            "Зарплата",
-                            start.plusDays(13),
-                            Money(50000.toBigDecimal(), "KZT"),
-                            true,
-                        ),
-                    ),
-            ),
+                listOf(
+                    com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(
+                        "salary",
+                        "Зарплата",
+                        start.plusDays(13),
+                        Money(50000.toBigDecimal(), "KZT"),
+                        true
+                    )
+                )
+            )
         )
     }
 
@@ -582,7 +608,11 @@ private fun ForecastPreview() {
 @Preview(name = "Normal dark", widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun NormalPreview() {
-    FillinTheme { BalanceForecastWidget(forecastPreviewState.copy(currentPacePoints = forecastPreviewState.points, projection = null)) }
+    FillinTheme {
+        BalanceForecastWidget(
+            forecastPreviewState.copy(currentPacePoints = forecastPreviewState.points, projection = null)
+        )
+    }
 }
 
 @Preview(name = "Insufficient", widthDp = 390)
@@ -591,7 +621,7 @@ private fun NormalPreview() {
 private fun InsufficientPreview() {
     FillinTheme {
         BalanceForecastWidget(
-            forecastPreviewState.copy(currentPacePoints = null, insufficientHistory = true, projection = null),
+            forecastPreviewState.copy(currentPacePoints = null, insufficientHistory = true, projection = null)
         )
     }
 }
@@ -603,8 +633,10 @@ private fun StructuralPreview() {
     FillinTheme {
         BalanceForecastWidget(
             ForecastUiState.from(
-                requireNotNull(forecastPreviewState.projection).copy(structuralDeficitDate = forecastPreviewState.startDate),
-            ),
+                requireNotNull(
+                    forecastPreviewState.projection
+                ).copy(structuralDeficitDate = forecastPreviewState.startDate)
+            )
         )
     }
 }
@@ -634,7 +666,11 @@ private fun StatusRiskComponentPreview() {
 @Preview(name = "StatusNormal dark", widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun StatusNormalComponentPreview() {
-    FillinTheme { ForecastStatusMessage(forecastPreviewState.copy(currentPacePoints = forecastPreviewState.points, projection = null)) }
+    FillinTheme {
+        ForecastStatusMessage(
+            forecastPreviewState.copy(currentPacePoints = forecastPreviewState.points, projection = null)
+        )
+    }
 }
 
 @Preview(name = "StatusInsufficient", widthDp = 390)
@@ -651,8 +687,10 @@ private fun StatusStructuralComponentPreview() {
     FillinTheme {
         ForecastStatusMessage(
             ForecastUiState.from(
-                requireNotNull(forecastPreviewState.projection).copy(structuralDeficitDate = forecastPreviewState.startDate),
-            ),
+                requireNotNull(
+                    forecastPreviewState.projection
+                ).copy(structuralDeficitDate = forecastPreviewState.startDate)
+            )
         )
     }
 }

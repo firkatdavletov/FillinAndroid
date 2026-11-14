@@ -16,30 +16,25 @@ data class OperationCreateUiState(
     val error: OperationHistoryError? = null,
     val inputError: OperationInputError? = null,
     val feedback: OperationCreateFeedback? = null,
-    val feedbackSequence: Long = 0,
+    val feedbackSequence: Long = 0
 )
 
 enum class OperationCreateFeedback { InvalidInput, InvalidCategory, Unavailable, SaveFailed }
 
-data class OperationCreateState(val createEditor: OperationCreateUiState?, val offline: OfflineHistoryContext = OfflineHistoryContext(), val created: com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult? = null)
+data class OperationCreateState(
+    val createEditor: OperationCreateUiState?,
+    val offline: OfflineHistoryContext = OfflineHistoryContext(),
+    val created: com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult? = null
+)
 
 sealed interface OperationCreateEvent {
     data object CreateClosed : OperationCreateEvent
 
-    data class CreateTypeChanged(
-        val type: OperationType,
-    ) : OperationCreateEvent
+    data class CreateTypeChanged(val type: OperationType) : OperationCreateEvent
 
-    data class CreateInputChanged(
-        val value: String,
-    ) : OperationCreateEvent
+    data class CreateInputChanged(val value: String) : OperationCreateEvent
 
-    data class CreateCategoryClicked(
-        val id: String,
-    ) : OperationCreateEvent
+    data class CreateCategoryClicked(val id: String) : OperationCreateEvent
 
-    data class CreateFeedbackShown(
-        val sequence: Long,
-    ) : OperationCreateEvent
-
+    data class CreateFeedbackShown(val sequence: Long) : OperationCreateEvent
 }

@@ -11,11 +11,28 @@ import org.junit.Assert.*
 @OptIn(ExperimentalCoroutinesApi::class)
 class OperationPlanLinkViewModelTest {
     private val models = ViewModelStore()
-    @Before fun setup() { Dispatchers.setMain(StandardTestDispatcher()) }
-    @After fun cleanup() { models.clear(); Dispatchers.resetMain() }
-    private val plan = SuggestedPlan(PlanLinkTarget("EXPENSE", ruleId = "rule", dueOn = "2026-10-30"), "expense-category", "Продукты", "100.00", "80.00", 0)
+
+    @Before fun setup() {
+        Dispatchers.setMain(StandardTestDispatcher())
+    }
+
+    @After fun cleanup() {
+        models.clear()
+        Dispatchers.resetMain()
+    }
+    private val plan =
+        SuggestedPlan(
+            PlanLinkTarget("EXPENSE", ruleId = "rule", dueOn = "2026-10-30"),
+            "expense-category",
+            "Продукты",
+            "100.00",
+            "80.00",
+            0
+        )
     private val history = FakeOfflineHistory()
-    private fun model(store: Links) = OperationPlanLinkViewModel("first", history, store).also { models.put("model", it) }
+    private fun model(
+        store: Links
+    ) = OperationPlanLinkViewModel("first", history, store).also { models.put("model", it) }
 
     @Test fun `confirmation blocks repeated clicks and dismissal until saved`() = runTest {
         val store = Links()
@@ -47,7 +64,10 @@ class OperationPlanLinkViewModelTest {
     }
 
     @Test fun `failed confirmation keeps operation and permits retry`() = runTest {
-        val store = Links().apply { failure = IllegalStateException("disk"); gate.complete(Unit) }
+        val store = Links().apply {
+            failure = IllegalStateException("disk")
+            gate.complete(Unit)
+        }
         val model = model(store)
         runCurrent()
         model.confirm()
@@ -79,16 +99,39 @@ class OperationPlanLinkViewModelTest {
 
     private inner class Links : OperationPlanLinkStore {
         val links = MutableStateFlow(OperationPlanLinks(listOf(plan)))
-        override fun observeLinks(operationId: String) = links
+        override fun observeLinks(
+            operationId: String
+        ) = links
         override val pendingProposal = MutableStateFlow<String?>("first")
         var sets = 0
         var dismisses = 0
         var failure: Exception? = null
         val gate = CompletableDeferred<Unit>()
-        override suspend fun proposal(operationId: String) = plan
-        override suspend fun selectProposal(operationId: String, plan: SuggestedPlan) = Unit
-        override suspend fun dismissProposal(operationId: String) { dismisses++; pendingProposal.value = null }
-        override suspend fun setLink(operationId: String, plan: SuggestedPlan, operationVersion: Long) { sets++; gate.await(); failure?.let { throw it } }
-        override suspend fun removeLink(operationId: String, operationVersion: Long) = Unit
+        override suspend fun proposal(
+            operationId: String
+        ) = plan
+        override suspend fun selectProposal(
+            operationId: String,
+            plan: SuggestedPlan
+        ) = Unit
+        override suspend fun dismissProposal(
+            operationId: String
+        ) {
+            dismisses++
+            pendingProposal.value = null
+        }
+        override suspend fun setLink(
+            operationId: String,
+            plan: SuggestedPlan,
+            operationVersion: Long
+        ) {
+            sets++
+            gate.await()
+            failure?.let { throw it }
+        }
+        override suspend fun removeLink(
+            operationId: String,
+            operationVersion: Long
+        ) = Unit
     }
 }

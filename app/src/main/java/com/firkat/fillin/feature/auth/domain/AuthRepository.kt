@@ -7,7 +7,7 @@ data class AuthUser(
     val displayName: String?,
     val email: String?,
     val providers: Set<String> = emptySet(),
-    val emailVerified: Boolean = true,
+    val emailVerified: Boolean = true
 )
 
 sealed interface AuthSession {
@@ -17,13 +17,9 @@ sealed interface AuthSession {
 
     data object Anonymous : AuthSession
 
-    data class Authenticated(
-        val user: AuthUser,
-    ) : AuthSession
+    data class Authenticated(val user: AuthUser) : AuthSession
 
-    data class EmailVerificationRequired(
-        val user: AuthUser,
-    ) : AuthSession
+    data class EmailVerificationRequired(val user: AuthUser) : AuthSession
 }
 
 enum class AuthError {
@@ -42,29 +38,27 @@ enum class AuthError {
     SignInUnavailable,
     SignInFailed,
     SignOutFailed,
-    CredentialResetFailed,
+    CredentialResetFailed
 }
 
-class AuthFailure(
-    val error: AuthError,
-) : Exception()
+class AuthFailure(val error: AuthError) : Exception()
 
 /** Authentication does not read, bind, synchronise or delete a budget. */
 interface AuthRepository {
     val session: StateFlow<AuthSession>
 
     suspend fun signInWithGoogle(
-        idToken: String,
+        idToken: String
     )
 
     suspend fun signInWithEmail(
         email: String,
-        password: String,
+        password: String
     ): Unit = throw AuthFailure(AuthError.SignInUnavailable)
 
     suspend fun register(
         email: String,
-        password: String,
+        password: String
     ): Unit = throw AuthFailure(AuthError.SignInUnavailable)
 
     suspend fun sendVerification(): Unit = throw AuthFailure(AuthError.SignInUnavailable)
@@ -72,23 +66,23 @@ interface AuthRepository {
     suspend fun reloadUser(): Unit = throw AuthFailure(AuthError.SignInUnavailable)
 
     suspend fun resetPassword(
-        email: String,
+        email: String
     ): Unit = throw AuthFailure(AuthError.SignInUnavailable)
 
     suspend fun linkPassword(
-        password: String,
+        password: String
     ): Unit = throw AuthFailure(AuthError.SignInUnavailable)
 
     suspend fun linkGoogle(
-        idToken: String,
+        idToken: String
     ): Unit = throw AuthFailure(AuthError.SignInUnavailable)
 
     suspend fun reauthenticatePassword(
-        password: String,
+        password: String
     ): Unit = throw AuthFailure(AuthError.SignInUnavailable)
 
     suspend fun reauthenticateGoogle(
-        idToken: String,
+        idToken: String
     ): Unit = throw AuthFailure(AuthError.SignInUnavailable)
 
     fun requireEmailVerification() {}

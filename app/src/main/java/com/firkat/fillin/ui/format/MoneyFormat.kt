@@ -7,7 +7,10 @@ import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
 
-fun formatMoney(amount: BigDecimal, currencyCode: String): String = runCatching {
+fun formatMoney(
+    amount: BigDecimal,
+    currencyCode: String
+): String = runCatching {
     NumberFormat.getCurrencyInstance(Locale.forLanguageTag("ru-KZ")).apply {
         currency = Currency.getInstance(currencyCode)
         val symbol = BudgetCurrency.entries.firstOrNull { it.name == currencyCode }?.symbol

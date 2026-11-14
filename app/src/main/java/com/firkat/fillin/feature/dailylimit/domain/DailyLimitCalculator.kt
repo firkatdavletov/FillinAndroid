@@ -10,7 +10,13 @@ import java.time.temporal.ChronoUnit
 enum class IncomeFrequency { ONCE, WEEKLY, BIWEEKLY, MONTHLY }
 enum class ForecastStatus { OK, DEPENDS_ON_INCOME, DEFICIT, INCOMPLETE_DATA }
 enum class ForecastWarning { NO_INCOME, OVERDUE_INCOME, UNCONFIRMED_REMAINDER }
-data class ForecastEvent(val id: String, val name: String, val dueOn: LocalDate, val amount: Money, val income: Boolean) {
+data class ForecastEvent(
+    val id: String,
+    val name: String,
+    val dueOn: LocalDate,
+    val amount: Money,
+    val income: Boolean
+) {
     val availableOn: LocalDate get() = if (income) dueOn.plusDays(1) else dueOn
 }
 data class DailyLimitInput(
@@ -19,13 +25,13 @@ data class DailyLimitInput(
     val events: List<ForecastEvent>,
     val today: LocalDate,
     val reserve: Money = Money(BigDecimal.ZERO, balance.currency),
-    val warnings: Set<ForecastWarning> = emptySet(),
+    val warnings: Set<ForecastWarning> = emptySet()
 )
 data class DailyBalance(
     val date: LocalDate,
     val events: List<ForecastEvent>,
     val withoutDailySpending: Money,
-    val afterDailySpending: Money,
+    val afterDailySpending: Money
 )
 data class DailyLimitResult(
     val dailyTarget: Money,
@@ -42,17 +48,33 @@ data class DailyLimitResult(
     val overspentToday: Money,
     val nextDaysLimit: Money,
     val warnings: Set<ForecastWarning>,
-    val currentBalance: Money,
+    val currentBalance: Money
 ) {
-    val plannedIncome: Money = Money(projectedDailyBalances.flatMap { it.events }.filter { it.income }.sumOf { it.amount.amount }.setScale(2), dailyTarget.currency)
-    val plannedPayments: Money = Money(projectedDailyBalances.flatMap { it.events }.filterNot { it.income }.sumOf { it.amount.amount }.setScale(2), dailyTarget.currency)
+    val plannedIncome: Money =
+        Money(
+            projectedDailyBalances.flatMap {
+                it.events
+            }.filter { it.income }.sumOf { it.amount.amount }.setScale(2),
+            dailyTarget.currency
+        )
+    val plannedPayments: Money =
+        Money(
+            projectedDailyBalances.flatMap {
+                it.events
+            }.filterNot { it.income }.sumOf { it.amount.amount }.setScale(2),
+            dailyTarget.currency
+        )
     val availableBeforeDailySpending: Money = projectedDailyBalances.last().withoutDailySpending
     val horizonDays: Int get() = ChronoUnit.DAYS.between(horizonStart, horizonEnd).toInt() + 1
 }
 
 /** Always derive monthly dates from the anchor, never from the clamped February date. */
 object ForecastEventGenerator {
-    fun dates(anchor: LocalDate, frequency: IncomeFrequency, through: LocalDate): Sequence<LocalDate> = sequence {
+    fun dates(
+        anchor: LocalDate,
+        frequency: IncomeFrequency,
+        through: LocalDate
+    ): Sequence<LocalDate> = sequence {
         var index = 0L
         while (true) {
             val date = when (frequency) {
@@ -70,8 +92,13 @@ object ForecastEventGenerator {
     }
 }
 
-internal fun calendar(input: DailyLimitInput, end: LocalDate): List<DailyBalance> {
-    require(input.balance.currency == input.todayVariableNet.currency && input.reserve.currency == input.balance.currency)
+internal fun calendar(
+    input: DailyLimitInput,
+    end: LocalDate
+): List<DailyBalance> {
+    require(
+        input.balance.currency == input.todayVariableNet.currency && input.reserve.currency == input.balance.currency
+    )
     require(input.events.all { it.amount.currency == input.balance.currency && it.amount.amount.signum() >= 0 })
     val events = input.events.filter { !it.income || it.dueOn >= input.today }
         .groupBy { if (it.income) it.availableOn else maxOf(input.today, it.dueOn) }
@@ -85,21 +112,34 @@ internal fun calendar(input: DailyLimitInput, end: LocalDate): List<DailyBalance
     }
 }
 
-internal fun horizonEnd(input: DailyLimitInput): LocalDate {
+internal fun horizonEnd(
+    input: DailyLimitInput
+): LocalDate {
     val eligible = input.events.filter { it.income && it.dueOn >= input.today && it.amount.amount.signum() > 0 }
-    val boundary = eligible.map { it.dueOn }.filter { it in input.today.plusDays(30)..input.today.plusDays(60) }.minOrNull()
+    val boundary = eligible.map {
+        it.dueOn
+    }.filter { it in input.today.plusDays(30)..input.today.plusDays(60) }.minOrNull()
     val end = boundary?.minusDays(1) ?: input.today.plusDays(59)
     return end
 }
 
 class DailyLimitCalculator {
-    fun calculate(input: DailyLimitInput): DailyLimitResult = calculate(input, calendar(input, horizonEnd(input)))
+    fun calculate(
+        input: DailyLimitInput
+    ): DailyLimitResult = calculate(input, calendar(input, horizonEnd(input)))
 
-    internal fun calculate(input: DailyLimitInput, days: List<DailyBalance>): DailyLimitResult {
+    internal fun calculate(
+        input: DailyLimitInput,
+        days: List<DailyBalance>
+    ): DailyLimitResult {
         val eligible = input.events.filter { it.income && it.dueOn >= input.today && it.amount.amount.signum() > 0 }
         val end = days.last().date
-        fun money(value: BigDecimal) = Money(value.setScale(2), input.balance.currency)
-        fun floor(value: BigDecimal) = value.max(BigDecimal.ZERO).setScale(0, RoundingMode.FLOOR)
+        fun money(
+            value: BigDecimal
+        ) = Money(value.setScale(2), input.balance.currency)
+        fun floor(
+            value: BigDecimal
+        ) = value.max(BigDecimal.ZERO).setScale(0, RoundingMode.FLOOR)
         val constraints = days.mapIndexed { index, day ->
             (day.withoutDailySpending.amount + input.todayVariableNet.amount - input.reserve.amount)
                 .divide(BigDecimal(index + 1), 16, RoundingMode.FLOOR)
@@ -110,19 +150,41 @@ class DailyLimitCalculator {
         val target = if (deficit == null) reference else BigDecimal.ZERO
         val spent = input.todayVariableNet.amount.max(BigDecimal.ZERO)
         val remaining = if (deficit == null) (target - spent).max(BigDecimal.ZERO) else BigDecimal.ZERO
-        val next = floor(days.drop(1).mapIndexed { i, day ->
-            (day.withoutDailySpending.amount - remaining - input.reserve.amount).divide(BigDecimal(i + 1), 16, RoundingMode.FLOOR)
-        }.minOrNull() ?: BigDecimal.ZERO)
+        val next = floor(
+            days.drop(1).mapIndexed { i, day ->
+                (day.withoutDailySpending.amount - remaining - input.reserve.amount).divide(
+                    BigDecimal(i + 1),
+                    16,
+                    RoundingMode.FLOOR
+                )
+            }.minOrNull() ?: BigDecimal.ZERO
+        )
         val warnings = input.warnings + buildSet {
             if (eligible.isEmpty()) add(ForecastWarning.NO_INCOME)
             if (input.events.any { it.income && it.dueOn < input.today }) add(ForecastWarning.OVERDUE_INCOME)
         }
         val depends = days.any { day -> day.events.any { it.income } }
-        return DailyLimitResult(money(target), money(remaining), money(spent), input.today, end,
-            when { deficit != null -> ForecastStatus.DEFICIT; warnings.isNotEmpty() -> ForecastStatus.INCOMPLETE_DATA
-                depends -> ForecastStatus.DEPENDS_ON_INCOME; else -> ForecastStatus.OK },
+        return DailyLimitResult(
+            money(target), money(remaining), money(spent), input.today, end,
+            when {
+                deficit != null -> ForecastStatus.DEFICIT
+                warnings.isNotEmpty() -> ForecastStatus.INCOMPLETE_DATA
+                depends -> ForecastStatus.DEPENDS_ON_INCOME
+                else -> ForecastStatus.OK
+            },
             deficit?.date, deficit?.let { money(input.reserve.amount - it.withoutDailySpending.amount) },
-            days.mapIndexed { i, day -> day.copy(afterDailySpending = money(day.withoutDailySpending.amount - remaining - next * BigDecimal(i))) },
-            depends, days[index].date, money((spent - reference).max(BigDecimal.ZERO)), money(next), warnings, input.balance)
+            days.mapIndexed { i, day ->
+                day.copy(
+                    afterDailySpending = money(
+                        day.withoutDailySpending.amount - remaining - next * BigDecimal(i)
+                    )
+                )
+            },
+            depends, days[index].date,
+            money(
+                (spent - reference).max(BigDecimal.ZERO)
+            ),
+            money(next), warnings, input.balance
+        )
     }
 }

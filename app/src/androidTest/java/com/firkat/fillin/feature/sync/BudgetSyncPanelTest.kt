@@ -21,8 +21,21 @@ class BudgetSyncPanelTest {
     }
 
     @Test fun cloudScreenShowsControlsAndLastSuccessfulSync() {
-        val control = FakeControl(BudgetSyncContext(ready = true, canWrite = true, cloudEnabled = true, lastSyncedAt = "2026-10-18T05:00:00Z", pending = 2))
-        compose.setContent { FillinTheme { CloudSyncRoute(onBack = {}, onSignIn = {}, viewModel = remember { BudgetSyncViewModel(control) }) } }
+        val control =
+            FakeControl(
+                BudgetSyncContext(
+                    ready = true,
+                    canWrite = true,
+                    cloudEnabled = true,
+                    lastSyncedAt = "2026-10-18T05:00:00Z",
+                    pending = 2
+                )
+            )
+        compose.setContent {
+            FillinTheme {
+                CloudSyncRoute(onBack = {}, onSignIn = {}, viewModel = remember { BudgetSyncViewModel(control) })
+            }
+        }
         compose.onNodeWithText("Облачная синхронизация").assertIsDisplayed()
         compose.onNodeWithTag("cloud_sync_toggle").assertIsOn().assertIsEnabled()
         compose.onNodeWithText("Синхронизировать").assertIsEnabled()
@@ -33,16 +46,14 @@ class BudgetSyncPanelTest {
         compose.onNodeWithTag("cloud_sync_toggle").assertIsNotEnabled()
     }
 
-    private class FakeControl(
-        initial: BudgetSyncContext,
-    ) : BudgetSyncControl {
+    private class FakeControl(initial: BudgetSyncContext) : BudgetSyncControl {
         override val context = MutableStateFlow(initial)
 
         override fun requestSync() = Unit
 
         override suspend fun resolve(
             id: String,
-            reapply: Boolean,
+            reapply: Boolean
         ) = error("Manual resolution is not part of the UI")
     }
 }

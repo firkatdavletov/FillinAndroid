@@ -8,10 +8,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-class DashboardViewModel(
-    budgets: ProfileBudgetsRepository,
-    private val source: DashboardDataSource,
-) : ViewModel() {
+class DashboardViewModel(budgets: ProfileBudgetsRepository, private val source: DashboardDataSource) : ViewModel() {
     val budgetState =
         budgets
             .observe()
@@ -21,7 +18,7 @@ class DashboardViewModel(
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(0, 0),
-                initialValue = "",
+                initialValue = ""
             )
 
     val uiState =
@@ -30,16 +27,16 @@ class DashboardViewModel(
                 DashboardUiState(
                     date = it.dashboard?.date,
                     status = it.status,
-                    isRefreshing = it.isRefreshing,
+                    isRefreshing = it.isRefreshing
                 )
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(0, 0),
-                initialValue = DashboardUiState(),
+                initialValue = DashboardUiState()
             )
 
     fun onEvent(
-        event: DashboardEvent,
+        event: DashboardEvent
     ) {
         when (event) {
             DashboardEvent.Refresh, DashboardEvent.Retry -> source.refresh()

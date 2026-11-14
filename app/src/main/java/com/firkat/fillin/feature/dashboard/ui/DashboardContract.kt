@@ -7,7 +7,7 @@ data class DashboardUiState(
     val budgetName: String? = null,
     val date: LocalDate? = null,
     val status: DashboardStatus = DashboardStatus.WaitingForBudget,
-    val isRefreshing: Boolean = false,
+    val isRefreshing: Boolean = false
 )
 
 sealed interface DashboardEvent {

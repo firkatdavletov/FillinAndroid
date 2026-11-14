@@ -2,14 +2,11 @@ package com.firkat.fillin.feature.main.ui
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -32,7 +29,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -53,7 +49,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.firkat.fillin.R
-import com.firkat.fillin.ui.component.SaldomiButton
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.theme.saldomiDesignColors
 
@@ -61,7 +56,7 @@ import com.firkat.fillin.ui.theme.saldomiDesignColors
 internal fun MainBottomNavigation(
     selectedDestination: AppDestination,
     onSelectDestination: (AppDestination) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
     val destinations =
@@ -69,67 +64,67 @@ internal fun MainBottomNavigation(
             AppDestination.Dashboard,
             AppDestination.History,
             AppDestination.Planned,
-            AppDestination.AddOperation,
+            AppDestination.AddOperation
         )
     Box(
         modifier =
-            modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
-        contentAlignment = Alignment.TopCenter,
+        modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+        contentAlignment = Alignment.TopCenter
     ) {
         HorizontalDivider(
             modifier =
-                Modifier
-                    .padding(top = 24.dp),
+            Modifier
+                .padding(top = 24.dp),
             thickness = 1.dp,
-            color = MaterialTheme.saldomiDesignColors.outlineReference,
+            color = MaterialTheme.saldomiDesignColors.outlineReference
         )
         NavigationBar(
             modifier =
-                Modifier
-                    .padding(top = 24.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            colors =
-                                listOf(
-                                    colors.surfaceContainer.copy(alpha = 0.9f),
-                                    colors.surfaceContainerLowest,
-                                ),
-                        ),
-                    ),
+            Modifier
+                .padding(top = 24.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors =
+                        listOf(
+                            colors.surfaceContainer.copy(alpha = 0.9f),
+                            colors.surfaceContainerLowest
+                        )
+                    )
+                ),
             containerColor = Color.Transparent,
             tonalElevation = 0.dp,
-            windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom),
+            windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
         ) {
             // Own the spacing so Material's inter-item gaps do not squeeze the labels.
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 destinations.forEach { destination ->
                     val selected = selectedDestination == destination
                     if (destination == AppDestination.AddOperation) {
                         Button(
                             modifier =
-                                Modifier
-                                    .height(64.dp)
-                                    .padding(top = 14.dp, end = 16.dp),
+                            Modifier
+                                .height(64.dp)
+                                .padding(top = 14.dp, end = 16.dp),
                             contentPadding =
-                                PaddingValues(
-                                    horizontal = 12.dp,
-                                ),
+                            PaddingValues(
+                                horizontal = 12.dp
+                            ),
                             shape = RoundedCornerShape(14.dp),
                             onClick = {
                                 onSelectDestination(destination)
-                            },
+                            }
                         ) {
                             Icon(
                                 imageVector = ImageVector.vectorResource(R.drawable.ic_add_24),
-                                contentDescription = null,
+                                contentDescription = null
                             )
                             Text(
                                 text = stringResource(R.string.notice),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelSmall
                             )
                         }
                     } else {
@@ -140,18 +135,24 @@ internal fun MainBottomNavigation(
                             icon = {
                                 Box(
                                     modifier =
-                                        Modifier
-                                            .size(width = 48.dp, height = 28.dp)
-                                            .background(
-                                                color = if (selected) colors.primary.copy(alpha = 0.18f) else Color.Transparent,
-                                                shape = CircleShape,
-                                            ),
-                                    contentAlignment = Alignment.Center,
+                                    Modifier
+                                        .size(width = 48.dp, height = 28.dp)
+                                        .background(
+                                            color = if (selected) {
+                                                colors.primary.copy(
+                                                    alpha = 0.18f
+                                                )
+                                            } else {
+                                                Color.Transparent
+                                            },
+                                            shape = CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         painter = painterResource(destination.iconResource),
                                         contentDescription = null,
-                                        modifier = Modifier.size(24.dp),
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             },
@@ -164,17 +165,17 @@ internal fun MainBottomNavigation(
                                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             },
                             colors =
-                                NavigationBarItemDefaults.colors(
-                                    selectedIconColor = colors.primary,
-                                    selectedTextColor = colors.onSurface,
-                                    indicatorColor = Color.Transparent,
-                                    unselectedIconColor = colors.onSurfaceVariant,
-                                    unselectedTextColor = colors.onSurfaceVariant,
-                                ),
+                            NavigationBarItemDefaults.colors(
+                                selectedIconColor = colors.primary,
+                                selectedTextColor = colors.onSurface,
+                                indicatorColor = Color.Transparent,
+                                unselectedIconColor = colors.onSurfaceVariant,
+                                unselectedTextColor = colors.onSurfaceVariant
+                            )
                         )
                     }
                 }
@@ -188,7 +189,7 @@ private object MainNavigationShape : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
-        density: Density,
+        density: Density
     ): Outline {
         val radius = with(density) { 24.dp.toPx() }.coerceAtMost(size.height / 2f)
         val center = size.width / 2f
@@ -209,7 +210,7 @@ private object MainNavigationShape : Shape {
                 lineTo(0f, radius)
                 quadraticTo(0f, 0f, radius, 0f)
                 close()
-            },
+            }
         )
     }
 }
@@ -248,14 +249,14 @@ private fun MainBottomNavigationAdaptivePreview() {
 
 @Composable
 private fun MainBottomNavigationPreview(
-    destination: AppDestination,
+    destination: AppDestination
 ) {
     FillinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             MainBottomNavigation(
                 selectedDestination = destination,
                 onSelectDestination = {},
-                modifier = Modifier.padding(top = 16.dp),
+                modifier = Modifier.padding(top = 16.dp)
             )
         }
     }

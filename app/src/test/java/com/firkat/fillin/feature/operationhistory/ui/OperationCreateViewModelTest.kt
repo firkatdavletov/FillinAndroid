@@ -1,11 +1,10 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import com.firkat.fillin.feature.categories.domain.model.Category
+import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.categories.domain.repository.CategoryUsageRepository
 import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
 import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
-import com.firkat.fillin.feature.categories.domain.model.CategoryKind
-import com.firkat.fillin.feature.categories.domain.model.Category
-import kotlinx.coroutines.flow.flowOf
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.NewOperation
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryException
@@ -17,6 +16,7 @@ import java.time.ZoneId
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -29,8 +29,13 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OperationCreateViewModelTest {
-    @Before fun setUp() { Dispatchers.setMain(StandardTestDispatcher()) }
-    @After fun tearDown() { Dispatchers.resetMain() }
+    @Before fun setUp() {
+        Dispatchers.setMain(StandardTestDispatcher())
+    }
+
+    @After fun tearDown() {
+        Dispatchers.resetMain()
+    }
 
     @Test fun `category click saves parsed input offline and closes after local save`() = runTest {
         val repository = FakeOfflineHistory()
@@ -88,7 +93,10 @@ class OperationCreateViewModelTest {
         val gate = CompletableDeferred<Unit>()
         var attempts = 0
         val history = object : OperationHistoryStore by repository {
-            override suspend fun create(operation: NewOperation, replacesRejectedId: String?): com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult {
+            override suspend fun create(
+                operation: NewOperation,
+                replacesRejectedId: String?
+            ): com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult {
                 attempts++
                 gate.await()
                 return repository.create(operation, replacesRejectedId)
@@ -150,7 +158,9 @@ class OperationCreateViewModelTest {
         val clock = object : Clock() {
             override fun instant() = now
             override fun getZone() = ZoneId.of("Asia/Almaty")
-            override fun withZone(zone: ZoneId): Clock = Clock.fixed(now, zone)
+            override fun withZone(
+                zone: ZoneId
+            ): Clock = Clock.fixed(now, zone)
         }
         val repository = FakeOfflineHistory()
         val model = model(repository, clock = clock)
@@ -179,12 +189,23 @@ class OperationCreateViewModelTest {
     private fun model(
         repository: FakeOfflineHistory,
         history: OperationHistoryStore = repository,
-        clock: Clock = Clock.fixed(Instant.parse("2026-10-24T05:00:00Z"), ZoneId.of("Asia/Almaty")),
+        clock: Clock = Clock.fixed(Instant.parse("2026-10-24T05:00:00Z"), ZoneId.of("Asia/Almaty"))
     ): OperationCreateViewModel {
         val usage = object : CategoryUsageRepository {
-            override fun observeFrequentlyUsed(limit: Int, kind: CategoryKind?) = flowOf(emptyList<Category>())
-            override fun observeRecentlyUsed(limit: Int, kind: CategoryKind?) = flowOf(emptyList<Category>())
+            override fun observeFrequentlyUsed(
+                limit: Int,
+                kind: CategoryKind?
+            ) = flowOf(emptyList<Category>())
+            override fun observeRecentlyUsed(
+                limit: Int,
+                kind: CategoryKind?
+            ) = flowOf(emptyList<Category>())
         }
-        return OperationCreateViewModel(history, GetFrequentlyUsedCategories(usage), GetRecentlyUsedCategories(usage), clock)
+        return OperationCreateViewModel(
+            history,
+            GetFrequentlyUsedCategories(usage),
+            GetRecentlyUsedCategories(usage),
+            clock
+        )
     }
 }

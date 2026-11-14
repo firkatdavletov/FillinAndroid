@@ -3,16 +3,25 @@ package com.firkat.fillin.feature.profile
 import com.firkat.fillin.feature.budgetconnection.BudgetConnectionDeviceTest
 import com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory
 import com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository
+import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
-import java.time.LocalDate
 
 class ProfileBudgetsRepositoryTest {
     private val env = BudgetConnectionDeviceTest.Environment()
-    private val repository = RoomProfileBudgetsRepository(env.auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, env.koin.get(), env.uploads)
+    private val repository =
+        RoomProfileBudgetsRepository(
+            env.auth,
+            env.registry,
+            env.manager,
+            BudgetDatabaseFactory(env.context),
+            env.connection,
+            env.koin.get(),
+            env.uploads
+        )
 
     @After fun cleanup() = env.close()
 
@@ -22,7 +31,9 @@ class ProfileBudgetsRepositoryTest {
         val first = repository.observe().first().single()
         assertTrue(first.selected)
         assertFalse(first.family)
-        assertTrue(env.manager.active.value!!.scope.get<com.firkat.fillin.feature.sync.data.CloudBudgetSession>().ready.first())
+        assertTrue(
+            env.manager.active.value!!.scope.get<com.firkat.fillin.feature.sync.data.CloudBudgetSession>().ready.first()
+        )
         repository.createLocal("0.00".toBigDecimal(), LocalDate.now())
         assertEquals(2, repository.observe().first().size)
         repository.select(first.id)
@@ -32,7 +43,12 @@ class ProfileBudgetsRepositoryTest {
 
     @Test fun namedLocalBudgetIsStoredAndShownInTheProfile() = runBlocking {
         env.manager.restore()
-        repository.createLocal("Поездка", "25.50".toBigDecimal(), LocalDate.now().minusDays(1), com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency.EUR)
+        repository.createLocal(
+            "Поездка",
+            "25.50".toBigDecimal(),
+            LocalDate.now().minusDays(1),
+            com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency.EUR
+        )
         val budget = repository.observe().first().single()
         assertEquals("Поездка", budget.name)
         assertEquals("Поездка", env.registry.find(budget.id)?.name)

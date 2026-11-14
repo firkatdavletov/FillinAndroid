@@ -34,26 +34,26 @@ internal fun SaldomiActionBottomSheet(
     dismissButton: (@Composable () -> Unit)? = null,
     dismissEnabled: Boolean = true,
     edgeToEdgeContent: Boolean = false,
-    text: (@Composable () -> Unit)? = null,
+    text: (@Composable () -> Unit)? = null
 ) {
     val currentDismissEnabled = rememberUpdatedState(dismissEnabled)
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
-        confirmValueChange = { it != SheetValue.Hidden || currentDismissEnabled.value },
+        confirmValueChange = { it != SheetValue.Hidden || currentDismissEnabled.value }
     )
     SaldomiBottomSheet(
         onDismissRequest = { if (dismissEnabled) onDismissRequest() },
         modifier = modifier,
         sheetState = sheetState,
-        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = dismissEnabled),
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = dismissEnabled)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Column(
                 modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 title?.let {
                     Column(Modifier.padding(horizontal = 24.dp)) {
@@ -68,7 +68,7 @@ internal fun SaldomiActionBottomSheet(
             }
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 confirmButton()
                 dismissButton?.invoke()
@@ -97,7 +97,7 @@ private fun ActionSheetPreview() {
                 SaldomiOutlinedButton({}, Modifier.fillMaxWidth(), large = true) {
                     Text(stringResource(R.string.planned_expenses_delete_cancel))
                 }
-            },
+            }
         )
     }
 }
@@ -115,7 +115,7 @@ private fun ActionSheetBusyPreview() {
                 SaldomiButton({}, Modifier.fillMaxWidth(), large = true, isLoading = true) {
                     Text(stringResource(R.string.cloud_budget_create))
                 }
-            },
+            }
         )
     }
 }

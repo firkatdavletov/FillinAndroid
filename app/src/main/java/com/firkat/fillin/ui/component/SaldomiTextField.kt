@@ -37,7 +37,7 @@ fun SaldomiTextField(
     isError: Boolean = false,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
-    label: String? = null,
+    label: String? = null
 ) {
     if (label != null) {
         androidx.compose.material3.OutlinedTextField(
@@ -50,7 +50,7 @@ fun SaldomiTextField(
             isError = isError,
             singleLine = true,
             keyboardOptions = keyboardOptions,
-            keyboardActions = keyboardActions,
+            keyboardActions = keyboardActions
         )
         return
     }
@@ -61,7 +61,7 @@ fun SaldomiTextField(
         unfocusedContainerColor = scheme.surface,
         disabledContainerColor = scheme.surface,
         errorContainerColor = scheme.surface,
-        unfocusedBorderColor = scheme.outlineVariant,
+        unfocusedBorderColor = scheme.outlineVariant
     )
     val errorDescription = stringResource(R.string.saldomi_text_field_error)
     BasicTextField(
@@ -73,7 +73,7 @@ fun SaldomiTextField(
         enabled = enabled,
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyLarge.copy(
-            color = scheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f),
+            color = scheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f)
         ),
         cursorBrush = SolidColor(if (isError) scheme.error else scheme.primary),
         keyboardOptions = keyboardOptions,
@@ -98,11 +98,11 @@ fun SaldomiTextField(
                         interactionSource = interactions,
                         colors = colors,
                         shape = RoundedCornerShape(22.dp),
-                        focusedBorderThickness = 1.dp,
+                        focusedBorderThickness = 1.dp
                     )
-                },
+                }
             )
-        },
+        }
     )
 }
 
@@ -144,16 +144,30 @@ private fun SaldomiTextFieldLongPreview() {
 @Preview(name = "Label empty")
 @Preview(name = "Label dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
-private fun LabelEmptyPreview() { FillinTheme { SaldomiTextField("", {}, label = "Название бюджета") } }
+private fun LabelEmptyPreview() {
+    FillinTheme { SaldomiTextField("", {}, label = "Название бюджета") }
+}
+
 @Preview(name = "Label filled")
 @Composable
-private fun LabelFilledPreview() { FillinTheme { SaldomiTextField("Семья", {}, label = "Название бюджета") } }
+private fun LabelFilledPreview() {
+    FillinTheme { SaldomiTextField("Семья", {}, label = "Название бюджета") }
+}
+
 @Preview(name = "Label disabled")
 @Composable
-private fun LabelDisabledPreview() { FillinTheme { SaldomiTextField("Семья", {}, label = "Название бюджета", enabled = false) } }
+private fun LabelDisabledPreview() {
+    FillinTheme { SaldomiTextField("Семья", {}, label = "Название бюджета", enabled = false) }
+}
+
 @Preview(name = "Label error")
 @Composable
-private fun LabelErrorPreview() { FillinTheme { SaldomiTextField("?", {}, label = "Баланс", isError = true) } }
+private fun LabelErrorPreview() {
+    FillinTheme { SaldomiTextField("?", {}, label = "Баланс", isError = true) }
+}
+
 @Preview(name = "Label large text", widthDp = 320, fontScale = 2f)
 @Composable
-private fun LabelLargePreview() { FillinTheme { SaldomiTextField("Большой семейный бюджет", {}, label = "Название бюджета") } }
+private fun LabelLargePreview() {
+    FillinTheme { SaldomiTextField("Большой семейный бюджет", {}, label = "Название бюджета") }
+}

@@ -1,9 +1,9 @@
 package com.firkat.fillin.feature.plannedexpenses.ui
 
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -21,12 +21,12 @@ data class PlannedExpensesUiState(
     val closeConfirmationExpenseId: String? = null,
     val isClosingExpense: Boolean = false,
     val closeError: PlannedExpensesError? = null,
-    val changeVersion: Long = 0,
+    val changeVersion: Long = 0
 )
 
 enum class PlannedExpensesPeriod {
     EndOfMonth,
-    EndOfYear,
+    EndOfYear
 }
 
 data class PlannedExpenseRuleEditorUiState(
@@ -40,7 +40,7 @@ data class PlannedExpenseRuleEditorUiState(
     val startsOn: String = "",
     val isSaving: Boolean = false,
     val error: PlannedExpensesError? = null,
-    val isDeleteConfirmationVisible: Boolean = false,
+    val isDeleteConfirmationVisible: Boolean = false
 ) {
     val isCreating: Boolean
         get() = original == null && originalRule == null
@@ -67,13 +67,14 @@ data class PlannedExpenseRuleEditorUiState(
     val canSave: Boolean
         get() {
             val validAmount = parsedAmount ?: return false
-            return !isSaving && if (isCreating) {
-                categoryId.isNotBlank() &&
-                    (frequency == PlannedExpenseFrequency.Once || parsedScheduleValue != null) &&
-                    parsedStartsOn != null
-            } else {
-                validAmount.compareTo((originalRule?.amount ?: requireNotNull(original).plannedAmount)) != 0
-            }
+            return !isSaving &&
+                if (isCreating) {
+                    categoryId.isNotBlank() &&
+                        (frequency == PlannedExpenseFrequency.Once || parsedScheduleValue != null) &&
+                        parsedStartsOn != null
+                } else {
+                    validAmount.compareTo((originalRule?.amount ?: requireNotNull(original).plannedAmount)) != 0
+                }
         }
 
     val canDelete: Boolean
@@ -89,7 +90,7 @@ enum class PlannedExpensesError {
     Conflict,
     Network,
     InvalidResponse,
-    Unknown,
+    Unknown
 }
 
 sealed interface PlannedExpensesEvent {

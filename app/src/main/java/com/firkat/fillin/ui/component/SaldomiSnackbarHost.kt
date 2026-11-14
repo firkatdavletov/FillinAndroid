@@ -12,17 +12,17 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SaldomiSnackbarHost(
     hostState: SnackbarHostState,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     SnackbarHost(
         hostState = hostState,
         modifier = modifier.padding(
             horizontal = 16.dp,
-            vertical = 8.dp,
+            vertical = 8.dp
         ),
         snackbar = { data ->
             SaldomiSnackbar(data = data)
-        },
+        }
     )
 }
 
@@ -34,14 +34,12 @@ suspend fun SnackbarHostState.showSaldomiSnackbar(
         SnackbarDuration.Indefinite
     } else {
         SnackbarDuration.Short
-    },
-): SnackbarResult {
-    return showSnackbar(
-        visuals = SaldomiSnackbarVisuals(
-            message = message,
-            type = type,
-            actionLabel = actionLabel,
-            duration = duration,
-        ),
+    }
+): SnackbarResult = showSnackbar(
+    visuals = SaldomiSnackbarVisuals(
+        message = message,
+        type = type,
+        actionLabel = actionLabel,
+        duration = duration
     )
-}
+)

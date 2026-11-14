@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.map
 
 interface PlanningRulesRepository {
     fun observeRules(): Flow<List<PlanningRule>>
-    fun observeRule(id: String): Flow<PlanningRule?> = observeRules().map { rules -> rules.firstOrNull { it.id == id } }
+    fun observeRule(
+        id: String
+    ): Flow<PlanningRule?> = observeRules().map { rules -> rules.firstOrNull { it.id == id } }
     fun requestSync()
 }

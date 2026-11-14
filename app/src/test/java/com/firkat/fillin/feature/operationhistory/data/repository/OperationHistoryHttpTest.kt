@@ -83,7 +83,7 @@ class OperationHistoryHttpTest {
         val bodies = listOf(
             """{"items":[],"nextCursor":null}""",
             emptyResponse(expenses = "invalid"),
-            emptyResponse().replace("KZT", "RUB"),
+            emptyResponse().replace("KZT", "RUB")
         )
         bodies.forEach { body ->
             assertThrows(OperationHistoryException.InvalidResponse::class.java) {
@@ -92,7 +92,10 @@ class OperationHistoryHttpTest {
         }
     }
 
-    private fun repository(requests: MutableList<Request>, body: String): OperationHistoryRepositoryImpl {
+    private fun repository(
+        requests: MutableList<Request>,
+        body: String
+    ): OperationHistoryRepositoryImpl {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             requests += request
@@ -115,7 +118,9 @@ class OperationHistoryHttpTest {
 }
 
 private val FILTER = OperationHistoryFilter.currentMonth(LocalDate.of(2026, 10, 17))
-private fun response(type: String) = """
+private fun response(
+    type: String
+) = """
     {
       "items": [{
         "id": "entry-id",
@@ -135,7 +140,9 @@ private fun response(type: String) = """
     }
 """.trimIndent()
 
-private fun emptyResponse(expenses: String = "0.00") = """
+private fun emptyResponse(
+    expenses: String = "0.00"
+) = """
     {
       "items": [],
       "nextCursor": null,

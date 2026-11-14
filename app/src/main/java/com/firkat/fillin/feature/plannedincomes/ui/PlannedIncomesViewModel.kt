@@ -1,7 +1,5 @@
 package com.firkat.fillin.feature.plannedincomes.ui
 
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningFrequency
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
@@ -13,6 +11,8 @@ import com.firkat.fillin.feature.plannedincomes.domain.usecase.CreatePlannedInco
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.DeletePlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.GetPlannedIncomes
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.UpdatePlannedIncome
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningFrequency
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
@@ -29,7 +29,7 @@ class PlannedIncomesViewModel(
     private val updatePlannedIncome: UpdatePlannedIncome,
     private val deletePlannedIncome: DeletePlannedIncome,
     private val editorOnly: Boolean = false,
-    private val repository: com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesRepository? = null,
+    private val repository: com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesRepository? = null
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlannedIncomesUiState())
     val uiState: StateFlow<PlannedIncomesUiState> = _uiState.asStateFlow()
@@ -38,7 +38,9 @@ class PlannedIncomesViewModel(
         if (!editorOnly) load()
     }
 
-    fun onEvent(event: PlannedIncomesEvent) {
+    fun onEvent(
+        event: PlannedIncomesEvent
+    ) {
         when (event) {
             PlannedIncomesEvent.Retry -> load()
             PlannedIncomesEvent.Refresh -> load(isRefreshing = true)
@@ -46,7 +48,16 @@ class PlannedIncomesViewModel(
             is PlannedIncomesEvent.EditRequested -> openEditEditor(event.incomeId)
             PlannedIncomesEvent.EditorClosed -> closeEditor()
             is PlannedIncomesEvent.CategorySelected -> updateEditor {
-                copy(categoryId = event.categoryId, name = name.ifBlank { _uiState.value.incomeCategories.firstOrNull { it.id == event.categoryId }?.name.orEmpty() }, error = null)
+                copy(
+                    categoryId = event.categoryId,
+                    name = name.ifBlank {
+                        _uiState.value.incomeCategories.firstOrNull {
+                            it.id ==
+                                event.categoryId
+                        }?.name.orEmpty()
+                    },
+                    error = null
+                )
             }
             is PlannedIncomesEvent.AmountChanged -> updateEditor {
                 copy(amount = event.amount, error = null)
@@ -57,8 +68,17 @@ class PlannedIncomesViewModel(
             is PlannedIncomesEvent.NameChanged -> updateEditor { copy(name = event.value) }
             is PlannedIncomesEvent.FrequencyChanged -> updateEditor { copy(frequency = event.value) }
             is PlannedIncomesEvent.ActiveChanged -> updateEditor { copy(active = event.value) }
-            is PlannedIncomesEvent.RemainderChanged -> updateEditor { copy(confirmRemainder = event.value,
-                amount = if (event.value) original?.remainingAmount?.toPlainString() ?: amount else original?.plannedAmount?.toPlainString() ?: amount) }
+            is PlannedIncomesEvent.RemainderChanged -> updateEditor {
+                copy(
+                    confirmRemainder = event.value,
+                    amount = if (event.value) {
+                        original?.remainingAmount?.toPlainString() ?: amount
+                    } else {
+                        original?.plannedAmount?.toPlainString()
+                            ?: amount
+                    }
+                )
+            }
             PlannedIncomesEvent.SaveRequested -> save()
             PlannedIncomesEvent.DeleteRequested -> updateEditor {
                 if (canDelete) copy(isDeleteConfirmationVisible = true) else this
@@ -70,7 +90,9 @@ class PlannedIncomesViewModel(
         }
     }
 
-    private fun load(isRefreshing: Boolean = false) {
+    private fun load(
+        isRefreshing: Boolean = false
+    ) {
         if (editorOnly) {
             _uiState.update { it.copy(changeVersion = it.changeVersion + 1) }
             return
@@ -89,7 +111,7 @@ class PlannedIncomesViewModel(
                         asOf = plannedIncomes.asOf,
                         items = plannedIncomes.items,
                         isLoading = false,
-                        isRefreshing = false,
+                        isRefreshing = false
                     )
                 }
             } catch (exception: CancellationException) {
@@ -115,44 +137,64 @@ class PlannedIncomesViewModel(
                     today = today,
                     categoryId = state.incomeCategories.firstOrNull()?.id.orEmpty(),
                     name = state.incomeCategories.firstOrNull()?.name.orEmpty(),
-                    dueOn = today.toString(),
-                ),
+                    dueOn = today.toString()
+                )
             )
         }
         loadIncomeCategoriesIfNeeded()
     }
 
-    private fun openEditEditor(incomeId: String) {
+    private fun openEditEditor(
+        incomeId: String
+    ) {
         if (_uiState.value.isRefreshing) return
         val income = _uiState.value.items.firstOrNull { it.id == incomeId } ?: return
         edit(income)
     }
 
-    fun edit(rule: PlanningRule) {
+    fun edit(
+        rule: PlanningRule
+    ) {
         loadIncomeCategoriesIfNeeded()
-        val frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.valueOf(when (rule.frequency) {
-            PlanningFrequency.Once -> "ONCE"
-            PlanningFrequency.Weekly -> "WEEKLY"
-            PlanningFrequency.Biweekly -> "BIWEEKLY"
-            PlanningFrequency.Monthly -> "MONTHLY"
-        })
-        _uiState.update { it.copy(editor = PlannedIncomeEditorUiState(originalRule = rule,
-            today = LocalDate.now(ZoneId.of("Asia/Almaty")), categoryId = rule.categoryId,
-            name = rule.name, amount = rule.amount.toPlainString(), dueOn = rule.startsOn.toString(), frequency = frequency)) }
+        val frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.valueOf(
+            when (rule.frequency) {
+                PlanningFrequency.Once -> "ONCE"
+                PlanningFrequency.Weekly -> "WEEKLY"
+                PlanningFrequency.Biweekly -> "BIWEEKLY"
+                PlanningFrequency.Monthly -> "MONTHLY"
+            }
+        )
+        _uiState.update {
+            it.copy(
+                editor = PlannedIncomeEditorUiState(
+                    originalRule = rule,
+                    today = LocalDate.now(ZoneId.of("Asia/Almaty")),
+                    categoryId = rule.categoryId,
+                    name = rule.name,
+                    amount = rule.amount.toPlainString(),
+                    dueOn = rule.startsOn.toString(),
+                    frequency = frequency
+                )
+            )
+        }
     }
 
-    fun edit(income: PlannedIncome) {
+    fun edit(
+        income: PlannedIncome
+    ) {
         if (_uiState.value.isRefreshing) return
         _uiState.update {
             it.copy(
                 editor = PlannedIncomeEditorUiState(
                     original = income,
-                    name = income.name, frequency = income.frequency, active = income.active,
+                    name = income.name,
+                    frequency = income.frequency,
+                    active = income.active,
                     today = LocalDate.now(ALMATY_ZONE),
                     categoryId = income.categoryId,
                     amount = income.plannedAmount.toPlainString(),
-                    dueOn = income.dueOn.toString(),
-                ),
+                    dueOn = income.dueOn.toString()
+                )
             )
         }
         loadIncomeCategoriesIfNeeded()
@@ -177,11 +219,16 @@ class PlannedIncomesViewModel(
                         isCategoriesLoading = false,
                         editor = state.editor?.let { editor ->
                             if (editor.isCreating && editor.categoryId.isBlank()) {
-                                editor.copy(categoryId = categories.firstOrNull()?.id.orEmpty(), name = editor.name.ifBlank { categories.firstOrNull()?.name.orEmpty() })
+                                editor.copy(
+                                    categoryId = categories.firstOrNull()?.id.orEmpty(),
+                                    name = editor.name.ifBlank {
+                                        categories.firstOrNull()?.name.orEmpty()
+                                    }
+                                )
                             } else {
                                 editor
                             }
-                        },
+                        }
                     )
                 }
             } catch (exception: CancellationException) {
@@ -203,24 +250,42 @@ class PlannedIncomesViewModel(
         viewModelScope.launch {
             try {
                 if (editor.originalRule != null) {
-                    requireNotNull(repository).saveRuleDetails(editor.originalRule, editor.categoryId, amount, dueOn,
-                        editor.name, editor.frequency, editor.active)
-                } else if (repository != null) {
-                    repository.saveDetails(editor.original, editor.categoryId, amount, dueOn,
-                        editor.name.ifBlank { _uiState.value.incomeCategories.firstOrNull { it.id == editor.categoryId }?.name.orEmpty() },
-                        editor.frequency, editor.active, editor.confirmRemainder)
-                } else editor.original?.let { original ->
-                    updatePlannedIncome(
-                        income = original,
-                        categoryId = editor.categoryId.takeIf { it != original.categoryId },
-                        amount = amount.takeIf { it.compareTo(original.plannedAmount) != 0 },
-                        dueOn = dueOn.takeIf { it != original.dueOn },
+                    requireNotNull(repository).saveRuleDetails(
+                        editor.originalRule,
+                        editor.categoryId,
+                        amount,
+                        dueOn,
+                        editor.name,
+                        editor.frequency,
+                        editor.active
                     )
-                } ?: createPlannedIncome(
-                    categoryId = editor.categoryId,
-                    amount = amount,
-                    dueOn = dueOn,
-                )
+                } else if (repository != null) {
+                    repository.saveDetails(
+                        editor.original,
+                        editor.categoryId,
+                        amount,
+                        dueOn,
+                        editor.name.ifBlank {
+                            _uiState.value.incomeCategories.firstOrNull { it.id == editor.categoryId }?.name.orEmpty()
+                        },
+                        editor.frequency,
+                        editor.active,
+                        editor.confirmRemainder
+                    )
+                } else {
+                    editor.original?.let { original ->
+                        updatePlannedIncome(
+                            income = original,
+                            categoryId = editor.categoryId.takeIf { it != original.categoryId },
+                            amount = amount.takeIf { it.compareTo(original.plannedAmount) != 0 },
+                            dueOn = dueOn.takeIf { it != original.dueOn }
+                        )
+                    } ?: createPlannedIncome(
+                        categoryId = editor.categoryId,
+                        amount = amount,
+                        dueOn = dueOn
+                    )
+                }
                 _uiState.update { it.copy(editor = null) }
                 load()
             } catch (exception: CancellationException) {
@@ -244,16 +309,22 @@ class PlannedIncomesViewModel(
             copy(
                 isSaving = true,
                 error = null,
-                isDeleteConfirmationVisible = false,
+                isDeleteConfirmationVisible = false
             )
         }
         viewModelScope.launch {
             try {
-                if (rule != null) requireNotNull(repository).deletePlannedIncome(rule.id, rule.version) else deletePlannedIncome(requireNotNull(income))
+                if (rule !=
+                    null
+                ) {
+                    requireNotNull(repository).deletePlannedIncome(rule.id, rule.version)
+                } else {
+                    deletePlannedIncome(requireNotNull(income))
+                }
                 _uiState.update {
                     it.copy(
                         items = it.items.filterNot { item -> item.id == (rule?.id ?: income?.id) },
-                        editor = null,
+                        editor = null
                     )
                 }
                 load()
@@ -267,26 +338,32 @@ class PlannedIncomesViewModel(
         }
     }
 
-    private fun showCategoriesError(error: PlannedIncomesError) {
+    private fun showCategoriesError(
+        error: PlannedIncomesError
+    ) {
         _uiState.update { state ->
             state.copy(
                 isCategoriesLoading = false,
-                editor = state.editor?.copy(error = error),
+                editor = state.editor?.copy(error = error)
             )
         }
     }
 
-    private fun showEditorError(error: PlannedIncomesError) {
+    private fun showEditorError(
+        error: PlannedIncomesError
+    ) {
         updateEditor {
             copy(
                 isSaving = false,
                 error = error,
-                isDeleteConfirmationVisible = false,
+                isDeleteConfirmationVisible = false
             )
         }
     }
 
-    private fun handleEditorException(exception: PlannedIncomesException) {
+    private fun handleEditorException(
+        exception: PlannedIncomesException
+    ) {
         showEditorError(exception.toUiError())
         if (
             exception == PlannedIncomesException.Conflict ||
@@ -297,7 +374,7 @@ class PlannedIncomesViewModel(
     }
 
     private fun updateEditor(
-        transform: PlannedIncomeEditorUiState.() -> PlannedIncomeEditorUiState,
+        transform: PlannedIncomeEditorUiState.() -> PlannedIncomeEditorUiState
     ) {
         _uiState.update { state -> state.copy(editor = state.editor?.transform()) }
     }

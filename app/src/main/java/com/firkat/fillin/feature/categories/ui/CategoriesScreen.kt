@@ -52,13 +52,13 @@ fun CategoriesRoute(
     onEditCategory: (String) -> Unit,
     viewModel: CategoriesViewModel = koinViewModel(),
     syncViewModel: BudgetSyncViewModel = koinViewModel(),
-    readOnly: Boolean = false,
+    readOnly: Boolean = false
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val sync by syncViewModel.context.collectAsStateWithLifecycle()
     FeatureScaffold(
         titleResource = R.string.categories_title,
-        onNavigateBack = onBack,
+        onNavigateBack = onBack
     ) {
         Column {
             BudgetSyncPanel(syncViewModel)
@@ -67,7 +67,7 @@ fun CategoriesRoute(
                 onEvent = viewModel::onEvent,
                 canWrite = sync.canWrite && !readOnly,
                 onCreateCategory = onCreateCategory,
-                onEditCategory = onEditCategory,
+                onEditCategory = onEditCategory
             )
         }
     }
@@ -79,13 +79,13 @@ fun CategoriesScreen(
     onEvent: (CategoriesEvent) -> Unit,
     canWrite: Boolean = true,
     onCreateCategory: () -> Unit,
-    onEditCategory: (String) -> Unit,
+    onEditCategory: (String) -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         RefreshableContent(
             isRefreshing = state.isRefreshing,
             onRefresh = { onEvent(CategoriesEvent.Refresh) },
-            hasScrollableContent = state.items.isNotEmpty(),
+            hasScrollableContent = state.items.isNotEmpty()
         ) {
             when {
                 state.isLoading && state.items.isEmpty() -> {
@@ -96,7 +96,7 @@ fun CategoriesScreen(
                     ErrorContent(
                         error = state.error,
                         onRetry = { onEvent(CategoriesEvent.Retry) },
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
@@ -109,7 +109,7 @@ fun CategoriesScreen(
                         items = state.items,
                         error = state.error,
                         onRetry = { onEvent(CategoriesEvent.Refresh) },
-                        onCategoryClick = { if (canWrite) onEditCategory(it.id) },
+                        onCategoryClick = { if (canWrite) onEditCategory(it.id) }
                     )
                 }
             }
@@ -119,13 +119,13 @@ fun CategoriesScreen(
             ExtendedFloatingActionButton(
                 onClick = onCreateCategory,
                 modifier =
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp),
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
                 icon = {
                     Text(
                         text = "+",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleLarge
                     )
                 },
                 text = { Text(stringResource(R.string.categories_create_action)) },
@@ -141,7 +141,7 @@ private fun CategoriesList(
     error: CategoriesError?,
     onRetry: () -> Unit,
     onCategoryClick: (Category) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val expenseCategories =
         remember(items) {
@@ -155,19 +155,19 @@ private fun CategoriesList(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding =
-            PaddingValues(
-                start = 16.dp,
-                top = 8.dp,
-                end = 16.dp,
-                bottom = 96.dp,
-            ),
+        PaddingValues(
+            start = 16.dp,
+            top = 8.dp,
+            end = 16.dp,
+            bottom = 96.dp
+        )
     ) {
         error?.let {
             item(key = "refresh-error") {
                 RefreshErrorContent(
                     messageResource = it.messageResource,
                     retryResource = R.string.categories_retry,
-                    onRetry = onRetry,
+                    onRetry = onRetry
                 )
             }
         }
@@ -175,12 +175,12 @@ private fun CategoriesList(
         categorySection(
             title = R.string.categories_expenses_section,
             categories = expenseCategories,
-            onCategoryClick = onCategoryClick,
+            onCategoryClick = onCategoryClick
         )
         categorySection(
             title = R.string.categories_incomes_section,
             categories = incomeCategories,
-            onCategoryClick = onCategoryClick,
+            onCategoryClick = onCategoryClick
         )
     }
 }
@@ -188,7 +188,7 @@ private fun CategoriesList(
 private fun androidx.compose.foundation.lazy.LazyListScope.categorySection(
     @StringRes title: Int,
     categories: List<Category>,
-    onCategoryClick: (Category) -> Unit,
+    onCategoryClick: (Category) -> Unit
 ) {
     if (categories.isEmpty()) return
 
@@ -198,20 +198,20 @@ private fun androidx.compose.foundation.lazy.LazyListScope.categorySection(
             modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
     items(
         items = categories,
-        key = Category::id,
+        key = Category::id
     ) { category ->
         CategoryItem(
             category = category,
-            onClick = { onCategoryClick(category) },
+            onClick = { onCategoryClick(category) }
         )
         HorizontalDivider(
             modifier = Modifier.padding(start = 64.dp),
-            color = MaterialTheme.colorScheme.outlineVariant,
+            color = MaterialTheme.colorScheme.outlineVariant
         )
     }
 }
@@ -220,21 +220,21 @@ private fun androidx.compose.foundation.lazy.LazyListScope.categorySection(
 internal fun CategoryItem(
     category: Category,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Row(
         modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(vertical = 10.dp),
+        modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
             modifier = Modifier.size(40.dp),
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest
         ) {
             Box(contentAlignment = Alignment.Center) {
                 CategoryIconImage(category.icon.code, category.name)
@@ -244,30 +244,34 @@ internal fun CategoryItem(
             Text(
                 text = category.name,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Medium
             )
         }
     }
 }
 
 @Composable
-private fun LoadingContent(modifier: Modifier = Modifier) {
+private fun LoadingContent(
+    modifier: Modifier = Modifier
+) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
     }
 }
 
 @Composable
-private fun EmptyContent(modifier: Modifier = Modifier) {
+private fun EmptyContent(
+    modifier: Modifier = Modifier
+) {
     Box(
         modifier = modifier.fillMaxSize().padding(horizontal = 32.dp),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = stringResource(R.string.categories_empty),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -276,21 +280,21 @@ private fun EmptyContent(modifier: Modifier = Modifier) {
 private fun ErrorContent(
     error: CategoriesError,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier.padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = stringResource(error.messageResource),
             textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge
         )
         Button(
             onClick = onRetry,
-            modifier = Modifier.padding(top = 16.dp),
+            modifier = Modifier.padding(top = 16.dp)
         ) {
             Text(stringResource(R.string.categories_retry))
         }
@@ -303,26 +307,26 @@ private fun CategoriesPreview() {
     FillinTheme(dynamicColor = false) {
         CategoriesScreen(
             state =
-                CategoriesUiState(
-                    items =
-                        listOf(
-                            Category(
-                                id = "groceries",
-                                name = "Продукты",
-                                kind = CategoryKind.Expense,
-                                icon = CategoryIcon(code = "FOOD", emoji = "🍔"),
-                            ),
-                            Category(
-                                id = "salary",
-                                name = "Зарплата",
-                                kind = CategoryKind.Income,
-                                icon = CategoryIcon(code = "INCOME", emoji = "💰"),
-                            ),
-                        ),
-                ),
+            CategoriesUiState(
+                items =
+                listOf(
+                    Category(
+                        id = "groceries",
+                        name = "Продукты",
+                        kind = CategoryKind.Expense,
+                        icon = CategoryIcon(code = "FOOD", emoji = "🍔")
+                    ),
+                    Category(
+                        id = "salary",
+                        name = "Зарплата",
+                        kind = CategoryKind.Income,
+                        icon = CategoryIcon(code = "INCOME", emoji = "💰")
+                    )
+                )
+            ),
             onEvent = {},
             onCreateCategory = {},
-            onEditCategory = {},
+            onEditCategory = {}
         )
     }
 }

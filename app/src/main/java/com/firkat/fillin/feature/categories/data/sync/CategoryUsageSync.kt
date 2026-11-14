@@ -5,15 +5,15 @@ import com.firkat.fillin.feature.budgetconnection.data.budgetBody
 import com.firkat.fillin.feature.categories.data.local.CategoryUsageCursor
 import com.firkat.fillin.feature.categories.data.local.CategoryUsageEvent
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
-import kotlinx.serialization.Serializable
 import java.util.UUID
+import kotlinx.serialization.Serializable
 
 @Serializable
 data class CategoryUsageEventDto(
     val id: String,
     val operationId: String,
     val categoryId: String,
-    val usedAtMillis: Long,
+    val usedAtMillis: Long
 )
 
 @Serializable
@@ -27,18 +27,21 @@ data class CategoryUsagePage(
     val scopeKey: String,
     val events: List<CategoryUsageEventDto>,
     val nextCursor: String,
-    val hasMore: Boolean,
+    val hasMore: Boolean
 )
 
 class CategoryUsageSync(
     private val database: OperationDatabase,
     private val uid: String,
     private val budgetId: String,
-    private val requests: CategoryUsageRequests,
+    private val requests: CategoryUsageRequests
 ) {
     private val dao get() = database.categoryUsage()
 
-    suspend fun exchange(scopeKey: String, checkAccess: suspend () -> Unit) {
+    suspend fun exchange(
+        scopeKey: String,
+        checkAccess: suspend () -> Unit
+    ) {
         require(scopeKey.substringBefore(':') == budgetId)
         while (true) {
             val pending = dao.pending(scopeKey)
@@ -46,8 +49,11 @@ class CategoryUsageSync(
             checkAccess()
             val batch = CategoryUsageBatch(pending.map { it.toDto() })
             val receipt = requests.push(uid, budgetId, batch).budgetBody()
-            require(receipt.scopeKey == scopeKey && receipt.acceptedIds.size == pending.size &&
-                receipt.acceptedIds.toSet() == pending.map { it.id }.toSet())
+            require(
+                receipt.scopeKey == scopeKey &&
+                    receipt.acceptedIds.size == pending.size &&
+                    receipt.acceptedIds.toSet() == pending.map { it.id }.toSet()
+            )
             checkAccess()
             dao.acknowledge(scopeKey, receipt.acceptedIds)
         }
@@ -63,14 +69,29 @@ class CategoryUsageSync(
                 continue
             }
             val page = response.budgetBody()
-            require(page.scopeKey == scopeKey && page.nextCursor.isNotBlank() &&
-                (!page.hasMore || page.nextCursor != cursor))
+            require(
+                page.scopeKey == scopeKey &&
+                    page.nextCursor.isNotBlank() &&
+                    (!page.hasMore || page.nextCursor != cursor)
+            )
             checkAccess()
             database.withTransaction {
                 for (event in page.events) {
-                    require(isCanonicalUuid(event.id) && isCanonicalUuid(event.operationId) &&
-                        isCanonicalUuid(event.categoryId) && event.usedAtMillis >= 0)
-                    val row = CategoryUsageEvent(scopeKey, event.id, event.operationId, event.categoryId, event.usedAtMillis, true)
+                    require(
+                        isCanonicalUuid(event.id) &&
+                            isCanonicalUuid(event.operationId) &&
+                            isCanonicalUuid(event.categoryId) &&
+                            event.usedAtMillis >= 0
+                    )
+                    val row =
+                        CategoryUsageEvent(
+                            scopeKey,
+                            event.id,
+                            event.operationId,
+                            event.categoryId,
+                            event.usedAtMillis,
+                            true
+                        )
                     if (dao.insertRemote(row) == -1L) {
                         require(dao.forOperation(scopeKey, row.operationId)?.toDto() == event)
                     }
@@ -83,5 +104,7 @@ class CategoryUsageSync(
 
     private fun CategoryUsageEvent.toDto() = CategoryUsageEventDto(id, operationId, categoryId, usedAtMillis)
 
-    private fun isCanonicalUuid(value: String) = UUID.fromString(value).toString() == value
+    private fun isCanonicalUuid(
+        value: String
+    ) = UUID.fromString(value).toString() == value
 }

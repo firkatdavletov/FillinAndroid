@@ -56,7 +56,7 @@ internal fun OperationTypeTabs(
     type: OperationType,
     enabled: Boolean,
     onTypeClick: (OperationType) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val scheme = MaterialTheme.colorScheme
     PrimaryTabRow(
@@ -64,7 +64,7 @@ internal fun OperationTypeTabs(
         modifier = modifier.fillMaxWidth().clip(CircleShape).background(scheme.surfaceVariant),
         containerColor = scheme.surfaceVariant,
         indicator = {},
-        divider = {},
+        divider = {}
     ) {
         OperationType.entries.forEach { item ->
             val selected = item == type
@@ -78,15 +78,36 @@ internal fun OperationTypeTabs(
                     .background(if (selected) scheme.primary else scheme.surfaceVariant)
                     .testTag("operation-create-type-" + item.apiValue),
                 text = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         if (item == OperationType.Expense) {
-                            Icon(Icons.Outlined.RemoveCircleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(
+                                Icons.Outlined.RemoveCircleOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
                         } else {
-                            Icon(painterResource(R.drawable.ic_add_24), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(
+                                painterResource(R.drawable.ic_add_24),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-                        Text(stringResource(if (item == OperationType.Expense) R.string.planned_operations_expense else R.string.planned_operations_income))
+                        Text(
+                            stringResource(
+                                if (item ==
+                                    OperationType.Expense
+                                ) {
+                                    R.string.planned_operations_expense
+                                } else {
+                                    R.string.planned_operations_income
+                                }
+                            )
+                        )
                     }
-                },
+                }
             )
         }
     }
@@ -98,7 +119,7 @@ internal fun OperationCategoryRow(
     enabled: Boolean,
     onCategoryClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    selectedCategoryId: String? = null,
+    selectedCategoryId: String? = null
 ) {
     val scrollState = rememberLazyListState()
     LaunchedEffect(selectedCategoryId) {
@@ -111,7 +132,7 @@ internal fun OperationCategoryRow(
         state = scrollState,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(horizontal = 16.dp),
-        modifier = modifier.fillMaxWidth().testTag("operation-create-categories"),
+        modifier = modifier.fillMaxWidth().testTag("operation-create-categories")
     ) {
         items(categories, key = { it.id }) { category ->
             OperationCategoryCard(
@@ -134,7 +155,7 @@ private fun OperationCategoryCard(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    selected: Boolean = false,
+    selected: Boolean = false
 ) {
     FilledTonalButton(
         onClick = onClick,
@@ -143,13 +164,15 @@ private fun OperationCategoryCard(
         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 12.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+            contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
         ),
-        modifier = modifier.semantics { this.selected = selected }.widthIn(min = 80.dp, max = 128.dp).heightIn(min = 88.dp),
+        modifier = modifier.semantics {
+            this.selected = selected
+        }.widthIn(min = 80.dp, max = 128.dp).heightIn(min = 88.dp)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CategoryIconImage(iconCode, name.orEmpty(), Modifier.size(26.dp).alpha(if (enabled) 1f else 0.38f))
-            if (!name.isNullOrBlank())
+            if (!name.isNullOrBlank()) {
                 Text(
                     text = name,
                     style = MaterialTheme.typography.labelSmall,
@@ -157,6 +180,7 @@ private fun OperationCategoryCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
         }
     }
 }
@@ -238,9 +262,8 @@ internal fun previewOperationCategories() = listOf(
     Category("transport", "Транспорт", CategoryKind.Expense, CategoryIcon("TRANSPORT", "🚕")),
     Category("home", "Дом", CategoryKind.Expense, CategoryIcon("HOME", "🏠")),
     Category("health", "Здоровье", CategoryKind.Expense, CategoryIcon("HEALTH", "💊")),
-    Category("salary", "Зарплата", CategoryKind.Income, CategoryIcon("INCOME", "💰")),
+    Category("salary", "Зарплата", CategoryKind.Income, CategoryIcon("INCOME", "💰"))
 )
-
 
 @Preview(name = "Selected category")
 @Preview(name = "Selected category dark", uiMode = UI_MODE_NIGHT_YES)

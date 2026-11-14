@@ -3,8 +3,8 @@ package com.firkat.fillin.feature.plannedoperations.data.repository
 import com.firkat.fillin.feature.plannedoperations.data.remote.PlannedOperationsApi
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
 import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOperationsException
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -66,7 +66,7 @@ class PlannedOperationsHttpTest {
     fun `year preset is sent without custom dates`() = runBlocking {
         val requests = mutableListOf<Request>()
         repository(requests, response()).getPlannedOperations(
-            PlannedOperationsFilter(PlannedOperationType.Expense, PlannedOperationPeriod.EndOfYear),
+            PlannedOperationsFilter(PlannedOperationType.Expense, PlannedOperationPeriod.EndOfYear)
         )
         assertEquals("END_OF_YEAR", requests.single().url.queryParameter("period"))
         assertEquals("EXPENSE", requests.single().url.queryParameter("type"))
@@ -79,12 +79,15 @@ class PlannedOperationsHttpTest {
             400 to PlannedOperationsException.InvalidRequest,
             401 to PlannedOperationsException.Unauthorized,
             403 to PlannedOperationsException.Forbidden,
-            500 to PlannedOperationsException.Unknown,
+            500 to PlannedOperationsException.Unknown
         ).forEach { (status, expected) ->
             val repository = repository(mutableListOf(), "{}", status)
-            assertEquals(expected, runCatching {
-                runBlocking { repository.getPlannedOperations(PlannedOperationsFilter()) }
-            }.exceptionOrNull())
+            assertEquals(
+                expected,
+                runCatching {
+                    runBlocking { repository.getPlannedOperations(PlannedOperationsFilter()) }
+                }.exceptionOrNull()
+            )
         }
     }
 
@@ -100,7 +103,7 @@ class PlannedOperationsHttpTest {
             response().replace("50000.12", "1.001"),
             response().replace("1000000.34", "invalid"),
             response().replace("KZT", "RUB"),
-            response().replace("\"totals\"", "\"missingTotals\""),
+            response().replace("\"totals\"", "\"missingTotals\"")
         ).forEach { body ->
             assertThrows(PlannedOperationsException.InvalidResponse::class.java) {
                 runBlocking { repository(mutableListOf(), body).getPlannedOperations(PlannedOperationsFilter()) }
@@ -112,7 +115,7 @@ class PlannedOperationsHttpTest {
     fun `empty income selection returns both server totals in one request`() = runBlocking {
         val requests = mutableListOf<Request>()
         val result = repository(requests, response()).getPlannedOperations(
-            PlannedOperationsFilter(type = PlannedOperationType.Income),
+            PlannedOperationsFilter(type = PlannedOperationType.Income)
         )
         assertEquals(0, result.items.size)
         assertEquals(BigDecimal("50000.12"), result.totals.expenses)
@@ -135,7 +138,7 @@ class PlannedOperationsHttpTest {
         requests: MutableList<Request>,
         body: String,
         code: Int = 200,
-        token: String = "synthetic-test-token",
+        token: String = "synthetic-test-token"
     ): PlannedOperationsRepositoryImpl {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             requests += chain.request()
@@ -150,7 +153,10 @@ class PlannedOperationsHttpTest {
     }
 }
 
-private fun response(vararg items: String, from: String = "2026-10-17") = """
+private fun response(
+    vararg items: String,
+    from: String = "2026-10-17"
+) = """
     {"asOf":"2026-10-17","dateFrom":"$from","dateTo":"2026-10-31","items":[${items.joinToString(",")}],
      "totals":{"expenses":{"amount":"50000.12","currency":"KZT"},"incomes":{"amount":"1000000.34","currency":"KZT"}}}
 """.trimIndent()

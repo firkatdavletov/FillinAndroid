@@ -57,7 +57,7 @@ class CalculateDashboardTest {
             ),
             listOf(UpcomingPayment("Жильё", LocalDate.parse("2026-09-06"), money("80000"))),
             money("0"),
-            BalanceForecastProjection(LocalDate.parse("2026-09-06"), LocalDate.parse("2026-11-04"), emptyList(), false),
+            BalanceForecastProjection(LocalDate.parse("2026-09-06"), LocalDate.parse("2026-11-04"), emptyList(), false)
         )
         val actual = CalculateDashboard.calculate(input)
         assertEquals(expected, actual.copy(dailyLimit = null, balanceForecast = expected.balanceForecast))
@@ -139,9 +139,13 @@ class CalculateDashboardTest {
         val initial = input().copy(openingBalance = decimal("250000"))
         val before = CalculateDashboard.calculate(initial)
         for (amount in listOf("2500.99", "12500", "300000")) {
-            val after = CalculateDashboard.calculate(initial.copy(operations = listOf(
-                operation("today", FOOD, DashboardOperationKind.Expense, amount, "2026-09-06"),
-            )))
+            val after = CalculateDashboard.calculate(
+                initial.copy(
+                    operations = listOf(
+                        operation("today", FOOD, DashboardOperationKind.Expense, amount, "2026-09-06")
+                    )
+                )
+            )
             assertEquals(money(if (amount == "300000") "0" else "4166"), after.freeMoney.safeDailyLimit)
             if (amount != "300000") assertEquals(before.freeMoney.safeDailyLimit, after.freeMoney.safeDailyLimit)
             assertEquals(money(amount), after.todayVariableNetExpenses)
@@ -150,16 +154,18 @@ class CalculateDashboardTest {
     }
 
     @Test fun `today totals exclude future instants and expenses on other accounting dates`() {
-        val result = CalculateDashboard.calculate(input().copy(
-            openingBalance = decimal("250000"),
-            operations = listOf(
-                operation("yesterday", FOOD, DashboardOperationKind.Expense, "5000", "2026-09-05"),
-                operation("today", FOOD, DashboardOperationKind.Expense, "1000", "2026-09-06"),
-                operation("later", FOOD, DashboardOperationKind.Expense, "7000", "2026-09-06")
-                    .copy(occurredAt = Instant.parse("2026-09-06T10:00:00Z")),
-                operation("tomorrow", FOOD, DashboardOperationKind.Expense, "9000", "2026-09-07"),
-            ),
-        ))
+        val result = CalculateDashboard.calculate(
+            input().copy(
+                openingBalance = decimal("250000"),
+                operations = listOf(
+                    operation("yesterday", FOOD, DashboardOperationKind.Expense, "5000", "2026-09-05"),
+                    operation("today", FOOD, DashboardOperationKind.Expense, "1000", "2026-09-06"),
+                    operation("later", FOOD, DashboardOperationKind.Expense, "7000", "2026-09-06")
+                        .copy(occurredAt = Instant.parse("2026-09-06T10:00:00Z")),
+                    operation("tomorrow", FOOD, DashboardOperationKind.Expense, "9000", "2026-09-07")
+                )
+            )
+        )
         assertEquals(money("1000"), result.todayVariableNetExpenses)
         assertEquals(money("4083"), result.freeMoney.safeDailyLimit)
     }
@@ -168,13 +174,23 @@ class CalculateDashboardTest {
         val initial = input().copy(
             openingBalance = decimal("100000"),
             operations = listOf(operation("original", FOOD, DashboardOperationKind.Expense, "10000", "2026-09-05")),
-            knownExpenseIds = setOf("original"),
+            knownExpenseIds = setOf("original")
         )
         val before = CalculateDashboard.calculate(initial)
-        val after = CalculateDashboard.calculate(initial.copy(operations = initial.operations + listOf(
-            operation("today", FOOD, DashboardOperationKind.Expense, "2000", "2026-09-06"),
-            operation("refund", FOOD, DashboardOperationKind.Refund, "5000", "2026-09-06").copy(refundOf = "original"),
-        )))
+        val after = CalculateDashboard.calculate(
+            initial.copy(
+                operations = initial.operations + listOf(
+                    operation("today", FOOD, DashboardOperationKind.Expense, "2000", "2026-09-06"),
+                    operation(
+                        "refund",
+                        FOOD,
+                        DashboardOperationKind.Refund,
+                        "5000",
+                        "2026-09-06"
+                    ).copy(refundOf = "original")
+                )
+            )
+        )
         assertEquals(money("-3000"), after.todayVariableNetExpenses)
         assertEquals(money("1500"), after.freeMoney.safeDailyLimit)
         assertEquals(before.freeMoney.safeDailyLimit, after.freeMoney.safeDailyLimit)
@@ -182,29 +198,47 @@ class CalculateDashboardTest {
     }
 
     @Test fun `payments regular expenses and their refunds are excluded from today variable spending`() {
-        val result = CalculateDashboard.calculate(input().copy(
-            openingBalance = decimal("300000"),
-            excludedVariableExpenseIds = setOf("payment", "regular"),
-            knownExpenseIds = setOf("payment", "regular", "variable"),
-            payments = listOf(DashboardPayment("obligation", "Жильё", LocalDate.parse("2026-09-06"), decimal("80000"))),
-            operations = listOf(
-                operation("payment", HOUSING, DashboardOperationKind.Expense, "20000", "2026-09-06"),
-                operation("regular", FOOD, DashboardOperationKind.Expense, "3000", "2026-09-06"),
-                operation("payment-refund", HOUSING, DashboardOperationKind.Refund, "1000", "2026-09-06").copy(refundOf = "payment"),
-                operation("variable", FOOD, DashboardOperationKind.Expense, "1500", "2026-09-06"),
-                operation("variable-refund", FOOD, DashboardOperationKind.Refund, "500", "2026-09-06").copy(refundOf = "variable"),
-            ),
-        ))
+        val result = CalculateDashboard.calculate(
+            input().copy(
+                openingBalance = decimal("300000"),
+                excludedVariableExpenseIds = setOf("payment", "regular"),
+                knownExpenseIds = setOf("payment", "regular", "variable"),
+                payments = listOf(
+                    DashboardPayment("obligation", "Жильё", LocalDate.parse("2026-09-06"), decimal("80000"))
+                ),
+                operations = listOf(
+                    operation("payment", HOUSING, DashboardOperationKind.Expense, "20000", "2026-09-06"),
+                    operation("regular", FOOD, DashboardOperationKind.Expense, "3000", "2026-09-06"),
+                    operation(
+                        "payment-refund",
+                        HOUSING,
+                        DashboardOperationKind.Refund,
+                        "1000",
+                        "2026-09-06"
+                    ).copy(refundOf = "payment"),
+                    operation("variable", FOOD, DashboardOperationKind.Expense, "1500", "2026-09-06"),
+                    operation(
+                        "variable-refund",
+                        FOOD,
+                        DashboardOperationKind.Refund,
+                        "500",
+                        "2026-09-06"
+                    ).copy(refundOf = "variable")
+                )
+            )
+        )
         assertEquals(money("1000"), result.todayVariableNetExpenses)
         assertEquals(money("3300"), result.freeMoney.safeDailyLimit)
     }
 
     @Test fun `daily limit floors fractional tenge on the last day of leap February`() {
-        val result = CalculateDashboard.calculate(input().copy(
-            asOf = Instant.parse("2024-02-28T20:00:00Z"),
-            openingBalance = decimal("10.99"),
-            operations = listOf(operation("today", FOOD, DashboardOperationKind.Expense, "3.25", "2024-02-29")),
-        ))
+        val result = CalculateDashboard.calculate(
+            input().copy(
+                asOf = Instant.parse("2024-02-28T20:00:00Z"),
+                openingBalance = decimal("10.99"),
+                operations = listOf(operation("today", FOOD, DashboardOperationKind.Expense, "3.25", "2024-02-29"))
+            )
+        )
         assertEquals(1, result.freeMoney.daysRemaining)
         assertEquals(money("0"), result.freeMoney.safeDailyLimit)
         assertEquals(money("3.25"), result.todayVariableNetExpenses)
@@ -214,7 +248,7 @@ class CalculateDashboardTest {
         val initial = input().copy(
             asOf = Instant.parse("2026-09-06T18:59:59Z"),
             openingBalance = decimal("250000"),
-            operations = listOf(operation("today", FOOD, DashboardOperationKind.Expense, "1000", "2026-09-06")),
+            operations = listOf(operation("today", FOOD, DashboardOperationKind.Expense, "1000", "2026-09-06"))
         )
         val before = CalculateDashboard.calculate(initial)
         val after = CalculateDashboard.calculate(initial.copy(asOf = initial.asOf.plusSeconds(1)))
@@ -227,9 +261,13 @@ class CalculateDashboardTest {
 
     @Test fun `actual income updates limit while MVP ignores protected reserves`() {
         val initial = input().copy(openingBalance = decimal("250000"))
-        val income = CalculateDashboard.calculate(initial.copy(operations = listOf(
-            operation("income", INCOME, DashboardOperationKind.Income, "2500", "2026-09-06"),
-        )))
+        val income = CalculateDashboard.calculate(
+            initial.copy(
+                operations = listOf(
+                    operation("income", INCOME, DashboardOperationKind.Income, "2500", "2026-09-06")
+                )
+            )
+        )
         val reserved = CalculateDashboard.calculate(initial.copy(protectedReserve = decimal("25000")))
         assertEquals(money("4208"), income.freeMoney.safeDailyLimit)
         assertEquals(money("4166"), reserved.freeMoney.safeDailyLimit)
@@ -240,8 +278,12 @@ class CalculateDashboardTest {
         private const val TRANSPORT = "00000000-0000-0000-0000-000000000002"
         private const val HOUSING = "00000000-0000-0000-0000-000000000003"
         private const val INCOME = "00000000-0000-0000-0000-000000000004"
-        private fun decimal(value: String) = BigDecimal(value).setScale(2)
-        private fun money(value: String) = Money(decimal(value), "KZT")
+        private fun decimal(
+            value: String
+        ) = BigDecimal(value).setScale(2)
+        private fun money(
+            value: String
+        ) = Money(decimal(value), "KZT")
         private fun operation(
             id: String,
             category: String,

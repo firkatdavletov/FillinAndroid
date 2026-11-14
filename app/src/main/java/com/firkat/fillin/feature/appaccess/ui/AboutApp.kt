@@ -1,14 +1,11 @@
 package com.firkat.fillin.feature.appaccess.ui
 
-import androidx.compose.foundation.layout.fillMaxWidth
-import com.firkat.fillin.ui.component.SaldomiOutlinedButton
-import com.firkat.fillin.ui.component.SaldomiButton
-import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,6 +21,9 @@ import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.appaccess.domain.AppAccess
+import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.theme.FillinTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,7 +54,9 @@ class AboutAppViewModel(private val access: AppAccess) : ViewModel() {
 }
 
 @Composable
-internal fun AboutAppRoute(viewModel: AboutAppViewModel) {
+internal fun AboutAppRoute(
+    viewModel: AboutAppViewModel
+) {
     val id by viewModel.installationId.collectAsStateWithLifecycle()
     val checking by viewModel.checking.collectAsStateWithLifecycle()
     val result by viewModel.refreshResult.collectAsStateWithLifecycle()
@@ -71,7 +73,7 @@ internal fun AboutAppRoute(viewModel: AboutAppViewModel) {
                     .setPrimaryClip(ClipData.newPlainText(label, installationId))
             },
             onRefresh = viewModel::refresh,
-            onClose = viewModel::close,
+            onClose = viewModel::close
         )
     }
 }
@@ -85,7 +87,7 @@ private fun AboutAppBottomSheet(
     onCopy: () -> Unit,
     onRefresh: () -> Unit,
     onClose: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     SaldomiActionBottomSheet(
         modifier = modifier,
@@ -100,11 +102,15 @@ private fun AboutAppBottomSheet(
                     Text(stringResource(R.string.app_copy_installation_id))
                 }
                 if (checking || refreshResult != null) {
-                    Text(stringResource(when {
-                        checking -> R.string.app_access_checking
-                        refreshResult == true -> R.string.app_access_checked
-                        else -> R.string.app_access_check_failed
-                    }))
+                    Text(
+                        stringResource(
+                            when {
+                                checking -> R.string.app_access_checking
+                                refreshResult == true -> R.string.app_access_checked
+                                else -> R.string.app_access_check_failed
+                            }
+                        )
+                    )
                 }
             }
         },
@@ -113,30 +119,54 @@ private fun AboutAppBottomSheet(
                 Text(stringResource(R.string.app_access_check))
             }
         },
-        dismissButton = { SaldomiOutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.app_about_close)) } },
+        dismissButton = {
+            SaldomiOutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth(), large = true) {
+                Text(stringResource(R.string.app_about_close))
+            }
+        }
     )
 }
 
-@Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun AboutAppDefaultPreview() { AboutPreview() }
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AboutAppDefaultPreview() {
+    AboutPreview()
+}
 
-@Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun AboutAppCheckingPreview() { AboutPreview(checking = true) }
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AboutAppCheckingPreview() {
+    AboutPreview(checking = true)
+}
 
-@Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun AboutAppCheckedPreview() { AboutPreview(result = true) }
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AboutAppCheckedPreview() {
+    AboutPreview(result = true)
+}
 
-@Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun AboutAppFailedPreview() { AboutPreview(result = false) }
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AboutAppFailedPreview() {
+    AboutPreview(result = false)
+}
 
-@Preview(widthDp = 320, fontScale = 2f) @Preview(widthDp = 840, uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun AboutAppUnavailablePreview() { AboutPreview(id = "") }
+@Preview(widthDp = 320, fontScale = 2f)
+@Preview(widthDp = 840, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AboutAppUnavailablePreview() {
+    AboutPreview(id = "")
+}
 
 @Composable
 private fun AboutPreview(
     checking: Boolean = false,
     result: Boolean? = null,
-    id: String = "a625153f-4be5-47b1-adfa-2c404603c034",
+    id: String = "a625153f-4be5-47b1-adfa-2c404603c034"
 ) {
     FillinTheme { AboutAppBottomSheet("0.1", id, checking, result, {}, {}, {}) }
 }

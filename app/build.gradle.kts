@@ -1,7 +1,7 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
 import com.google.gms.googleservices.GoogleServicesTask
-import java.util.Properties
 import java.net.URI
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.ksp)
@@ -50,15 +50,22 @@ val firebaseApiBaseUrl = providers.gradleProperty("firebaseApiBaseUrl").orNull ?
     if (localPropertiesFile.asFile.exists()) {
         Properties().apply { localPropertiesFile.asFile.reader().use(::load) }
             .getProperty("FIREBASE_API_BASE_URL", apiBaseUrl)
-    } else apiBaseUrl
+    } else {
+        apiBaseUrl
+    }
 }
 if (firebaseApiBaseUrl.isNotBlank()) {
     val uri = URI(firebaseApiBaseUrl)
     require(uri.userInfo == null && uri.query == null && uri.fragment == null && firebaseApiBaseUrl.endsWith("/")) {
         "Firebase API base URL must end in / and contain no credentials, query or fragment"
     }
-    require(uri.host != null && (uri.scheme == "https" ||
-        (uri.scheme == "http" && uri.host in setOf("127.0.0.1", "localhost") && uri.port > 0))) {
+    require(
+        uri.host != null &&
+            (
+                uri.scheme == "https" ||
+                    (uri.scheme == "http" && uri.host in setOf("127.0.0.1", "localhost") && uri.port > 0)
+                )
+    ) {
         "Firebase API requires HTTPS; debug testing also permits localhost HTTP with an explicit port"
     }
 }
@@ -81,7 +88,7 @@ android {
         buildConfigField(
             "String",
             "API_BASE_URL",
-            "\"$apiBaseUrl\"",
+            "\"$apiBaseUrl\""
         )
         buildConfigField("String", "FIREBASE_API_BASE_URL", "\"$firebaseApiBaseUrl\"")
     }
@@ -134,7 +141,7 @@ tasks.register("qualityCheck") {
     dependsOn(
         ":app:ktlintCheck",
         ":app:detekt",
-        ":app:lintDebug",
+        ":app:lintDebug"
     )
 }
 
@@ -151,6 +158,10 @@ detekt {
     baseline = file("detekt-baseline.xml")
 
     ignoreFailures = false
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    jvmTarget = "11"
 }
 
 dependencies {

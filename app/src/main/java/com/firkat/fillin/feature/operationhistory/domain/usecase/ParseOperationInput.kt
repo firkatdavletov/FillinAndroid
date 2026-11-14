@@ -10,7 +10,9 @@ sealed interface OperationInputResult {
 enum class OperationInputError { Empty, InvalidAmount, AmbiguousAmount, DescriptionTooLong }
 
 /** A single, separate amount at either edge; the remaining text is the description. */
-fun parseOperationInput(input: String): OperationInputResult {
+fun parseOperationInput(
+    input: String
+): OperationInputResult {
     val text = input.trim()
     if (text.isEmpty()) return OperationInputResult.Invalid(OperationInputError.Empty)
     val tokens = TOKEN.findAll(text).toList()

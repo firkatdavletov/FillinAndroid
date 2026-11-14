@@ -5,9 +5,7 @@ import com.firkat.fillin.feature.sync.data.BudgetProjection
 import com.firkat.fillin.feature.sync.data.BudgetSyncCommand
 
 /** Capability checks share one scope-validated budget response per synchronization. */
-internal class BudgetCommandSupport(
-    private val readCapabilities: suspend () -> Set<String>,
-) {
+internal class BudgetCommandSupport(private val readCapabilities: suspend () -> Set<String>) {
     private var capabilities: Set<String>? = null
 
     fun reset() {
@@ -16,20 +14,31 @@ internal class BudgetCommandSupport(
 
     suspend fun capabilities() = capabilities ?: readCapabilities().also { capabilities = it }
 
-    suspend fun ensure(command: BudgetSyncCommand) {
+    suspend fun ensure(
+        command: BudgetSyncCommand
+    ) {
         val linking = command.planMatchingMode == "CONFIRM_REQUIRED" ||
-            command.type in BudgetProjection.LINK_COMMANDS || command.planTarget != null
+            command.type in BudgetProjection.LINK_COMMANDS ||
+            command.planTarget != null
         val incomeEditing = command.type in INCOME_RULE_COMMANDS ||
-            command.incomeName != null || command.incomeFrequency != null || command.incomeActive != null
+            command.incomeName != null ||
+            command.incomeFrequency != null ||
+            command.incomeActive != null
         val remainder = command.type == "CONFIRM_REMAINDER_INCOME" ||
-            command.remainderAmount != null || command.remainderDueOn != null || command.remainderReceived != null
+            command.remainderAmount != null ||
+            command.remainderDueOn != null ||
+            command.remainderReceived != null
         if (!linking && !incomeEditing && !remainder) return
 
         val supported = capabilities()
         val dailyPlanning = BudgetCapabilities.DAILY_LIMIT_PLANNING in supported
-        if (linking && BudgetCapabilities.CONFIRMED_PLAN_LINKING !in supported ||
-            incomeEditing && BudgetCapabilities.INCOME_RULE_EDITING !in supported && !dailyPlanning ||
-            remainder && !dailyPlanning
+        if (linking &&
+            BudgetCapabilities.CONFIRMED_PLAN_LINKING !in supported ||
+            incomeEditing &&
+            BudgetCapabilities.INCOME_RULE_EDITING !in supported &&
+            !dailyPlanning ||
+            remainder &&
+            !dailyPlanning
         ) {
             throw SyncBlockedException("backend_update_required")
         }

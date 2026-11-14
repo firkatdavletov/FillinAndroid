@@ -5,43 +5,37 @@ import com.firkat.fillin.feature.dashboard.domain.model.DashboardDataState
 import com.firkat.fillin.feature.dashboard.domain.model.DashboardStatus
 import com.firkat.fillin.feature.dashboard.domain.repository.DashboardRepository
 import com.firkat.fillin.feature.sync.domain.BudgetSyncControl
+import java.io.Closeable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.*
-import java.io.Closeable
 
 /** One calculation stream for the host and all widget features. No UI owns the snapshot. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardDataSource(
     sync: BudgetSyncControl,
     private val repository: DashboardRepository,
-    private val scope: CoroutineScope,
+    private val scope: CoroutineScope
 ) : Closeable {
     private val reload = MutableStateFlow(0L)
     private val context =
         sync.context.shareIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(0, 0),
-            replay = 1,
+            replay = 1
         )
 
-    private data class Access(
-        val ready: Boolean,
-        val denied: Boolean,
-    )
+    private data class Access(val ready: Boolean, val denied: Boolean)
 
-    private data class Observation(
-        val dashboard: Dashboard? = null,
-        val failed: Boolean = false,
-    )
+    private data class Observation(val dashboard: Dashboard? = null, val failed: Boolean = false)
 
     private val observation =
         context
             .map {
                 Access(
                     ready = it.ready,
-                    denied = !it.keepLocalAccess && it.error in setOf("unauthorized", "access_denied", "scope_changed"),
+                    denied = !it.keepLocalAccess && it.error in setOf("unauthorized", "access_denied", "scope_changed")
                 )
             }.distinctUntilChanged()
             .flatMapLatest { access ->
@@ -60,7 +54,8 @@ class DashboardDataSource(
 
     val state: StateFlow<DashboardDataState> =
         combine(context, observation) { context, observation ->
-            val denied = !context.keepLocalAccess && context.error in setOf("unauthorized", "access_denied", "scope_changed")
+            val denied =
+                !context.keepLocalAccess && context.error in setOf("unauthorized", "access_denied", "scope_changed")
             when {
                 denied -> {
                     DashboardDataState(status = DashboardStatus.Forbidden)
@@ -81,14 +76,14 @@ class DashboardDataSource(
                 else -> {
                     DashboardDataState(
                         dashboard = observation.dashboard,
-                        status = DashboardStatus.Ready,
+                        status = DashboardStatus.Ready
                     )
                 }
             }.copy(isRefreshing = context.syncing)
         }.stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(0, 0),
-            initialValue = DashboardDataState(),
+            initialValue = DashboardDataState()
         )
 
     fun resume() {

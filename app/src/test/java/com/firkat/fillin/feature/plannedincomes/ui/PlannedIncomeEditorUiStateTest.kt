@@ -19,7 +19,7 @@ class PlannedIncomeEditorUiStateTest {
             name = "Зарплата",
             categoryId = "category-id",
             amount = "1300000,00",
-            dueOn = today.toString(),
+            dueOn = today.toString()
         )
 
         assertTrue(valid.canSave)
@@ -36,7 +36,7 @@ class PlannedIncomeEditorUiStateTest {
             name = "Зарплата",
             categoryId = original.categoryId,
             amount = "1350000.00",
-            dueOn = original.dueOn.toString(),
+            dueOn = original.dueOn.toString()
         )
 
         assertTrue(editor.canSave)
@@ -53,13 +53,15 @@ class PlannedIncomeEditorUiStateTest {
             name = "Зарплата",
             categoryId = original.categoryId,
             amount = original.plannedAmount.toPlainString(),
-            dueOn = original.dueOn.toString(),
+            dueOn = original.dueOn.toString()
         )
 
         assertFalse(editor.canSave)
     }
 
-    private fun income(dueOn: LocalDate) = PlannedIncome(
+    private fun income(
+        dueOn: LocalDate
+    ) = PlannedIncome(
         id = "income-id",
         categoryId = "category-id",
         categoryName = "Зарплата",
@@ -70,6 +72,6 @@ class PlannedIncomeEditorUiStateTest {
         status = PlannedIncomeStatus.Scheduled,
         version = 2,
         createdAt = Instant.parse("2026-10-01T00:00:00Z"),
-        modifiedAt = Instant.parse("2026-10-01T00:00:00Z"),
+        modifiedAt = Instant.parse("2026-10-01T00:00:00Z")
     )
 }

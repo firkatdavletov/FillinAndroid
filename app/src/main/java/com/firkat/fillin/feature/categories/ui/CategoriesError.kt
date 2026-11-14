@@ -13,27 +13,26 @@ enum class CategoriesError {
     Conflict,
     Network,
     InvalidResponse,
-    Unknown,
+    Unknown
 }
 
-internal fun CategoriesException.toUiError(): CategoriesError =
-    when (this) {
-        CategoriesException.MissingApiToken -> CategoriesError.MissingApiToken
-        CategoriesException.Unauthorized -> CategoriesError.Unauthorized
-        CategoriesException.Forbidden -> CategoriesError.Forbidden
-        CategoriesException.InvalidRequest -> CategoriesError.InvalidRequest
-        CategoriesException.NotFound -> CategoriesError.NotFound
-        CategoriesException.Conflict -> CategoriesError.Conflict
-        CategoriesException.Network -> CategoriesError.Network
-        CategoriesException.InvalidResponse -> CategoriesError.InvalidResponse
-        CategoriesException.Unknown -> CategoriesError.Unknown
-    }
+internal fun CategoriesException.toUiError(): CategoriesError = when (this) {
+    CategoriesException.MissingApiToken -> CategoriesError.MissingApiToken
+    CategoriesException.Unauthorized -> CategoriesError.Unauthorized
+    CategoriesException.Forbidden -> CategoriesError.Forbidden
+    CategoriesException.InvalidRequest -> CategoriesError.InvalidRequest
+    CategoriesException.NotFound -> CategoriesError.NotFound
+    CategoriesException.Conflict -> CategoriesError.Conflict
+    CategoriesException.Network -> CategoriesError.Network
+    CategoriesException.InvalidResponse -> CategoriesError.InvalidResponse
+    CategoriesException.Unknown -> CategoriesError.Unknown
+}
 
 internal val CategoriesError.messageResource: Int
     @StringRes get() =
         when (this) {
             CategoriesError.MissingApiToken,
-            CategoriesError.Unauthorized,
+            CategoriesError.Unauthorized
             -> R.string.categories_error_unauthorized
 
             CategoriesError.Forbidden -> R.string.categories_error_forbidden

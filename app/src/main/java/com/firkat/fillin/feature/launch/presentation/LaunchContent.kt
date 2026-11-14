@@ -21,7 +21,7 @@ import com.firkat.fillin.ui.theme.FillinTheme
 @Composable
 fun LaunchContent(
     modifier: Modifier = Modifier,
-    isLoading: Boolean = false,
+    isLoading: Boolean = false
 ) {
     Box(
         modifier = modifier
@@ -48,7 +48,7 @@ fun LaunchContent(
         )
         if (isLoading) {
             CircularProgressIndicator(
-                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 32.dp),
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 32.dp)
             )
         }
     }

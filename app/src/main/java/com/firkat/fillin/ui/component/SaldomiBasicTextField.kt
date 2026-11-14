@@ -14,7 +14,7 @@ fun SaldomiBasicTextField(
     placeholder: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    isError: Boolean = false,
+    isError: Boolean = false
 ) {
     TextField(
         value = value,
@@ -28,7 +28,7 @@ fun SaldomiBasicTextField(
             focusedContainerColor = Color.Transparent,
             unfocusedContainerColor = Color.Transparent,
             disabledContainerColor = Color.Transparent,
-            errorContainerColor = Color.Transparent,
-        ),
+            errorContainerColor = Color.Transparent
+        )
     )
 }

@@ -25,7 +25,7 @@ fun DatePeriodChip(
     isDefaultPeriod: Boolean,
     onClick: () -> Unit,
     onReset: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val label = if (isDefaultPeriod) {
         dateFrom.format(MONTH_FORMAT).replaceFirstChar { it.titlecase(RUSSIAN_LOCALE) }
@@ -49,22 +49,22 @@ fun DatePeriodChip(
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_drop_down),
                     contentDescription = stringResource(R.string.date_period_chip_choose_period),
-                    modifier = Modifier.size(InputChipDefaults.IconSize).testTag("date-period-dropdown"),
+                    modifier = Modifier.size(InputChipDefaults.IconSize).testTag("date-period-dropdown")
                 )
             } else {
                 IconButton(
                     onClick = onReset,
-                    modifier = Modifier.size(24.dp).testTag("date-period-reset"),
+                    modifier = Modifier.size(24.dp).testTag("date-period-reset")
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_close),
                         contentDescription = stringResource(R.string.date_period_chip_reset),
-                        modifier = Modifier.size(InputChipDefaults.IconSize),
+                        modifier = Modifier.size(InputChipDefaults.IconSize)
                     )
                 }
             }
         },
-        modifier = modifier,
+        modifier = modifier
     )
 }
 

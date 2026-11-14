@@ -34,7 +34,7 @@ data class AuthState(
     val errorId: Long = 0,
     val serverProfile: ServerProfileState = ServerProfileState.Idle,
     val profileRequestId: Long = 0,
-    val profileAvailable: Boolean = false,
+    val profileAvailable: Boolean = false
 ) : State {
     val busy: Boolean get() = operation != null || emailBusy
     val buttonsEnabled: Boolean get() = !busy && session != AuthSession.Loading
@@ -47,7 +47,11 @@ sealed interface AuthAction : Action {
     data class EmailChanged(val value: String) : AuthAction
     data class PasswordChanged(val value: String) : AuthAction
     data class ConfirmationChanged(val value: String) : AuthAction
-    data class SubmitEmail(val task: EmailTask, val token: String = "", val nowMillis: Long = System.currentTimeMillis()) : AuthAction
+    data class SubmitEmail(
+        val task: EmailTask,
+        val token: String = "",
+        val nowMillis: Long = System.currentTimeMillis()
+    ) : AuthAction
 
     data object GoogleClicked : AuthAction
     data object EmailClicked : AuthAction
@@ -65,7 +69,13 @@ sealed interface AuthAction : Action {
 }
 
 sealed interface AuthCommand : Command {
-    data class Email(val task: EmailTask, val email: String, val password: String, val token: String, val expectedUid: String? = null) : AuthCommand
+    data class Email(
+        val task: EmailTask,
+        val email: String,
+        val password: String,
+        val token: String,
+        val expectedUid: String? = null
+    ) : AuthCommand
 
     data object ObserveSession : AuthCommand
     data class SignInWithGoogle(val operationId: Long, val idToken: String) : AuthCommand

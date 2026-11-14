@@ -1,29 +1,29 @@
 package com.firkat.fillin.core.di
 
-import androidx.room.Room
 import android.os.SystemClock
-import com.firkat.fillin.feature.appaccess.data.AppAccessApi
-import com.firkat.fillin.feature.appaccess.data.BackendAppAccess
-import com.firkat.fillin.feature.appaccess.domain.AppAccess
-import com.firkat.fillin.feature.appaccess.data.CloudAccessInterceptor
-import java.io.File
-import org.koin.core.qualifier.named
+import androidx.room.Room
 import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.core.network.BackendHeadersInterceptor
 import com.firkat.fillin.core.network.InstallationIdStore
+import com.firkat.fillin.feature.appaccess.data.AppAccessApi
+import com.firkat.fillin.feature.appaccess.data.BackendAppAccess
+import com.firkat.fillin.feature.appaccess.data.CloudAccessInterceptor
+import com.firkat.fillin.feature.appaccess.domain.AppAccess
 import com.firkat.fillin.feature.operationhistory.data.remote.OperationSyncApi
 import com.firkat.fillin.feature.operationhistory.data.sync.AndroidOperationConnectivity
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationConnectivity
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationWorkerFactory
 import com.firkat.fillin.feature.operationhistory.data.sync.WorkManagerOperationSyncScheduler
+import java.io.File
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.module.dsl.viewModel
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import org.koin.dsl.onClose
-import org.koin.core.module.dsl.viewModel
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
@@ -36,7 +36,12 @@ val appModule =
             com.firkat.fillin.feature.budgetsetup.data.RoomActiveBudgetReadiness(get())
         }
         viewModel { com.firkat.fillin.ui.navigation.AppNavigationViewModel(get(), get(), get(), get(), get(), get()) }
-        includes(com.firkat.fillin.feature.auth.di.authModule, com.firkat.fillin.feature.budgetprofile.di.budgetModule, com.firkat.fillin.feature.budgetconnection.di.budgetConnectionModule, com.firkat.fillin.feature.profile.di.profileModule)
+        includes(
+            com.firkat.fillin.feature.auth.di.authModule,
+            com.firkat.fillin.feature.budgetprofile.di.budgetModule,
+            com.firkat.fillin.feature.budgetconnection.di.budgetConnectionModule,
+            com.firkat.fillin.feature.profile.di.profileModule
+        )
         single {
             Json {
                 ignoreUnknownKeys = true
@@ -58,7 +63,7 @@ val appModule =
                 .baseUrl(BuildConfig.API_BASE_URL)
                 .client(get<OkHttpClient>())
                 .addConverterFactory(
-                    get<Json>().asConverterFactory("application/json".toMediaType()),
+                    get<Json>().asConverterFactory("application/json".toMediaType())
                 ).build()
         }
         single<AppAccess> {
@@ -66,8 +71,13 @@ val appModule =
             val api = backend.takeIf(String::isNotBlank)?.let {
                 get<Retrofit>().newBuilder().baseUrl(it).build().create(AppAccessApi::class.java)
             }
-            BackendAppAccess(api, backend, get<InstallationIdStore>()::get,
-                File(androidContext().noBackupFilesDir, "app-access"), SystemClock::elapsedRealtime)
+            BackendAppAccess(
+                api,
+                backend,
+                get<InstallationIdStore>()::get,
+                File(androidContext().noBackupFilesDir, "app-access"),
+                SystemClock::elapsedRealtime
+            )
         }
         single<OkHttpClient>(named("cloud")) {
             val koin = getKoin()
@@ -76,17 +86,31 @@ val appModule =
                 .addInterceptor(CloudAccessInterceptor { koin.get() })
                 .build()
         }
-        single<com.firkat.fillin.feature.sync.data.CloudBudgetApi> { com.firkat.fillin.feature.sync.data.LocalOnlyCloudApi }
+        single<com.firkat.fillin.feature.sync.data.CloudBudgetApi> {
+            com.firkat.fillin.feature.sync.data.LocalOnlyCloudApi
+        }
         single<OperationSyncApi> { com.firkat.fillin.feature.sync.data.RetiredOperationSyncApi }
-        single<com.firkat.fillin.feature.sync.data.BudgetSyncApi> { com.firkat.fillin.feature.sync.data.RetiredBudgetSyncApi }
+        single<com.firkat.fillin.feature.sync.data.BudgetSyncApi> {
+            com.firkat.fillin.feature.sync.data.RetiredBudgetSyncApi
+        }
         single { com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory(androidContext()) }
-        single { Room.databaseBuilder(androidContext(), com.firkat.fillin.feature.budgetprofile.data.BudgetProfileDatabase::class.java, "budget-profiles.db").addMigrations(*com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATIONS).build() } onClose { it?.close() }
+        single {
+            Room.databaseBuilder(
+                androidContext(),
+                com.firkat.fillin.feature.budgetprofile.data.BudgetProfileDatabase::class.java,
+                "budget-profiles.db"
+            ).addMigrations(*com.firkat.fillin.feature.budgetprofile.data.PROFILE_MIGRATIONS).build()
+        } onClose { it?.close() }
         single<com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileRegistry> {
             com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry(get(), BuildConfig.API_BASE_URL)
         }
         single {
-            com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager(get(), get(), getKoin(), blocked = { uid -> get<com.firkat.fillin.feature.profile.domain.DeletionStore>().blocked(uid) }) { identity ->
-                androidx.work.WorkManager.getInstance(androidContext()).cancelUniqueWork(com.firkat.fillin.feature.budgetprofile.data.BudgetWorkIdentity.uniqueName(identity))
+            com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager(get(), get(), getKoin(), blocked = { uid ->
+                get<com.firkat.fillin.feature.profile.domain.DeletionStore>().blocked(uid)
+            }) { identity ->
+                androidx.work.WorkManager.getInstance(
+                    androidContext()
+                ).cancelUniqueWork(com.firkat.fillin.feature.budgetprofile.data.BudgetWorkIdentity.uniqueName(identity))
             }
         } onClose { it?.close() }
         single<OperationSyncScheduler> {

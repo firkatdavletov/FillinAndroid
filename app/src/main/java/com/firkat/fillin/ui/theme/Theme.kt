@@ -24,7 +24,6 @@ val MaterialTheme.saldomiColors: SaldomiSemanticColors
     @Composable
     get() = LocalSaldomiSemanticColors.current
 
-
 @Composable
 fun FillinTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -46,12 +45,12 @@ fun FillinTheme(
 
     CompositionLocalProvider(
         LocalSaldomiSemanticColors provides semanticColors,
-        LocalSaldomiDesignColors provides if (darkTheme) SaldomiDarkDesignColors else SaldomiLightDesignColors,
+        LocalSaldomiDesignColors provides if (darkTheme) SaldomiDarkDesignColors else SaldomiLightDesignColors
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography,
-            content = content,
+            content = content
         )
     }
 }

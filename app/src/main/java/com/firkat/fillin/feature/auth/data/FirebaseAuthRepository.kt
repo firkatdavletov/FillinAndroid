@@ -18,53 +18,132 @@ import kotlinx.serialization.json.*
 class FirebaseAuthRepository(
     private val gateway: FirebaseAuthGateway?,
     private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
-    private val clearCredentials: suspend () -> Unit,
-) : AuthRepository, AutoCloseable {
-    constructor(auth: FirebaseAuth?, credentialManager: CredentialManager) : this(auth?.let(::SdkFirebaseAuthGateway), credentialManager)
-    constructor(gateway: FirebaseAuthGateway?, credentialManager: CredentialManager, access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null) : this(gateway, access, { credentialManager.clearCredentialState(ClearCredentialStateRequest()) })
-    private val mutableSession = MutableStateFlow<AuthSession>(if (gateway == null) AuthSession.Unavailable else AuthSession.Loading)
+    private val clearCredentials: suspend () -> Unit
+) : AuthRepository,
+    AutoCloseable {
+    constructor(
+        auth: FirebaseAuth?,
+        credentialManager: CredentialManager
+    ) : this(auth?.let(::SdkFirebaseAuthGateway), credentialManager)
+    constructor(
+        gateway: FirebaseAuthGateway?,
+        credentialManager: CredentialManager,
+        access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null
+    ) : this(gateway, access, { credentialManager.clearCredentialState(ClearCredentialStateRequest()) })
+    private val mutableSession = MutableStateFlow<AuthSession>(
+        if (gateway ==
+            null
+        ) {
+            AuthSession.Unavailable
+        } else {
+            AuthSession.Loading
+        }
+    )
     override val session = mutableSession.asStateFlow()
     private val mutex = Mutex()
+
     @Volatile private var updating = false
+
     @Volatile private var verificationRequired = false
     private val observation = gateway?.observe { if (!updating) publish() }
 
     private fun publish() {
         val user = gateway?.user
-        mutableSession.value = if (user == null || user.anonymous) AuthSession.Anonymous else {
+        mutableSession.value = if (user == null || user.anonymous) {
+            AuthSession.Anonymous
+        } else {
             val value = AuthUser(user.uid, user.name, user.email, user.providers, user.verified)
-            if ((!user.verified && (user.signInProvider == "password" || user.signInProvider == null && "password" in user.providers)) || verificationRequired) AuthSession.EmailVerificationRequired(value)
-            else AuthSession.Authenticated(value)
+            if ((
+                    !user.verified &&
+                        (
+                            user.signInProvider == "password" ||
+                                user.signInProvider == null &&
+                                "password" in user.providers
+                            )
+                    ) ||
+                verificationRequired
+            ) {
+                AuthSession.EmailVerificationRequired(value)
+            } else {
+                AuthSession.Authenticated(value)
+            }
         }
     }
-    private suspend fun operation(accountCleanup: Boolean = false, block: suspend (FirebaseAuthGateway) -> Unit) = mutex.withLock {
+    private suspend fun operation(
+        accountCleanup: Boolean = false,
+        block: suspend (FirebaseAuthGateway) -> Unit
+    ) = mutex.withLock {
         if (!accountCleanup && access?.cloudAllowed == false) throw AuthFailure(AuthError.NotConfigured)
         val sdk = gateway ?: throw AuthFailure(AuthError.NotConfigured)
         updating = true
-        try { block(sdk) }
-        catch (e: CancellationException) { throw e }
-        catch (e: AuthFailure) { throw e }
-        catch (_: FirebaseNetworkException) { throw AuthFailure(AuthError.Network) }
-        catch (_: FirebaseTooManyRequestsException) { throw AuthFailure(AuthError.TooManyRequests) }
-        catch (e: FirebaseAuthException) { throw AuthFailure(firebaseError(e.errorCode)) }
-        finally { updating = false; publish() }
+        try {
+            block(sdk)
+        } catch (
+            e: CancellationException
+        ) {
+            throw e
+        } catch (
+            e: AuthFailure
+        ) {
+            throw e
+        } catch (
+            _: FirebaseNetworkException
+        ) {
+            throw AuthFailure(AuthError.Network)
+        } catch (
+            _: FirebaseTooManyRequestsException
+        ) {
+            throw AuthFailure(AuthError.TooManyRequests)
+        } catch (
+            e: FirebaseAuthException
+        ) {
+            throw AuthFailure(firebaseError(e.errorCode))
+        } finally {
+            updating = false
+            publish()
+        }
     }
-    override suspend fun signInWithGoogle(idToken: String) = operation { sdk ->
+    override suspend fun signInWithGoogle(
+        idToken: String
+    ) = operation { sdk ->
         if (idToken.isBlank()) throw AuthFailure(AuthError.InvalidCredential)
-        sdk.google(idToken); verificationRequired = false
+        sdk.google(idToken)
+        verificationRequired = false
     }
-    override suspend fun signInWithEmail(email: String, password: String) = operation { sdk ->
-        sdk.signIn(email.trim(), password); verificationRequired = sdk.user?.verified != true
+    override suspend fun signInWithEmail(
+        email: String,
+        password: String
+    ) = operation { sdk ->
+        sdk.signIn(email.trim(), password)
+        verificationRequired = sdk.user?.verified != true
     }
+
     // Sending the email is a separate operation: failure must never repeat account creation.
-    override suspend fun register(email: String, password: String) = operation { sdk ->
+    override suspend fun register(
+        email: String,
+        password: String
+    ) = operation { sdk ->
         if (password.length < 12) throw AuthFailure(AuthError.WeakPassword)
-        sdk.create(email.trim(), password); verificationRequired = true
+        sdk.create(email.trim(), password)
+        verificationRequired = true
     }
     override suspend fun sendVerification() = operation { it.verification() }
-    override suspend fun resetPassword(email: String) = operation { sdk ->
-        try { sdk.reset(email.trim()) } catch (e: FirebaseAuthException) {
-            if (e.errorCode !in setOf("ERROR_USER_NOT_FOUND", "ERROR_USER_DISABLED", "ERROR_INVALID_CREDENTIAL", "ERROR_INVALID_LOGIN_CREDENTIALS")) throw e
+    override suspend fun resetPassword(
+        email: String
+    ) = operation { sdk ->
+        try {
+            sdk.reset(email.trim())
+        } catch (e: FirebaseAuthException) {
+            if (e.errorCode !in
+                setOf(
+                    "ERROR_USER_NOT_FOUND",
+                    "ERROR_USER_DISABLED",
+                    "ERROR_INVALID_CREDENTIAL",
+                    "ERROR_INVALID_LOGIN_CREDENTIALS"
+                )
+            ) {
+                throw e
+            }
         }
     }
     override suspend fun reloadUser() = operation { sdk ->
@@ -75,35 +154,66 @@ class FirebaseAuthRepository(
         sdk.refresh()
         verificationRequired = sdk.user?.verified != true
     }
-    override suspend fun linkPassword(password: String) = operation { sdk ->
+    override suspend fun linkPassword(
+        password: String
+    ) = operation { sdk ->
         if (password.length < 12) throw AuthFailure(AuthError.WeakPassword)
         val uid = sdk.user?.uid
-        sdk.linkPassword(password); sdk.reload(); sdk.refresh()
+        sdk.linkPassword(password)
+        sdk.reload()
+        sdk.refresh()
         if (sdk.user?.uid != uid) throw AuthFailure(AuthError.InvalidCredential)
     }
-    override suspend fun linkGoogle(idToken: String) = operation { sdk ->
+    override suspend fun linkGoogle(
+        idToken: String
+    ) = operation { sdk ->
         val email = runCatching {
             val payload = java.util.Base64.getUrlDecoder().decode(idToken.split('.')[1])
             Json.parseToJsonElement(String(payload, Charsets.UTF_8)).jsonObject["email"]?.jsonPrimitive?.content
         }.getOrNull()
-        if (email == null || !email.equals(sdk.user?.email, ignoreCase = true)) throw AuthFailure(AuthError.EmailMismatch)
+        if (email == null ||
+            !email.equals(sdk.user?.email, ignoreCase = true)
+        ) {
+            throw AuthFailure(AuthError.EmailMismatch)
+        }
         val uid = sdk.user?.uid
-        sdk.linkGoogle(idToken); sdk.reload(); sdk.refresh()
+        sdk.linkGoogle(idToken)
+        sdk.reload()
+        sdk.refresh()
         if (sdk.user?.uid != uid) throw AuthFailure(AuthError.InvalidCredential)
         verificationRequired = sdk.user?.verified != true
     }
-    override suspend fun reauthenticatePassword(password: String)  = operation(accountCleanup = true) { it.reauthenticatePassword(password) }
-    override suspend fun reauthenticateGoogle(idToken: String)  = operation(accountCleanup = true) { it.reauthenticateGoogle(idToken) }
-    override fun requireEmailVerification() { verificationRequired = true; publish() }
-    override suspend fun signOut() {
-        operation(accountCleanup = true) { it.signOut(); verificationRequired = false }
-        try { clearCredentials() }
-        catch (_: ClearCredentialException) { throw AuthFailure(AuthError.CredentialResetFailed) }
+    override suspend fun reauthenticatePassword(
+        password: String
+    ) = operation(accountCleanup = true) { it.reauthenticatePassword(password) }
+    override suspend fun reauthenticateGoogle(
+        idToken: String
+    ) = operation(accountCleanup = true) { it.reauthenticateGoogle(idToken) }
+    override fun requireEmailVerification() {
+        verificationRequired = true
+        publish()
     }
-    override fun close() { observation?.close() }
+    override suspend fun signOut() {
+        operation(accountCleanup = true) {
+            it.signOut()
+            verificationRequired = false
+        }
+        try {
+            clearCredentials()
+        } catch (
+            _: ClearCredentialException
+        ) {
+            throw AuthFailure(AuthError.CredentialResetFailed)
+        }
+    }
+    override fun close() {
+        observation?.close()
+    }
 }
 
-internal fun firebaseError(code: String): AuthError = when (code) {
+internal fun firebaseError(
+    code: String
+): AuthError = when (code) {
     "ERROR_INVALID_EMAIL" -> AuthError.InvalidEmail
     "ERROR_WEAK_PASSWORD" -> AuthError.WeakPassword
     "ERROR_EMAIL_ALREADY_IN_USE" -> AuthError.EmailInUse

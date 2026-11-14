@@ -8,13 +8,13 @@ import java.time.LocalDate
 
 class UpdatePlannedIncome(
     private val repository: PlannedIncomesRepository,
-    private val currentDate: () -> LocalDate = { LocalDate.now(ALMATY_ZONE) },
+    private val currentDate: () -> LocalDate = { LocalDate.now(ALMATY_ZONE) }
 ) {
     suspend operator fun invoke(
         income: PlannedIncome,
         categoryId: String? = null,
         amount: BigDecimal? = null,
-        dueOn: LocalDate? = null,
+        dueOn: LocalDate? = null
     ): PlannedIncome {
         if (
             listOf(categoryId, amount, dueOn).all { it == null } ||
@@ -30,7 +30,7 @@ class UpdatePlannedIncome(
             version = income.version,
             categoryId = categoryId,
             amount = amount,
-            dueOn = dueOn,
+            dueOn = dueOn
         )
     }
 }

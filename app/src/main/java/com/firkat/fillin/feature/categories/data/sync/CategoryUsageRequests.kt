@@ -14,23 +14,29 @@ interface CategoryUsageApi {
     suspend fun push(
         @Header("Authorization") authorization: String,
         @Query("budgetId") budgetId: String,
-        @Body batch: CategoryUsageBatch,
+        @Body batch: CategoryUsageBatch
     ): Response<CategoryUsageReceipt>
 
     @GET("api/v4/category-usage/events")
     suspend fun pull(
         @Header("Authorization") authorization: String,
         @Query("budgetId") budgetId: String,
-        @Query("cursor") cursor: String?,
+        @Query("cursor") cursor: String?
     ): Response<CategoryUsagePage>
 }
 
 class CategoryUsageRequests(private val api: CategoryUsageApi?, tokens: FirebaseIdTokenProvider) {
     private val authenticated = FirebaseAuthenticatedRequests(tokens)
 
-    suspend fun push(uid: String, budgetId: String, batch: CategoryUsageBatch) =
-        authenticated.execute(uid, api) { service, auth -> service.push(auth, budgetId, batch) }
+    suspend fun push(
+        uid: String,
+        budgetId: String,
+        batch: CategoryUsageBatch
+    ) = authenticated.execute(uid, api) { service, auth -> service.push(auth, budgetId, batch) }
 
-    suspend fun pull(uid: String, budgetId: String, cursor: String?) =
-        authenticated.execute(uid, api) { service, auth -> service.pull(auth, budgetId, cursor) }
+    suspend fun pull(
+        uid: String,
+        budgetId: String,
+        cursor: String?
+    ) = authenticated.execute(uid, api) { service, auth -> service.pull(auth, budgetId, cursor) }
 }

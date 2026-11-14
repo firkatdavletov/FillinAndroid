@@ -19,11 +19,14 @@ data class DailyLimitUiState(
     val spentPercent: BigDecimal? = null,
     val remainingPercent: BigDecimal? = null,
     val progress: Float = 0f,
-    val isOverspent: Boolean = false,
+    val isOverspent: Boolean = false
 ) {
     val displayedRemainingToday = remainingToday?.copy(amount = remainingToday.amount.max(BigDecimal.ZERO))
-    val overspentAmount = if (spentToday != null && amount != null)
-        Money((spentToday.amount - amount.amount).max(BigDecimal.ZERO), amount.currency) else null
+    val overspentAmount = if (spentToday != null && amount != null) {
+        Money((spentToday.amount - amount.amount).max(BigDecimal.ZERO), amount.currency)
+    } else {
+        null
+    }
     val status: DailyLimitCardStatus get() = when {
         forecast?.status == com.firkat.fillin.feature.dailylimit.domain.ForecastStatus.DEFICIT -> DailyLimitCardStatus.Deficit
         isOverspent -> DailyLimitCardStatus.Overspent
@@ -33,7 +36,9 @@ data class DailyLimitUiState(
     val showRemaining: Boolean get() = showProgress && status != DailyLimitCardStatus.Deficit
 
     companion object {
-        fun from(summary: DailyLimitSummary) = DailyLimitUiState(
+        fun from(
+            summary: DailyLimitSummary
+        ) = DailyLimitUiState(
             forecast = summary.forecast,
             amount = summary.limit,
             spentToday = summary.spentToday,
@@ -45,7 +50,7 @@ data class DailyLimitUiState(
                     .divide(summary.limit.amount, 6, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
                 else -> 0f
             },
-            isOverspent = summary.spentToday.amount > summary.limit.amount,
+            isOverspent = summary.spentToday.amount > summary.limit.amount
         )
     }
 }

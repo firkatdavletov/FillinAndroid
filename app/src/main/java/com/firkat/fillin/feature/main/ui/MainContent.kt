@@ -34,7 +34,7 @@ internal fun MainContent(
     onOperationClick: (String, String) -> Unit,
     onForecastClick: () -> Unit,
     readOnly: Boolean = false,
-    onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit,
+    onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit
 ) {
     Scaffold(
         modifier = modifier.testTag("main_screen"),
@@ -44,9 +44,9 @@ internal fun MainContent(
         bottomBar = {
             MainBottomNavigation(
                 selectedDestination = selectedDestination,
-                onSelectDestination = onSelectDestination,
+                onSelectDestination = onSelectDestination
             )
-        },
+        }
     ) { innerPadding ->
         val bottomBarOverlap = innerPadding.calculateBottomPadding()
         val provider =
@@ -56,17 +56,17 @@ internal fun MainContent(
                         val plansViewModel = planningRulesViewModel()
                         DashboardRoute(
                             modifier =
-                                Modifier
-                                    .fillMaxSize(),
+                            Modifier
+                                .fillMaxSize(),
                             bottomBarOverlap = bottomBarOverlap,
                             onForecastClick = onForecastClick,
                             onPaymentsClick = { _, _ ->
                                 plansViewModel.onEvent(
-                                    PlannedOperationsEvent.TypeSelected(PlannedOperationType.Expense),
+                                    PlannedOperationsEvent.TypeSelected(PlannedOperationType.Expense)
                                 )
                                 onSelectDestination(AppDestination.Planned)
                             },
-                            onProfileClick = onAccountClick,
+                            onProfileClick = onAccountClick
                         )
                     }
                 }
@@ -75,7 +75,7 @@ internal fun MainContent(
                         OperationHistoryRoute(
                             snackbarHostState = snackbarHostState,
                             onOperationClick = onOperationClick,
-                            bottomBarOverlap = bottomBarOverlap,
+                            bottomBarOverlap = bottomBarOverlap
                         )
                     }
                 }
@@ -85,7 +85,7 @@ internal fun MainContent(
                             readOnly = readOnly,
                             onOpenEditor = { onPlannedOperationEditorClick(it, null) },
                             onEditRule = { onPlannedOperationEditorClick(it.type, it.id) },
-                            bottomBarOverlap = bottomBarOverlap,
+                            bottomBarOverlap = bottomBarOverlap
                         )
                     }
                 }
@@ -98,7 +98,7 @@ internal fun MainContent(
                     rememberDecoratedNavEntries(
                         backStack = stack,
                         entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
-                        entryProvider = provider,
+                        entryProvider = provider
                     )
                 }
             }
@@ -111,7 +111,7 @@ internal fun MainContent(
         NavDisplay(
             entries = visibleTabs.flatMap { tabEntries.getValue(it) },
             onBack = { onSelectDestination(AppDestination.Dashboard) },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize()
         )
     }
 }

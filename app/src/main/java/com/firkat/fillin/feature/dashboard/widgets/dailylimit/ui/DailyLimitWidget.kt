@@ -2,7 +2,6 @@ package com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui
 
 import android.content.res.Configuration
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -13,7 +12,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -29,20 +27,22 @@ import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetCard
 import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetHeading
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
-import org.koin.compose.viewmodel.koinViewModel
 import java.math.BigDecimal
 import java.util.Locale
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun DailyLimitRoute(
     modifier: Modifier = Modifier,
     viewModel: DailyLimitViewModel = koinViewModel(),
-    onPaymentsClick: (java.time.LocalDate, java.time.LocalDate) -> Unit = { _, _ -> },
+    onPaymentsClick: (java.time.LocalDate, java.time.LocalDate) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val navigation: com.firkat.fillin.ui.navigation.AppNavigationViewModel =
         koinViewModel(
-            viewModelStoreOwner = checkNotNull(androidx.activity.compose.LocalActivity.current as? androidx.activity.ComponentActivity),
+            viewModelStoreOwner = checkNotNull(
+                androidx.activity.compose.LocalActivity.current as? androidx.activity.ComponentActivity
+            )
         )
     val budgets: com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager = org.koin.compose.koinInject()
     DailyLimitWidget(
@@ -54,7 +54,9 @@ fun DailyLimitRoute(
                 ?.id
                 ?.let(navigation::openDailyLimit)
         },
-        onPaymentsClick = { state.forecast?.let { result -> result.firstDeficitDate?.let { onPaymentsClick(result.horizonStart, it) } } },
+        onPaymentsClick = {
+            state.forecast?.let { result -> result.firstDeficitDate?.let { onPaymentsClick(result.horizonStart, it) } }
+        }
     )
 }
 
@@ -63,30 +65,38 @@ internal fun DailyLimitWidget(
     state: DailyLimitUiState,
     modifier: Modifier = Modifier,
     onDetailsClick: () -> Unit = {},
-    onPaymentsClick: () -> Unit = {},
+    onPaymentsClick: () -> Unit = {}
 ) {
     val deficit = state.status == DailyLimitCardStatus.Deficit
-    val color = if (state.status != DailyLimitCardStatus.Normal) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    val color = if (state.status !=
+        DailyLimitCardStatus.Normal
+    ) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
     WidgetCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable(
-                onClick = onDetailsClick,
-            ),
+                onClick = onDetailsClick
+            )
     ) {
         Column(
             modifier = Modifier.padding(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             WidgetHeading(
                 title = R.string.dashboard_daily_limit,
                 icon = R.drawable.ic_categories
             )
             Text(
-                state.amount?.let { stringResource(R.string.daily_per_day, formatMoney(it.amount, it.currency)) } ?: "—",
+                state.amount?.let {
+                    stringResource(R.string.daily_per_day, formatMoney(it.amount, it.currency))
+                } ?: "—",
                 Modifier.testTag("daily-limit-amount"),
                 style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.SemiBold
             )
             if (state.amount != null) {
                 Text(
@@ -96,33 +106,42 @@ internal fun DailyLimitWidget(
                             state.isOverspent -> R.string.daily_status_overspent
                             !state.showProgress -> R.string.daily_status_zero
                             else -> R.string.daily_status_normal
-                        },
+                        }
                     ),
                     color = color,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelLarge
                 )
                 if (state.showProgress) {
                     val description = stringResource(R.string.dashboard_daily_progress)
                     LinearProgressIndicator(
                         progress = { state.progress.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().testTag("daily-limit-progress").semantics { contentDescription = description },
-                        color = color,
+                        modifier = Modifier.fillMaxWidth().testTag("daily-limit-progress").semantics {
+                            contentDescription =
+                                description
+                        },
+                        color = color
                     )
                 }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
-                        stringResource(R.string.daily_spent_today, state.spentToday?.let { formatMoney(it.amount, it.currency) } ?: "—"),
+                        stringResource(
+                            R.string.daily_spent_today,
+                            state.spentToday?.let { formatMoney(it.amount, it.currency) } ?: "—"
+                        ),
                         Modifier.testTag("daily-limit-spent"),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (state.showRemaining) {
                         Text(
                             stringResource(
                                 R.string.daily_remaining_today,
-                                state.displayedRemainingToday?.let { formatMoney(it.amount, it.currency) } ?: "—",
+                                state.displayedRemainingToday?.let { formatMoney(it.amount, it.currency) } ?: "—"
                             ),
                             Modifier.testTag("daily-limit-remaining"),
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -130,9 +149,9 @@ internal fun DailyLimitWidget(
                     Text(
                         stringResource(
                             R.string.daily_excess,
-                            requireNotNull(state.overspentAmount).let { formatMoney(it.amount, it.currency) },
+                            requireNotNull(state.overspentAmount).let { formatMoney(it.amount, it.currency) }
                         ),
-                        color = color,
+                        color = color
                     )
                 }
             }
@@ -144,23 +163,29 @@ internal fun DailyLimitWidget(
                         onClick = onPaymentsClick,
                         modifier = Modifier.fillMaxWidth().testTag("daily-limit-payments"),
                         colors =
-                            androidx.compose.material3.CardDefaults
-                                .cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        androidx.compose.material3.CardDefaults
+                            .cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                     ) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 stringResource(
                                     R.string.daily_shortfall,
-                                    formatMoney(requireNotNull(result.deficitAmount).amount, result.dailyTarget.currency),
+                                    formatMoney(
+                                        requireNotNull(result.deficitAmount).amount,
+                                        result.dailyTarget.currency
+                                    ),
                                     date.format(
                                         java.time.format.DateTimeFormatter
-                                            .ofPattern(pattern, Locale.forLanguageTag("ru")),
-                                    ),
+                                            .ofPattern(pattern, Locale.forLanguageTag("ru"))
+                                    )
                                 ),
                                 color = MaterialTheme.colorScheme.onErrorContainer,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.SemiBold
                             )
-                            Text(stringResource(R.string.daily_view_payments), color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text(
+                                stringResource(R.string.daily_view_payments),
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
                         }
                     }
                 }
@@ -176,7 +201,7 @@ private val previewState =
         remainingToday = Money("7500.00".toBigDecimal(), "KZT"),
         spentPercent = "25.0".toBigDecimal(),
         remainingPercent = "75.0".toBigDecimal(),
-        progress = 0.25f,
+        progress = 0.25f
     )
 
 @Preview(name = "Daily limit", widthDp = 288)
@@ -199,8 +224,8 @@ private fun DailyLimitNoExpensesPreview() {
                 remainingToday = previewState.amount,
                 spentPercent = "0.0".toBigDecimal(),
                 remainingPercent = "100.0".toBigDecimal(),
-                progress = 0f,
-            ),
+                progress = 0f
+            )
         )
     }
 }
@@ -216,8 +241,8 @@ private fun DailyLimitReachedPreview() {
                 remainingToday = Money("0.00".toBigDecimal(), "KZT"),
                 spentPercent = "100.0".toBigDecimal(),
                 remainingPercent = "0.0".toBigDecimal(),
-                progress = 1f,
-            ),
+                progress = 1f
+            )
         )
     }
 }
@@ -234,8 +259,8 @@ private fun DailyLimitOverspentPreview() {
                 spentPercent = "125.0".toBigDecimal(),
                 remainingPercent = "25.0".toBigDecimal(),
                 progress = 1f,
-                isOverspent = true,
-            ),
+                isOverspent = true
+            )
         )
     }
 }
@@ -261,8 +286,8 @@ private fun DailyLimitZeroOverspentPreview() {
                 spentToday = previewState.spentToday,
                 remainingToday = Money(BigDecimal.ZERO, "KZT"),
                 progress = 0f,
-                isOverspent = true,
-            ),
+                isOverspent = true
+            )
         )
     }
 }
@@ -283,40 +308,40 @@ private fun DailyLimitLargeAmountsPreview() {
             previewState.copy(
                 amount = Money("123456789.00".toBigDecimal(), "KZT"),
                 spentToday = Money("30864197.25".toBigDecimal(), "KZT"),
-                remainingToday = Money("92592591.75".toBigDecimal(), "KZT"),
-            ),
+                remainingToday = Money("92592591.75".toBigDecimal(), "KZT")
+            )
         )
     }
 }
 
 private fun forecastPreviewState(
-    kind: Int,
+    kind: Int
 ): DailyLimitUiState {
     val date = java.time.LocalDate.of(2026, 11, 1)
 
     fun money(
-        value: String,
+        value: String
     ) = Money(value.toBigDecimal(), "KZT")
     val events =
         when (kind) {
             0 -> {
                 listOf(
                     com.firkat.fillin.feature.dailylimit.domain
-                        .ForecastEvent("salary", "Зарплата", date.plusDays(30), money("300000"), true),
+                        .ForecastEvent("salary", "Зарплата", date.plusDays(30), money("300000"), true)
                 )
             }
 
             1 -> {
                 listOf(
                     com.firkat.fillin.feature.dailylimit.domain
-                        .ForecastEvent("salary", "Зарплата", date.plusDays(14), money("300000"), true),
+                        .ForecastEvent("salary", "Зарплата", date.plusDays(14), money("300000"), true)
                 )
             }
 
             2 -> {
                 listOf(
                     com.firkat.fillin.feature.dailylimit.domain
-                        .ForecastEvent("payment", "Аренда", date.plusDays(4), money("100000"), false),
+                        .ForecastEvent("payment", "Аренда", date.plusDays(4), money("100000"), false)
                 )
             }
 
@@ -334,12 +359,12 @@ private fun forecastPreviewState(
                         "57000"
                     } else {
                         "60000"
-                    },
+                    }
                 ),
                 money(if (kind == 4) "3000" else "0"),
                 events,
-                date,
-            ),
+                date
+            )
         )
     return DailyLimitUiState.from(
         com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.DailyLimitSummary(
@@ -348,8 +373,8 @@ private fun forecastPreviewState(
             result.remainingToday,
             null,
             null,
-            result,
-        ),
+            result
+        )
     )
 }
 
@@ -401,7 +426,7 @@ private fun AdaptiveForecastPreview() {
 private fun DeficitWithExpensesPreview() {
     FillinTheme {
         DailyLimitWidget(
-            forecastPreviewState(2).copy(spentToday = Money("3500.00".toBigDecimal(), "KZT"), isOverspent = true),
+            forecastPreviewState(2).copy(spentToday = Money("3500.00".toBigDecimal(), "KZT"), isOverspent = true)
         )
     }
 }

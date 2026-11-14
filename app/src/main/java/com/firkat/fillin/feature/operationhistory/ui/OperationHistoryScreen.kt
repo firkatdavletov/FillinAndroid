@@ -58,22 +58,22 @@ import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
-import org.koin.compose.viewmodel.koinViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun OperationHistoryRoute(
     viewModel: OperationHistoryViewModel = koinViewModel(),
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
     onOperationClick: (String, String) -> Unit,
-    bottomBarOverlap: Dp = 0.dp,
+    bottomBarOverlap: Dp = 0.dp
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val resultKey = rememberSaveable { "operation-history-${UUID.randomUUID()}" }
@@ -82,13 +82,18 @@ fun OperationHistoryRoute(
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     ResultEffect<EditOperationResult>(resultKey = resultKey) { result ->
         resultBus.removeResult(resultKey)
-        scope.launch { snackbarHostState.showSaldomiSnackbar(
-            resources.getString(when (result.outcome) {
-                EditOperationOutcome.Updated -> R.string.edit_operation_saved
-                EditOperationOutcome.Corrected -> R.string.edit_operation_corrected
-                EditOperationOutcome.Refunded -> R.string.edit_operation_refund_saved
-            }), type = com.firkat.fillin.ui.component.SnackbarType.Success,
-        ) }
+        scope.launch {
+            snackbarHostState.showSaldomiSnackbar(
+                resources.getString(
+                    when (result.outcome) {
+                        EditOperationOutcome.Updated -> R.string.edit_operation_saved
+                        EditOperationOutcome.Corrected -> R.string.edit_operation_corrected
+                        EditOperationOutcome.Refunded -> R.string.edit_operation_refund_saved
+                    }
+                ),
+                type = com.firkat.fillin.ui.component.SnackbarType.Success
+            )
+        }
     }
     DisposableEffect(resultBus, resultKey) {
         onDispose { resultBus.removeResult(resultKey) }
@@ -97,7 +102,7 @@ fun OperationHistoryRoute(
         state = state,
         onEvent = viewModel::onEvent,
         onOperationClick = { id -> onOperationClick(id, resultKey) },
-        bottomBarOverlap = bottomBarOverlap,
+        bottomBarOverlap = bottomBarOverlap
     )
 }
 
@@ -106,7 +111,7 @@ fun OperationHistoryScreen(
     state: OperationHistoryUiState,
     onEvent: (OperationHistoryEvent) -> Unit,
     onOperationClick: (String) -> Unit = {},
-    bottomBarOverlap: Dp = 0.dp,
+    bottomBarOverlap: Dp = 0.dp
 ) {
     Column(Modifier.fillMaxSize()) {
         MainScreenHeader(
@@ -122,7 +127,7 @@ fun OperationHistoryScreen(
             isLoading = state.isInitialLoading,
             onPeriodClick = { onEvent(OperationHistoryEvent.PeriodFilterOpened) },
             onPeriodReset = { onEvent(OperationHistoryEvent.PeriodFilterReset) },
-            onTypeSelected = { onEvent(OperationHistoryEvent.TypeSelected(it)) },
+            onTypeSelected = { onEvent(OperationHistoryEvent.TypeSelected(it)) }
         )
 
         key(state.filters.dateFrom, state.filters.dateTo) {
@@ -133,7 +138,7 @@ fun OperationHistoryScreen(
                 onRetry = { onEvent(OperationHistoryEvent.Retry) },
                 onLoadNextPage = { onEvent(OperationHistoryEvent.LoadNextPage) },
                 bottomBarOverlap = bottomBarOverlap,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -152,7 +157,7 @@ private fun OperationHistoryContent(
     onRetry: () -> Unit,
     onLoadNextPage: () -> Unit,
     bottomBarOverlap: Dp,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val latestState by rememberUpdatedState(state)
     var displayedSnapshot by remember { mutableStateOf(state) }
@@ -195,7 +200,7 @@ private fun OperationHistoryContent(
                     modifier = Modifier
                         .graphicsLayer { alpha = opacity.value }
                         .semantics { if (switching) hideFromAccessibility() }
-                        .padding(bottom = if (hasOperations) 0.dp else bottomBarOverlap),
+                        .padding(bottom = if (hasOperations) 0.dp else bottomBarOverlap)
                 ) {
                     when {
                         displayed.isInitialLoading -> LoadingContent()
@@ -203,7 +208,7 @@ private fun OperationHistoryContent(
                             error = displayed.error,
                             onRetry = onRetry,
                             modifier = Modifier.fillMaxSize(),
-                            enabled = !switching,
+                            enabled = !switching
                         )
                         displayed.operations.isEmpty() -> EmptyContent()
                         else -> OperationList(
@@ -216,7 +221,7 @@ private fun OperationHistoryContent(
                             onOperationClick = onOperationClick,
                             onLoadNextPage = onLoadNextPage,
                             onRetry = onRetry,
-                            bottomBarOverlap = bottomBarOverlap,
+                            bottomBarOverlap = bottomBarOverlap
                         )
                     }
                 }
@@ -239,7 +244,7 @@ private fun OperationList(
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     bottomBarOverlap: Dp,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
     val operationDayGroups =
@@ -263,7 +268,7 @@ private fun OperationList(
         isRefreshing,
         canLoadMore,
         error,
-        enabled,
+        enabled
     ) {
         if (
             reachedListEnd &&
@@ -282,35 +287,35 @@ private fun OperationList(
         state = listState,
         userScrollEnabled = enabled,
         contentPadding =
-            PaddingValues(
-                top = 4.dp,
-                bottom = 12.dp + bottomBarOverlap,
-            ),
+        PaddingValues(
+            top = 4.dp,
+            bottom = 12.dp + bottomBarOverlap
+        )
     ) {
         operationDayGroups.forEach { group ->
             item(key = "date-${group.date}", contentType = "day-header") {
                 Row(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .semantics { heading() }
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .semantics { heading() }
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = formatDateHeader(group.date),
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = formatDayTotals(group.totals),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.End,
+                        textAlign = TextAlign.End
                     )
                 }
             }
@@ -318,13 +323,13 @@ private fun OperationList(
             items(
                 items = group.operations,
                 key = Operation::id,
-                contentType = { "operation" },
+                contentType = { "operation" }
             ) { operation ->
                 OperationItem(
                     operation = operation,
                     onClick = { onOperationClick(operation.id) },
                     modifier = Modifier.testTag("operation-${operation.id}"),
-                    enabled = enabled,
+                    enabled = enabled
                 )
             }
         }
@@ -333,10 +338,10 @@ private fun OperationList(
             item(key = "next-page-loading") {
                 Box(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                    contentAlignment = Alignment.Center,
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator()
                 }
@@ -350,9 +355,9 @@ private fun OperationList(
                     onRetry = onRetry,
                     enabled = enabled,
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 20.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 20.dp)
                 )
             }
         }
@@ -360,25 +365,29 @@ private fun OperationList(
 }
 
 @Composable
-private fun LoadingContent(modifier: Modifier = Modifier) {
+private fun LoadingContent(
+    modifier: Modifier = Modifier
+) {
     Box(
         modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(Modifier.testTag("history-list-loading"))
     }
 }
 
 @Composable
-private fun EmptyContent(modifier: Modifier = Modifier) {
+private fun EmptyContent(
+    modifier: Modifier = Modifier
+) {
     Box(
         modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = stringResource(R.string.operation_history_empty),
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -388,24 +397,24 @@ private fun ErrorContent(
     error: OperationHistoryError,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
+    enabled: Boolean = true
 ) {
     Column(
         modifier =
-            modifier
-                .padding(horizontal = 32.dp),
+        modifier
+            .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = stringResource(error.messageResource),
             textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge
         )
         Button(
             onClick = onRetry,
             enabled = enabled,
-            modifier = Modifier.padding(top = 16.dp),
+            modifier = Modifier.padding(top = 16.dp)
         ) {
             Text(stringResource(R.string.operation_history_retry))
         }
@@ -416,7 +425,7 @@ internal val OperationHistoryError.messageResource: Int
     @StringRes get() =
         when (this) {
             OperationHistoryError.MissingApiToken,
-            OperationHistoryError.Unauthorized,
+            OperationHistoryError.Unauthorized
             -> R.string.operation_history_error_unauthorized
 
             OperationHistoryError.Forbidden -> R.string.operation_history_error_forbidden
@@ -438,24 +447,26 @@ internal val OperationHistoryError.messageResource: Int
 fun formatOperationAmount(
     amount: BigDecimal,
     currency: String,
-    type: OperationType,
-): String =
-    (
-        if (amount.signum() == 0) {
-            ""
-        } else if (type == OperationType.Income) {
-            "+"
-        } else {
-            "−"
-        }
+    type: OperationType
+): String = (
+    if (amount.signum() == 0) {
+        ""
+    } else if (type == OperationType.Income) {
+        "+"
+    } else {
+        "−"
+    }
     ) + formatMoney(amount, currency)
 
-internal fun formatDateHeader(date: LocalDate): String =
-    date.format(
-        DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru")),
-    )
+internal fun formatDateHeader(
+    date: LocalDate
+): String = date.format(
+    DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru"))
+)
 
-private fun formatDayTotals(totals: List<OperationDayTotal>): String {
+private fun formatDayTotals(
+    totals: List<OperationDayTotal>
+): String {
     val amount = totals.sumOf {
         when (it.type) {
             OperationType.Expense -> (-it.amount)
@@ -472,26 +483,26 @@ private fun OperationHistoryPreview() {
     FillinTheme(dynamicColor = false) {
         OperationHistoryScreen(
             state =
-                OperationHistoryUiState(
-                    periodTotals = OperationPeriodTotals(expenses = BigDecimal("15000.00")),
-                    operations =
-                        listOf(
-                            Operation(
-                                id = "preview",
-                                categoryName = "Продукты",
-                                description = "Супермаркет",
-                                amount = BigDecimal("15000.00"),
-                                currency = "KZT",
-                                originalAmount = BigDecimal("30.00"),
-                                originalCurrency = "USD",
-                                occurredOn = LocalDate.of(2026, 10, 6),
-                                status = OperationStatus.Posted,
-                                version = 0,
-                            ),
-                        ),
-                    isInitialLoading = false,
+            OperationHistoryUiState(
+                periodTotals = OperationPeriodTotals(expenses = BigDecimal("15000.00")),
+                operations =
+                listOf(
+                    Operation(
+                        id = "preview",
+                        categoryName = "Продукты",
+                        description = "Супермаркет",
+                        amount = BigDecimal("15000.00"),
+                        currency = "KZT",
+                        originalAmount = BigDecimal("30.00"),
+                        originalCurrency = "USD",
+                        occurredOn = LocalDate.of(2026, 10, 6),
+                        status = OperationStatus.Posted,
+                        version = 0
+                    )
                 ),
-            onEvent = {},
+                isInitialLoading = false
+            ),
+            onEvent = {}
         )
     }
 }

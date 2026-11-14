@@ -9,8 +9,8 @@ import com.firkat.fillin.feature.plannedexpenses.data.remote.dto.UpdatePlannedEx
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseRule
-import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenses
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseStatus
+import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenses
 import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesException
 import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesRepository
 import java.io.IOException
@@ -23,13 +23,11 @@ import kotlinx.serialization.SerializationException
 import retrofit2.HttpException
 import retrofit2.Response
 
-class PlannedExpensesRepositoryImpl(
-    private val api: PlannedExpensesApi,
-    private val apiToken: String,
-) : PlannedExpensesRepository {
+class PlannedExpensesRepositoryImpl(private val api: PlannedExpensesApi, private val apiToken: String) :
+    PlannedExpensesRepository {
     override suspend fun getPlannedExpenses(): PlannedExpenses = execute {
         val response = api.getPlannedExpenses(
-            authorization = authorization,
+            authorization = authorization
         )
         PlannedExpenses(
             asOf = LocalDate.parse(response.asOf),
@@ -38,8 +36,8 @@ class PlannedExpensesRepositoryImpl(
                 .map(PlannedExpenseDto::toDomain)
                 .sortedWith(
                     compareByDescending<PlannedExpense> { it.overdue }
-                        .thenBy(PlannedExpense::dueOn),
-                ),
+                        .thenBy(PlannedExpense::dueOn)
+                )
         )
     }
 
@@ -48,7 +46,7 @@ class PlannedExpensesRepositoryImpl(
         amount: BigDecimal,
         frequency: PlannedExpenseFrequency,
         scheduleValue: Int?,
-        startsOn: LocalDate,
+        startsOn: LocalDate
     ): PlannedExpenseRule = execute {
         api.createRule(
             authorization = authorization,
@@ -57,39 +55,45 @@ class PlannedExpensesRepositoryImpl(
                 amount = amount.toPlainString(),
                 frequency = frequency.apiValue,
                 scheduleValue = scheduleValue,
-                startsOn = startsOn.toString(),
-            ),
+                startsOn = startsOn.toString()
+            )
         ).requireBody(expectedCode = 201).toDomain()
     }
 
     override suspend fun updateRule(
         id: String,
         version: Long,
-        amount: BigDecimal,
+        amount: BigDecimal
     ): PlannedExpenseRule = execute {
         api.updateRule(
             authorization = authorization,
             ruleId = id,
             request = UpdatePlannedExpenseRuleRequestDto(
                 version = version,
-                amount = amount.toPlainString(),
-            ),
+                amount = amount.toPlainString()
+            )
         ).requireBody(expectedCode = 200).toDomain()
     }
 
-    override suspend fun deleteRule(id: String, version: Long): Unit = execute {
+    override suspend fun deleteRule(
+        id: String,
+        version: Long
+    ): Unit = execute {
         api.deleteRule(
             authorization = authorization,
             ruleId = id,
-            version = version,
+            version = version
         ).requireStatus(expectedCode = 204)
     }
 
-    override suspend fun closeExpense(id: String, version: Long): Unit = execute {
+    override suspend fun closeExpense(
+        id: String,
+        version: Long
+    ): Unit = execute {
         val closedExpense = api.closeExpense(
             authorization = authorization,
             expenseId = id,
-            request = ClosePlannedExpenseRequestDto(version = version),
+            request = ClosePlannedExpenseRequestDto(version = version)
         ).requireBody(expectedCode = 200).toDomain()
 
         if (
@@ -101,7 +105,9 @@ class PlannedExpensesRepositoryImpl(
         }
     }
 
-    private suspend fun <T> execute(block: suspend RequestContext.() -> T): T {
+    private suspend fun <T> execute(
+        block: suspend RequestContext.() -> T
+    ): T {
         if (apiToken.isBlank()) throw PlannedExpensesException.MissingApiToken
 
         return try {
@@ -142,15 +148,19 @@ private val PlannedExpenseFrequency.apiValue: String
 
 private fun PlannedExpenseRuleDto.toDomain(): PlannedExpenseRule = PlannedExpenseRule(
     id = id,
-    version = version,
+    version = version
 )
 
-private fun <T> Response<T>.requireBody(expectedCode: Int): T {
+private fun <T> Response<T>.requireBody(
+    expectedCode: Int
+): T {
     requireStatus(expectedCode)
     return body() ?: throw PlannedExpensesException.InvalidResponse
 }
 
-private fun Response<*>.requireStatus(expectedCode: Int) {
+private fun Response<*>.requireStatus(
+    expectedCode: Int
+) {
     if (!isSuccessful) throw HttpException(this)
     if (code() != expectedCode) throw PlannedExpensesException.InvalidResponse
 }
@@ -158,7 +168,7 @@ private fun Response<*>.requireStatus(expectedCode: Int) {
 private fun PlannedExpenseDto.toDomain(): PlannedExpense {
     require(
         plannedAmount.currency == paidAmount.currency &&
-            plannedAmount.currency == remainingAmount.currency,
+            plannedAmount.currency == remainingAmount.currency
     ) { "All monetary values of a planned expense must use the same currency" }
 
     return PlannedExpense(
@@ -180,6 +190,6 @@ private fun PlannedExpenseDto.toDomain(): PlannedExpense {
         createdAt = Instant.parse(createdAt),
         modifiedAt = Instant.parse(modifiedAt),
         ruleId = rule?.id ?: id,
-        ruleVersion = rule?.version ?: version,
+        ruleVersion = rule?.version ?: version
     )
 }

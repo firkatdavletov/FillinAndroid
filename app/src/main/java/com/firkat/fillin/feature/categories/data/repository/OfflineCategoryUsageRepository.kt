@@ -11,17 +11,23 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 
-class OfflineCategoryUsageRepository(
-    private val dao: CategoryUsageDao,
-    private val categories: CategoriesRepository,
-) : CategoryUsageRepository {
-    override fun observeFrequentlyUsed(limit: Int, kind: CategoryKind?) =
-        observe(limit, kind, FREQUENT_ORDER)
+class OfflineCategoryUsageRepository(private val dao: CategoryUsageDao, private val categories: CategoriesRepository) :
+    CategoryUsageRepository {
+    override fun observeFrequentlyUsed(
+        limit: Int,
+        kind: CategoryKind?
+    ) = observe(limit, kind, FREQUENT_ORDER)
 
-    override fun observeRecentlyUsed(limit: Int, kind: CategoryKind?) =
-        observe(limit, kind, RECENT_ORDER)
+    override fun observeRecentlyUsed(
+        limit: Int,
+        kind: CategoryKind?
+    ) = observe(limit, kind, RECENT_ORDER)
 
-    private fun observe(limit: Int, kind: CategoryKind?, order: Comparator<CategoryUsageTotal>): Flow<List<Category>> {
+    private fun observe(
+        limit: Int,
+        kind: CategoryKind?,
+        order: Comparator<CategoryUsageTotal>
+    ): Flow<List<Category>> {
         require(limit >= 0)
         if (limit == 0) return flowOf(emptyList())
         return combine(dao.observeTotals(), categories.observeCategories()) { totals, available ->
@@ -41,7 +47,7 @@ internal fun rankUsedCategories(
     available: List<Category>,
     limit: Int,
     kind: CategoryKind?,
-    order: Comparator<CategoryUsageTotal>,
+    order: Comparator<CategoryUsageTotal>
 ): List<Category> {
     val eligible = available.filter { kind == null || it.kind == kind }.associateBy { it.id }
     return totals.sortedWith(order).asSequence().mapNotNull { eligible[it.categoryId] }.take(limit).toList()

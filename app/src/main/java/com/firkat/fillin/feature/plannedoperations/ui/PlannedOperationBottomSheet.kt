@@ -33,12 +33,12 @@ internal fun PlannedOperationBottomSheet(
     modifier: Modifier = Modifier,
     expenseEditor: PlannedExpensesViewModel = koinViewModel(
         key = PlannedExpenseEditorKey,
-        parameters = { parametersOf(true) },
+        parameters = { parametersOf(true) }
     ),
     incomeEditor: PlannedIncomesViewModel = koinViewModel(
         key = PlannedIncomeEditorKey,
-        parameters = { parametersOf(true) },
-    ),
+        parameters = { parametersOf(true) }
+    )
 ) {
     val expenseState by expenseEditor.uiState.collectAsStateWithLifecycle()
     val incomeState by incomeEditor.uiState.collectAsStateWithLifecycle()
@@ -82,7 +82,7 @@ internal fun PlannedOperationBottomSheet(
                 editor = editor,
                 onEvent = expenseEditor::onEvent,
                 modifier = contentModifier,
-                onClose = requestClose,
+                onClose = requestClose
             )
             if (editor.isDeleteConfirmationVisible) {
                 DeleteRuleConfirmation(onEvent = expenseEditor::onEvent)
@@ -95,7 +95,7 @@ internal fun PlannedOperationBottomSheet(
                 editor = editor,
                 onEvent = incomeEditor::onEvent,
                 modifier = contentModifier,
-                onClose = requestClose,
+                onClose = requestClose
             )
             if (editor.isDeleteConfirmationVisible) {
                 DeleteIncomeConfirmation(onEvent = incomeEditor::onEvent)

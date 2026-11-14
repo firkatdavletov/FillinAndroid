@@ -14,13 +14,13 @@ interface OperationSyncApi {
     @GET("api/v3/sync/changes")
     suspend fun changes(
         @Header("Authorization") authorization: String,
-        @Query("cursor") cursor: String?,
+        @Query("cursor") cursor: String?
     ): SyncPageDto
 
     @POST("api/v1/operations")
     suspend fun create(
         @Header("Authorization") authorization: String,
-        @Body request: CreateOperationDto,
+        @Body request: CreateOperationDto
     ): Response<CreatedOperationDto>
 }
 
@@ -32,7 +32,7 @@ data class SyncScopeDto(
     val accountingStartedAt: String,
     val timeZone: String,
     val currency: String,
-    val currencyVersion: Long = 0,
+    val currencyVersion: Long = 0
 ) {
     val key: String get() = "$householdId:$memberId"
 }
@@ -43,7 +43,7 @@ data class SyncPageDto(
     val changes: List<SyncChangeDto>,
     val nextCursor: String,
     val hasMore: Boolean,
-    val snapshotRevision: Long = 0,
+    val snapshotRevision: Long = 0
 )
 
 @Serializable
@@ -56,7 +56,7 @@ data class SyncChangeDto(
     val record: com.firkat.fillin.feature.sync.data.SyncPlanRecord? = null,
     val budgetSettings: com.firkat.fillin.feature.sync.data.SyncBudgetSettings? = null,
     val savingsGoal: com.firkat.fillin.feature.sync.data.SyncSavingsGoal? = null,
-    val variableSpendingExclusion: com.firkat.fillin.feature.sync.data.SyncVariableSpendingExclusion? = null,
+    val variableSpendingExclusion: com.firkat.fillin.feature.sync.data.SyncVariableSpendingExclusion? = null
 )
 
 @Serializable
@@ -76,7 +76,7 @@ data class SyncOperationDto(
     val refundOf: String? = null,
     val requestId: String? = null,
     val occurredAt: String? = null,
-    val rubKztRate: String? = null,
+    val rubKztRate: String? = null
 )
 
 @Serializable
@@ -87,7 +87,7 @@ data class SyncCategoryDto(
     val iconCode: String,
     val iconEmoji: String = "📦",
     val archived: Boolean,
-    val dictionaryKey: String? = null,
+    val dictionaryKey: String? = null
 )
 
 @Serializable
@@ -102,17 +102,11 @@ data class CreateOperationDto(
     val description: String? = null,
     @OptIn(ExperimentalSerializationApi::class)
     @EncodeDefault
-    val currency: String = "KZT",
+    val currency: String = "KZT"
 )
 
 @Serializable
-data class CreatedOperationDto(
-    val requestId: String,
-    val operation: SyncOperationDto,
-)
+data class CreatedOperationDto(val requestId: String, val operation: SyncOperationDto)
 
 @Serializable
-data class SyncApiError(
-    val code: String,
-    val reason: String? = null,
-)
+data class SyncApiError(val code: String, val reason: String? = null)

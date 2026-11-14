@@ -1,23 +1,22 @@
 package com.firkat.fillin.feature.budgetsetup.ui
 
-import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
-
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.core.mvi.*
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.budgetconnection.domain.*
-import com.firkat.fillin.feature.budgetsharing.domain.FamilyBudgetRepository
-import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
-import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
-import com.firkat.fillin.feature.budgetsetup.domain.LocalBudgetCreator
 import com.firkat.fillin.feature.budgetprofile.data.LOCAL_BUDGET_LIMIT
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
+import com.firkat.fillin.feature.budgetsetup.domain.LocalBudgetCreator
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
+import com.firkat.fillin.feature.budgetsharing.domain.FamilyBudgetRepository
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 class BudgetSetupViewModel(
     auth: AuthRepository,
@@ -30,12 +29,23 @@ class BudgetSetupViewModel(
     access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
     localCount: Flow<Int> = flowOf(0),
     private val clock: Clock = Clock.systemUTC(),
-    interactor: Interactor<BudgetSetupCommand, BudgetSetupEvent> = BudgetSetupInteractor(auth, connection, creation, local, family, dispatcher, access = access),
+    interactor: Interactor<BudgetSetupCommand, BudgetSetupEvent> =
+        BudgetSetupInteractor(auth, connection, creation, local, family, dispatcher, access = access)
 ) : BaseViewModel<BudgetSetupState, BudgetSetupAction, BudgetSetupCommand, BudgetSetupEvent, BudgetSetupEffect>(
     restore(savedState).let { restored ->
-        if (access?.cloudAllowed != false) restored
-        else restored.copy(cloudAllowed = false, mode = BudgetSetupMode.Local, page = SetupPage.Create, authTarget = null)
-    }, BudgetSetupReducer(), interactor,
+        if (access?.cloudAllowed != false) {
+            restored
+        } else {
+            restored.copy(
+                cloudAllowed = false,
+                mode = BudgetSetupMode.Local,
+                page = SetupPage.Create,
+                authTarget = null
+            )
+        }
+    },
+    BudgetSetupReducer(),
+    interactor
 ) {
     private var observer: Job? = null
     private var catalog: Job? = null
@@ -50,31 +60,54 @@ class BudgetSetupViewModel(
         }
     }
 
-    override fun handleAction(action: BudgetSetupAction) {
+    override fun handleAction(
+        action: BudgetSetupAction
+    ) {
         val current = state.value
         when (action) {
             BudgetSetupAction.Start -> if (observer == null) observer = execute(BudgetSetupCommand.ObserveSession)
             BudgetSetupAction.Reset -> {
-                observer?.cancel(); observer = null
-                catalog?.cancel(); operation?.cancel(); startedId = null
+                observer?.cancel()
+                observer = null
+                catalog?.cancel()
+                operation?.cancel()
+                startedId = null
                 savedState.remove<ArrayList<String>>(SNAPSHOT)
                 return
             }
-            BudgetSetupAction.Create -> if (current.busy) submit(if (current.mode == BudgetSetupMode.Local) SubmitKind.Local else SubmitKind.Cloud)
+            BudgetSetupAction.Create -> if (current.busy) {
+                submit(
+                    if (current.mode ==
+                        BudgetSetupMode.Local
+                    ) {
+                        SubmitKind.Local
+                    } else {
+                        SubmitKind.Cloud
+                    }
+                )
+            }
             BudgetSetupAction.Join -> if (current.busy) submit(SubmitKind.Join)
             is BudgetSetupAction.Connect -> if (current.busy) submit(SubmitKind.Connect, action.budget)
             BudgetSetupAction.Refresh -> if (current.loading && catalog?.isActive != true) load()
-            BudgetSetupAction.Back -> if (!current.busy && previousPage == current.page) emitEffect(BudgetSetupEffect.Exit)
+            BudgetSetupAction.Back -> if (!current.busy &&
+                previousPage == current.page
+            ) {
+                emitEffect(BudgetSetupEffect.Exit)
+            }
             else -> Unit
         }
         previousPage = current.page
         save()
     }
-    override fun handleEvent(event: BudgetSetupEvent) {
+    override fun handleEvent(
+        event: BudgetSetupEvent
+    ) {
         if (!state.value.cloudAllowed) catalog?.cancel()
         if (generation != state.value.generation) {
             generation = state.value.generation
-            operation?.cancel(); catalog?.cancel(); startedId = null
+            operation?.cancel()
+            catalog?.cancel()
+            startedId = null
             if (state.value.cloudAllowed && state.value.uid != null) load()
         }
         previousPage = state.value.page
@@ -84,38 +117,58 @@ class BudgetSetupViewModel(
         val current = state.value
         current.uid?.let { catalog = execute(BudgetSetupCommand.Load(it, current.generation)) }
     }
-    private fun submit(kind: SubmitKind, budget: AvailableBudget? = null) {
+    private fun submit(
+        kind: SubmitKind,
+        budget: AvailableBudget? = null
+    ) {
         val current = state.value
         if (startedId == current.operationId) return
         startedId = current.operationId
         val startedOn = if (kind == SubmitKind.Local || kind == SubmitKind.Cloud && current.pending == null) {
             LocalDate.now(clock.withZone(ZoneId.of("Asia/Almaty")))
-        } else null
+        } else {
+            null
+        }
         operation = execute(BudgetSetupCommand.Submit(current, kind, budget, startedOn)).also { job ->
             job.invokeOnCompletion { cause ->
-                if (cause is CancellationException) viewModelScope.launch {
-                    onAction(BudgetSetupAction.Cancelled(current.generation, current.operationId))
+                if (cause is CancellationException) {
+                    viewModelScope.launch {
+                        onAction(BudgetSetupAction.Cancelled(current.generation, current.operationId))
+                    }
                 }
             }
         }
     }
+
     // Only unsent form data is saved here. Pending requests are restored from the durable repository.
     private fun save() {
         val s = state.value
         if (!s.initialized) return
-        savedState[SNAPSHOT] = arrayListOf(s.name, s.balance, s.mode.name, s.page.name,
-            s.ownerUid.orEmpty(), s.authTarget?.name.orEmpty(), s.formOpened.toString(), s.code, s.authLaunched.toString(), s.currency.name, s.currencyPickerOpen.toString())
+        savedState[SNAPSHOT] = arrayListOf(
+            s.name, s.balance, s.mode.name, s.page.name,
+            s.ownerUid.orEmpty(), s.authTarget?.name.orEmpty(), s.formOpened.toString(), s.code, s.authLaunched.toString(), s.currency.name, s.currencyPickerOpen.toString()
+        )
     }
     companion object {
         private const val SNAPSHOT = "budget_setup_draft"
-        private fun restore(handle: SavedStateHandle): BudgetSetupState {
+        private fun restore(
+            handle: SavedStateHandle
+        ): BudgetSetupState {
             val v = handle.get<ArrayList<String>>(SNAPSHOT) ?: return BudgetSetupState()
-            return runCatching { BudgetSetupState(name = v[0], balance = v[1], mode = BudgetSetupMode.valueOf(v[2]),
-                page = SetupPage.valueOf(v[3]), ownerUid = v[4].ifEmpty { null },
-                authTarget = v[5].takeIf { it.isNotEmpty() }?.let(SetupAuthTarget::valueOf),
-                formOpened = v[6].toBoolean(), code = v[7], authLaunched = v.getOrNull(8).toBoolean(), initialized = true,
-                currency = v.getOrNull(9)?.let(BudgetCurrency::valueOf) ?: BudgetCurrency.RUB,
-                currencyPickerOpen = v.getOrNull(10).toBoolean()) }.getOrDefault(BudgetSetupState())
+            return runCatching {
+                BudgetSetupState(
+                    name = v[0], balance = v[1], mode = BudgetSetupMode.valueOf(v[2]),
+                    page = SetupPage.valueOf(v[3]), ownerUid = v[4].ifEmpty { null },
+                    authTarget = v[5].takeIf { it.isNotEmpty() }?.let(SetupAuthTarget::valueOf),
+                    formOpened = v[6].toBoolean(), code = v[7],
+                    authLaunched = v.getOrNull(
+                        8
+                    ).toBoolean(),
+                    initialized = true,
+                    currency = v.getOrNull(9)?.let(BudgetCurrency::valueOf) ?: BudgetCurrency.RUB,
+                    currencyPickerOpen = v.getOrNull(10).toBoolean()
+                )
+            }.getOrDefault(BudgetSetupState())
         }
     }
 }

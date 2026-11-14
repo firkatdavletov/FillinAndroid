@@ -49,10 +49,10 @@ import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.icon.FillinIcons
 import com.firkat.fillin.ui.theme.saldomiColors
-import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 internal fun planningRulesViewModel(): PlannedOperationsViewModel {
@@ -67,7 +67,7 @@ fun PlannedOperationsRoute(
     viewModel: PlannedOperationsViewModel = planningRulesViewModel(),
     syncViewModel: BudgetSyncViewModel = koinViewModel(),
     bottomBarOverlap: Dp = 0.dp,
-    readOnly: Boolean = false,
+    readOnly: Boolean = false
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val sync by syncViewModel.context.collectAsStateWithLifecycle()
@@ -78,7 +78,7 @@ fun PlannedOperationsRoute(
         onCreateIncome = { onOpenEditor(PlannedOperationType.Income) },
         onEditRule = onEditRule,
         canWrite = sync.canWrite && !readOnly,
-        bottomBarOverlap = bottomBarOverlap,
+        bottomBarOverlap = bottomBarOverlap
     )
 }
 
@@ -91,29 +91,35 @@ fun PlannedOperationsScreen(
     onEditRule: (PlanningRule) -> Unit,
     modifier: Modifier = Modifier,
     canWrite: Boolean = true,
-    bottomBarOverlap: Dp = 0.dp,
+    bottomBarOverlap: Dp = 0.dp
 ) {
     val listState = rememberLazyListState()
     Column(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize()
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             MainScreenHeader(
                 modifier = Modifier.weight(1f),
-                title = stringResource(R.string.planning_title),
+                title = stringResource(R.string.planning_title)
             )
             if (canWrite) {
                 IconButton(
-                    onClick = if (state.selectedType == PlannedOperationType.Income) onCreateIncome else onCreateExpense,
-                    modifier = Modifier.testTag("planned-create"),
+                    onClick = if (state.selectedType ==
+                        PlannedOperationType.Income
+                    ) {
+                        onCreateIncome
+                    } else {
+                        onCreateExpense
+                    },
+                    modifier = Modifier.testTag("planned-create")
                 ) {
                     Icon(
                         painter = FillinIcons.Add,
-                        contentDescription = stringResource(R.string.app_add_plan),
+                        contentDescription = stringResource(R.string.app_add_plan)
                     )
                 }
             }
@@ -125,7 +131,7 @@ fun PlannedOperationsScreen(
             selectedType = state.selectedType,
             isLoading = state.isLoading,
             onTypeSelected = { onEvent(PlannedOperationsEvent.TypeSelected(it)) },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
         val groups = state.groups
 
@@ -135,17 +141,17 @@ fun PlannedOperationsScreen(
             Column(
                 Modifier.fillMaxSize().padding(24.dp),
                 verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     stringResource(
                         state.error?.messageResource
-                            ?: if (state.rules.isEmpty()) R.string.planning_empty else R.string.planning_filtered_empty,
-                    ),
+                            ?: if (state.rules.isEmpty()) R.string.planning_empty else R.string.planning_filtered_empty
+                    )
                 )
                 if (state.error != null) {
                     TextButton(
-                        { onEvent(PlannedOperationsEvent.Retry) },
+                        { onEvent(PlannedOperationsEvent.Retry) }
                     ) { Text(stringResource(R.string.planned_operations_retry)) }
                 }
             }
@@ -153,13 +159,13 @@ fun PlannedOperationsScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize().testTag("planned-operations-list"),
                 state = listState,
-                contentPadding = PaddingValues(top = 4.dp, bottom = 12.dp + bottomBarOverlap),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 12.dp + bottomBarOverlap)
             ) {
                 state.error?.let { error ->
                     item("error") {
                         RefreshErrorContent(
                             error.messageResource,
-                            R.string.planned_operations_retry,
+                            R.string.planned_operations_retry
                         ) { onEvent(PlannedOperationsEvent.Retry) }
                     }
                 }
@@ -173,19 +179,19 @@ fun PlannedOperationsScreen(
                                 .padding(horizontal = 16.dp, vertical = 10.dp),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     items(
                         items = group.rules,
                         key = PlanningRule::key,
-                        contentType = { "planning-rule" },
+                        contentType = { "planning-rule" }
                     ) { rule ->
                         PlanningRuleRow(
                             rule = rule,
                             nextDate = rule.nextDate(state.today),
                             onClick = { onEditRule(rule) },
-                            enabled = canWrite,
+                            enabled = canWrite
                         )
                     }
                 }
@@ -200,32 +206,32 @@ internal fun PlanningRuleRow(
     nextDate: LocalDate,
     onClick: () -> Unit,
     enabled: Boolean,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val income = rule.type == PlannedOperationType.Income
     val amount = (if (income) "+" else "") + formatMoney(rule.amount, rule.currency)
     val amountStyle = MaterialTheme.typography.titleMedium.copy(
         color = if (income) MaterialTheme.saldomiColors.income else MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.Bold
     )
 
     BoxWithConstraints(
-        modifier.fillMaxWidth().testTag("planning-rule-${rule.key}").clickable(enabled = enabled, onClick = onClick),
+        modifier.fillMaxWidth().testTag("planning-rule-${rule.key}").clickable(enabled = enabled, onClick = onClick)
     ) {
         val compact = maxWidth < 340.dp || LocalDensity.current.fontScale >= 1.5f
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Surface(
                 shape = CircleShape,
-                color = if (income) MaterialTheme.saldomiColors.incomeContainer else MaterialTheme.saldomiColors.expenseContainer,
+                color = if (income) MaterialTheme.saldomiColors.incomeContainer else MaterialTheme.saldomiColors.expenseContainer
             ) {
                 CategoryIconImage(
                     iconCode = rule.iconCode,
                     categoryName = rule.categoryName,
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(12.dp)
                 )
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -233,7 +239,7 @@ internal fun PlanningRuleRow(
                 Text(
                     rule.scheduleLabel(nextDate),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (compact) Text(amount, style = amountStyle)
             }
@@ -252,7 +258,7 @@ internal val PlanningFrequency.titleResource: Int get() =
 
 @Composable
 private fun PlanningRule.scheduleLabel(
-    next: LocalDate,
+    next: LocalDate
 ): String {
     val locale = LocalConfiguration.current.locales[0]
     val date = next.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
@@ -268,7 +274,7 @@ private fun PlanningRule.scheduleLabel(
         PlanningFrequency.Weekly -> {
             stringResource(
                 R.string.planning_weekly_schedule,
-                next.dayOfWeek.getDisplayName(TextStyle.FULL, locale),
+                next.dayOfWeek.getDisplayName(TextStyle.FULL, locale)
             )
         }
 

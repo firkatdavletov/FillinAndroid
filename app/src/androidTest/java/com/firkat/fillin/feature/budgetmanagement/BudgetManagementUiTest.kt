@@ -11,6 +11,7 @@ import org.junit.Test
 
 class BudgetManagementUiTest {
     @get:Rule val compose = createComposeRule()
+
     @Test fun deletionRequiresExactNameAndExplicitConfirmation() {
         var confirmed = false
         compose.setContent {
@@ -24,9 +25,17 @@ class BudgetManagementUiTest {
         compose.onNodeWithTag("budget_management_confirm").assertIsEnabled().performClick()
         compose.runOnIdle { assertTrue(confirmed) }
     }
+
     @Test fun renameValidationAndBusyState() {
         val state = mutableStateOf(BudgetManagementState("1", "Семья", false, ""))
-        compose.setContent { FillinTheme { BudgetManagementSheet(state.value, { state.value = state.value.copy(value = it) }, {}, {}) } }
+        compose.setContent {
+            FillinTheme {
+                BudgetManagementSheet(state.value, {
+                    state.value =
+                        state.value.copy(value = it)
+                }, {}, {})
+            }
+        }
         compose.onNodeWithTag("budget_management_confirm").assertIsNotEnabled()
         compose.onNodeWithTag("budget_management_input").performTextInput("Дом")
         compose.onNodeWithTag("budget_management_confirm").assertIsEnabled()

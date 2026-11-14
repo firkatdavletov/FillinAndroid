@@ -15,7 +15,7 @@ fun BudgetSetupRoute(
     onSignIn: (SetupAuthTarget) -> Unit,
     onComplete: () -> Unit,
     onPageChange: (SetupPage) -> Unit,
-    fromProfile: Boolean = false,
+    fromProfile: Boolean = false
 ) {
     Surface(Modifier.fillMaxSize().testTag("budget_setup_screen"), color = MaterialTheme.colorScheme.background) {
         BudgetSetupScreen(viewModel, onBack, onSignIn, onComplete, onPageChange, fromProfile)

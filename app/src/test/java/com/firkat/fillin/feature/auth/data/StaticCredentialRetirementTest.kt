@@ -17,12 +17,22 @@ class StaticCredentialRetirementTest {
         val command = BudgetSyncCommand("request", "budget", "member", "CREATE_OPERATION", "entry", "2026-10-23")
         val calls: List<suspend () -> Any> = listOf(
             { LocalOnlyCloudApi.budget("unused") },
-            { LocalOnlyCloudApi.create("unused", CreateCloudBudget("request", "budget", "member", "0.00", "2026-10-23", emptyList())) },
+            {
+                LocalOnlyCloudApi.create(
+                    "unused",
+                    CreateCloudBudget("request", "budget", "member", "0.00", "2026-10-23", emptyList())
+                )
+            },
             { LocalOnlyCloudApi.changes("unused", null) },
             { LocalOnlyCloudApi.command("unused", command) },
             { RetiredBudgetSyncApi.command("unused", command) },
             { RetiredOperationSyncApi.changes("unused", null) },
-            { RetiredOperationSyncApi.create("unused", CreateOperationDto("request", "budget", "member", "EXPENSE", "category", "1.00", "2026-10-23")) },
+            {
+                RetiredOperationSyncApi.create(
+                    "unused",
+                    CreateOperationDto("request", "budget", "member", "EXPENSE", "category", "1.00", "2026-10-23")
+                )
+            }
         )
         calls.forEach { call ->
             val failure = runCatching { call() }.exceptionOrNull() as SyncBlockedException

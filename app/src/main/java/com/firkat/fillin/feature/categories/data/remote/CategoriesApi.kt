@@ -17,14 +17,14 @@ interface CategoriesApi {
     @Headers("Accept: application/json")
     @GET("api/v1/categories")
     suspend fun getCategories(
-        @Header("Authorization") authorization: String,
+        @Header("Authorization") authorization: String
     ): CategoriesResponseDto
 
     @Headers("Accept: application/json")
     @POST("api/v1/categories")
     suspend fun createCategory(
         @Header("Authorization") authorization: String,
-        @Body request: CreateCategoryRequestDto,
+        @Body request: CreateCategoryRequestDto
     ): CategoryDto
 
     @Headers("Accept: application/json")
@@ -32,12 +32,12 @@ interface CategoriesApi {
     suspend fun updateCategory(
         @Header("Authorization") authorization: String,
         @Path("categoryId") categoryId: String,
-        @Body request: UpdateCategoryRequestDto,
+        @Body request: UpdateCategoryRequestDto
     ): CategoryDto
 
     @DELETE("api/v1/categories/{categoryId}")
     suspend fun deleteCategory(
         @Header("Authorization") authorization: String,
-        @Path("categoryId") categoryId: String,
+        @Path("categoryId") categoryId: String
     )
 }

@@ -1,6 +1,5 @@
 package com.firkat.fillin.feature.plannedexpenses.ui
 
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
@@ -13,6 +12,7 @@ import com.firkat.fillin.feature.plannedexpenses.domain.usecase.CreatePlannedExp
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.DeletePlannedExpenseRule
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.GetPlannedExpenses
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.UpdatePlannedExpenseRule
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
@@ -29,7 +29,7 @@ class PlannedExpensesViewModel(
     private val updateRule: UpdatePlannedExpenseRule,
     private val deleteRule: DeletePlannedExpenseRule,
     private val closeExpense: ClosePlannedExpense,
-    private val editorOnly: Boolean = false,
+    private val editorOnly: Boolean = false
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlannedExpensesUiState())
     val uiState: StateFlow<PlannedExpensesUiState> = _uiState.asStateFlow()
@@ -38,7 +38,9 @@ class PlannedExpensesViewModel(
         if (!editorOnly) load()
     }
 
-    fun onEvent(event: PlannedExpensesEvent) {
+    fun onEvent(
+        event: PlannedExpensesEvent
+    ) {
         when (event) {
             PlannedExpensesEvent.Retry -> load()
             PlannedExpensesEvent.Refresh -> load(isRefreshing = true)
@@ -58,7 +60,7 @@ class PlannedExpensesViewModel(
                 copy(
                     frequency = event.frequency,
                     scheduleValue = "",
-                    error = null,
+                    error = null
                 )
             }
             is PlannedExpensesEvent.ScheduleValueChanged -> updateEditor {
@@ -81,7 +83,9 @@ class PlannedExpensesViewModel(
         }
     }
 
-    private fun load(isRefreshing: Boolean = false) {
+    private fun load(
+        isRefreshing: Boolean = false
+    ) {
         if (editorOnly) {
             _uiState.update { it.copy(changeVersion = it.changeVersion + 1) }
             return
@@ -90,10 +94,14 @@ class PlannedExpensesViewModel(
         if (currentState.isLoading || currentState.isRefreshing) return
         if (
             isRefreshing &&
-            (currentState.editor != null ||
-                currentState.closeConfirmationExpenseId != null ||
-                currentState.isClosingExpense)
-        ) return
+            (
+                currentState.editor != null ||
+                    currentState.closeConfirmationExpenseId != null ||
+                    currentState.isClosingExpense
+                )
+        ) {
+            return
+        }
 
         _uiState.update {
             it.copy(isLoading = !isRefreshing, isRefreshing = isRefreshing, error = null)
@@ -107,7 +115,7 @@ class PlannedExpensesViewModel(
                         throughInclusive = plannedExpenses.throughInclusive,
                         items = plannedExpenses.items,
                         isLoading = false,
-                        isRefreshing = false,
+                        isRefreshing = false
                     )
                 }
             } catch (exception: CancellationException) {
@@ -117,7 +125,7 @@ class PlannedExpensesViewModel(
                     it.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        error = exception.toUiError(),
+                        error = exception.toUiError()
                     )
                 }
             } catch (exception: Exception) {
@@ -125,7 +133,7 @@ class PlannedExpensesViewModel(
                     it.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        error = PlannedExpensesError.Unknown,
+                        error = PlannedExpensesError.Unknown
                     )
                 }
             }
@@ -138,33 +146,46 @@ class PlannedExpensesViewModel(
             state.copy(
                 editor = PlannedExpenseRuleEditorUiState(
                     categoryId = state.expenseCategories.firstOrNull()?.id.orEmpty(),
-                    startsOn = LocalDate.now(ALMATY_ZONE).toString(),
-                ),
+                    startsOn = LocalDate.now(ALMATY_ZONE).toString()
+                )
             )
         }
         if (_uiState.value.expenseCategories.isEmpty()) loadExpenseCategories()
     }
 
-    private fun openEditEditor(expenseId: String) {
+    private fun openEditEditor(
+        expenseId: String
+    ) {
         if (_uiState.value.isRefreshing) return
         val expense = _uiState.value.items.firstOrNull { it.id == expenseId } ?: return
         edit(expense)
     }
 
-    fun edit(rule: PlanningRule) {
-        _uiState.update { it.copy(editor = PlannedExpenseRuleEditorUiState(originalRule = rule,
-            categoryId = rule.categoryId, amount = rule.amount.toPlainString())) }
+    fun edit(
+        rule: PlanningRule
+    ) {
+        _uiState.update {
+            it.copy(
+                editor = PlannedExpenseRuleEditorUiState(
+                    originalRule = rule,
+                    categoryId = rule.categoryId,
+                    amount = rule.amount.toPlainString()
+                )
+            )
+        }
     }
 
-    fun edit(expense: PlannedExpense) {
+    fun edit(
+        expense: PlannedExpense
+    ) {
         if (_uiState.value.isRefreshing) return
         _uiState.update {
             it.copy(
                 editor = PlannedExpenseRuleEditorUiState(
                     original = expense,
                     categoryId = expense.categoryId,
-                    amount = expense.plannedAmount.toPlainString(),
-                ),
+                    amount = expense.plannedAmount.toPlainString()
+                )
             )
         }
     }
@@ -190,7 +211,7 @@ class PlannedExpensesViewModel(
                             } else {
                                 editor
                             }
-                        },
+                        }
                     )
                 }
             } catch (exception: CancellationException) {
@@ -209,15 +230,21 @@ class PlannedExpensesViewModel(
         updateEditor { copy(isSaving = true, error = null) }
         viewModelScope.launch {
             try {
-                if (editor.originalRule != null) updateRule(editor.originalRule, amount) else editor.original?.let { expense ->
-                    updateRule(expense = expense, amount = amount)
-                } ?: createRule(
-                    categoryId = editor.categoryId,
-                    amount = amount,
-                    frequency = editor.frequency,
-                    scheduleValue = editor.parsedScheduleValue,
-                    startsOn = requireNotNull(editor.parsedStartsOn),
-                )
+                if (editor.originalRule !=
+                    null
+                ) {
+                    updateRule(editor.originalRule, amount)
+                } else {
+                    editor.original?.let { expense ->
+                        updateRule(expense = expense, amount = amount)
+                    } ?: createRule(
+                        categoryId = editor.categoryId,
+                        amount = amount,
+                        frequency = editor.frequency,
+                        scheduleValue = editor.parsedScheduleValue,
+                        startsOn = requireNotNull(editor.parsedStartsOn)
+                    )
+                }
                 _uiState.update { it.copy(editor = null) }
                 load()
             } catch (exception: CancellationException) {
@@ -241,7 +268,7 @@ class PlannedExpensesViewModel(
             copy(
                 isSaving = true,
                 error = null,
-                isDeleteConfirmationVisible = false,
+                isDeleteConfirmationVisible = false
             )
         }
         viewModelScope.launch {
@@ -259,7 +286,9 @@ class PlannedExpensesViewModel(
         }
     }
 
-    private fun requestClose(expenseId: String) {
+    private fun requestClose(
+        expenseId: String
+    ) {
         if (_uiState.value.isClosingExpense || _uiState.value.isRefreshing) return
         val expense = _uiState.value.items.firstOrNull { it.id == expenseId }
             ?.takeIf { it.canBeClosed }
@@ -267,13 +296,15 @@ class PlannedExpensesViewModel(
         requestClose(expense)
     }
 
-    fun requestClose(expense: PlannedExpense) {
+    fun requestClose(
+        expense: PlannedExpense
+    ) {
         if (_uiState.value.isClosingExpense || _uiState.value.isRefreshing || !expense.canBeClosed) return
         _uiState.update {
             it.copy(
                 items = if (editorOnly) listOf(expense) else it.items,
                 closeConfirmationExpenseId = expense.id,
-                closeError = null,
+                closeError = null
             )
         }
     }
@@ -283,7 +314,7 @@ class PlannedExpensesViewModel(
         _uiState.update {
             it.copy(
                 closeConfirmationExpenseId = null,
-                closeError = null,
+                closeError = null
             )
         }
     }
@@ -305,7 +336,7 @@ class PlannedExpensesViewModel(
                         items = it.items.filterNot { item -> item.id == expense.id },
                         closeConfirmationExpenseId = null,
                         isClosingExpense = false,
-                        closeError = null,
+                        closeError = null
                     )
                 }
                 load()
@@ -319,36 +350,42 @@ class PlannedExpensesViewModel(
         }
     }
 
-    private fun showCloseError(error: PlannedExpensesError) {
+    private fun showCloseError(
+        error: PlannedExpensesError
+    ) {
         _uiState.update {
             it.copy(
                 isClosingExpense = false,
-                closeError = error,
+                closeError = error
             )
         }
     }
 
-    private fun showCategoriesError(error: PlannedExpensesError) {
+    private fun showCategoriesError(
+        error: PlannedExpensesError
+    ) {
         _uiState.update { state ->
             state.copy(
                 isCategoriesLoading = false,
-                editor = state.editor?.copy(error = error),
+                editor = state.editor?.copy(error = error)
             )
         }
     }
 
-    private fun showEditorError(error: PlannedExpensesError) {
+    private fun showEditorError(
+        error: PlannedExpensesError
+    ) {
         updateEditor {
             copy(
                 isSaving = false,
                 error = error,
-                isDeleteConfirmationVisible = false,
+                isDeleteConfirmationVisible = false
             )
         }
     }
 
     private fun updateEditor(
-        transform: PlannedExpenseRuleEditorUiState.() -> PlannedExpenseRuleEditorUiState,
+        transform: PlannedExpenseRuleEditorUiState.() -> PlannedExpenseRuleEditorUiState
     ) {
         _uiState.update { state ->
             state.copy(editor = state.editor?.transform())

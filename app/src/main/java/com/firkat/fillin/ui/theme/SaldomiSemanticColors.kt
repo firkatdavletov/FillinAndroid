@@ -3,8 +3,14 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
 private val categoryInitialPalette = listOf(
-    Color(0xFFC62828), Color(0xFFAD1457), Color(0xFF8E24AA), Color(0xFF673AB7),
-    Color(0xFF3949AB), Color(0xFF1565C0), Color(0xFF0077A3), Color(0xFFC2410C),
+    Color(0xFFC62828),
+    Color(0xFFAD1457),
+    Color(0xFF8E24AA),
+    Color(0xFF673AB7),
+    Color(0xFF3949AB),
+    Color(0xFF1565C0),
+    Color(0xFF0077A3),
+    Color(0xFFC2410C)
 )
 
 @Immutable
@@ -24,7 +30,7 @@ data class SaldomiSemanticColors(
     val transfer: Color,
     val onTransfer: Color,
     val transferContainer: Color,
-    val onTransferContainer: Color,
+    val onTransferContainer: Color
 ) {
     internal val categoryInitialColors get() = categoryInitialPalette
     internal val onCategoryInitial get() = Color.White
@@ -45,7 +51,7 @@ val SaldomiLightSemanticColors = SaldomiSemanticColors(
     transfer = Color(0xFF326BA8),
     onTransfer = Color.White,
     transferContainer = Color(0xFFE1EDFF),
-    onTransferContainer = Color(0xFF214F80),
+    onTransferContainer = Color(0xFF214F80)
 )
 
 val SaldomiDarkSemanticColors = SaldomiSemanticColors(
@@ -63,5 +69,5 @@ val SaldomiDarkSemanticColors = SaldomiSemanticColors(
     transfer = Color(0xFFA7CAFF),
     onTransfer = Color(0xFF153A65),
     transferContainer = Color(0xFF243F64),
-    onTransferContainer = Color(0xFFC7DFFF),
+    onTransferContainer = Color(0xFFC7DFFF)
 )

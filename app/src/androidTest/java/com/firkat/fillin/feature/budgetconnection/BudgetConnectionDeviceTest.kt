@@ -16,6 +16,10 @@ import com.firkat.fillin.feature.operationhistory.data.sync.*
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.*
 import com.firkat.fillin.feature.sync.data.*
+import java.io.IOException
+import java.time.Instant
+import java.time.LocalDate
+import java.util.UUID
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -30,10 +34,6 @@ import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import retrofit2.Response
 import retrofit2.Retrofit
-import java.io.IOException
-import java.time.Instant
-import java.time.LocalDate
-import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class BudgetConnectionDeviceTest {
@@ -76,7 +76,10 @@ class BudgetConnectionDeviceTest {
             env.manager.restore()
             assertTrue(env.connection.budgets("other").isEmpty())
             val failure = runCatching { env.connection.connect("other", budget) }.exceptionOrNull()
-            assertEquals("access_denied", (failure as com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure).code)
+            assertEquals(
+                "access_denied",
+                (failure as com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure).code
+            )
             assertEquals(legacy, env.manager.active.value!!.profile)
             assertEquals(original, env.database(legacy) { it.budget().content()!! })
         }
@@ -93,7 +96,8 @@ class BudgetConnectionDeviceTest {
             assertNotEquals(local.databaseName, cloud.databaseName)
             assertEquals(budget.id, env.database(cloud) { it.operations().state()!!.householdId })
             assertEquals(before, env.database(local) { it.budget().content()!! })
-            env.auth.logout(); env.manager.restore()
+            env.auth.logout()
+            env.manager.restore()
             assertEquals(local, env.manager.active.value!!.profile)
         }
     }
@@ -142,7 +146,7 @@ class BudgetConnectionDeviceTest {
         val backend: String = "https://t05-${UUID.randomUUID()}.invalid/",
         private val deleteOnClose: Boolean = true,
         apiOverride: FirebaseBudgetApi? = null,
-        private val familyApi: com.firkat.fillin.feature.budgetsharing.data.FirebaseFamilyBudgetApi? = null,
+        private val familyApi: com.firkat.fillin.feature.budgetsharing.data.FirebaseFamilyBudgetApi? = null
     ) : AutoCloseable {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val auth = TestAuth()
@@ -150,86 +154,185 @@ class BudgetConnectionDeviceTest {
         val registry = RoomBudgetProfileRegistry(registryDb, backend)
         private val factory = BudgetDatabaseFactory(context)
         private val tokens = object : FirebaseIdTokenProvider {
-            override fun isCurrentUser(uid: String) = (auth.session.value as? AuthSession.Authenticated)?.user?.uid == uid
-            override suspend fun idToken(uid: String, forceRefresh: Boolean) = "synthetic-$uid"
+            override fun isCurrentUser(
+                uid: String
+            ) = (auth.session.value as? AuthSession.Authenticated)?.user?.uid == uid
+            override suspend fun idToken(
+                uid: String,
+                forceRefresh: Boolean
+            ) = "synthetic-$uid"
         }
         val requests = FirebaseBudgetRequests(apiOverride ?: server, tokens)
         private val remote = Retrofit.Builder().baseUrl("https://unused.invalid/")
             .client(OkHttpClient.Builder().addInterceptor { error("No real network in T05 tests") }.build()).build()
         private val application = koinApplication {
             androidContext(context)
-            modules(budgetModule, module {
-                single { Json { ignoreUnknownKeys = true; explicitNulls = false } }
-                single { factory }
-                single { registryDb }
-                single<BudgetProfileRegistry> { registry }
-                single<AuthRepository> { auth }
-                single { requests }
-                single<com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore> { com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadStore(registryDb) }
-                single { ActiveBudgetManager(get(), get(), getKoin(), cancelWork = {}) }
-                single<OperationSyncScheduler> { OperationSyncScheduler {} }
-                single<OperationConnectivity> { object : OperationConnectivity { override val online = MutableStateFlow(false) } }
-                single<OperationSyncApi> { remote.create(OperationSyncApi::class.java) }
-                single<OperationHistoryApi> { remote.create(OperationHistoryApi::class.java) }
-                single<BudgetSyncApi> { remote.create(BudgetSyncApi::class.java) }
-                single<CloudBudgetApi> { remote.create(CloudBudgetApi::class.java) }
-                scope(BUDGET_SCOPE) { scoped<OperationSyncScheduler> { OperationSyncScheduler {} } }
-            })
+            modules(
+                budgetModule,
+                module {
+                    single {
+                        Json {
+                            ignoreUnknownKeys = true
+                            explicitNulls = false
+                        }
+                    }
+                    single { factory }
+                    single { registryDb }
+                    single<BudgetProfileRegistry> { registry }
+                    single<AuthRepository> { auth }
+                    single { requests }
+                    single<com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore> {
+                        com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadStore(registryDb)
+                    }
+                    single { ActiveBudgetManager(get(), get(), getKoin(), cancelWork = {}) }
+                    single<OperationSyncScheduler> { OperationSyncScheduler {} }
+                    single<OperationConnectivity> {
+                        object : OperationConnectivity {
+                            override val online = MutableStateFlow(false)
+                        }
+                    }
+                    single<OperationSyncApi> { remote.create(OperationSyncApi::class.java) }
+                    single<OperationHistoryApi> { remote.create(OperationHistoryApi::class.java) }
+                    single<BudgetSyncApi> { remote.create(BudgetSyncApi::class.java) }
+                    single<CloudBudgetApi> { remote.create(CloudBudgetApi::class.java) }
+                    scope(BUDGET_SCOPE) { scoped<OperationSyncScheduler> { OperationSyncScheduler {} } }
+                }
+            )
         }
         val manager: ActiveBudgetManager = application.koin.get()
         val koin get() = application.koin
-        val connection = RoomBudgetConnectionRepository(requests, registry, factory, manager, OperationSyncScheduler {}, application.koin.get(), RoomBudgetCatalogStore(registryDb))
+        val connection =
+            RoomBudgetConnectionRepository(
+                requests,
+                registry,
+                factory,
+                manager,
+                OperationSyncScheduler {
+                },
+                application.koin.get(),
+                RoomBudgetCatalogStore(registryDb)
+            )
 
         val sharing: com.firkat.fillin.feature.budgetsharing.domain.FamilyBudgetRepository get() =
-            com.firkat.fillin.feature.budgetsharing.data.FirebaseFamilyBudgetRepository(familyApi, tokens, auth,
-                com.firkat.fillin.feature.budgetinvitation.data.FirebaseBudgetInvitationRepository(null, tokens, auth, manager),
-                RoomBudgetCatalogStore(registryDb), connection, application.koin.get())
+            com.firkat.fillin.feature.budgetsharing.data.FirebaseFamilyBudgetRepository(
+                familyApi,
+                tokens,
+                auth,
+                com.firkat.fillin.feature.budgetinvitation.data.FirebaseBudgetInvitationRepository(
+                    null,
+                    tokens,
+                    auth,
+                    manager
+                ),
+                RoomBudgetCatalogStore(registryDb),
+                connection,
+                application.koin.get()
+            )
 
         val uploads: com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadStore get() = application.koin.get()
-        val uploadConnection: com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadRepository get() = com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadRepository(auth, registry, uploads, factory, manager, OperationSyncScheduler {}, application.koin.get())
-        val creation: BudgetCreationRepository get() = FirebaseBudgetCreationRepository(requests, RoomBudgetCreationStore(registryDb), connection)
+        val uploadConnection: com.firkat.fillin.feature.budgetupload.domain.LocalBudgetUploadRepository get() = com.firkat.fillin.feature.budgetupload.data.RoomLocalBudgetUploadRepository(
+            auth,
+            registry,
+            uploads,
+            factory,
+            manager,
+            OperationSyncScheduler {
+            },
+            application.koin.get()
+        )
+        val creation: BudgetCreationRepository get() = FirebaseBudgetCreationRepository(
+            requests,
+            RoomBudgetCreationStore(registryDb),
+            connection
+        )
 
         suspend fun seedLegacy(): BudgetProfile {
-            auth.login("owner"); manager.restore()
+            auth.login("owner")
+            manager.restore()
             val profile = manager.active.value!!.profile
             manager.acquire(profile.syncIdentity)!!.use { lease ->
                 val session = lease.scope.get<CloudBudgetSession>()
                 session.createLocal("100.00".toBigDecimal(), session.today.minusDays(1))
                 val db = lease.scope.get<OperationDatabase>()
                 val content = db.budget().content()!!
-                server.scope = SyncScopeDto(content.sync.householdId, content.sync.memberId, "OWNER", content.sync.accountingStartedAt!!, "Asia/Almaty", "KZT")
+                server.scope =
+                    SyncScopeDto(
+                        content.sync.householdId,
+                        content.sync.memberId,
+                        "OWNER",
+                        content.sync.accountingStartedAt!!,
+                        "Asia/Almaty",
+                        "KZT"
+                    )
                 server.categories = content.categories
-                lease.scope.get<OperationHistoryStore>().create(NewOperation(OperationType.Expense,
-                    content.categories.first { it.kind == "EXPENSE" }.id, "12.34".toBigDecimal(), session.today, null), null)
+                lease.scope.get<OperationHistoryStore>().create(
+                    NewOperation(
+                        OperationType.Expense,
+                        content.categories.first {
+                            it.kind == "EXPENSE"
+                        }.id,
+                        "12.34".toBigDecimal(),
+                        session.today,
+                        null
+                    ),
+                    null
+                )
             }
             return profile
         }
 
-        suspend fun <T> database(profile: BudgetProfile, block: suspend (OperationDatabase) -> T): T {
+        suspend fun <T> database(
+            profile: BudgetProfile,
+            block: suspend (OperationDatabase) -> T
+        ): T {
             val db = factory.open(profile)
-            try { return block(db) } finally { db.close() }
+            try {
+                return block(db)
+            } finally {
+                db.close()
+            }
         }
 
         override fun close() {
-            val names = runBlocking { listOf(null, "owner", "other").flatMap { registry.available(it) }.map { it.databaseName }.distinct() }
-            manager.close(); application.close(); registryDb.close()
-            if (deleteOnClose) { names.forEach { context.deleteDatabase(it) }; context.deleteDatabase(registryName) }
+            val names =
+                runBlocking {
+                    listOf(null, "owner", "other").flatMap { registry.available(it) }.map { it.databaseName }.distinct()
+                }
+            manager.close()
+            application.close()
+            registryDb.close()
+            if (deleteOnClose) {
+                names.forEach { context.deleteDatabase(it) }
+                context.deleteDatabase(registryName)
+            }
         }
     }
 
     internal class TestAuth : AuthRepository {
         override val session = MutableStateFlow<AuthSession>(AuthSession.Anonymous)
-        fun login(uid: String) { session.value = AuthSession.Authenticated(AuthUser(uid, uid, null)) }
-        fun logout() { session.value = AuthSession.Anonymous }
+        fun login(
+            uid: String
+        ) {
+            session.value = AuthSession.Authenticated(AuthUser(uid, uid, null))
+        }
+        fun logout() {
+            session.value = AuthSession.Anonymous
+        }
         override suspend fun signOut() = logout()
-        override suspend fun signInWithGoogle(idToken: String) = error("No real login in T05 storage tests")
+        override suspend fun signInWithGoogle(
+            idToken: String
+        ) = error("No real login in T05 storage tests")
     }
 
     internal class Server : FirebaseBudgetApi {
         var loseManagementResponse = false
         val managementRequests = mutableListOf<String>()
         private val renamed = mutableSetOf<String>()
-        override suspend fun rename(authorization: String, id: String, request: RenameBudgetDto): Response<AvailableBudgetDto> {
+        override suspend fun rename(
+            authorization: String,
+            id: String,
+            request: RenameBudgetDto
+        ): Response<AvailableBudgetDto> {
             managementRequests += request.requestId
             if (renamed.add(request.requestId)) {
                 request.name?.let { budgetName = it }
@@ -237,34 +340,72 @@ class BudgetConnectionDeviceTest {
                     scope = scope.copy(currency = it, currencyVersion = scope.currencyVersion + 1)
                 }
             }
-            if (loseManagementResponse) { loseManagementResponse = false; throw IOException("Lost management response") }
-            return Response.success(AvailableBudgetDto(id, budgetName, scope.memberId, "OWNER", scope.currency, scope.currencyVersion))
+            if (loseManagementResponse) {
+                loseManagementResponse = false
+                throw IOException("Lost management response")
+            }
+            return Response.success(
+                AvailableBudgetDto(id, budgetName, scope.memberId, "OWNER", scope.currency, scope.currencyVersion)
+            )
         }
-        override suspend fun delete(authorization: String, id: String, requestId: String): Response<Unit> {
+        override suspend fun delete(
+            authorization: String,
+            id: String,
+            requestId: String
+        ): Response<Unit> {
             managementRequests += requestId
             budgetExists = false
-            if (loseManagementResponse) { loseManagementResponse = false; throw IOException("Lost management response") }
+            if (loseManagementResponse) {
+                loseManagementResponse = false
+                throw IOException("Lost management response")
+            }
             return Response.success(Unit)
         }
-        override suspend fun importLocal(authorization: String, request: ImportFirebaseBudgetDto): Response<AvailableBudgetDto> = error("Unused in T05/T06")
+        override suspend fun importLocal(
+            authorization: String,
+            request: ImportFirebaseBudgetDto
+        ): Response<AvailableBudgetDto> = error("Unused in T05/T06")
         var budgetExists = true
         var budgetName = "Тестовый бюджет"
         var openingBalance = "100.00"
         var loseCreationResponse = false
         val creations = linkedMapOf<String, Pair<CreateFirebaseBudgetDto, AvailableBudgetDto>>()
-        override suspend fun create(authorization: String, request: CreateFirebaseBudgetDto): Response<AvailableBudgetDto> {
+        override suspend fun create(
+            authorization: String,
+            request: CreateFirebaseBudgetDto
+        ): Response<AvailableBudgetDto> {
             check(authorization == "Bearer synthetic-owner")
             val saved = creations[request.requestId]
             if (saved != null && saved.first != request) return Response.error(409, "{}".toResponseBody())
             val budget = saved?.second ?: run {
                 check(!budgetExists)
                 replaceBudget()
-                scope = scope.copy(accountingStartedAt = LocalDate.parse(request.accountingStartedOn).atStartOfDay(java.time.ZoneId.of("Asia/Almaty")).toInstant().toString())
+                scope =
+                    scope.copy(
+                        accountingStartedAt = LocalDate.parse(
+                            request.accountingStartedOn
+                        ).atStartOfDay(java.time.ZoneId.of("Asia/Almaty")).toInstant().toString()
+                    )
                 scope = scope.copy(currency = request.currency)
-                budgetExists = true; budgetName = request.name; openingBalance = request.openingBalance
-                AvailableBudgetDto(scope.householdId, budgetName, scope.memberId, "OWNER", scope.currency, scope.currencyVersion).also { creations[request.requestId] = request to it }
+                budgetExists = true
+                budgetName = request.name
+                openingBalance = request.openingBalance
+                AvailableBudgetDto(
+                    scope.householdId,
+                    budgetName,
+                    scope.memberId,
+                    "OWNER",
+                    scope.currency,
+                    scope.currencyVersion
+                ).also {
+                    creations[request.requestId] =
+                        request to it
+                }
             }
-            if (loseCreationResponse) { loseCreationResponse = false; throw IOException("Synthetic lost creation response after commit") }
+            if (loseCreationResponse) {
+                loseCreationResponse = false
+                throw IOException("Synthetic lost creation response after commit")
+            }
             return Response.success(budget)
         }
         var scope = newScope()
@@ -273,35 +414,135 @@ class BudgetConnectionDeviceTest {
         var loseResponse = false
         val receipts = linkedMapOf<String, BudgetCommandReceipt>()
         val entries = mutableListOf<SyncOperationDto>()
-        fun summary() = AvailableBudget(scope.householdId, budgetName, scope.memberId, scope.role, scope.currency, scope.currencyVersion)
-        fun replaceBudget() { scope = newScope(); categories = seeds(scope); entries.clear(); receipts.clear() }
-        override suspend fun budgets(authorization: String) = Response.success(if (budgetExists && authorization == "Bearer synthetic-owner") listOf(AvailableBudgetDto(scope.householdId, budgetName, scope.memberId, scope.role, scope.currency, scope.currencyVersion)) else emptyList())
-        override suspend fun budget(authorization: String, budgetId: String): Response<CloudBudget> =
-            if (authorization == "Bearer synthetic-owner" && budgetId == scope.householdId) Response.success(CloudBudget(scope, capabilities = setOf("confirmedPlanLinkingV1"))) else Response.error(403, "{}".toResponseBody())
-        override suspend fun changes(authorization: String, budgetId: String, cursor: String?): Response<SyncPageDto> {
+        fun summary() = AvailableBudget(
+            scope.householdId,
+            budgetName,
+            scope.memberId,
+            scope.role,
+            scope.currency,
+            scope.currencyVersion
+        )
+        fun replaceBudget() {
+            scope = newScope()
+            categories = seeds(scope)
+            entries.clear()
+            receipts.clear()
+        }
+        override suspend fun budgets(
+            authorization: String
+        ) = Response.success(
+            if (budgetExists &&
+                authorization == "Bearer synthetic-owner"
+            ) {
+                listOf(
+                    AvailableBudgetDto(
+                        scope.householdId,
+                        budgetName,
+                        scope.memberId,
+                        scope.role,
+                        scope.currency,
+                        scope.currencyVersion
+                    )
+                )
+            } else {
+                emptyList()
+            }
+        )
+        override suspend fun budget(
+            authorization: String,
+            budgetId: String
+        ): Response<CloudBudget> = if (authorization == "Bearer synthetic-owner" &&
+            budgetId == scope.householdId
+        ) {
+            Response.success(CloudBudget(scope, capabilities = setOf("confirmedPlanLinkingV1")))
+        } else {
+            Response.error(403, "{}".toResponseBody())
+        }
+        override suspend fun changes(
+            authorization: String,
+            budgetId: String,
+            cursor: String?
+        ): Response<SyncPageDto> {
             check(authorization == "Bearer synthetic-owner" && budgetId == scope.householdId)
-            val records = categories.mapIndexed { i, c -> SyncChangeDto(i + 1L, "CATEGORY", false, category = SyncCategoryDto(c.id, c.name, c.kind, c.iconCode, c.iconEmoji, false, c.dictionaryKey)) } +
-                SyncChangeDto(categories.size + 1L, "BUDGET_SETTINGS", false, budgetSettings = SyncBudgetSettings(scope.householdId, openingBalance, "0.00")) +
-                entries.mapIndexed { i, e -> SyncChangeDto(categories.size + 2L + i, "LEDGER", false, operation = e) }
+            val records =
+                categories.mapIndexed { i, c ->
+                    SyncChangeDto(
+                        i + 1L,
+                        "CATEGORY",
+                        false,
+                        category = SyncCategoryDto(
+                            c.id,
+                            c.name,
+                            c.kind,
+                            c.iconCode,
+                            c.iconEmoji,
+                            false,
+                            c.dictionaryKey
+                        )
+                    )
+                } +
+                    SyncChangeDto(
+                        categories.size + 1L,
+                        "BUDGET_SETTINGS",
+                        false,
+                        budgetSettings = SyncBudgetSettings(scope.householdId, openingBalance, "0.00")
+                    ) +
+                    entries.mapIndexed { i, e ->
+                        SyncChangeDto(categories.size + 2L + i, "LEDGER", false, operation = e)
+                    }
             val after = cursor?.toLong() ?: 0L
             if (failSecondPage && after > 0) return Response.error(503, "{}".toResponseBody())
             val remaining = records.filter { it.revision > after }
             val page = if (failSecondPage) remaining.take(1) else remaining
             val more = page.size < remaining.size
-            return Response.success(SyncPageDto(scope, page, (page.lastOrNull()?.revision ?: records.size.toLong()).toString(), more, records.size.toLong()))
+            return Response.success(
+                SyncPageDto(
+                    scope,
+                    page,
+                    (page.lastOrNull()?.revision ?: records.size.toLong()).toString(),
+                    more,
+                    records.size.toLong()
+                )
+            )
         }
-        override suspend fun command(authorization: String, budgetId: String, command: BudgetSyncCommand): Response<BudgetCommandReceipt> {
-            check(authorization == "Bearer synthetic-owner" && budgetId == scope.householdId && command.householdId == budgetId && command.memberId == scope.memberId)
+        override suspend fun command(
+            authorization: String,
+            budgetId: String,
+            command: BudgetSyncCommand
+        ): Response<BudgetCommandReceipt> {
+            check(
+                authorization == "Bearer synthetic-owner" &&
+                    budgetId == scope.householdId &&
+                    command.householdId == budgetId &&
+                    command.memberId == scope.memberId
+            )
             val receipt = receipts.getOrPut(command.requestId) {
                 check(command.type == "CREATE_OPERATION")
-                entries += SyncOperationDto(command.entityId, command.categoryId!!, command.kind!!, command.amount!!, "KZT", command.amount,
-                    command.occurredOn!!, Instant.now().toString(), "POSTED", 0, entries.size + 1L, requestId = command.requestId)
+                entries +=
+                    SyncOperationDto(
+                        command.entityId, command.categoryId!!, command.kind!!, command.amount!!, "KZT", command.amount,
+                        command.occurredOn!!, Instant.now().toString(), "POSTED", 0, entries.size + 1L, requestId = command.requestId
+                    )
                 BudgetCommandReceipt(command.requestId, categories.size + entries.size + 1L, 0)
             }
-            if (loseResponse) { loseResponse = false; throw IOException("Synthetic lost response after commit") }
+            if (loseResponse) {
+                loseResponse = false
+                throw IOException("Synthetic lost response after commit")
+            }
             return Response.success(receipt)
         }
-        private fun newScope() = SyncScopeDto(UUID.randomUUID().toString(), UUID.randomUUID().toString(), "OWNER", "2026-09-01T19:00:00Z", "Asia/Almaty", "KZT")
-        private fun seeds(scope: SyncScopeDto) = listOf(LocalCategory(scope.key, UUID.randomUUID().toString(), "Продукты", "EXPENSE", "FOOD", "🍔", false, 0, "GROCERIES"))
+        private fun newScope() = SyncScopeDto(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            "OWNER",
+            "2026-09-01T19:00:00Z",
+            "Asia/Almaty",
+            "KZT"
+        )
+        private fun seeds(
+            scope: SyncScopeDto
+        ) = listOf(
+            LocalCategory(scope.key, UUID.randomUUID().toString(), "Продукты", "EXPENSE", "FOOD", "🍔", false, 0, "GROCERIES")
+        )
     }
 }

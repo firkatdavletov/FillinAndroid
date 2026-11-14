@@ -44,10 +44,12 @@ class PurchaseCommandsTest {
     @Test
     fun `update rejects unchanged amount`() {
         val exception = assertThrows(OperationHistoryException.InvalidRequest::class.java) {
-            runBlocking { UpdateOperationAmount(RecordingOperationHistoryRepository())(
-                purchase(),
-                BigDecimal("30.0"),
-            ) }
+            runBlocking {
+                UpdateOperationAmount(RecordingOperationHistoryRepository())(
+                    purchase(),
+                    BigDecimal("30.0")
+                )
+            }
         }
 
         assertSame(OperationHistoryException.InvalidRequest, exception)
@@ -64,9 +66,15 @@ class PurchaseCommandsTest {
                 }
                 assertEquals(null, repository.id)
             }
-            for (unsupported in listOf(operation.copy(originalCurrency = "RUB"), operation.copy(status = OperationStatus.Voided), operation.copy(refundedAmount = BigDecimal.ONE))) {
+            for (unsupported in listOf(
+                operation.copy(originalCurrency = "RUB"),
+                operation.copy(status = OperationStatus.Voided),
+                operation.copy(refundedAmount = BigDecimal.ONE)
+            )) {
                 assertThrows(OperationHistoryException.InvalidRequest::class.java) {
-                    runBlocking { UpdateOperationAmount(RecordingOperationHistoryRepository())(unsupported, BigDecimal("35.50")) }
+                    runBlocking {
+                        UpdateOperationAmount(RecordingOperationHistoryRepository())(unsupported, BigDecimal("35.50"))
+                    }
                 }
             }
         }
@@ -87,7 +95,7 @@ class PurchaseCommandsTest {
         val exception = assertThrows(OperationHistoryException.InvalidRequest::class.java) {
             runBlocking {
                 RefundPurchase(RecordingOperationHistoryRepository())(
-                    purchase(status = OperationStatus.Voided),
+                    purchase(status = OperationStatus.Voided)
                 )
             }
         }
@@ -95,7 +103,9 @@ class PurchaseCommandsTest {
         assertSame(OperationHistoryException.InvalidRequest, exception)
     }
 
-    private fun purchase(status: OperationStatus = OperationStatus.Posted) = Operation(
+    private fun purchase(
+        status: OperationStatus = OperationStatus.Posted
+    ) = Operation(
         id = "purchase-id",
         categoryName = "Продукты",
         description = "Супермаркет",
@@ -105,7 +115,7 @@ class PurchaseCommandsTest {
         originalCurrency = "KZT",
         occurredOn = LocalDate.of(2026, 10, 6),
         status = status,
-        version = 7,
+        version = 7
     )
 }
 
@@ -114,13 +124,16 @@ private class RecordingOperationHistoryRepository : OperationHistoryRepository {
     var version: Long? = null
     var amount: BigDecimal? = null
 
-    override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage =
-        OperationPage(emptyList(), null)
+    override suspend fun getOperations(
+        limit: Int,
+        cursor: Long?,
+        filter: OperationHistoryFilter
+    ): OperationPage = OperationPage(emptyList(), null)
 
     override suspend fun updateOperationAmount(
         id: String,
         version: Long,
-        amount: BigDecimal,
+        amount: BigDecimal
     ): Operation {
         this.id = id
         this.version = version
@@ -135,11 +148,14 @@ private class RecordingOperationHistoryRepository : OperationHistoryRepository {
             originalCurrency = "KZT",
             occurredOn = LocalDate.of(2026, 10, 6),
             status = OperationStatus.Posted,
-            version = version + 1,
+            version = version + 1
         )
     }
 
-    override suspend fun refundPurchase(id: String, version: Long) {
+    override suspend fun refundPurchase(
+        id: String,
+        version: Long
+    ) {
         this.id = id
         this.version = version
     }

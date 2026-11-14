@@ -5,23 +5,36 @@ import com.firkat.fillin.feature.budgetmanagement.data.*
 import com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory
 import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
+import com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository
 import com.firkat.fillin.feature.sync.data.BudgetStore
 import com.firkat.fillin.feature.sync.data.CreateCloudBudget
-import kotlinx.serialization.json.Json
-import com.firkat.fillin.feature.profile.data.RoomProfileBudgetsRepository
-import kotlinx.coroutines.flow.first
+import java.time.LocalDate
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
-import java.time.LocalDate
 
 class BudgetManagementDeviceTest {
     private val env = BudgetConnectionDeviceTest.Environment()
-    private val service = BudgetManagement(env.context, env.registryDb, env.registry, env.manager, env.auth, env.requests, env.uploads, env.koin.get(), enqueue = {})
-    private val repository = RoomProfileBudgetsRepository(env.auth, env.registry, env.manager, BudgetDatabaseFactory(env.context), env.connection, env.koin.get(), env.uploads, management = service)
+    private val service =
+        BudgetManagement(env.context, env.registryDb, env.registry, env.manager, env.auth, env.requests, env.uploads, env.koin.get(), enqueue = {
+        })
+    private val repository =
+        RoomProfileBudgetsRepository(
+            env.auth,
+            env.registry,
+            env.manager,
+            BudgetDatabaseFactory(env.context),
+            env.connection,
+            env.koin.get(),
+            env.uploads,
+            management = service
+        )
+
     @After fun close() = env.close()
 
     @Test fun newLocalBudgetSavesPresetCategoriesAndUsesTheSameEntriesForCloudImport() = runBlocking {
@@ -30,16 +43,16 @@ class BudgetManagementDeviceTest {
         env.database(profile) { database ->
             val content = requireNotNull(database.budget().content())
             val bootstrap = env.koin.get<Json>().decodeFromString<CreateCloudBudget>(
-                requireNotNull(content.sync.bootstrapPayload),
+                requireNotNull(content.sync.bootstrapPayload)
             )
             val expenses = bootstrap.categories.filter { it.kind == "EXPENSE" }
             assertEquals(
                 listOf(
                     "Продукты", "Кафе и рестораны", "Жильё", "Транспорт", "Связь и интернет",
                     "Здоровье", "Одежда и обувь", "Дом и быт", "Личный уход", "Дети",
-                    "Образование", "Отдых и увлечения", "Путешествия", "Подарки и помощь", "Прочие расходы",
+                    "Образование", "Отдых и увлечения", "Путешествия", "Подарки и помощь", "Прочие расходы"
                 ),
-                expenses.map { it.name },
+                expenses.map { it.name }
             )
             assertEquals(
                 listOf(
@@ -47,9 +60,9 @@ class BudgetManagementDeviceTest {
                     "Подработка" to "SIDE_JOB",
                     "Социальные выплаты" to "SOCIAL_BENEFITS",
                     "Подарки и помощь" to "INCOME_GIFT",
-                    "Прочие доходы" to "OTHER_INCOME",
+                    "Прочие доходы" to "OTHER_INCOME"
                 ),
-                bootstrap.categories.filter { it.kind == "INCOME" }.map { it.name to it.icon },
+                bootstrap.categories.filter { it.kind == "INCOME" }.map { it.name to it.icon }
             )
             assertEquals("OTHER_EXPENSE", expenses.single { it.dictionaryKey == "OTHER" }.icon)
             assertEquals(20, content.categories.size)
@@ -91,7 +104,10 @@ class BudgetManagementDeviceTest {
         }
         assertEquals(2, results.count { it.isSuccess })
         val failure = results.single { it.isFailure }.exceptionOrNull()
-        assertEquals("local_budget_limit", (failure as? com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure)?.code)
+        assertEquals(
+            "local_budget_limit",
+            (failure as? com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure)?.code
+        )
         val removed = env.manager.active.value!!.profile
         service.submit(removed.id, requireNotNull(removed.name), true)
         repository.createLocal("После удаления", "0".toBigDecimal(), LocalDate.now())
@@ -105,15 +121,21 @@ class BudgetManagementDeviceTest {
         val database = factory.open(committed)
         try {
             val session = com.firkat.fillin.feature.sync.data.CloudBudgetSession(
-                database, com.firkat.fillin.feature.sync.data.LocalOnlyCloudApi, "", env.koin.get(),
-                com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler {},
+                database,
+                com.firkat.fillin.feature.sync.data.LocalOnlyCloudApi,
+                "",
+                env.koin.get(),
+                com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler {}
             )
             session.createLocal("123.45".toBigDecimal(), session.today)
         } finally {
             database.close()
         }
 
-        val reopened = com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry(env.registryDb, env.backend)
+        val reopened = com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry(
+            env.registryDb,
+            env.backend
+        )
         reopened.recoverLocalCreations(factory)
         assertTrue(reopened.isReady(committed, factory))
         assertNull(reopened.find(interrupted.id))
@@ -158,7 +180,9 @@ class BudgetManagementDeviceTest {
         lease.use {
             val state = requireNotNull(it.scope.get<OperationDatabase>().operations().state())
             assertEquals("EUR", state.currency)
-            val bootstrap = env.koin.get<Json>().decodeFromString<CreateCloudBudget>(requireNotNull(state.bootstrapPayload))
+            val bootstrap = env.koin.get<Json>().decodeFromString<CreateCloudBudget>(
+                requireNotNull(state.bootstrapPayload)
+            )
             assertEquals("EUR", bootstrap.currency)
             assertEquals("100.25", bootstrap.openingBalance)
         }

@@ -19,11 +19,13 @@ data class PlanningRule(
     val frequency: PlanningFrequency,
     val startsOn: LocalDate,
     val scheduleValue: Int? = null,
-    val isIncomeRule: Boolean = false,
+    val isIncomeRule: Boolean = false
 ) {
     val key: String get() = "${type.name}:$id"
 
-    fun nextDate(today: LocalDate): LocalDate {
+    fun nextDate(
+        today: LocalDate
+    ): LocalDate {
         if (frequency == PlanningFrequency.Once) return startsOn
         val from = maxOf(today, startsOn)
         return when (frequency) {
@@ -37,7 +39,9 @@ data class PlanningRule(
                 }
                 date
             }
-            PlanningFrequency.Weekly -> from.plusDays(((scheduleValue ?: startsOn.dayOfWeek.value) - from.dayOfWeek.value + 7L) % 7)
+            PlanningFrequency.Weekly -> from.plusDays(
+                ((scheduleValue ?: startsOn.dayOfWeek.value) - from.dayOfWeek.value + 7L) % 7
+            )
             PlanningFrequency.Biweekly -> {
                 val days = java.time.temporal.ChronoUnit.DAYS.between(startsOn, from)
                 startsOn.plusDays(((days + 13) / 14) * 14)

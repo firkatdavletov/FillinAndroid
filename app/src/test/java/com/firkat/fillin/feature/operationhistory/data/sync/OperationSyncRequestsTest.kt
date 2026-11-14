@@ -1,5 +1,7 @@
 package com.firkat.fillin.feature.operationhistory.data.sync
 
+import java.io.IOException
+import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -11,8 +13,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.IOException
-import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OperationSyncRequestsTest {
@@ -31,7 +31,10 @@ class OperationSyncRequestsTest {
     @Test
     fun `worker arriving after foreground completion reuses its result without another sync`() = runTest {
         var calls = 0
-        val requests = OperationSyncRequests({ calls++; SyncResult.Completed }, backgroundScope)
+        val requests = OperationSyncRequests({
+            calls++
+            SyncResult.Completed
+        }, backgroundScope)
         val id = UUID.randomUUID()
         requests.startForeground(id)
         runCurrent()
@@ -46,7 +49,10 @@ class OperationSyncRequestsTest {
     fun `worker joins foreground attempt still in progress`() = runTest {
         var calls = 0
         val result = CompletableDeferred<SyncResult>()
-        val requests = OperationSyncRequests({ calls++; result.await() }, backgroundScope)
+        val requests = OperationSyncRequests({
+            calls++
+            result.await()
+        }, backgroundScope)
         val id = UUID.randomUUID()
         requests.startForeground(id)
         val worker = async { requests.runWorker(id) }
@@ -62,7 +68,15 @@ class OperationSyncRequestsTest {
     @Test
     fun `failed foreground result requests backoff and next worker attempt really retries`() = runTest {
         var calls = 0
-        val requests = OperationSyncRequests({ if (++calls == 1) SyncResult.Retry else SyncResult.Completed }, backgroundScope)
+        val requests = OperationSyncRequests({
+            if (++calls ==
+                1
+            ) {
+                SyncResult.Retry
+            } else {
+                SyncResult.Completed
+            }
+        }, backgroundScope)
         val id = UUID.randomUUID()
         requests.startForeground(id)
         runCurrent()
@@ -75,7 +89,10 @@ class OperationSyncRequestsTest {
     @Test
     fun `persistent worker runs when there is no foreground attempt in this process`() = runTest {
         var calls = 0
-        val requests = OperationSyncRequests({ calls++; SyncResult.Completed }, backgroundScope)
+        val requests = OperationSyncRequests({
+            calls++
+            SyncResult.Completed
+        }, backgroundScope)
         assertEquals(SyncResult.Completed, requests.runWorker(UUID.randomUUID()))
         assertEquals(1, calls)
     }
@@ -83,7 +100,10 @@ class OperationSyncRequestsTest {
     @Test
     fun `a new request after foreground completion gets its own attempt`() = runTest {
         var calls = 0
-        val requests = OperationSyncRequests({ calls++; SyncResult.Completed }, backgroundScope)
+        val requests = OperationSyncRequests({
+            calls++
+            SyncResult.Completed
+        }, backgroundScope)
         val first = UUID.randomUUID()
         requests.startForeground(first)
         runCurrent()

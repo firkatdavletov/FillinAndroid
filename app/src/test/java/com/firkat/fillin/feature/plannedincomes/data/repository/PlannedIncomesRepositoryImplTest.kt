@@ -29,20 +29,20 @@ class PlannedIncomesRepositoryImplTest {
                         id = "future",
                         amount = "1300000.00",
                         dueOn = "2026-10-10",
-                        overdue = false,
+                        overdue = false
                     ),
                     income(
                         id = "overdue",
                         amount = "12345678901234567890.12",
                         dueOn = "2026-10-01",
-                        overdue = true,
-                    ),
-                ),
-            ),
+                        overdue = true
+                    )
+                )
+            )
         )
         val repository = PlannedIncomesRepositoryImpl(
             api = api,
-            apiToken = "test-token",
+            apiToken = "test-token"
         )
 
         val result = repository.getPlannedIncomes()
@@ -81,12 +81,12 @@ class PlannedIncomesRepositoryImplTest {
                             id = "income",
                             amount = "not-a-number",
                             dueOn = "2026-10-10",
-                            overdue = false,
-                        ),
-                    ),
-                ),
+                            overdue = false
+                        )
+                    )
+                )
             ),
-            apiToken = "test-token",
+            apiToken = "test-token"
         )
 
         val exception = assertThrows(PlannedIncomesException.InvalidResponse::class.java) {
@@ -104,7 +104,7 @@ class PlannedIncomesRepositoryImplTest {
         val result = repository.createPlannedIncome(
             categoryId = "category-id",
             amount = BigDecimal("1300000.00"),
-            dueOn = LocalDate.of(2026, 10, 10),
+            dueOn = LocalDate.of(2026, 10, 10)
         )
 
         assertEquals("Bearer owner-token", api.authorization)
@@ -112,9 +112,9 @@ class PlannedIncomesRepositoryImplTest {
             CreatePlannedIncomeRequestDto(
                 categoryId = "category-id",
                 amount = "1300000.00",
-                dueOn = "2026-10-10",
+                dueOn = "2026-10-10"
             ),
-            api.createRequest,
+            api.createRequest
         )
         assertEquals("created-income", result.id)
         assertEquals(0L, result.version)
@@ -130,7 +130,7 @@ class PlannedIncomesRepositoryImplTest {
             version = 4,
             categoryId = null,
             amount = BigDecimal("1350000.00"),
-            dueOn = LocalDate.of(2026, 10, 12),
+            dueOn = LocalDate.of(2026, 10, 12)
         )
 
         assertEquals("income-id", api.incomeId)
@@ -138,9 +138,9 @@ class PlannedIncomesRepositoryImplTest {
             UpdatePlannedIncomeRequestDto(
                 version = 4,
                 amount = "1350000.00",
-                dueOn = "2026-10-12",
+                dueOn = "2026-10-12"
             ),
-            api.updateRequest,
+            api.updateRequest
         )
         assertEquals(5L, result.version)
     }
@@ -156,16 +156,18 @@ class PlannedIncomesRepositoryImplTest {
         assertEquals(6L, api.deletedVersion)
     }
 
-    private fun response(items: List<PlannedIncomeDto>) = PlannedIncomesResponseDto(
+    private fun response(
+        items: List<PlannedIncomeDto>
+    ) = PlannedIncomesResponseDto(
         asOf = "2026-10-07",
-        items = items,
+        items = items
     )
 
     private fun income(
         id: String,
         amount: String,
         dueOn: String,
-        overdue: Boolean,
+        overdue: Boolean
     ) = PlannedIncomeDto(
         id = id,
         category = PlannedIncomeCategoryDto("category-id", "Зарплата"),
@@ -175,13 +177,11 @@ class PlannedIncomesRepositoryImplTest {
         status = "SCHEDULED",
         version = 0,
         createdAt = "2026-10-01T04:00:00Z",
-        modifiedAt = "2026-10-01T04:00:00Z",
+        modifiedAt = "2026-10-01T04:00:00Z"
     )
 }
 
-private class RecordingPlannedIncomesApi(
-    private val response: PlannedIncomesResponseDto,
-) : PlannedIncomesApi {
+private class RecordingPlannedIncomesApi(private val response: PlannedIncomesResponseDto) : PlannedIncomesApi {
     var authorization: String? = null
     var callCount: Int = 0
     var createRequest: CreatePlannedIncomeRequestDto? = null
@@ -190,7 +190,7 @@ private class RecordingPlannedIncomesApi(
     var deletedVersion: Long? = null
 
     override suspend fun getPlannedIncomes(
-        authorization: String,
+        authorization: String
     ): PlannedIncomesResponseDto {
         callCount += 1
         this.authorization = authorization
@@ -199,7 +199,7 @@ private class RecordingPlannedIncomesApi(
 
     override suspend fun createPlannedIncome(
         authorization: String,
-        request: CreatePlannedIncomeRequestDto,
+        request: CreatePlannedIncomeRequestDto
     ): Response<PlannedIncomeDto> {
         this.authorization = authorization
         createRequest = request
@@ -209,15 +209,15 @@ private class RecordingPlannedIncomesApi(
                 id = "created-income",
                 amount = request.amount,
                 dueOn = request.dueOn,
-                version = 0,
-            ),
+                version = 0
+            )
         )
     }
 
     override suspend fun updatePlannedIncome(
         authorization: String,
         incomeId: String,
-        request: UpdatePlannedIncomeRequestDto,
+        request: UpdatePlannedIncomeRequestDto
     ): Response<PlannedIncomeDto> {
         this.authorization = authorization
         this.incomeId = incomeId
@@ -228,15 +228,15 @@ private class RecordingPlannedIncomesApi(
                 id = incomeId,
                 amount = request.amount ?: "1300000.00",
                 dueOn = request.dueOn ?: "2026-10-10",
-                version = request.version + 1,
-            ),
+                version = request.version + 1
+            )
         )
     }
 
     override suspend fun deletePlannedIncome(
         authorization: String,
         incomeId: String,
-        version: Long,
+        version: Long
     ): Response<Unit> {
         this.authorization = authorization
         this.incomeId = incomeId
@@ -249,7 +249,7 @@ private fun plannedIncomeDto(
     id: String,
     amount: String,
     dueOn: String,
-    version: Long,
+    version: Long
 ) = PlannedIncomeDto(
     id = id,
     category = PlannedIncomeCategoryDto("category-id", "Зарплата"),
@@ -259,5 +259,5 @@ private fun plannedIncomeDto(
     status = "SCHEDULED",
     version = version,
     createdAt = "2026-10-01T04:00:00Z",
-    modifiedAt = "2026-10-01T04:00:00Z",
+    modifiedAt = "2026-10-01T04:00:00Z"
 )

@@ -13,7 +13,7 @@ class CategoryIconsTest {
             "TRANSPORT" to "CAR",
             "CLOTHES" to "CLOTHING",
             "EDUCATION" to "BOOKS_EDUCATION",
-            "INCOME" to "SALARY",
+            "INCOME" to "SALARY"
         ).forEach { (legacy, current) ->
             assertEquals(CategoryIcons.find(current), CategoryIcons.find(legacy))
         }
@@ -30,7 +30,7 @@ class CategoryIconsTest {
     fun `unknown retired and automatic codes have no PNG`() {
         listOf(
             "custom.icon-v2", "BICYCLE", "MORTGAGE", "SPORT", "SUBSCRIPTIONS",
-            "SERVICE_FEES", "BONUS", "OTHER", "", CATEGORY_INITIAL_ICON_CODE,
+            "SERVICE_FEES", "BONUS", "OTHER", "", CATEGORY_INITIAL_ICON_CODE
         ).forEach { assertNull(CategoryIcons.find(it)) }
     }
 
@@ -38,8 +38,12 @@ class CategoryIconsTest {
     fun `letter and color are derived from the displayed name`() {
         val placeholder = "Новая категория"
         listOf(
-            "" to "Н", "   " to "Н", "  ёлка  " to "Ё", "cafe" to "C",
-            "𐐨abc" to "𐐀", "🐈 Кот" to "🐈",
+            "" to "Н",
+            "   " to "Н",
+            "  ёлка  " to "Ё",
+            "cafe" to "C",
+            "𐐨abc" to "𐐀",
+            "🐈 Кот" to "🐈"
         ).forEach { (input, expected) ->
             assertEquals(expected, categoryInitialLetter(categoryInitialName(input, placeholder)))
         }

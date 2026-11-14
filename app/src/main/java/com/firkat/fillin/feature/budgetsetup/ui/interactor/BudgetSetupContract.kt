@@ -1,10 +1,9 @@
 package com.firkat.fillin.feature.budgetsetup.ui.interactor
 
-import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
-
 import com.firkat.fillin.core.mvi.*
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetconnection.domain.*
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import java.time.LocalDate
 
@@ -41,13 +40,17 @@ data class BudgetSetupState(
     val balanceInvalid: Boolean = false,
     val code: String = "",
     val codeInvalid: Boolean = false,
-    val error: String? = null,
+    val error: String? = null
 ) : State {
     val uid get() = (session as? AuthSession.Authenticated)?.user?.uid
-    val canCreate get() = initialized && session != AuthSession.Loading && !busy && !completed && when (mode) {
-        BudgetSetupMode.Local -> !localLimitReached && (!cloudAllowed || uid == null || pendingChecked)
-        BudgetSetupMode.Cloud -> cloudAllowed && (uid == null || pending != null || loaded && !loading)
-    }
+    val canCreate get() = initialized &&
+        session != AuthSession.Loading &&
+        !busy &&
+        !completed &&
+        when (mode) {
+            BudgetSetupMode.Local -> !localLimitReached && (!cloudAllowed || uid == null || pendingChecked)
+            BudgetSetupMode.Cloud -> cloudAllowed && (uid == null || pending != null || loaded && !loading)
+        }
     val editable get() = initialized && session != AuthSession.Loading && !busy && pending == null && !completed
 }
 sealed interface BudgetSetupAction : Action {
@@ -81,14 +84,27 @@ sealed interface BudgetSetupCommand : Command {
         val state: BudgetSetupState,
         val kind: SubmitKind,
         val budget: AvailableBudget? = null,
-        val startedOn: LocalDate? = null,
+        val startedOn: LocalDate? = null
     ) : BudgetSetupCommand
 }
 enum class SubmitKind { Local, Cloud, Connect, Join }
 sealed interface BudgetSetupEvent : Event {
-    data class Session(val session: AuthSession, val cloudAllowed: Boolean = true, val localFirst: Boolean = false) : BudgetSetupEvent
-    data class Catalog(val generation: Long, val budgets: List<AvailableBudget>, val pending: PendingBudgetCreation?, val cached: Boolean) : BudgetSetupEvent
+    data class Session(val session: AuthSession, val cloudAllowed: Boolean = true, val localFirst: Boolean = false) :
+        BudgetSetupEvent
+    data class Catalog(
+        val generation: Long,
+        val budgets: List<AvailableBudget>,
+        val pending: PendingBudgetCreation?,
+        val cached: Boolean
+    ) : BudgetSetupEvent
     data class LoadFinished(val generation: Long, val error: String? = null) : BudgetSetupEvent
-    data class Finished(val generation: Long, val operationId: Long, val error: String? = null, val pending: PendingBudgetCreation? = null) : BudgetSetupEvent
+    data class Finished(
+        val generation: Long,
+        val operationId: Long,
+        val error: String? = null,
+        val pending: PendingBudgetCreation? = null
+    ) : BudgetSetupEvent
 }
-sealed interface BudgetSetupEffect : Effect { data object Exit : BudgetSetupEffect }
+sealed interface BudgetSetupEffect : Effect {
+    data object Exit : BudgetSetupEffect
+}

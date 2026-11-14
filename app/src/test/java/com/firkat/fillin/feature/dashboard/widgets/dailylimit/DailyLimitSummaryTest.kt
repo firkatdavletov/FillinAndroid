@@ -103,25 +103,39 @@ class DailyLimitSummaryTest {
         assertNull(ui.amount)
     }
 
-    private fun summary(spent: String, opening: String = "600000") = DailyLimitSummary.from(dashboard(spent, opening))
+    private fun summary(
+        spent: String,
+        opening: String = "600000"
+    ) = DailyLimitSummary.from(dashboard(spent, opening))
 
-    private fun dashboard(spent: String, opening: String = "600000") = CalculateDashboard.calculate(
+    private fun dashboard(
+        spent: String,
+        opening: String = "600000"
+    ) = CalculateDashboard.calculate(
         DashboardCalculationInput(
             asOf = Instant.parse("2026-09-06T03:00:00Z"),
             accountingStartedAt = Instant.parse("2026-08-01T00:00:00Z"),
             openingBalance = decimal(opening),
             protectedReserve = decimal("0"),
             goalReserve = decimal("0"),
-            operations = listOf(DashboardOperation(
-                "expense", CATEGORY, DashboardOperationKind.Expense, decimal(spent),
-                LocalDate.parse("2026-09-06"), Instant.parse("2026-09-06T00:00:00Z"),
-            )),
+            operations = listOf(
+                DashboardOperation(
+                    "expense",
+                    CATEGORY,
+                    DashboardOperationKind.Expense,
+                    decimal(spent),
+                    LocalDate.parse("2026-09-06"),
+                    Instant.parse("2026-09-06T00:00:00Z")
+                )
+            ),
             categories = listOf(DashboardCategory(CATEGORY, "Продукты", true)),
-            payments = emptyList(), incomes = emptyList(), excludedVariableExpenseIds = emptySet(),
-        ),
+            payments = emptyList(), incomes = emptyList(), excludedVariableExpenseIds = emptySet()
+        )
     )
 
-    private fun decimal(value: String) = value.toBigDecimal().setScale(2)
+    private fun decimal(
+        value: String
+    ) = value.toBigDecimal().setScale(2)
 
     companion object {
         private const val CATEGORY = "00000000-0000-0000-0000-000000000001"

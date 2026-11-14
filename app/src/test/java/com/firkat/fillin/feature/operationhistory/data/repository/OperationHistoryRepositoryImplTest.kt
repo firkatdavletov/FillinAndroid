@@ -31,29 +31,29 @@ class OperationHistoryRepositoryImplTest {
                         type = "EXPENSE",
                         category = OperationCategoryDto(
                             id = "category-id",
-                            name = "Продукты",
+                            name = "Продукты"
                         ),
                         originalAmount = MoneyDto(
                             amount = "30.00",
-                            currency = "USD",
+                            currency = "USD"
                         ),
                         amountKzt = MoneyDto(
                             amount = "15000.10",
-                            currency = "KZT",
+                            currency = "KZT"
                         ),
                         occurredOn = "2026-10-06",
                         status = "VOIDED",
                         version = 3,
-                        description = "супермаркет",
-                    ),
+                        description = "супермаркет"
+                    )
                 ),
                 nextCursor = 42,
-                totals = TEST_TOTALS,
-            ),
+                totals = TEST_TOTALS
+            )
         )
         val repository = OperationHistoryRepositoryImpl(
             api = api,
-            apiToken = "test-token",
+            apiToken = "test-token"
         )
 
         val page = GetOperationHistoryPage(repository)(cursor = 12345, filter = TEST_FILTER)
@@ -93,7 +93,7 @@ class OperationHistoryRepositoryImplTest {
         val result = repository.updateOperationAmount(
             id = "purchase-id",
             version = 4,
-            amount = BigDecimal("12000.50"),
+            amount = BigDecimal("12000.50")
         )
 
         assertEquals("Bearer owner-token", api.authorization)
@@ -116,9 +116,7 @@ class OperationHistoryRepositoryImplTest {
     }
 }
 
-private class RecordingApi(
-    private val response: OperationPageDto,
-) : OperationHistoryApi {
+private class RecordingApi(private val response: OperationPageDto) : OperationHistoryApi {
     var authorization: String? = null
     var limit: Int? = null
     var cursor: Long? = null
@@ -134,7 +132,7 @@ private class RecordingApi(
         type: String?,
         categoryId: String?,
         dateFrom: String,
-        dateTo: String,
+        dateTo: String
     ): OperationPageDto {
         callCount += 1
         this.authorization = authorization
@@ -146,7 +144,7 @@ private class RecordingApi(
     override suspend fun updatePurchase(
         authorization: String,
         purchaseId: String,
-        request: UpdatePurchaseRequestDto,
+        request: UpdatePurchaseRequestDto
     ): Response<OperationDto> {
         this.authorization = authorization
         this.purchaseId = purchaseId
@@ -155,15 +153,15 @@ private class RecordingApi(
             200,
             purchaseDto(
                 originalAmount = request.amount,
-                version = request.version + 1,
-            ),
+                version = request.version + 1
+            )
         )
     }
 
     override suspend fun refundPurchase(
         authorization: String,
         purchaseId: String,
-        version: Long,
+        version: Long
     ): Response<Unit> {
         this.authorization = authorization
         this.purchaseId = purchaseId
@@ -174,7 +172,7 @@ private class RecordingApi(
 
 private fun purchaseDto(
     originalAmount: String = "30.00",
-    version: Long = 4,
+    version: Long = 4
 ) = OperationDto(
     id = "purchase-id",
     type = "EXPENSE",
@@ -184,7 +182,7 @@ private fun purchaseDto(
     occurredOn = "2026-10-06",
     status = "POSTED",
     version = version,
-    description = "супермаркет",
+    description = "супермаркет"
 )
 
 private val TEST_FILTER = OperationHistoryFilter.currentMonth(LocalDate.of(2026, 10, 17))

@@ -40,7 +40,7 @@ class RefreshableContentTest {
                     isRefreshing = false,
                     onRefresh = { refreshCount++ },
                     hasScrollableContent = false,
-                    modifier = Modifier.testTag("refresh"),
+                    modifier = Modifier.testTag("refresh")
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("Empty")
@@ -66,7 +66,7 @@ class RefreshableContentTest {
                     isRefreshing = false,
                     onRefresh = { refreshCount++ },
                     hasScrollableContent = true,
-                    modifier = Modifier.testTag("refresh"),
+                    modifier = Modifier.testTag("refresh")
                 ) {
                     LazyColumn(Modifier.fillMaxSize()) {
                         item { Text("Single item") }
@@ -88,11 +88,11 @@ class RefreshableContentTest {
                     isRefreshing = false,
                     onRefresh = { refreshCount++ },
                     hasScrollableContent = true,
-                    modifier = Modifier.testTag("refresh"),
+                    modifier = Modifier.testTag("refresh")
                 ) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        state = rememberLazyListState(initialFirstVisibleItemIndex = 20),
+                        state = rememberLazyListState(initialFirstVisibleItemIndex = 20)
                     ) {
                         items(40) {
                             Text("Item $it", Modifier.fillMaxWidth().height(80.dp))
@@ -117,7 +117,7 @@ class RefreshableContentTest {
                     isRefreshing = true,
                     onRefresh = { refreshCount++ },
                     hasScrollableContent = false,
-                    modifier = Modifier.testTag("refresh"),
+                    modifier = Modifier.testTag("refresh")
                 ) {
                     Text("Empty")
                 }

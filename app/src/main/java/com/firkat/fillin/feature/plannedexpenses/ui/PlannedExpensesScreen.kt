@@ -1,8 +1,5 @@
 package com.firkat.fillin.feature.plannedexpenses.ui
 
-import com.firkat.fillin.ui.component.SaldomiOutlinedButton
-import com.firkat.fillin.ui.component.SaldomiButton
-import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -10,8 +7,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,15 +20,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
@@ -61,10 +54,13 @@ import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.RefreshableContent
+import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.math.MathContext
-import com.firkat.fillin.ui.format.formatMoney
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -73,7 +69,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun PlannedExpensesRoute(
-    viewModel: PlannedExpensesViewModel = koinViewModel(),
+    viewModel: PlannedExpensesViewModel = koinViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     FeatureScaffold(
@@ -83,11 +79,11 @@ fun PlannedExpensesRoute(
         } else {
             null
         },
-        navigateBackEnabled = state.editor?.isSaving != true,
+        navigateBackEnabled = state.editor?.isSaving != true
     ) {
         PlannedExpensesScreen(
             state = state,
-            onEvent = viewModel::onEvent,
+            onEvent = viewModel::onEvent
         )
     }
 }
@@ -95,7 +91,7 @@ fun PlannedExpensesRoute(
 @Composable
 fun PlannedExpensesScreen(
     state: PlannedExpensesUiState,
-    onEvent: (PlannedExpensesEvent) -> Unit,
+    onEvent: (PlannedExpensesEvent) -> Unit
 ) {
     val editor = state.editor
     if (editor != null) {
@@ -107,7 +103,7 @@ fun PlannedExpensesScreen(
             isCategoriesLoading = state.isCategoriesLoading,
             editor = editor,
             onEvent = onEvent,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize()
         )
         if (editor.isDeleteConfirmationVisible) {
             DeleteRuleConfirmation(onEvent = onEvent)
@@ -119,7 +115,7 @@ fun PlannedExpensesScreen(
         RefreshableContent(
             isRefreshing = state.isRefreshing,
             onRefresh = { onEvent(PlannedExpensesEvent.Refresh) },
-            hasScrollableContent = state.items.isNotEmpty(),
+            hasScrollableContent = state.items.isNotEmpty()
         ) {
             when {
                 state.isLoading && state.items.isEmpty() -> LoadingContent()
@@ -127,20 +123,20 @@ fun PlannedExpensesScreen(
                 state.error != null && state.items.isEmpty() -> ErrorContent(
                     error = state.error,
                     onRetry = { onEvent(PlannedExpensesEvent.Retry) },
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize()
                 )
 
                 state.items.isEmpty() -> EmptyContent(
                     throughInclusive = plannedExpensesPeriodEnd(
                         asOf = state.asOf,
                         throughInclusive = state.throughInclusive,
-                        period = state.selectedPeriod,
-                    ),
+                        period = state.selectedPeriod
+                    )
                 )
 
                 else -> PlannedExpensesList(
                     state = state,
-                    onEvent = onEvent,
+                    onEvent = onEvent
                 )
             }
         }
@@ -149,7 +145,7 @@ fun PlannedExpensesScreen(
             onClick = { onEvent(PlannedExpensesEvent.CreateRequested) },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp),
+                .padding(16.dp)
         ) {
             Text(stringResource(R.string.planned_expenses_create_action))
         }
@@ -162,7 +158,7 @@ fun PlannedExpensesScreen(
                 expense = expense,
                 isClosing = state.isClosingExpense,
                 error = state.closeError,
-                onEvent = onEvent,
+                onEvent = onEvent
             )
         }
 }
@@ -174,14 +170,14 @@ internal fun PlannedExpenseRuleEditor(
     editor: PlannedExpenseRuleEditorUiState,
     onEvent: (PlannedExpensesEvent) -> Unit,
     modifier: Modifier = Modifier,
-    onClose: (() -> Unit)? = null,
+    onClose: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
             text = stringResource(
@@ -189,22 +185,22 @@ internal fun PlannedExpenseRuleEditor(
                     R.string.planned_expenses_editor_create_title
                 } else {
                     R.string.planned_expenses_editor_edit_title
-                },
+                }
             ),
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold
         )
 
         if (editor.isCreating) {
             Text(
                 text = stringResource(R.string.planned_expenses_category_label),
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelLarge
             )
             when {
                 isCategoriesLoading -> CircularProgressIndicator()
                 categories.isEmpty() -> Text(
                     text = stringResource(R.string.planned_expenses_no_expense_categories),
-                    color = MaterialTheme.colorScheme.error,
+                    color = MaterialTheme.colorScheme.error
                 )
                 else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     categories.forEach { category ->
@@ -215,7 +211,7 @@ internal fun PlannedExpenseRuleEditor(
                             },
                             enabled = !editor.isSaving,
                             label = { Text(category.name) },
-                            leadingIcon = { CategoryIconImage(category.icon.code, category.name) },
+                            leadingIcon = { CategoryIconImage(category.icon.code, category.name) }
                         )
                     }
                 }
@@ -224,12 +220,12 @@ internal fun PlannedExpenseRuleEditor(
             Text(
                 text = editor.originalRule?.categoryName ?: editor.original?.categoryName.orEmpty(),
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = stringResource(R.string.planned_expenses_edit_scope_hint),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -245,13 +241,13 @@ internal fun PlannedExpenseRuleEditor(
             },
             isError = editor.amount.isNotBlank() && editor.parsedAmount == null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
+            singleLine = true
         )
 
         if (editor.isCreating) {
             Text(
                 text = stringResource(R.string.planned_expenses_frequency_label),
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelLarge
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PlannedExpenseFrequency.entries.forEach { frequency ->
@@ -259,7 +255,7 @@ internal fun PlannedExpenseRuleEditor(
                         selected = editor.frequency == frequency,
                         onClick = { onEvent(PlannedExpensesEvent.FrequencyChanged(frequency)) },
                         enabled = !editor.isSaving,
-                        label = { Text(stringResource(frequency.labelResource)) },
+                        label = { Text(stringResource(frequency.labelResource)) }
                     )
                 }
             }
@@ -276,7 +272,7 @@ internal fun PlannedExpenseRuleEditor(
                     },
                     isError = editor.scheduleValue.isNotBlank() && editor.parsedScheduleValue == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
+                    singleLine = true
                 )
             }
 
@@ -285,12 +281,34 @@ internal fun PlannedExpenseRuleEditor(
                 onValueChange = { onEvent(PlannedExpensesEvent.StartsOnChanged(it)) },
                 modifier = Modifier.fillMaxWidth().testTag("planned-editor-starts-on"),
                 enabled = !editor.isSaving,
-                label = { Text(stringResource(if (editor.frequency == PlannedExpenseFrequency.Once) R.string.planned_expenses_due_on_label else R.string.planned_expenses_starts_on_label)) },
+                label = {
+                    Text(
+                        stringResource(
+                            if (editor.frequency ==
+                                PlannedExpenseFrequency.Once
+                            ) {
+                                R.string.planned_expenses_due_on_label
+                            } else {
+                                R.string.planned_expenses_starts_on_label
+                            }
+                        )
+                    )
+                },
                 supportingText = {
-                    Text(stringResource(if (editor.frequency == PlannedExpenseFrequency.Once) R.string.planned_expenses_once_date_hint else R.string.planned_expenses_starts_on_hint))
+                    Text(
+                        stringResource(
+                            if (editor.frequency ==
+                                PlannedExpenseFrequency.Once
+                            ) {
+                                R.string.planned_expenses_once_date_hint
+                            } else {
+                                R.string.planned_expenses_starts_on_hint
+                            }
+                        )
+                    )
                 },
                 isError = editor.startsOn.isNotBlank() && editor.parsedStartsOn == null,
-                singleLine = true,
+                singleLine = true
             )
         }
 
@@ -298,19 +316,19 @@ internal fun PlannedExpenseRuleEditor(
             Text(
                 text = stringResource(error.messageResource),
                 color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium
             )
         }
 
         Button(
             onClick = { onEvent(PlannedExpensesEvent.SaveRequested) },
             modifier = Modifier.fillMaxWidth().testTag("planned-editor-save"),
-            enabled = editor.canSave,
+            enabled = editor.canSave
         ) {
             if (editor.isSaving) {
                 CircularProgressIndicator(
                     modifier = Modifier.padding(2.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             } else {
                 Text(
@@ -319,8 +337,8 @@ internal fun PlannedExpenseRuleEditor(
                             R.string.planned_expenses_create_submit
                         } else {
                             R.string.planned_expenses_save_submit
-                        },
-                    ),
+                        }
+                    )
                 )
             }
         }
@@ -331,8 +349,8 @@ internal fun PlannedExpenseRuleEditor(
                 modifier = Modifier.fillMaxWidth().testTag("planned-editor-delete"),
                 enabled = editor.canDelete,
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error,
-                ),
+                    contentColor = MaterialTheme.colorScheme.error
+                )
             ) {
                 Text(stringResource(R.string.planned_expenses_delete_action))
             }
@@ -341,7 +359,7 @@ internal fun PlannedExpenseRuleEditor(
             TextButton(
                 onClick = close,
                 enabled = !editor.isSaving,
-                modifier = Modifier.fillMaxWidth().testTag("planned-editor-close"),
+                modifier = Modifier.fillMaxWidth().testTag("planned-editor-close")
             ) {
                 Text(stringResource(R.string.edit_operation_close))
             }
@@ -352,7 +370,7 @@ internal fun PlannedExpenseRuleEditor(
 @Composable
 internal fun DeleteRuleConfirmation(
     onEvent: (PlannedExpensesEvent) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     SaldomiActionBottomSheet(
         modifier = modifier,
@@ -360,17 +378,21 @@ internal fun DeleteRuleConfirmation(
         title = { Text(stringResource(R.string.planned_expenses_delete_title)) },
         text = { Text(stringResource(R.string.planned_expenses_delete_message)) },
         confirmButton = {
-            SaldomiButton(onClick = { onEvent(PlannedExpensesEvent.DeleteConfirmed) }, modifier = Modifier.fillMaxWidth(), large = true, destructive = true) {
+            SaldomiButton(onClick = {
+                onEvent(PlannedExpensesEvent.DeleteConfirmed)
+            }, modifier = Modifier.fillMaxWidth(), large = true, destructive = true) {
                 Text(
-                    text = stringResource(R.string.planned_expenses_delete_confirm),
+                    text = stringResource(R.string.planned_expenses_delete_confirm)
                 )
             }
         },
         dismissButton = {
-            SaldomiOutlinedButton(onClick = { onEvent(PlannedExpensesEvent.DeleteDismissed) }, modifier = Modifier.fillMaxWidth(), large = true) {
+            SaldomiOutlinedButton(onClick = {
+                onEvent(PlannedExpensesEvent.DeleteDismissed)
+            }, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.planned_expenses_delete_cancel))
             }
-        },
+        }
     )
 }
 
@@ -379,7 +401,7 @@ internal fun CloseExpenseConfirmation(
     expense: PlannedExpense,
     isClosing: Boolean,
     error: PlannedExpensesError?,
-    onEvent: (PlannedExpensesEvent) -> Unit,
+    onEvent: (PlannedExpensesEvent) -> Unit
 ) {
     SaldomiActionBottomSheet(
         dismissEnabled = !isClosing,
@@ -392,13 +414,13 @@ internal fun CloseExpenseConfirmation(
                         R.string.planned_expenses_close_message,
                         formatMoney(expense.paidAmount, expense.currency),
                         formatMoney(expense.plannedAmount, expense.currency),
-                        formatMoney(expense.remainingAmount, expense.currency),
-                    ),
+                        formatMoney(expense.remainingAmount, expense.currency)
+                    )
                 )
                 error?.let {
                     Text(
                         text = stringResource(it.closeMessageResource),
-                        color = MaterialTheme.colorScheme.error,
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
             }
@@ -406,55 +428,61 @@ internal fun CloseExpenseConfirmation(
         confirmButton = {
             SaldomiButton(
                 onClick = { onEvent(PlannedExpensesEvent.CloseConfirmed) },
-                enabled = !isClosing, modifier = Modifier.fillMaxWidth(), large = true) {
+                enabled = !isClosing,
+                modifier = Modifier.fillMaxWidth(),
+                large = true
+            ) {
                 Text(
                     stringResource(
                         if (isClosing) {
                             R.string.planned_expenses_close_in_progress
                         } else {
                             R.string.planned_expenses_close_confirm
-                        },
-                    ),
+                        }
+                    )
                 )
             }
         },
         dismissButton = {
             SaldomiOutlinedButton(
                 onClick = { onEvent(PlannedExpensesEvent.CloseDismissed) },
-                enabled = !isClosing, modifier = Modifier.fillMaxWidth(), large = true) {
+                enabled = !isClosing,
+                modifier = Modifier.fillMaxWidth(),
+                large = true
+            ) {
                 Text(stringResource(R.string.planned_expenses_close_cancel))
             }
-        },
+        }
     )
 }
 
 @Composable
 private fun PlannedExpensesList(
     state: PlannedExpensesUiState,
-    onEvent: (PlannedExpensesEvent) -> Unit,
+    onEvent: (PlannedExpensesEvent) -> Unit
 ) {
     val visibleItems = remember(
         state.items,
         state.asOf,
         state.throughInclusive,
-        state.selectedPeriod,
+        state.selectedPeriod
     ) {
         plannedExpensesForPeriod(
             items = state.items,
             asOf = state.asOf,
             throughInclusive = state.throughInclusive,
-            period = state.selectedPeriod,
+            period = state.selectedPeriod
         )
     }
     val selectedThroughInclusive = remember(
         state.asOf,
         state.throughInclusive,
-        state.selectedPeriod,
+        state.selectedPeriod
     ) {
         plannedExpensesPeriodEnd(
             asOf = state.asOf,
             throughInclusive = state.throughInclusive,
-            period = state.selectedPeriod,
+            period = state.selectedPeriod
         )
     }
     val overdueItems = remember(visibleItems) {
@@ -470,16 +498,16 @@ private fun PlannedExpensesList(
             start = 16.dp,
             top = 8.dp,
             end = 16.dp,
-            bottom = 16.dp,
+            bottom = 16.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         state.error?.let {
             item(key = "refresh-error") {
                 RefreshErrorContent(
                     messageResource = it.messageResource,
                     retryResource = R.string.planned_expenses_retry,
-                    onRetry = { onEvent(PlannedExpensesEvent.Refresh) },
+                    onRetry = { onEvent(PlannedExpensesEvent.Refresh) }
                 )
             }
         }
@@ -489,7 +517,7 @@ private fun PlannedExpensesList(
                 selectedPeriod = state.selectedPeriod,
                 onPeriodSelected = {
                     onEvent(PlannedExpensesEvent.PeriodSelected(it))
-                },
+                }
             )
         }
 
@@ -498,7 +526,7 @@ private fun PlannedExpensesList(
                 items = visibleItems,
                 allItems = state.items,
                 asOf = state.asOf,
-                throughInclusive = selectedThroughInclusive,
+                throughInclusive = selectedThroughInclusive
             )
         }
 
@@ -513,7 +541,7 @@ private fun PlannedExpensesList(
                 SectionTitle(
                     title = stringResource(R.string.planned_expenses_overdue_section),
                     count = overdueItems.size,
-                    modifier = Modifier.padding(top = 10.dp),
+                    modifier = Modifier.padding(top = 10.dp)
                 )
             }
             items(overdueItems, key = PlannedExpense::id) { expense ->
@@ -524,7 +552,7 @@ private fun PlannedExpensesList(
                     },
                     onClose = {
                         onEvent(PlannedExpensesEvent.CloseRequested(expense.id))
-                    },
+                    }
                 )
             }
         }
@@ -534,7 +562,7 @@ private fun PlannedExpensesList(
                 SectionTitle(
                     title = stringResource(R.string.planned_expenses_upcoming_section),
                     count = upcomingItems.size,
-                    modifier = Modifier.padding(top = 10.dp),
+                    modifier = Modifier.padding(top = 10.dp)
                 )
             }
             items(upcomingItems, key = PlannedExpense::id) { expense ->
@@ -545,7 +573,7 @@ private fun PlannedExpensesList(
                     },
                     onClose = {
                         onEvent(PlannedExpensesEvent.CloseRequested(expense.id))
-                    },
+                    }
                 )
             }
         }
@@ -555,18 +583,18 @@ private fun PlannedExpensesList(
 @Composable
 private fun PlannedExpensesPeriodTabs(
     selectedPeriod: PlannedExpensesPeriod,
-    onPeriodSelected: (PlannedExpensesPeriod) -> Unit,
+    onPeriodSelected: (PlannedExpensesPeriod) -> Unit
 ) {
     PrimaryTabRow(
         selectedTabIndex = selectedPeriod.ordinal,
         containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.primary
     ) {
         PlannedExpensesPeriod.entries.forEach { period ->
             Tab(
                 selected = selectedPeriod == period,
                 onClick = { onPeriodSelected(period) },
-                text = { Text(stringResource(period.labelResource)) },
+                text = { Text(stringResource(period.labelResource)) }
             )
         }
     }
@@ -577,14 +605,14 @@ private fun PlannedExpensesSummary(
     items: List<PlannedExpense>,
     allItems: List<PlannedExpense>,
     asOf: LocalDate?,
-    throughInclusive: LocalDate?,
+    throughInclusive: LocalDate?
 ) {
     val totals = remember(items, allItems) {
         remainingTotals(items).ifEmpty {
             allItems.distinctBy(PlannedExpense::currency).map { expense ->
                 PlannedExpenseTotal(
                     amount = BigDecimal.ZERO,
-                    currency = expense.currency,
+                    currency = expense.currency
                 )
             }
         }
@@ -592,40 +620,40 @@ private fun PlannedExpensesSummary(
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
                 text = stringResource(R.string.planned_expenses_remaining),
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelLarge
             )
             Text(
                 text = totals.joinToString(" · ") { formatMoney(it.amount, it.currency) },
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Bold
             )
             Text(
                 text = pluralStringResource(
                     R.plurals.planned_expenses_count,
                     items.size,
-                    items.size,
+                    items.size
                 ),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium
             )
             if (asOf != null && throughInclusive != null) {
                 Text(
                     text = stringResource(
                         R.string.planned_expenses_period,
                         formatShortDate(asOf),
-                        formatShortDate(throughInclusive),
+                        formatShortDate(throughInclusive)
                     ),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
                 )
             }
         }
@@ -635,24 +663,24 @@ private fun PlannedExpensesSummary(
 @Composable
 private fun EmptyPeriodContent(
     throughInclusive: LocalDate?,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 32.dp, vertical = 40.dp),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = throughInclusive?.let {
                 stringResource(
                     R.string.planned_expenses_empty_through,
-                    formatLongDate(it),
+                    formatLongDate(it)
                 )
             } ?: stringResource(R.string.planned_expenses_empty),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -661,22 +689,22 @@ private fun EmptyPeriodContent(
 private fun SectionTitle(
     title: String,
     count: Int,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = title,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.SemiBold
         )
         Text(
             text = count.toString(),
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -685,7 +713,7 @@ private fun SectionTitle(
 internal fun PlannedExpenseItem(
     expense: PlannedExpense,
     onManageRule: () -> Unit,
-    onClose: () -> Unit,
+    onClose: () -> Unit
 ) {
     val dueColor = if (expense.overdue) {
         MaterialTheme.colorScheme.error
@@ -701,48 +729,48 @@ internal fun PlannedExpenseItem(
             indication = null,
             onClick = onManageRule
         ),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.Top,
+            verticalAlignment = Alignment.Top
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
                     text = expense.categoryName,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     text = if (expense.overdue) {
                         stringResource(
                             R.string.planned_expenses_overdue_due_date,
-                            formatLongDate(expense.dueOn),
+                            formatLongDate(expense.dueOn)
                         )
                     } else {
                         stringResource(
                             R.string.planned_expenses_due_date,
-                            formatLongDate(expense.dueOn),
+                            formatLongDate(expense.dueOn)
                         )
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = dueColor,
+                    color = dueColor
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = formatMoney(expense.remainingAmount, expense.currency),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = stringResource(R.string.planned_expenses_left),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -750,7 +778,7 @@ internal fun PlannedExpenseItem(
         if (expense.canBeClosed) {
             OutlinedButton(
                 onClick = onClose,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(R.string.planned_expenses_close_action))
             }
@@ -763,30 +791,32 @@ private fun AmountCaption(
     label: String,
     amount: String,
     modifier: Modifier = Modifier,
-    alignEnd: Boolean = false,
+    alignEnd: Boolean = false
 ) {
     Column(
         modifier = modifier,
-        horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
+        horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = amount,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Medium
         )
     }
 }
 
 @Composable
-private fun LoadingContent(modifier: Modifier = Modifier) {
+private fun LoadingContent(
+    modifier: Modifier = Modifier
+) {
     Box(
         modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator()
     }
@@ -795,24 +825,24 @@ private fun LoadingContent(modifier: Modifier = Modifier) {
 @Composable
 private fun EmptyContent(
     throughInclusive: LocalDate?,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 32.dp),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = throughInclusive?.let {
                 stringResource(
                     R.string.planned_expenses_empty_through,
-                    formatLongDate(it),
+                    formatLongDate(it)
                 )
             } ?: stringResource(R.string.planned_expenses_empty),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -821,21 +851,21 @@ private fun EmptyContent(
 private fun ErrorContent(
     error: PlannedExpensesError,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier.padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = stringResource(error.messageResource),
             textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge
         )
         Button(
             onClick = onRetry,
-            modifier = Modifier.padding(top = 16.dp),
+            modifier = Modifier.padding(top = 16.dp)
         ) {
             Text(stringResource(R.string.planned_expenses_retry))
         }
@@ -845,7 +875,7 @@ private fun ErrorContent(
 private val PlannedExpensesError.messageResource: Int
     @StringRes get() = when (this) {
         PlannedExpensesError.MissingApiToken,
-        PlannedExpensesError.Unauthorized,
+        PlannedExpensesError.Unauthorized
         -> R.string.planned_expenses_error_unauthorized
 
         PlannedExpensesError.Forbidden -> R.string.planned_expenses_error_forbidden
@@ -860,7 +890,7 @@ private val PlannedExpensesError.messageResource: Int
 private val PlannedExpensesError.closeMessageResource: Int
     @StringRes get() = when (this) {
         PlannedExpensesError.MissingApiToken,
-        PlannedExpensesError.Unauthorized,
+        PlannedExpensesError.Unauthorized
         -> R.string.planned_expenses_error_unauthorized
 
         PlannedExpensesError.Forbidden -> R.string.planned_expenses_close_error_forbidden
@@ -899,7 +929,9 @@ private val PlannedExpenseFrequency.scheduleHintResource: Int
         PlannedExpenseFrequency.Weekly -> R.string.planned_expenses_week_day_hint
     }
 
-private fun paidFraction(expense: PlannedExpense): Float {
+private fun paidFraction(
+    expense: PlannedExpense
+): Float {
     if (expense.plannedAmount <= BigDecimal.ZERO) return 0f
     return expense.paidAmount
         .divide(expense.plannedAmount, MathContext.DECIMAL64)
@@ -910,9 +942,13 @@ private fun paidFraction(expense: PlannedExpense): Float {
 private val shortDateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("ru"))
 private val longDateFormatter = DateTimeFormatter.ofPattern("d MMMM", Locale.forLanguageTag("ru"))
 
-private fun formatShortDate(date: LocalDate): String = date.format(shortDateFormatter)
+private fun formatShortDate(
+    date: LocalDate
+): String = date.format(shortDateFormatter)
 
-private fun formatLongDate(date: LocalDate): String = date.format(longDateFormatter)
+private fun formatLongDate(
+    date: LocalDate
+): String = date.format(longDateFormatter)
 
 @Preview(showBackground = true)
 @Composable
@@ -936,7 +972,7 @@ private fun PlannedExpensesPreview() {
                         status = PlannedExpenseStatus.Scheduled,
                         version = 1,
                         createdAt = Instant.parse("2026-10-01T04:00:00Z"),
-                        modifiedAt = Instant.parse("2026-10-07T03:00:00Z"),
+                        modifiedAt = Instant.parse("2026-10-07T03:00:00Z")
                     ),
                     PlannedExpense(
                         id = "preview-upcoming",
@@ -951,11 +987,11 @@ private fun PlannedExpensesPreview() {
                         status = PlannedExpenseStatus.Scheduled,
                         version = 1,
                         createdAt = Instant.parse("2026-10-01T04:00:00Z"),
-                        modifiedAt = Instant.parse("2026-10-07T03:00:00Z"),
-                    ),
-                ),
+                        modifiedAt = Instant.parse("2026-10-07T03:00:00Z")
+                    )
+                )
             ),
-            onEvent = {},
+            onEvent = {}
         )
     }
 }

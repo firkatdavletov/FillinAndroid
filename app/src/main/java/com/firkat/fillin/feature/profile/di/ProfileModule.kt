@@ -13,23 +13,29 @@ import com.firkat.fillin.feature.profile.domain.ProfileBudgetsRepository
 import com.firkat.fillin.feature.profile.ui.ProfileDeletionViewModel
 import com.firkat.fillin.feature.profile.ui.ProfileViewModel
 import com.google.firebase.auth.FirebaseAuth
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.tasks.await
 import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import retrofit2.Retrofit
-import java.util.concurrent.TimeUnit
 
 val profileModule = module {
-    single { com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement(androidContext(), get(), get(), get(), get(), get(), get(), get(), access = get(), refreshCatalog = { uid -> get<BudgetConnectionRepository>().budgets(uid) }) }
+    single {
+        com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement(androidContext(), get(), get(), get(), get(), get(), get(), get(), access = get(), refreshCatalog = { uid ->
+            get<BudgetConnectionRepository>().budgets(uid)
+        })
+    }
     single<DeletionStore> { EncryptedDeletionStore(androidContext()) }
     single { AccountCloudEraser(androidContext(), get(), get()) }
     single {
         val api = BuildConfig.FIREBASE_API_BASE_URL.takeIf(String::isNotBlank)?.let { url ->
             get<Retrofit>().newBuilder().baseUrl(url)
-                .client(get<OkHttpClient>().newBuilder()
-                    .callTimeout(20, TimeUnit.SECONDS).build())
+                .client(
+                    get<OkHttpClient>().newBuilder()
+                        .callTimeout(20, TimeUnit.SECONDS).build()
+                )
                 .build().create(ProfileDeletionApi::class.java)
         }
         ProfileDeletionCoordinator(get(), api, get(), token = { uid ->
@@ -46,7 +52,9 @@ val profileModule = module {
             (get<LocalBudgetUploadRepository>() as RoomLocalBudgetUploadRepository).awaitIdle()
         }, erase = { uid -> get<AccountCloudEraser>().erase(uid) })
     }
-    single<ProfileBudgetsRepository> { RoomProfileBudgetsRepository(get(), get(), get(), get(), get(), get(), get(), get(), access = get(), management = get()) }
+    single<ProfileBudgetsRepository> {
+        RoomProfileBudgetsRepository(get(), get(), get(), get(), get(), get(), get(), get(), access = get(), management = get())
+    }
     viewModel { ProfileDeletionViewModel(get(), get()) }
     viewModel { com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel(get(), get()) }
     viewModel { ProfileViewModel(get(), get(), get()) }

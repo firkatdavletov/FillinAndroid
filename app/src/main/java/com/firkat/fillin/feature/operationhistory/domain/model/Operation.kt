@@ -21,29 +21,27 @@ data class Operation(
     val refundedAmount: BigDecimal = BigDecimal.ZERO,
     val legacyConversion: Boolean = false,
     val rubKztRate: BigDecimal? = null,
-    val categoryIconCode: String = "",
+    val categoryIconCode: String = ""
 ) {
     val hasOriginalValuation: Boolean get() = legacyConversion || originalCurrency != currency
 }
 
 enum class OperationSyncStatus { Synced, Pending, Rejected }
 
-enum class OperationType(
-    val apiValue: String,
-) {
+enum class OperationType(val apiValue: String) {
     Expense("EXPENSE"),
-    Income("INCOME"),
+    Income("INCOME")
 }
 
 enum class OperationStatus {
     Posted,
     Voided,
-    Unknown,
+    Unknown
 }
 
 data class OperationPage(
     val items: List<Operation>,
     val nextCursor: Long?,
     val totals: OperationPeriodTotals = OperationPeriodTotals(),
-    val isComplete: Boolean = true,
+    val isComplete: Boolean = true
 )

@@ -30,7 +30,7 @@ internal fun CategoryIconImage(
     iconCode: String,
     categoryName: String,
     modifier: Modifier = Modifier,
-    contentDescription: String? = null,
+    contentDescription: String? = null
 ) {
     val icon = CategoryIcons.find(iconCode)
     val iconModifier = modifier.size(24.dp)
@@ -46,17 +46,17 @@ internal fun CategoryIconImage(
             },
             shape = CircleShape,
             color = palette[categoryInitialColorIndex(name, palette.size)],
-            contentColor = colors.onCategoryInitial,
+            contentColor = colors.onCategoryInitial
         ) {
             Box(contentAlignment = Alignment.Center) {
                 BasicText(
                     text = categoryInitialLetter(name),
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = colors.onCategoryInitial,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.SemiBold
                     ),
                     maxLines = 1,
-                    autoSize = TextAutoSize.StepBased(minFontSize = 5.sp, maxFontSize = 13.sp),
+                    autoSize = TextAutoSize.StepBased(minFontSize = 5.sp, maxFontSize = 13.sp)
                 )
             }
         }

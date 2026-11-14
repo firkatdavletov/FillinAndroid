@@ -18,26 +18,23 @@ import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPage
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.serialization.json.Json
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.ResponseBody.Companion.toResponseBody
-import retrofit2.Response
 import java.io.IOException
 import java.math.BigDecimal
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import java.util.UUID
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
+import retrofit2.Response
 
 internal class SyntheticConnectivity : OperationConnectivity {
     override val online = MutableStateFlow(true)
 }
 
-internal class OfflineTestEnvironment(
-    val database: OperationDatabase,
-    val api: SyntheticSyncApi,
-) {
+internal class OfflineTestEnvironment(val database: OperationDatabase, val api: SyntheticSyncApi) {
     val connectivity = SyntheticConnectivity()
     val json = Json { ignoreUnknownKeys = true }
     val storage = RoomOperationSyncStorage(database)
@@ -50,18 +47,18 @@ internal class OfflineTestEnvironment(
                 override suspend fun getOperations(
                     limit: Int,
                     cursor: Long?,
-                    filter: OperationHistoryFilter,
+                    filter: OperationHistoryFilter
                 ): OperationPage = error("Unexpected network read")
 
                 override suspend fun updateOperationAmount(
                     id: String,
                     version: Long,
-                    amount: BigDecimal,
+                    amount: BigDecimal
                 ): Operation = error("Unexpected online mutation")
 
                 override suspend fun refundPurchase(
                     id: String,
-                    version: Long,
+                    version: Long
                 ) {
                     error("Unexpected online mutation")
                 }
@@ -70,7 +67,7 @@ internal class OfflineTestEnvironment(
             OperationSyncScheduler { scheduled++ },
             connectivity,
             json,
-            CLOCK,
+            CLOCK
         )
 
     companion object {
@@ -86,14 +83,14 @@ internal class SyntheticSyncApi : OperationSyncApi {
             "OWNER",
             "2026-09-01T19:00:00Z",
             "Asia/Almaty",
-            "KZT",
+            "KZT"
         )
     val expenseCategory = SyncCategoryDto(UUID.randomUUID().toString(), "Продукты", "EXPENSE", "FOOD", "🍔", false)
     val incomeCategory = SyncCategoryDto(UUID.randomUUID().toString(), "Зарплата", "INCOME", "INCOME", "💰", false)
     val log =
         mutableListOf(
             SyncChangeDto(1, "CATEGORY", false, category = expenseCategory),
-            SyncChangeDto(2, "CATEGORY", false, category = incomeCategory),
+            SyncChangeDto(2, "CATEGORY", false, category = incomeCategory)
         )
     val received = linkedMapOf<String, CreatedOperationDto>()
     var postCount = 0
@@ -105,7 +102,7 @@ internal class SyntheticSyncApi : OperationSyncApi {
 
     override suspend fun changes(
         authorization: String,
-        cursor: String?,
+        cursor: String?
     ): SyncPageDto {
         changesCalls++
         if (changesCalls == failChangeAtCall) throw IOException("Synthetic interruption")
@@ -120,14 +117,14 @@ internal class SyntheticSyncApi : OperationSyncApi {
 
     override suspend fun create(
         authorization: String,
-        request: CreateOperationDto,
+        request: CreateOperationDto
     ): Response<CreatedOperationDto> {
         postCount++
         if (reject) {
             return Response.error(
                 400,
                 """{"code":"invalid_operation","reason":"category_unavailable"}"""
-                    .toResponseBody("application/json".toMediaType()),
+                    .toResponseBody("application/json".toMediaType())
             )
         }
         val result =
@@ -146,7 +143,7 @@ internal class SyntheticSyncApi : OperationSyncApi {
                         0,
                         (received.size + 1).toLong(),
                         description = request.description,
-                        requestId = request.requestId,
+                        requestId = request.requestId
                     )
                 log += SyncChangeDto((log.size + 1).toLong(), "LEDGER", false, operation = operation)
                 CreatedOperationDto(request.requestId, operation)

@@ -8,11 +8,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.firkat.fillin.ui.theme.FillinTheme
 
 @Composable
-fun SaldomiProgressIndicator(modifier: Modifier = Modifier) {
+fun SaldomiProgressIndicator(
+    modifier: Modifier = Modifier
+) {
     CircularProgressIndicator(modifier = modifier)
 }
 
 @Preview
 @Preview(uiMode = UI_MODE_NIGHT_YES)
 @Composable
-private fun ProgressPreview() { FillinTheme { SaldomiProgressIndicator() } }
+private fun ProgressPreview() {
+    FillinTheme { SaldomiProgressIndicator() }
+}

@@ -23,20 +23,26 @@ import com.firkat.fillin.feature.budgetupload.ui.LocalBudgetUploadSection
 import com.firkat.fillin.feature.sync.domain.BudgetSyncContext
 import com.firkat.fillin.ui.component.PrimaryButton
 import com.firkat.fillin.ui.component.SettingsScaffold
-import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.icon.FillinIcons
-import org.koin.compose.viewmodel.koinViewModel
+import com.firkat.fillin.ui.theme.FillinTheme
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
-fun CloudSyncRoute(onBack: () -> Unit, onSignIn: () -> Unit, viewModel: BudgetSyncViewModel = koinViewModel()) {
+fun CloudSyncRoute(
+    onBack: () -> Unit,
+    onSignIn: () -> Unit,
+    viewModel: BudgetSyncViewModel = koinViewModel()
+) {
     val state by viewModel.context.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
-    CloudSyncScreen(state, busy, error, onBack, { enabled -> if (enabled) viewModel.enable() else viewModel.disable() }, viewModel::refresh) {
+    CloudSyncScreen(state, busy, error, onBack, { enabled ->
+        if (enabled) viewModel.enable() else viewModel.disable()
+    }, viewModel::refresh) {
         if (!state.cloudEnabled) LocalBudgetUploadSection(onSignIn = onSignIn)
     }
 }
@@ -50,32 +56,62 @@ fun CloudSyncScreen(
     onCloudEnabledChange: (Boolean) -> Unit,
     onSyncClick: () -> Unit,
     modifier: Modifier = Modifier,
-    uploadContent: @Composable () -> Unit = {},
+    uploadContent: @Composable () -> Unit = {}
 ) {
-    SettingsScaffold(stringResource(R.string.profile_cloud_sync), onBack, modifier.testTag("cloud_sync_screen")) { padding ->
+    SettingsScaffold(
+        stringResource(R.string.profile_cloud_sync),
+        onBack,
+        modifier.testTag("cloud_sync_screen")
+    ) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
                 .verticalScroll(rememberScrollState()).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             CloudSyncToggle(state.cloudEnabled, !busy && state.ready && !state.syncing, onCloudEnabledChange)
-            Text(stringResource(if (state.cloudEnabled) R.string.cloud_sync_enabled_hint else R.string.cloud_sync_disabled_hint), style = MaterialTheme.typography.bodySmall)
+            Text(
+                stringResource(
+                    if (state.cloudEnabled) R.string.cloud_sync_enabled_hint else R.string.cloud_sync_disabled_hint
+                ),
+                style = MaterialTheme.typography.bodySmall
+            )
             if (busy || state.syncing) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (state.cloudEnabled) {
-                PrimaryButton(stringResource(R.string.cloud_sync_now), onSyncClick, Modifier.fillMaxWidth(), enabled = !busy && !state.syncing)
+                PrimaryButton(
+                    stringResource(R.string.cloud_sync_now),
+                    onSyncClick,
+                    Modifier.fillMaxWidth(),
+                    enabled =
+                    !busy && !state.syncing
+                )
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.cloud_sync_last_label), style = MaterialTheme.typography.bodySmall)
                     val date = state.lastSyncedAt?.let { value ->
-                        runCatching { DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", Locale.forLanguageTag("ru")).withZone(ZoneId.systemDefault()).format(Instant.parse(value)) }.getOrNull()
+                        runCatching {
+                            DateTimeFormatter.ofPattern(
+                                "d MMMM yyyy, HH:mm",
+                                Locale.forLanguageTag("ru")
+                            ).withZone(ZoneId.systemDefault()).format(Instant.parse(value))
+                        }.getOrNull()
                     }
                     Text(date ?: stringResource(R.string.cloud_sync_never), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            if (state.pending > 0) Text(stringResource(R.string.cloud_sync_pending, state.pending), style = MaterialTheme.typography.bodySmall)
+            if (state.pending >
+                0
+            ) {
+                Text(
+                    stringResource(R.string.cloud_sync_pending, state.pending),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             state.error?.let { Text(syncErrorText(it), color = MaterialTheme.colorScheme.error) }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             state.issues.forEach { issue ->
-                Text(stringResource(R.string.cloud_sync_issue, issue.title, issue.local), color = MaterialTheme.colorScheme.error)
+                Text(
+                    stringResource(R.string.cloud_sync_issue, issue.title, issue.local),
+                    color = MaterialTheme.colorScheme.error
+                )
             }
             uploadContent()
         }
@@ -83,16 +119,43 @@ fun CloudSyncScreen(
 }
 
 @Composable
-private fun CloudSyncToggle(enabled: Boolean, interactive: Boolean, onEnabledChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+private fun CloudSyncToggle(
+    enabled: Boolean,
+    interactive: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val description = stringResource(R.string.sync_title)
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f), modifier = modifier.fillMaxWidth()) {
-        Row(Modifier.heightIn(min = 88.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(36.dp)) {
-                Box(contentAlignment = Alignment.Center) { Icon(FillinIcons.CloudUpload, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.wrapContentSize()) }
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            Modifier.heightIn(min = 88.dp).padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        FillinIcons.CloudUpload,
+                        null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.wrapContentSize()
+                    )
+                }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(R.string.sync_title), style = MaterialTheme.typography.bodyLarge)
-                Text(stringResource(if (enabled) R.string.cloud_sync_on else R.string.cloud_sync_off), style = MaterialTheme.typography.bodySmall)
+                Text(
+                    stringResource(if (enabled) R.string.cloud_sync_on else R.string.cloud_sync_off),
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
             Switch(
                 checked = enabled,
@@ -104,9 +167,22 @@ private fun CloudSyncToggle(enabled: Boolean, interactive: Boolean, onEnabledCha
                     checkedThumbColor = MaterialTheme.colorScheme.surface,
                     uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
                     uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
                 ),
-                thumbContent = if (enabled) ({ Icon(Icons.Filled.Check, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) }) else null,
+                thumbContent = if (enabled) {
+                    (
+                        {
+                            Icon(
+                                Icons.Filled.Check,
+                                null,
+                                Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        )
+                } else {
+                    null
+                }
             )
         }
     }
@@ -115,30 +191,73 @@ private fun CloudSyncToggle(enabled: Boolean, interactive: Boolean, onEnabledCha
 @Preview(name = "Sync enabled")
 @Preview(name = "Sync enabled dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun CloudSyncToggleEnabledPreview() { FillinTheme { CloudSyncToggle(true, true, {}) } }
+private fun CloudSyncToggleEnabledPreview() {
+    FillinTheme { CloudSyncToggle(true, true, {}) }
+}
 
 @Preview(name = "Sync disabled")
 @Preview(name = "Sync disabled dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun CloudSyncToggleDisabledPreview() { FillinTheme { CloudSyncToggle(false, true, {}) } }
+private fun CloudSyncToggleDisabledPreview() {
+    FillinTheme { CloudSyncToggle(false, true, {}) }
+}
 
 @Preview(name = "Sync unavailable")
 @Composable
-private fun CloudSyncToggleUnavailablePreview() { FillinTheme { CloudSyncToggle(false, false, {}) } }
+private fun CloudSyncToggleUnavailablePreview() {
+    FillinTheme { CloudSyncToggle(false, false, {}) }
+}
 
 @Preview(name = "Sync in progress", widthDp = 320, fontScale = 2f)
 @Composable
-private fun CloudSyncToggleBusyPreview() { FillinTheme { CloudSyncToggle(true, false, {}) } }
+private fun CloudSyncToggleBusyPreview() {
+    FillinTheme { CloudSyncToggle(true, false, {}) }
+}
 
 @Preview(name = "Cloud screen enabled", widthDp = 393, heightDp = 852)
 @Preview(name = "Cloud screen enabled dark", widthDp = 393, heightDp = 852, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun CloudSyncEnabledPreview() { FillinTheme { CloudSyncScreen(BudgetSyncContext(ready = true, cloudEnabled = true, lastSyncedAt = "2026-10-24T04:41:00Z"), false, null, {}, {}, {}) } }
+private fun CloudSyncEnabledPreview() {
+    FillinTheme {
+        CloudSyncScreen(
+            BudgetSyncContext(
+                ready = true,
+                cloudEnabled = true,
+                lastSyncedAt = "2026-10-24T04:41:00Z"
+            ),
+            false,
+            null,
+            {
+            },
+            {},
+            {}
+        )
+    }
+}
 
 @Preview(name = "Cloud screen disabled", widthDp = 393, heightDp = 852)
 @Composable
-private fun CloudSyncDisabledPreview() { FillinTheme { CloudSyncScreen(BudgetSyncContext(ready = true), false, null, {}, {}, {}) } }
+private fun CloudSyncDisabledPreview() {
+    FillinTheme { CloudSyncScreen(BudgetSyncContext(ready = true), false, null, {}, {}, {}) }
+}
 
 @Preview(name = "Cloud screen error", widthDp = 320, fontScale = 2f)
 @Composable
-private fun CloudSyncErrorPreview() { FillinTheme { CloudSyncScreen(BudgetSyncContext(ready = true, cloudEnabled = true, error = "unauthorized", pending = 3), false, null, {}, {}, {}) } }
+private fun CloudSyncErrorPreview() {
+    FillinTheme {
+        CloudSyncScreen(
+            BudgetSyncContext(
+                ready = true,
+                cloudEnabled = true,
+                error = "unauthorized",
+                pending = 3
+            ),
+            false,
+            null,
+            {
+            },
+            {},
+            {}
+        )
+    }
+}

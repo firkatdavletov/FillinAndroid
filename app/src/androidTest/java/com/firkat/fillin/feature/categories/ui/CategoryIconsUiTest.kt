@@ -23,9 +23,9 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
@@ -66,7 +66,10 @@ class CategoryIconsUiTest {
             }
         }
         listOf(false to 1f, true to 1f, false to 2f, true to 2f).forEach { (night, scale) ->
-            compose.runOnIdle { dark = night; fontScale = scale }
+            compose.runOnIdle {
+                dark = night
+                fontScale = scale
+            }
             CategoryIcons.options.forEach {
                 compose.onNodeWithTag(it.code).assertWidthIsEqualTo(24.dp).assertHeightIsEqualTo(24.dp)
             }
@@ -91,7 +94,9 @@ class CategoryIconsUiTest {
                 }
             }
         }
-        fun bitmap(tag: String) = compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
+        fun bitmap(
+            tag: String
+        ) = compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
         val placeholder = bitmap("unknown")
         assertTrue(placeholder.sameAs(bitmap("automatic")))
         compose.runOnIdle { name = "Кафе" }
@@ -129,9 +134,13 @@ class CategoryIconsUiTest {
     }
 
     @Test fun legacyIconIsHighlightedAndSavingDisablesTheSelector() {
-        var editor by mutableStateOf(CategoryEditorUiState(
-            name = "Кафе", iconCode = "FOOD", overlay = CategoryEditorOverlay.IconPicker,
-        ))
+        var editor by mutableStateOf(
+            CategoryEditorUiState(
+                name = "Кафе",
+                iconCode = "FOOD",
+                overlay = CategoryEditorOverlay.IconPicker
+            )
+        )
         compose.setContent { FillinTheme { EditCategoryScreen(true, EditCategoryState.Ready(editor), true) {} } }
         compose.onNodeWithContentDescription("Продукты").assertIsSelected()
         compose.runOnIdle { editor = editor.copy(overlay = null, operation = CategoryEditorOperation.Save) }

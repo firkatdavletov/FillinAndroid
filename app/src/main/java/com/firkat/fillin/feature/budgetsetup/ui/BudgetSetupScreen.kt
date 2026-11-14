@@ -18,7 +18,7 @@ internal fun BudgetSetupScreen(
     onSignIn: (SetupAuthTarget) -> Unit,
     onComplete: () -> Unit,
     onPageChange: (SetupPage) -> Unit,
-    fromProfile: Boolean,
+    fromProfile: Boolean
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -28,7 +28,14 @@ internal fun BudgetSetupScreen(
     LaunchedEffect(viewModel, fromProfile) { viewModel.onAction(BudgetSetupAction.Start) }
     LaunchedEffect(viewModel, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.effects.collect { if (it == BudgetSetupEffect.Exit) { viewModel.onAction(BudgetSetupAction.Reset); back() } }
+            viewModel.effects.collect {
+                if (it ==
+                    BudgetSetupEffect.Exit
+                ) {
+                    viewModel.onAction(BudgetSetupAction.Reset)
+                    back()
+                }
+            }
         }
     }
     LaunchedEffect(state.error, lifecycle, resources) {
@@ -40,12 +47,16 @@ internal fun BudgetSetupScreen(
         }
     }
     LaunchedEffect(state.completed) {
-        if (state.completed) { viewModel.onAction(BudgetSetupAction.Reset); onComplete() }
+        if (state.completed) {
+            viewModel.onAction(BudgetSetupAction.Reset)
+            onComplete()
+        }
     }
     LaunchedEffect(state.authTarget, state.uid) {
         state.authTarget?.let { target ->
-            if (state.uid != null) viewModel.onAction(BudgetSetupAction.AuthReturned)
-            else if (!state.authLaunched) {
+            if (state.uid != null) {
+                viewModel.onAction(BudgetSetupAction.AuthReturned)
+            } else if (!state.authLaunched) {
                 viewModel.onAction(BudgetSetupAction.AuthLaunched)
                 onSignIn(target)
             }
@@ -53,7 +64,9 @@ internal fun BudgetSetupScreen(
     }
     LaunchedEffect(state.page, state.initialized) { if (state.initialized) onPageChange(state.page) }
     BackHandler {
-        viewModel.onAction(if (state.currencyPickerOpen) BudgetSetupAction.CloseCurrencyPicker else BudgetSetupAction.Back)
+        viewModel.onAction(
+            if (state.currencyPickerOpen) BudgetSetupAction.CloseCurrencyPicker else BudgetSetupAction.Back
+        )
     }
     BudgetSetupContent(state, viewModel::onAction, snackbar, fromProfile = fromProfile)
 }

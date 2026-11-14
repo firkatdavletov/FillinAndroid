@@ -26,13 +26,13 @@ internal fun AuthButtons(
     onGoogleClick: () -> Unit,
     onEmailClick: () -> Unit,
     onGuestClick: () -> Unit,
-    googleEnabled: Boolean = true,
+    googleEnabled: Boolean = true
 ) {
     val colors = MaterialTheme.colorScheme
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         PrimaryButton(
             text = stringResource(R.string.auth_continue_google),
@@ -46,8 +46,8 @@ internal fun AuthButtons(
             iconTint = Color.Unspecified,
             border = BorderStroke(
                 1.dp,
-                colors.outlineVariant,
-            ),
+                colors.outlineVariant
+            )
         )
 
         PrimaryButton(
@@ -56,7 +56,7 @@ internal fun AuthButtons(
             modifier = Modifier.fillMaxWidth(),
             isLoading = isLoading && (loadingButton == AuthButton.Email),
             enabled = !isLoading,
-            leadingIcon = painterResource(R.drawable.ic_mail_24),
+            leadingIcon = painterResource(R.drawable.ic_mail_24)
         )
 
         PrimaryButton(
@@ -67,7 +67,7 @@ internal fun AuthButtons(
             enabled = !isLoading,
             backgroundColor = colors.surfaceVariant,
             textColor = colors.onSurfaceVariant,
-            leadingIcon = painterResource(R.drawable.ic_guest_24),
+            leadingIcon = painterResource(R.drawable.ic_guest_24)
         )
     }
 }
@@ -99,7 +99,8 @@ private fun AuthButtonsGoogleLoadingPreview() {
 @Composable
 private fun AuthButtonsEmailLoadingPreview() {
     FillinTheme {
-        AuthButtons(isLoading = true, loadingButton = AuthButton.Email, onGoogleClick = {}, onEmailClick = {}, onGuestClick = {})
+        AuthButtons(isLoading = true, loadingButton = AuthButton.Email, onGoogleClick = {
+        }, onEmailClick = {}, onGuestClick = {})
     }
 }
 
@@ -108,7 +109,8 @@ private fun AuthButtonsEmailLoadingPreview() {
 @Composable
 private fun AuthButtonsGuestLoadingPreview() {
     FillinTheme {
-        AuthButtons(isLoading = true, loadingButton = AuthButton.Guest, onGoogleClick = {}, onEmailClick = {}, onGuestClick = {})
+        AuthButtons(isLoading = true, loadingButton = AuthButton.Guest, onGoogleClick = {
+        }, onEmailClick = {}, onGuestClick = {})
     }
 }
 

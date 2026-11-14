@@ -1,18 +1,18 @@
 package com.firkat.fillin.feature.profile
 
 import android.graphics.Bitmap
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.test.platform.app.InstrumentationRegistry
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.test.espresso.Espresso.closeSoftKeyboard
+import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.budgetinvitation.domain.BudgetInvitation
@@ -26,10 +26,10 @@ import com.firkat.fillin.feature.profile.ui.ProfileUiState
 import com.firkat.fillin.feature.sync.domain.BudgetSyncContext
 import com.firkat.fillin.feature.sync.ui.CloudSyncScreen
 import com.firkat.fillin.ui.theme.FillinTheme
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
-import java.io.File
 
 class ProfileScreenTest {
     @get:Rule val compose = createComposeRule()
@@ -37,16 +37,28 @@ class ProfileScreenTest {
     @Test fun budgetActionsDoNotSelectAndDispatchBothForms() {
         var selected = 0
         val actions = mutableListOf<Boolean>()
-        val state = mutableStateOf(ProfileUiState(loading = false, budgets = listOf(
-            ProfileBudget("one", "Дом", false, true),
-            ProfileBudget("two", "Поездка", false, false),
-            ProfileBudget("shared", "Общий", true, false, canManage = false),
-        )))
-        compose.setContent { FillinTheme {
-            ProfileScreen(state.value, null, false, {}, { selected++ }, {}, {}, {}, {}, {},
-                onBudgetActionsClick = { id -> state.value = state.value.copy(expandedBudgetId = id.takeUnless { state.value.expandedBudgetId == id }) },
-                onManageBudget = { _, _, deleting -> actions.add(deleting) })
-        } }
+        val state = mutableStateOf(
+            ProfileUiState(
+                loading = false,
+                budgets = listOf(
+                    ProfileBudget("one", "Дом", false, true),
+                    ProfileBudget("two", "Поездка", false, false),
+                    ProfileBudget("shared", "Общий", true, false, canManage = false)
+                )
+            )
+        )
+        compose.setContent {
+            FillinTheme {
+                ProfileScreen(
+                    state.value, null, false, {}, { selected++ }, {}, {}, {}, {}, {},
+                    onBudgetActionsClick = { id ->
+                        state.value =
+                            state.value.copy(expandedBudgetId = id.takeUnless { state.value.expandedBudgetId == id })
+                    },
+                    onManageBudget = { _, _, deleting -> actions.add(deleting) }
+                )
+            }
+        }
         compose.onAllNodesWithContentDescription("Действия с бюджетом").assertCountEquals(2)
         compose.onAllNodesWithContentDescription("Действия с бюджетом")[0].performClick()
         compose.onNodeWithText("Редактировать").performClick()
@@ -82,17 +94,23 @@ class ProfileScreenTest {
 
     @Test fun switchingBudgetKeepsCardAndCreateButtonPositions() {
         val state = mutableStateOf(profileState())
-        compose.setContent { FillinTheme {
-            ProfileScreen(state.value, null, false, {}, { state.value = state.value.copy(busy = true) },
-                {}, {}, {}, {}, {})
-        } }
+        compose.setContent {
+            FillinTheme {
+                ProfileScreen(
+                    state.value, null, false, {}, { state.value = state.value.copy(busy = true) },
+                    {}, {}, {}, {}, {}
+                )
+            }
+        }
         val old = compose.onNodeWithText("Основной бюджет")
         val next = compose.onNodeWithText("Накопления")
         val create = compose.onNodeWithText("Создать новый")
         val oldBounds = old.fetchSemanticsNode().boundsInRoot
         val nextBounds = next.fetchSemanticsNode().boundsInRoot
         val createBounds = create.fetchSemanticsNode().boundsInRoot
-        val progress = SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo)
+        val progress = SemanticsMatcher.keyIsDefined(
+            androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo
+        )
 
         next.performClick()
         old.assertIsSelected()
@@ -104,7 +122,7 @@ class ProfileScreenTest {
         compose.runOnIdle {
             state.value = state.value.copy(
                 busy = false,
-                budgets = state.value.budgets.map { it.copy(selected = it.id == "local") },
+                budgets = state.value.budgets.map { it.copy(selected = it.id == "local") }
             )
         }
         old.assertIsNotSelected()
@@ -118,10 +136,14 @@ class ProfileScreenTest {
         var methods = 0
         var signOut = 0
         var deletion = 0
-        compose.setContent { FillinTheme(darkTheme = true) {
-            ProfileScreen(profileState(), USER, false, { signOut++ }, {}, {}, {}, {}, {}, {},
-                onMethodsClick = { methods++ }, onDeleteClick = { deletion++ })
-        } }
+        compose.setContent {
+            FillinTheme(darkTheme = true) {
+                ProfileScreen(
+                    profileState(), USER, false, { signOut++ }, {}, {}, {}, {}, {}, {},
+                    onMethodsClick = { methods++ }, onDeleteClick = { deletion++ }
+                )
+            }
+        }
         compose.onNodeWithText("Способы входа").performClick()
         assertEquals(1, methods)
         snapshot("profile-account-dark")
@@ -134,12 +156,21 @@ class ProfileScreenTest {
 
     @Test fun narrowLargeFontKeepsProfileActionsReachable() {
         var signOut = 0
-        compose.setContent { FillinTheme {
-            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
-                ProfileScreen(profileState(), USER.copy(displayName = "Анна Александровна Иванова", email = "anna.alexandrovna@example.com"), false,
-                    { signOut++ }, {}, {}, {}, {}, {}, {}, modifier = Modifier.requiredWidth(320.dp))
+        compose.setContent {
+            FillinTheme {
+                CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
+                    ProfileScreen(
+                        profileState(),
+                        USER.copy(
+                            displayName = "Анна Александровна Иванова",
+                            email = "anna.alexandrovna@example.com"
+                        ),
+                        false,
+                        { signOut++ }, {}, {}, {}, {}, {}, {}, modifier = Modifier.requiredWidth(320.dp)
+                    )
+                }
             }
-        } }
+        }
         snapshot("profile-large-font-light")
         compose.onNodeWithText("Выйти из аккаунта").performScrollTo().assertIsDisplayed().performClick()
         assertEquals(1, signOut)
@@ -147,7 +178,9 @@ class ProfileScreenTest {
 
     @Test fun guestCanSignInAndHasNoSignOutAction() {
         var signIn = 0
-        compose.setContent { FillinTheme { ProfileScreen(profileState(), null, false, { signIn++ }, {}, {}, {}, {}, {}, {}) } }
+        compose.setContent {
+            FillinTheme { ProfileScreen(profileState(), null, false, { signIn++ }, {}, {}, {}, {}, {}, {}) }
+        }
         compose.onNodeWithText("Выйти из аккаунта").assertDoesNotExist()
         compose.onNodeWithText("Управление аккаунтом").assertDoesNotExist()
         compose.onNodeWithTag("delete_profile").assertDoesNotExist()
@@ -161,7 +194,22 @@ class ProfileScreenTest {
         var syncs = 0
         compose.setContent {
             FillinTheme {
-                CloudSyncScreen(BudgetSyncContext(ready = true, cloudEnabled = enabled.value, lastSyncedAt = "2026-10-24T04:41:00Z"), false, null, {}, { enabled.value = it }, { syncs++ })
+                CloudSyncScreen(
+                    BudgetSyncContext(
+                        ready = true,
+                        cloudEnabled = enabled.value,
+                        lastSyncedAt = "2026-10-24T04:41:00Z"
+                    ),
+                    false,
+                    null,
+                    {
+                    },
+                    {
+                        enabled.value =
+                            it
+                    },
+                    { syncs++ }
+                )
             }
         }
         compose.onNodeWithText("Синхронизировать").assertDoesNotExist()
@@ -180,8 +228,16 @@ class ProfileScreenTest {
         compose.setContent {
             FillinTheme {
                 FamilyAccessScreen(
-                    BudgetInvitationState(target = InvitationTarget("profile", "user", "family", "OWNER"), current = BudgetInvitation("invitation", "family", "2026-10-31T18:59:00Z"), code = "ABCDE-FGHJK-MNPQR-STVW0"),
-                    FamilyJoinState(AuthSession.Authenticated(USER), code.value), {}, {}, {}, { shared++ }, { revoked++ }, {}, { code.value = it }, { joined++ },
+                    BudgetInvitationState(
+                        target = InvitationTarget("profile", "user", "family", "OWNER"),
+                        current = BudgetInvitation("invitation", "family", "2026-10-31T18:59:00Z"),
+                        code = "ABCDE-FGHJK-MNPQR-STVW0"
+                    ),
+                    FamilyJoinState(AuthSession.Authenticated(USER), code.value), {
+                    }, {}, {}, { shared++ }, { revoked++ }, {}, {
+                        code.value =
+                            it
+                    }, { joined++ }
                 )
             }
         }
@@ -197,18 +253,28 @@ class ProfileScreenTest {
         assertEquals(1, joined)
     }
 
-    private fun snapshot(name: String) {
+    private fun snapshot(
+        name: String
+    ) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
             ?: context.getExternalFilesDir("profile-redesign")!!
         directory.mkdirs()
         val file = File(directory, "$name.png")
-        file.outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        file.outputStream().use {
+            compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
     }
 
-    private fun profileState() = ProfileUiState(loading = false, budgets = listOf(
-        ProfileBudget("family", "Основной бюджет", true, true), ProfileBudget("local", "Накопления", false, false),
-    ))
+    private fun profileState() = ProfileUiState(
+        loading = false,
+        budgets = listOf(
+            ProfileBudget("family", "Основной бюджет", true, true),
+            ProfileBudget("local", "Накопления", false, false)
+        )
+    )
 
-    private companion object { val USER = AuthUser("user", "Анна Иванова", "anna@example.com") }
+    private companion object {
+        val USER = AuthUser("user", "Анна Иванова", "anna@example.com")
+    }
 }

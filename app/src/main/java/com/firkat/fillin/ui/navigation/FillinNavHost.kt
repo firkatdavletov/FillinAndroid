@@ -12,7 +12,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -43,7 +42,6 @@ import com.firkat.fillin.feature.dailylimit.ui.DailyLimitDetailsRoute
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsRoute
 import com.firkat.fillin.feature.editcategory.ui.EditCategoryRoute
 import com.firkat.fillin.feature.launch.presentation.LaunchScreen
-import com.firkat.fillin.feature.main.ui.AppDestination
 import com.firkat.fillin.feature.main.ui.MainScreen
 import com.firkat.fillin.feature.operationhistory.ui.OperationCreateRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationDetailsRoute
@@ -62,17 +60,17 @@ import org.koin.compose.viewmodel.koinViewModel
 fun FillinNavHost(
     navigation: AppNavigationViewModel =
         koinViewModel(
-            viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity),
+            viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)
         ),
     auth: AuthViewModel =
         koinViewModel(
-            viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity),
+            viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)
         ),
     setup: BudgetSetupViewModel =
         koinViewModel(
-            viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity),
+            viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)
         ),
-    budgets: ActiveBudgetManager = koinInject(),
+    budgets: ActiveBudgetManager = koinInject()
 ) {
     val setupState by setup.state.collectAsStateWithLifecycle()
     val state by auth.state.collectAsStateWithLifecycle()
@@ -85,14 +83,15 @@ fun FillinNavHost(
     LaunchedEffect(
         navigation.backStack.lastOrNull(),
         setupState.uid,
-        state.session,
+        state.session
     ) {
         if (navigation.backStack.lastOrNull() == AppRoute.Auth && !navigation.configuringBudget) {
             setup.onAction(
-                BudgetSetupAction.Reset,
+                BudgetSetupAction.Reset
             )
         }
-        if (navigation.backStack.lastOrNull()?.isBudgetSetup() == true && setupState.authTarget != null &&
+        if (navigation.backStack.lastOrNull()?.isBudgetSetup() == true &&
+            setupState.authTarget != null &&
             (setupState.uid != null || state.session !is AuthSession.Authenticated)
         ) {
             setup.onAction(BudgetSetupAction.AuthReturned)
@@ -116,22 +115,22 @@ fun FillinNavHost(
     val linkSheet = navigation.backStack.lastOrNull() as? AppRoute.OperationPlanLinkBottomSheet
     LaunchedEffect(
         runtime?.scope?.id,
-        linkSheet,
+        linkSheet
     ) {
         if (linkSheet != null && linkSheet.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissOperationPlanLink(
-                linkSheet,
+                linkSheet
             )
         }
     }
     val editorRoute = navigation.backStack.lastOrNull() as? AppRoute.PlanningRuleEditor
     LaunchedEffect(
         runtime?.scope?.id,
-        editorRoute,
+        editorRoute
     ) {
         if (editorRoute != null && editorRoute.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissPlanningRuleEditor(
-                editorRoute,
+                editorRoute
             )
         }
     }
@@ -144,7 +143,7 @@ fun FillinNavHost(
     val plannedSheet = navigation.backStack.lastOrNull() as? AppRoute.PlannedOperationBottomSheet
     LaunchedEffect(
         runtime?.scope?.id,
-        sheet,
+        sheet
     ) {
         if (sheet != null && sheet.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissOperationDetails(sheet)
@@ -152,7 +151,7 @@ fun FillinNavHost(
     }
     LaunchedEffect(
         runtime?.scope?.id,
-        plannedSheet,
+        plannedSheet
     ) {
         if (plannedSheet != null && plannedSheet.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissPlannedOperationBottomSheet(plannedSheet)
@@ -161,7 +160,7 @@ fun FillinNavHost(
     DisposableEffect(
         mainModels,
         operationCreateModels,
-        context,
+        context
     ) {
         onDispose {
             if ((context as? Activity)?.isChangingConfigurations != true) {
@@ -177,7 +176,7 @@ fun FillinNavHost(
         state.errorId,
         state.error,
         lifecycleOwner,
-        resources,
+        resources
     ) {
         if (!authVisible) {
             lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -206,249 +205,257 @@ fun FillinNavHost(
         },
         sceneStrategies = listOf(remember { BottomSheetSceneStrategy<AppRoute>(sheetDismissController) }),
         entryDecorators =
-            listOf(
-                rememberSaveableStateHolderNavEntryDecorator(),
-                rememberViewModelStoreNavEntryDecorator(),
-                rememberResultEventBusNavEntryDecorator(),
-            ),
+        listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberViewModelStoreNavEntryDecorator(),
+            rememberResultEventBusNavEntryDecorator()
+        ),
         entryProvider =
-            entryProvider {
-                entry<AppRoute.Launch> {
-                    LaunchScreen(
-                        failed = launchFailed,
-                        onShown = navigation::onLaunchShown,
-                        onRetry = navigation::retryLaunch,
-                    )
+        entryProvider {
+            entry<AppRoute.Launch> {
+                LaunchScreen(
+                    failed = launchFailed,
+                    onShown = navigation::onLaunchShown,
+                    onRetry = navigation::retryLaunch
+                )
+            }
+            entry<AppRoute.DailyLimitDetails> { route ->
+                val models: MainBudgetViewModelStore = viewModel(key = "daily-limit-details")
+                models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                LaunchedEffect(runtime?.scope?.id) {
+                    if (runtime?.scope?.id != route.budgetScopeId) navigation.back()
                 }
-                entry<AppRoute.DailyLimitDetails> { route ->
-                    val models: MainBudgetViewModelStore = viewModel(key = "daily-limit-details")
-                    models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
-                    LaunchedEffect(runtime?.scope?.id) {
-                        if (runtime?.scope?.id != route.budgetScopeId) navigation.back()
-                    }
-                    ActiveBudgetContent(viewModelStoreOwner = models) {
-                        DailyLimitDetailsRoute(onBack = navigation::back)
-                    }
+                ActiveBudgetContent(viewModelStoreOwner = models) {
+                    DailyLimitDetailsRoute(onBack = navigation::back)
                 }
-                entry<AppRoute.ForecastDetails> { route ->
-                    val models: MainBudgetViewModelStore = viewModel(key = "forecast-details")
-                    models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
-                    LaunchedEffect(runtime?.scope?.id) {
-                        if (runtime?.scope?.id != route.budgetScopeId) navigation.back()
-                    }
-                    ActiveBudgetContent(viewModelStoreOwner = models) {
-                        ForecastDetailsRoute(onBack = navigation::back)
-                    }
+            }
+            entry<AppRoute.ForecastDetails> { route ->
+                val models: MainBudgetViewModelStore = viewModel(key = "forecast-details")
+                models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                LaunchedEffect(runtime?.scope?.id) {
+                    if (runtime?.scope?.id != route.budgetScopeId) navigation.back()
                 }
-                entry<AppRoute.Main> {
-                    if (!readOnly) {
-                        ActiveBudgetContent(viewModelStoreOwner = mainModels) {
-                            PendingPlanLinkRecovery(
-                                onPending = { id ->
-                                    runtime?.scope?.id?.let { navigation.openOperationPlanLink(id, it) }
-                                },
-                                isActive =
-                                    navigation.backStack.lastOrNull() == AppRoute.Main,
-                            )
-                        }
-                    }
-                    MainScreen(
-                        modifier = Modifier.fillMaxSize(),
-                        readOnly = readOnly,
-                        onAccountClick = {
-                            navigation.openProfile()
-                        },
-                        snackbarHostState = snackbar,
-                        budgetViewModelStoreOwner = mainModels,
-                        selectedDestination = navigation.mainDestination,
-                        onSelectDestination = navigation::selectMainDestination,
-                        onForecastClick = { runtime?.scope?.id?.let(navigation::openForecast) },
-                        onCreateOperationClick = navigation::openOperationCreate,
-                        onOperationClick = { operationId, resultKey ->
-                            runtime?.scope?.id?.let { scopeId ->
-                                navigation.openOperationDetails(operationId, resultKey, scopeId)
-                            }
-                        },
-                        onPlannedOperationEditorClick = { type, ruleId ->
-                            runtime?.scope?.id?.let { scopeId ->
-                                navigation.openPlanningRuleEditor(type, scopeId, ruleId)
-                            }
-                        },
-                    )
+                ActiveBudgetContent(viewModelStoreOwner = models) {
+                    ForecastDetailsRoute(onBack = navigation::back)
                 }
-                entry<AppRoute.PlanningRuleEditor> { route ->
-                    val editorModels: MainBudgetViewModelStore = viewModel(key = "rule-editor-${route.requestId}")
-                    editorModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
-                    ActiveBudgetContent(viewModelStoreOwner = editorModels) {
-                        if (route.budgetScopeId == runtime?.scope?.id) {
-                            com.firkat.fillin.feature.plannedoperations.ui
-                                .PlanningRuleEditorRoute(route.type, route.ruleId, route.requestId, onClose = {
-                                    navigation.dismissPlanningRuleEditor(route)
-                                })
-                        }
-                    }
-                }
-                entry<AppRoute.PlannedOperationBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
-                    // The selected editor is initialized by the Plans tab and retained across rotation.
+            }
+            entry<AppRoute.Main> {
+                if (!readOnly) {
                     ActiveBudgetContent(viewModelStoreOwner = mainModels) {
-                        if (route.budgetScopeId == runtime?.scope?.id) {
-                            PlannedOperationBottomSheet(
-                                type = route.type,
-                                onClose = { navigation.dismissPlannedOperationBottomSheet(route) },
-                            )
-                        }
-                    }
-                }
-                entry<AppRoute.OperationPlanLinkBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
-                    val linkModels: MainBudgetViewModelStore = viewModel(key = "plan-link-${route.requestId}")
-                    linkModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
-                    ActiveBudgetContent(viewModelStoreOwner = linkModels) {
-                        if (route.budgetScopeId == runtime?.scope?.id) {
-                            OperationPlanLinkBottomSheet(route.operationId, onClose = {
-                                navigation.dismissOperationPlanLink(route)
-                            }, onChooseAnother = { navigation.chooseAnotherPlan(route) })
-                        }
-                    }
-                }
-                entry<AppRoute.OperationPlanPicker> { route ->
-                    val models: MainBudgetViewModelStore = viewModel(key = "plan-picker-${route.operationId}")
-                    models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
-                    LaunchedEffect(runtime?.scope?.id) { if (runtime?.scope?.id != route.budgetScopeId) navigation.back() }
-                    ActiveBudgetContent(viewModelStoreOwner = models) {
-                        com.firkat.fillin.feature.operationhistory.ui
-                            .OperationPlanPickerRoute(route.operationId, navigation::back)
-                    }
-                }
-                entry<AppRoute.OperationDetails> { route ->
-                    val resultBus = LocalResultEventBus.current
-                    val sheetModels: MainBudgetViewModelStore = viewModel(key = "edit-operation-${route.requestId}")
-                    sheetModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
-                    ActiveBudgetContent(viewModelStoreOwner = sheetModels) {
-                        OperationDetailsRoute(
-                            readOnly = readOnly,
-                            operationId = route.operationId,
-                            onLinkSelected = { navigation.openOperationPlanPicker(route) },
-                            onOpenPlan = { type, id -> navigation.openDetailsPlanningRule(route, type, id) },
-                            onClose = { navigation.dismissOperationDetails(route) },
-                            onResult = { result ->
-                                if (route.budgetScopeId == runtime?.scope?.id &&
-                                    navigation.dismissOperationDetails(
-                                        route,
-                                    )
-                                ) {
-                                    resultBus.sendResult(route.resultKey, result)
-                                }
+                        PendingPlanLinkRecovery(
+                            onPending = { id ->
+                                runtime?.scope?.id?.let { navigation.openOperationPlanLink(id, it) }
                             },
+                            isActive =
+                            navigation.backStack.lastOrNull() == AppRoute.Main
                         )
                     }
                 }
-                entry<AppRoute.OperationCreate> {
-                    ActiveBudgetContent(viewModelStoreOwner = operationCreateModels) {
-                        OperationCreateRoute(onBack = navigation::back, onCreated = { result ->
-                            runtime?.scope?.id?.let { navigation.operationCreated(result, it) }
-                        })
-                    }
-                }
-                entry<AppRoute.Categories> {
-                    ActiveBudgetContent {
-                        CategoriesRoute(
-                            readOnly = readOnly,
-                            onBack = navigation::back,
-                            onCreateCategory = { runtime?.scope?.id?.let { navigation.openCategoryEditor(it) } },
-                            onEditCategory = { categoryId -> runtime?.scope?.id?.let { navigation.openCategoryEditor(it, categoryId) } },
-                        )
-                    }
-                }
-                entry<AppRoute.EditCategory> { route ->
-                    val models: MainBudgetViewModelStore = viewModel(key = "category-editor")
-                    models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
-                    if (route.budgetScopeId == runtime?.scope?.id) {
-                        ActiveBudgetContent(viewModelStoreOwner = models) {
-                            EditCategoryRoute(
-                                categoryId = route.categoryId,
-                                readOnly = readOnly,
-                                onClose = { navigation.dismissCategoryEditor(route) },
-                            )
+                MainScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    readOnly = readOnly,
+                    onAccountClick = {
+                        navigation.openProfile()
+                    },
+                    snackbarHostState = snackbar,
+                    budgetViewModelStoreOwner = mainModels,
+                    selectedDestination = navigation.mainDestination,
+                    onSelectDestination = navigation::selectMainDestination,
+                    onForecastClick = { runtime?.scope?.id?.let(navigation::openForecast) },
+                    onCreateOperationClick = navigation::openOperationCreate,
+                    onOperationClick = { operationId, resultKey ->
+                        runtime?.scope?.id?.let { scopeId ->
+                            navigation.openOperationDetails(operationId, resultKey, scopeId)
+                        }
+                    },
+                    onPlannedOperationEditorClick = { type, ruleId ->
+                        runtime?.scope?.id?.let { scopeId ->
+                            navigation.openPlanningRuleEditor(type, scopeId, ruleId)
                         }
                     }
-                }
-                entry<AppRoute.FamilyAccess> {
-                    FamilyAccessRoute(onBack = navigation::back, onSignIn = navigation::openAuthentication)
-                }
-                entry<AppRoute.CloudSync> {
-                    ActiveBudgetContent {
-                        CloudSyncRoute(onBack = navigation::back, onSignIn = navigation::openAuthentication)
+                )
+            }
+            entry<AppRoute.PlanningRuleEditor> { route ->
+                val editorModels: MainBudgetViewModelStore = viewModel(key = "rule-editor-${route.requestId}")
+                editorModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                ActiveBudgetContent(viewModelStoreOwner = editorModels) {
+                    if (route.budgetScopeId == runtime?.scope?.id) {
+                        com.firkat.fillin.feature.plannedoperations.ui
+                            .PlanningRuleEditorRoute(route.type, route.ruleId, route.requestId, onClose = {
+                                navigation.dismissPlanningRuleEditor(route)
+                            })
                     }
                 }
-                entry<AppRoute.AccountMethods> {
-                    AuthScreen(
-                        onContinueAsGuest = navigation::back,
-                        onContinueWithAccount = navigation::back,
-                        methods = true,
-                        onBack = navigation::back,
-                    )
+            }
+            entry<AppRoute.PlannedOperationBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
+                // The selected editor is initialized by the Plans tab and retained across rotation.
+                ActiveBudgetContent(viewModelStoreOwner = mainModels) {
+                    if (route.budgetScopeId == runtime?.scope?.id) {
+                        PlannedOperationBottomSheet(
+                            type = route.type,
+                            onClose = { navigation.dismissPlannedOperationBottomSheet(route) }
+                        )
+                    }
                 }
-                entry<AppRoute.Auth> {
-                    AuthScreen(
-                        onContinueAsGuest = navigation::continueAsGuest,
-                        onContinueWithAccount = navigation::continueWithAccount,
-                    )
+            }
+            entry<AppRoute.OperationPlanLinkBottomSheet>(metadata = BottomSheetSceneStrategy.bottomSheet()) { route ->
+                val linkModels: MainBudgetViewModelStore = viewModel(key = "plan-link-${route.requestId}")
+                linkModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                ActiveBudgetContent(viewModelStoreOwner = linkModels) {
+                    if (route.budgetScopeId == runtime?.scope?.id) {
+                        OperationPlanLinkBottomSheet(route.operationId, onClose = {
+                            navigation.dismissOperationPlanLink(route)
+                        }, onChooseAnother = { navigation.chooseAnotherPlan(route) })
+                    }
                 }
-                entry<AppRoute.BudgetSetup> {
-                    BudgetSetupRoute(
-                        setup,
-                        {
-                            if (navigation.exitSetup()) (context as? Activity)?.finish()
-                        },
-                        navigation::authenticateForSetup,
-                        navigation::finishSetup,
-                        navigation::showSetupPage,
-                        fromProfile = navigation.setupFromProfile,
-                    )
+            }
+            entry<AppRoute.OperationPlanPicker> { route ->
+                val models: MainBudgetViewModelStore = viewModel(key = "plan-picker-${route.operationId}")
+                models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                LaunchedEffect(runtime?.scope?.id) {
+                    if (runtime?.scope?.id !=
+                        route.budgetScopeId
+                    ) {
+                        navigation.back()
+                    }
                 }
-                entry<AppRoute.BudgetSetupList> {
-                    BudgetSetupRoute(
-                        setup,
-                        {
-                            if (navigation.exitSetup()) (context as? Activity)?.finish()
-                        },
-                        navigation::authenticateForSetup,
-                        navigation::finishSetup,
-                        navigation::showSetupPage,
-                        fromProfile = navigation.setupFromProfile,
-                    )
+                ActiveBudgetContent(viewModelStoreOwner = models) {
+                    com.firkat.fillin.feature.operationhistory.ui
+                        .OperationPlanPickerRoute(route.operationId, navigation::back)
                 }
-                entry<AppRoute.BudgetSetupJoin> {
-                    BudgetSetupRoute(
-                        setup,
-                        {
-                            if (navigation.exitSetup()) (context as? Activity)?.finish()
-                        },
-                        navigation::authenticateForSetup,
-                        navigation::finishSetup,
-                        navigation::showSetupPage,
-                        fromProfile = navigation.setupFromProfile,
-                    )
-                }
-                entry(AppRoute.Profile) {
-                    ProfileRoute(
-                        user = state.session.userOrNull,
-                        authBusy = state.busy,
-                        onAccountClick = {
-                            if (state.session.userOrNull != null) {
-                                auth.onAction(AuthAction.SignOut)
-                            } else {
-                                navigation.openAuthentication()
+            }
+            entry<AppRoute.OperationDetails> { route ->
+                val resultBus = LocalResultEventBus.current
+                val sheetModels: MainBudgetViewModelStore = viewModel(key = "edit-operation-${route.requestId}")
+                sheetModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                ActiveBudgetContent(viewModelStoreOwner = sheetModels) {
+                    OperationDetailsRoute(
+                        readOnly = readOnly,
+                        operationId = route.operationId,
+                        onLinkSelected = { navigation.openOperationPlanPicker(route) },
+                        onOpenPlan = { type, id -> navigation.openDetailsPlanningRule(route, type, id) },
+                        onClose = { navigation.dismissOperationDetails(route) },
+                        onResult = { result ->
+                            if (route.budgetScopeId == runtime?.scope?.id &&
+                                navigation.dismissOperationDetails(
+                                    route
+                                )
+                            ) {
+                                resultBus.sendResult(route.resultKey, result)
                             }
-                        },
-                        onMethodsClick = navigation::openAccountMethods,
-                        onCategoriesClick = navigation::openCategories,
-                        budgetReadOnly = readOnly,
-                        onFamilyAccessClick = navigation::openFamilyAccess,
-                        onCloudSyncClick = navigation::openCloudSync,
-                        onCreateBudgetClick = navigation::openBudgetCreation,
+                        }
                     )
                 }
-            },
+            }
+            entry<AppRoute.OperationCreate> {
+                ActiveBudgetContent(viewModelStoreOwner = operationCreateModels) {
+                    OperationCreateRoute(onBack = navigation::back, onCreated = { result ->
+                        runtime?.scope?.id?.let { navigation.operationCreated(result, it) }
+                    })
+                }
+            }
+            entry<AppRoute.Categories> {
+                ActiveBudgetContent {
+                    CategoriesRoute(
+                        readOnly = readOnly,
+                        onBack = navigation::back,
+                        onCreateCategory = { runtime?.scope?.id?.let { navigation.openCategoryEditor(it) } },
+                        onEditCategory = { categoryId ->
+                            runtime?.scope?.id?.let { navigation.openCategoryEditor(it, categoryId) }
+                        }
+                    )
+                }
+            }
+            entry<AppRoute.EditCategory> { route ->
+                val models: MainBudgetViewModelStore = viewModel(key = "category-editor")
+                models.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
+                if (route.budgetScopeId == runtime?.scope?.id) {
+                    ActiveBudgetContent(viewModelStoreOwner = models) {
+                        EditCategoryRoute(
+                            categoryId = route.categoryId,
+                            readOnly = readOnly,
+                            onClose = { navigation.dismissCategoryEditor(route) }
+                        )
+                    }
+                }
+            }
+            entry<AppRoute.FamilyAccess> {
+                FamilyAccessRoute(onBack = navigation::back, onSignIn = navigation::openAuthentication)
+            }
+            entry<AppRoute.CloudSync> {
+                ActiveBudgetContent {
+                    CloudSyncRoute(onBack = navigation::back, onSignIn = navigation::openAuthentication)
+                }
+            }
+            entry<AppRoute.AccountMethods> {
+                AuthScreen(
+                    onContinueAsGuest = navigation::back,
+                    onContinueWithAccount = navigation::back,
+                    methods = true,
+                    onBack = navigation::back
+                )
+            }
+            entry<AppRoute.Auth> {
+                AuthScreen(
+                    onContinueAsGuest = navigation::continueAsGuest,
+                    onContinueWithAccount = navigation::continueWithAccount
+                )
+            }
+            entry<AppRoute.BudgetSetup> {
+                BudgetSetupRoute(
+                    setup,
+                    {
+                        if (navigation.exitSetup()) (context as? Activity)?.finish()
+                    },
+                    navigation::authenticateForSetup,
+                    navigation::finishSetup,
+                    navigation::showSetupPage,
+                    fromProfile = navigation.setupFromProfile
+                )
+            }
+            entry<AppRoute.BudgetSetupList> {
+                BudgetSetupRoute(
+                    setup,
+                    {
+                        if (navigation.exitSetup()) (context as? Activity)?.finish()
+                    },
+                    navigation::authenticateForSetup,
+                    navigation::finishSetup,
+                    navigation::showSetupPage,
+                    fromProfile = navigation.setupFromProfile
+                )
+            }
+            entry<AppRoute.BudgetSetupJoin> {
+                BudgetSetupRoute(
+                    setup,
+                    {
+                        if (navigation.exitSetup()) (context as? Activity)?.finish()
+                    },
+                    navigation::authenticateForSetup,
+                    navigation::finishSetup,
+                    navigation::showSetupPage,
+                    fromProfile = navigation.setupFromProfile
+                )
+            }
+            entry(AppRoute.Profile) {
+                ProfileRoute(
+                    user = state.session.userOrNull,
+                    authBusy = state.busy,
+                    onAccountClick = {
+                        if (state.session.userOrNull != null) {
+                            auth.onAction(AuthAction.SignOut)
+                        } else {
+                            navigation.openAuthentication()
+                        }
+                    },
+                    onMethodsClick = navigation::openAccountMethods,
+                    onCategoriesClick = navigation::openCategories,
+                    budgetReadOnly = readOnly,
+                    onFamilyAccessClick = navigation::openFamilyAccess,
+                    onCloudSyncClick = navigation::openCloudSync,
+                    onCreateBudgetClick = navigation::openBudgetCreation
+                )
+            }
+        }
     )
 }

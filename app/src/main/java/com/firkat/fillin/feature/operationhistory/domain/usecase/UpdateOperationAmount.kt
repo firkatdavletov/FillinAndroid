@@ -6,10 +6,11 @@ import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHis
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryRepository
 import java.math.BigDecimal
 
-class UpdateOperationAmount(
-    private val repository: OperationHistoryRepository,
-) {
-    suspend operator fun invoke(operation: Operation, amount: BigDecimal): Operation {
+class UpdateOperationAmount(private val repository: OperationHistoryRepository) {
+    suspend operator fun invoke(
+        operation: Operation,
+        amount: BigDecimal
+    ): Operation {
         if (
             operation.status != OperationStatus.Posted ||
             operation.hasOriginalValuation ||
@@ -25,7 +26,7 @@ class UpdateOperationAmount(
         return repository.updateOperationAmount(
             id = operation.id,
             version = operation.version,
-            amount = amount,
+            amount = amount
         )
     }
 }

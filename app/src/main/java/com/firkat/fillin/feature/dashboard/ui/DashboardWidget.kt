@@ -1,20 +1,19 @@
 package com.firkat.fillin.feature.dashboard.ui
 
 enum class DashboardWidgetSize(val columns: Int, val rows: Int) {
-    OneByOne(1, 1), TwoByOne(2, 1), TwoByTwo(2, 2), TwoByThree(2, 3),
+    OneByOne(1, 1),
+    TwoByOne(2, 1),
+    TwoByTwo(2, 2),
+    TwoByThree(2, 3)
 }
 
 enum class DashboardWidgetKind { TotalBalance, AvailableToSpend, DailyLimit, BalanceForecast }
 
-data class DashboardWidget(
-    val id: String,
-    val kind: DashboardWidgetKind,
-    val size: DashboardWidgetSize,
-)
+data class DashboardWidget(val id: String, val kind: DashboardWidgetKind, val size: DashboardWidgetSize)
 
 val DefaultDashboardWidgets = listOf(
     DashboardWidget("total-balance", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.OneByOne),
     DashboardWidget("available-to-spend", DashboardWidgetKind.AvailableToSpend, DashboardWidgetSize.OneByOne),
     DashboardWidget("daily-limit", DashboardWidgetKind.DailyLimit, DashboardWidgetSize.TwoByTwo),
-    DashboardWidget("balance-forecast", DashboardWidgetKind.BalanceForecast, DashboardWidgetSize.TwoByThree),
+    DashboardWidget("balance-forecast", DashboardWidgetKind.BalanceForecast, DashboardWidgetSize.TwoByThree)
 )

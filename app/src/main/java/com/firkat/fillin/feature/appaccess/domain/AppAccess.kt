@@ -9,7 +9,9 @@ interface AppAccess {
     val mode: StateFlow<AppMode>
     val checking: StateFlow<Boolean>
     fun installationId(): String
-    suspend fun refresh(manual: Boolean = false): Boolean
+    suspend fun refresh(
+        manual: Boolean = false
+    ): Boolean
     fun revoke()
 
     val cloudAllowed: Boolean get() = mode.value == AppMode.InternalFull

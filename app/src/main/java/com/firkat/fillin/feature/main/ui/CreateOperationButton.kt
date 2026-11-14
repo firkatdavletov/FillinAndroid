@@ -10,7 +10,6 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
@@ -24,7 +23,7 @@ import com.firkat.fillin.ui.theme.FillinTheme
 @Composable
 internal fun CreateOperationButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
     FilledIconButton(
@@ -39,20 +38,20 @@ internal fun CreateOperationButton(
 //            )
             .background(
                 brush = Brush.linearGradient(
-                    listOf(colors.primary, colors.primary.copy(alpha = 0.8f).compositeOver(colors.background)),
+                    listOf(colors.primary, colors.primary.copy(alpha = 0.8f).compositeOver(colors.background))
                 ),
-                shape = CircleShape,
+                shape = CircleShape
             ),
         shape = CircleShape,
         colors = IconButtonDefaults.filledIconButtonColors(
             containerColor = Color.Transparent,
-            contentColor = colors.onPrimary,
-        ),
+            contentColor = colors.onPrimary
+        )
     ) {
         Icon(
             painter = FillinIcons.Add,
             contentDescription = stringResource(R.string.operation_create_title),
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(32.dp)
         )
     }
 }

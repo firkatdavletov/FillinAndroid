@@ -5,5 +5,5 @@ enum class DashboardStatus { WaitingForBudget, Loading, Ready, LocalError, Forbi
 data class DashboardDataState(
     val dashboard: Dashboard? = null,
     val status: DashboardStatus = DashboardStatus.WaitingForBudget,
-    val isRefreshing: Boolean = false,
+    val isRefreshing: Boolean = false
 )

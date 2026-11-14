@@ -16,8 +16,8 @@ import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.domain.Observ
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastViewModel
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastUiState
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
-import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitUiState
+import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitViewModel
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.domain.ObserveTotalBalance
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceViewModel
 import com.firkat.fillin.feature.sync.domain.BudgetSyncContext
@@ -38,11 +38,21 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardViewModelTest {
     private val models = ViewModelStore()
-    @Before fun setup() = Dispatchers.setMain(StandardTestDispatcher())
-    @After fun cleanup() { models.clear(); Dispatchers.resetMain() }
 
-    private fun <T : ViewModel> keep(key: String, model: T) = model.also { models.put(key, it) }
-    private fun TestScope.watch(flow: StateFlow<*>) = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { flow.collect {} }
+    @Before fun setup() = Dispatchers.setMain(StandardTestDispatcher())
+
+    @After fun cleanup() {
+        models.clear()
+        Dispatchers.resetMain()
+    }
+
+    private fun <T : ViewModel> keep(
+        key: String,
+        model: T
+    ) = model.also { models.put(key, it) }
+    private fun TestScope.watch(
+        flow: StateFlow<*>
+    ) = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { flow.collect {} }
 
     @Test fun `all four widget models share one observation and receive the same updated snapshot`() = runTest {
         val repository = FakeRepository()
@@ -65,7 +75,11 @@ class DashboardViewModelTest {
         val updated = EMPTY.copy(
             availableMoney = money("25"),
             freeMoney = EMPTY.freeMoney.copy(amount = money("-7"), safeDailyLimit = money("0")),
-            balanceForecast = EMPTY.balanceForecast.copy(points = EMPTY.balanceForecast.points.map { it.copy(balance = money("-50")) }),
+            balanceForecast = EMPTY.balanceForecast.copy(
+                points = EMPTY.balanceForecast.points.map {
+                    it.copy(balance = money("-50"))
+                }
+            )
         )
         repository.data.value = updated
         runCurrent()
@@ -141,7 +155,7 @@ class DashboardViewModelTest {
             Instant.parse("2026-09-06T03:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"),
             "600000.00".toBigDecimal(), BigDecimal.ZERO, BigDecimal.ZERO, emptyList(),
             listOf(DashboardCategory(category, "Продукты", true)), emptyList(), emptyList(), emptySet(),
-            knownExpenseIds = setOf("expense"),
+            knownExpenseIds = setOf("expense")
         )
         val repository = FakeRepository().also { it.data.value = CalculateDashboard.calculate(input) }
         val sync = FakeSync().also { it.context.value = BudgetSyncContext(ready = true) }
@@ -152,18 +166,30 @@ class DashboardViewModelTest {
         assertEquals(money("10000"), daily.uiState.value.amount)
         assertEquals(money("0"), daily.uiState.value.spentToday)
         val expense = DashboardOperation(
-            "expense", category, DashboardOperationKind.Expense, "2500.00".toBigDecimal(),
-            LocalDate.parse("2026-09-06"), Instant.parse("2026-09-06T00:00:00Z"),
+            "expense",
+            category,
+            DashboardOperationKind.Expense,
+            "2500.00".toBigDecimal(),
+            LocalDate.parse("2026-09-06"),
+            Instant.parse("2026-09-06T00:00:00Z")
         )
         for (amount in listOf("2500", "5000", "12500")) {
-            repository.data.value = CalculateDashboard.calculate(input.copy(operations = listOf(expense.copy(amount = amount.toBigDecimal()))))
+            repository.data.value =
+                CalculateDashboard.calculate(
+                    input.copy(operations = listOf(expense.copy(amount = amount.toBigDecimal())))
+                )
             runCurrent()
             assertEquals(money("10000"), daily.uiState.value.amount)
             assertEquals(money(amount), daily.uiState.value.spentToday)
         }
         assertTrue(daily.uiState.value.isOverspent)
         val edited = expense.copy(amount = "5000.00".toBigDecimal())
-        val refund = edited.copy(id = "refund", kind = DashboardOperationKind.Refund, amount = "2000.00".toBigDecimal(), refundOf = edited.id)
+        val refund = edited.copy(
+            id = "refund",
+            kind = DashboardOperationKind.Refund,
+            amount = "2000.00".toBigDecimal(),
+            refundOf = edited.id
+        )
         repository.data.value = CalculateDashboard.calculate(input.copy(operations = listOf(edited, refund)))
         runCurrent()
         assertEquals(money("10000"), daily.uiState.value.amount)
@@ -202,7 +228,10 @@ class DashboardViewModelTest {
 
     @Test fun `forecast clears unavailable snapshots and restores fresh points`() = runTest {
         val repository = FakeRepository().also {
-            it.data.value = EMPTY.copy(balanceForecast = EMPTY.balanceForecast.copy(points = emptyList(), insufficientHistory = true))
+            it.data.value =
+                EMPTY.copy(
+                    balanceForecast = EMPTY.balanceForecast.copy(points = emptyList(), insufficientHistory = true)
+                )
         }
         val sync = FakeSync().also { it.context.value = BudgetSyncContext(ready = true) }
         val source = DashboardDataSource(repository, sync, backgroundScope)
@@ -224,15 +253,31 @@ class DashboardViewModelTest {
         val sync = FakeSync().also { it.context.value = BudgetSyncContext(ready = true) }
         val source = DashboardDataSource(repository, sync, backgroundScope)
         val saved = androidx.lifecycle.SavedStateHandle()
-        val model = keep("details", com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsViewModel(ObserveBalanceForecast(source), saved))
+        val model =
+            keep(
+                "details",
+                com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsViewModel(
+                    ObserveBalanceForecast(source),
+                    saved
+                )
+            )
         watch(model.uiState)
         runCurrent()
         assertEquals(EMPTY.balanceForecast, model.uiState.value.forecast.projection)
         val tab = com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsTab.Events
-        model.onEvent(com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsEvent.SelectTab(tab))
+        model.onEvent(
+            com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsEvent.SelectTab(tab)
+        )
         runCurrent()
         assertEquals(tab, model.uiState.value.tab)
-        val restored = keep("details-restored", com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsViewModel(ObserveBalanceForecast(source), saved))
+        val restored =
+            keep(
+                "details-restored",
+                com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsViewModel(
+                    ObserveBalanceForecast(source),
+                    saved
+                )
+            )
         watch(restored.uiState)
         runCurrent()
         assertEquals(tab, restored.uiState.value.tab)
@@ -253,18 +298,27 @@ class DashboardViewModelTest {
             if (fail) error("local read failed")
             emitAll(data.filterNotNull())
         }
-        override fun requestSync() { requests++ }
+        override fun requestSync() {
+            requests++
+        }
     }
     private class FakeSync : BudgetSyncControl {
         override val context = MutableStateFlow(BudgetSyncContext())
         override fun requestSync() = Unit
-        override suspend fun resolve(id: String, reapply: Boolean) = Unit
+        override suspend fun resolve(
+            id: String,
+            reapply: Boolean
+        ) = Unit
     }
     companion object {
-        private fun money(value: String) = Money(value.toBigDecimal().setScale(2), "KZT")
-        private val EMPTY = CalculateDashboard.calculate(DashboardCalculationInput(
-            Instant.parse("2026-10-19T00:00:00Z"), Instant.parse("2026-09-01T00:00:00Z"),
-            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, emptyList(), emptyList(), emptyList(), emptyList(), emptySet(),
-        ))
+        private fun money(
+            value: String
+        ) = Money(value.toBigDecimal().setScale(2), "KZT")
+        private val EMPTY = CalculateDashboard.calculate(
+            DashboardCalculationInput(
+                Instant.parse("2026-10-19T00:00:00Z"), Instant.parse("2026-09-01T00:00:00Z"),
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, emptyList(), emptyList(), emptyList(), emptyList(), emptySet()
+            )
+        )
     }
 }

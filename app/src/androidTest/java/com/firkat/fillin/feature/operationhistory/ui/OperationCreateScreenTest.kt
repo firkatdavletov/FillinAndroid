@@ -1,41 +1,41 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
-import com.firkat.fillin.feature.categories.domain.repository.CategoryUsageRepository
-import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
-import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
-import kotlinx.coroutines.flow.map
-import android.view.WindowManager
 import android.graphics.Bitmap
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.unit.Density
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.espresso.Espresso.closeSoftKeyboard
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryIcon
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
+import com.firkat.fillin.feature.categories.domain.repository.CategoryUsageRepository
+import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
 import com.firkat.fillin.feature.operationhistory.domain.model.*
 import com.firkat.fillin.feature.operationhistory.domain.repository.*
 import com.firkat.fillin.ui.theme.FillinTheme
+import java.io.File
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
@@ -112,12 +112,17 @@ class OperationCreateScreenTest {
         assertKeyboardVisible()
         closeSoftKeyboard()
         compose.waitUntil(5000) {
-            ViewCompat.getRootWindowInsets(compose.activity.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == false
+            ViewCompat.getRootWindowInsets(
+                compose.activity.window.decorView
+            )?.isVisible(WindowInsetsCompat.Type.ime()) ==
+                false
         }
         screenshot("operation-create.png")
         compose.onNodeWithTag("operation-create-type-INCOME").performClick()
         compose.waitForIdle()
-        assertFalse(ViewCompat.getRootWindowInsets(compose.activity.window.decorView)!!.isVisible(WindowInsetsCompat.Type.ime()))
+        assertFalse(
+            ViewCompat.getRootWindowInsets(compose.activity.window.decorView)!!.isVisible(WindowInsetsCompat.Type.ime())
+        )
     }
 
     @Test fun usedSectionsAppearInOrderAndAllContainsTheLastCategory() {
@@ -139,10 +144,14 @@ class OperationCreateScreenTest {
         compose.setContent {
             FillinTheme {
                 OperationCreateScreen(
-                    editor = OperationCreateUiState(occurredOn = LocalDate.now(CLOCK), isSaving = true,
-                        frequentlyUsed = used, recentlyUsed = used),
+                    editor = OperationCreateUiState(
+                        occurredOn = LocalDate.now(CLOCK),
+                        isSaving = true,
+                        frequentlyUsed = used,
+                        recentlyUsed = used
+                    ),
                     context = context,
-                    onEvent = {},
+                    onEvent = {}
                 )
             }
         }
@@ -157,7 +166,11 @@ class OperationCreateScreenTest {
 
     @Test fun canSaveFromRecentlyUsed() = saveFrom("recent", "recent", "expense-0")
 
-    private fun saveFrom(section: String, tag: String, id: String) {
+    private fun saveFrom(
+        section: String,
+        tag: String,
+        id: String
+    ) {
         show(withUsage = true)
         compose.onNodeWithTag("operation-create-input").performTextReplacement("12,50")
         closeSoftKeyboard()
@@ -168,7 +181,9 @@ class OperationCreateScreenTest {
         assertEquals("12.50", history.created.single().amount.toPlainString())
     }
 
-    private fun screenshot(name: String) {
+    private fun screenshot(
+        name: String
+    ) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
         File(instrumentation.targetContext.getExternalFilesDir(null), name).outputStream().use {
@@ -177,20 +192,41 @@ class OperationCreateScreenTest {
         bitmap.recycle()
     }
 
-    private fun show(fontScale: Float = 1f, withUsage: Boolean = false) {
+    private fun show(
+        fontScale: Float = 1f,
+        withUsage: Boolean = false
+    ) {
         compose.activityRule.scenario.onActivity {
             it.enableEdgeToEdge()
             it.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
         val usage = object : CategoryUsageRepository {
-            override fun observeFrequentlyUsed(limit: Int, kind: CategoryKind?) = used(kind, limit)
-            override fun observeRecentlyUsed(limit: Int, kind: CategoryKind?) = used(kind, limit)
-            private fun used(kind: CategoryKind?, limit: Int) = history.context.map { context ->
-                if (withUsage) context.categories.filter { it.kind == kind }.take(minOf(limit, 1))
-                else emptyList()
+            override fun observeFrequentlyUsed(
+                limit: Int,
+                kind: CategoryKind?
+            ) = used(kind, limit)
+            override fun observeRecentlyUsed(
+                limit: Int,
+                kind: CategoryKind?
+            ) = used(kind, limit)
+            private fun used(
+                kind: CategoryKind?,
+                limit: Int
+            ) = history.context.map { context ->
+                if (withUsage) {
+                    context.categories.filter { it.kind == kind }.take(minOf(limit, 1))
+                } else {
+                    emptyList()
+                }
             }
         }
-        model = OperationCreateViewModel(history, GetFrequentlyUsedCategories(usage), GetRecentlyUsedCategories(usage), CLOCK)
+        model =
+            OperationCreateViewModel(
+                history,
+                GetFrequentlyUsedCategories(usage),
+                GetRecentlyUsedCategories(usage),
+                CLOCK
+            )
         models.put("creator", model)
         compose.setContent {
             val state by model.uiState.collectAsStateWithLifecycle()
@@ -207,32 +243,71 @@ class OperationCreateScreenTest {
 
     private fun assertKeyboardVisible() {
         compose.waitUntil(5000) {
-            ViewCompat.getRootWindowInsets(compose.activity.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+            ViewCompat.getRootWindowInsets(
+                compose.activity.window.decorView
+            )?.isVisible(WindowInsetsCompat.Type.ime()) ==
+                true
         }
     }
 
-    @After fun cleanup() { compose.runOnIdle { models.clear() } }
+    @After fun cleanup() {
+        compose.runOnIdle { models.clear() }
+    }
 
-    private class RecordingHistory : OperationHistoryStore, OperationHistoryRepository {
-        override fun observeOperation(id: String) = flowOf<Operation?>(null)
-        override val context = MutableStateFlow(OfflineHistoryContext(
-            initialSyncComplete = true,
-            accountingStartedOn = LocalDate.of(2026, 1, 1),
-            categories = CategoryKind.entries.flatMap { kind -> (0..11).map {
-                val expense = kind == CategoryKind.Expense
-                val examples = previewOperationCategories().filter { category -> category.kind == kind }
-                val example = examples.getOrNull(it)
-                Category("${if (expense) "expense" else "income"}-$it", example?.name ?: "Категория $it", kind,
-                    example?.icon ?: CategoryIcon(if (expense) "OTHER" else "INCOME", if (expense) "📦" else "💰"))
-            } },
-        ))
+    private class RecordingHistory :
+        OperationHistoryStore,
+        OperationHistoryRepository {
+        override fun observeOperation(
+            id: String
+        ) = flowOf<Operation?>(null)
+        override val context = MutableStateFlow(
+            OfflineHistoryContext(
+                initialSyncComplete = true,
+                accountingStartedOn = LocalDate.of(2026, 1, 1),
+                categories = CategoryKind.entries.flatMap { kind ->
+                    (0..11).map {
+                        val expense = kind == CategoryKind.Expense
+                        val examples = previewOperationCategories().filter { category -> category.kind == kind }
+                        val example = examples.getOrNull(it)
+                        Category(
+                            "${if (expense) "expense" else "income"}-$it",
+                            example?.name ?: "Категория $it",
+                            kind,
+                            example?.icon
+                                ?: CategoryIcon(if (expense) "OTHER" else "INCOME", if (expense) "📦" else "💰")
+                        )
+                    }
+                }
+            )
+        )
         val created = mutableListOf<NewOperation>()
-        override fun observeHistory(filter: OperationHistoryFilter, limit: Int) = flowOf(OperationPage(emptyList(), null))
+        override fun observeHistory(
+            filter: OperationHistoryFilter,
+            limit: Int
+        ) = flowOf(OperationPage(emptyList(), null))
         override fun requestSync() = Unit
-        override suspend fun create(operation: NewOperation, replacesRejectedId: String?): com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult { created += operation; return com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("created") }
-        override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage = error("Unused")
-        override suspend fun updateOperationAmount(id: String, version: Long, amount: java.math.BigDecimal): Operation = error("Unused")
-        override suspend fun refundPurchase(id: String, version: Long) = Unit
+        override suspend fun create(
+            operation: NewOperation,
+            replacesRejectedId: String?
+        ): com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult {
+            created +=
+                operation
+            return com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("created")
+        }
+        override suspend fun getOperations(
+            limit: Int,
+            cursor: Long?,
+            filter: OperationHistoryFilter
+        ): OperationPage = error("Unused")
+        override suspend fun updateOperationAmount(
+            id: String,
+            version: Long,
+            amount: java.math.BigDecimal
+        ): Operation = error("Unused")
+        override suspend fun refundPurchase(
+            id: String,
+            version: Long
+        ) = Unit
     }
 
     companion object {

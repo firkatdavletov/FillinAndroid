@@ -36,7 +36,7 @@ internal fun BudgetCurrencyRow(
     currency: BudgetCurrency,
     enabled: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     ListItem(
         headlineContent = { Text(stringResource(R.string.setup_currency)) },
@@ -48,7 +48,7 @@ internal fun BudgetCurrencyRow(
                 enabled = enabled,
                 role = Role.Button,
                 onClick = onClick
-            ),
+            )
     )
 }
 
@@ -57,7 +57,7 @@ internal fun BudgetCurrencyPicker(
     selected: BudgetCurrency,
     onSelect: (BudgetCurrency) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     SaldomiBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
         BudgetCurrencyOptions(selected, onSelect)
@@ -68,7 +68,7 @@ internal fun BudgetCurrencyPicker(
 private fun BudgetCurrencyOptions(
     selected: BudgetCurrency,
     onSelect: (BudgetCurrency) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
@@ -76,8 +76,11 @@ private fun BudgetCurrencyOptions(
             .verticalScroll(rememberScrollState())
             .selectableGroup()
     ) {
-        Text(stringResource(R.string.budget_currency_picker_title), Modifier.padding(16.dp),
-            style = MaterialTheme.typography.titleLarge)
+        Text(
+            stringResource(R.string.budget_currency_picker_title),
+            Modifier.padding(16.dp),
+            style = MaterialTheme.typography.titleLarge
+        )
         BudgetCurrency.entries.forEach { currency ->
             ListItem(
                 headlineContent = {
@@ -101,32 +104,56 @@ private fun BudgetCurrencyOptions(
 }
 
 @Composable
-private fun currencyLabel(currency: BudgetCurrency): String = stringResource(
+private fun currencyLabel(
+    currency: BudgetCurrency
+): String = stringResource(
     when (currency) {
         BudgetCurrency.KZT -> R.string.budget_currency_kzt
         BudgetCurrency.RUB -> R.string.budget_currency_rub
         BudgetCurrency.USD -> R.string.budget_currency_usd
         BudgetCurrency.EUR -> R.string.budget_currency_eur
-    },
+    }
 )
 
 @Preview(name = "RUB")
 @Preview(name = "RUB dark", uiMode = UI_MODE_NIGHT_YES)
 @Preview(name = "Large text", widthDp = 320, fontScale = 2f)
-@Composable private fun RubPreview() { FillinTheme { BudgetCurrencyOptions(BudgetCurrency.RUB, {}) } }
+@Composable
+private fun RubPreview() {
+    FillinTheme { BudgetCurrencyOptions(BudgetCurrency.RUB, {}) }
+}
+
 @Preview(name = "KZT")
 @Preview(name = "KZT dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun KztPreview() { FillinTheme { BudgetCurrencyOptions(BudgetCurrency.KZT, {}) } }
+@Composable
+private fun KztPreview() {
+    FillinTheme { BudgetCurrencyOptions(BudgetCurrency.KZT, {}) }
+}
+
 @Preview(name = "USD")
 @Preview(name = "USD dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun UsdPreview() { FillinTheme { BudgetCurrencyOptions(BudgetCurrency.USD, {}) } }
+@Composable
+private fun UsdPreview() {
+    FillinTheme { BudgetCurrencyOptions(BudgetCurrency.USD, {}) }
+}
+
 @Preview(name = "EUR")
 @Preview(name = "EUR dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun EurPreview() { FillinTheme { BudgetCurrencyOptions(BudgetCurrency.EUR, {}) } }
+@Composable
+private fun EurPreview() {
+    FillinTheme { BudgetCurrencyOptions(BudgetCurrency.EUR, {}) }
+}
 
 @Preview(name = "Currency field")
 @Preview(name = "Currency field dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun CurrencyFieldPreview() { FillinTheme { BudgetCurrencyRow(BudgetCurrency.RUB, true, {}) } }
+@Composable
+private fun CurrencyFieldPreview() {
+    FillinTheme { BudgetCurrencyRow(BudgetCurrency.RUB, true, {}) }
+}
+
 @Preview(name = "Currency field disabled")
 @Preview(name = "Currency field disabled dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable private fun CurrencyFieldDisabledPreview() { FillinTheme { BudgetCurrencyRow(BudgetCurrency.KZT, false, {}) } }
+@Composable
+private fun CurrencyFieldDisabledPreview() {
+    FillinTheme { BudgetCurrencyRow(BudgetCurrency.KZT, false, {}) }
+}

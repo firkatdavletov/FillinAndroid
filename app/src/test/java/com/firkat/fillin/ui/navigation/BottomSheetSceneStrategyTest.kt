@@ -39,7 +39,11 @@ class BottomSheetSceneStrategyTest {
         val same = BottomSheetScene(sheet, listOf(main), ModalBottomSheetProperties(), { error("Different callback") })
         assertEquals(first, same)
         assertEquals(first.hashCode(), same.hashCode())
-        assertNotEquals(first, BottomSheetScene(sheet, listOf(main), ModalBottomSheetProperties(shouldDismissOnBackPress = false), {}))
+        assertNotEquals(
+            first,
+            BottomSheetScene(sheet, listOf(main), ModalBottomSheetProperties(shouldDismissOnBackPress = false), {
+            })
+        )
         assertNotEquals(first, BottomSheetScene(main, listOf(main), ModalBottomSheetProperties(), {}))
     }
 
@@ -47,7 +51,9 @@ class BottomSheetSceneStrategyTest {
         (calculate(listOf(main, sheet)) as OverlayScene<String>).onRemove()
     }
 
-    private fun calculate(entries: List<NavEntry<String>>) = with(strategy) {
+    private fun calculate(
+        entries: List<NavEntry<String>>
+    ) = with(strategy) {
         SceneStrategyScope<String>().calculateScene(entries)
     }
 }

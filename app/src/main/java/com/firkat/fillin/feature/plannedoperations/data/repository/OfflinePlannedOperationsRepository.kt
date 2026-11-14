@@ -7,24 +7,25 @@ import com.firkat.fillin.feature.sync.data.BudgetStore
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 
-class OfflinePlannedOperationsRepository(
-    private val store: BudgetStore,
-) : PlannedOperationsRepository {
+class OfflinePlannedOperationsRepository(private val store: BudgetStore) : PlannedOperationsRepository {
     override fun requestSync() = store.requestSync()
 
-    override fun observePlans(filter: PlannedOperationsFilter) =
-        store.observePlans(filter).catch { e ->
-            if (e is BudgetLocalFailure) {
-                throw if (e.code ==
-                    "forbidden"
-                ) {
-                    PlannedOperationsException.Forbidden
-                } else {
-                    PlannedOperationsException.InvalidRequest
-                }
+    override fun observePlans(
+        filter: PlannedOperationsFilter
+    ) = store.observePlans(filter).catch { e ->
+        if (e is BudgetLocalFailure) {
+            throw if (e.code ==
+                "forbidden"
+            ) {
+                PlannedOperationsException.Forbidden
+            } else {
+                PlannedOperationsException.InvalidRequest
             }
-            throw e
         }
+        throw e
+    }
 
-    override suspend fun getPlannedOperations(filter: PlannedOperationsFilter) = observePlans(filter).first()
+    override suspend fun getPlannedOperations(
+        filter: PlannedOperationsFilter
+    ) = observePlans(filter).first()
 }

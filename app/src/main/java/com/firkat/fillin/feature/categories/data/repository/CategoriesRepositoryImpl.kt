@@ -14,54 +14,55 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import retrofit2.HttpException
 
-class CategoriesRepositoryImpl(
-    private val api: CategoriesApi,
-    private val apiToken: String,
-) : CategoriesRepository {
+class CategoriesRepositoryImpl(private val api: CategoriesApi, private val apiToken: String) : CategoriesRepository {
     override suspend fun getCategories(): List<Category> = execute {
         api.getCategories(
-            authorization = authorization,
+            authorization = authorization
         ).items.map(CategoryDto::toDomain)
     }
 
     override suspend fun createCategory(
         name: String,
         kind: CategoryKind,
-        iconCode: String,
+        iconCode: String
     ): Category = execute {
         api.createCategory(
             authorization = authorization,
             request = CreateCategoryRequestDto(
                 name = name,
                 kind = kind.apiValue,
-                icon = iconCode,
-            ),
+                icon = iconCode
+            )
         ).toDomain()
     }
 
     override suspend fun updateCategory(
         id: String,
         name: String?,
-        iconCode: String?,
+        iconCode: String?
     ): Category = execute {
         api.updateCategory(
             authorization = authorization,
             categoryId = id,
             request = UpdateCategoryRequestDto(
                 name = name,
-                icon = iconCode,
-            ),
+                icon = iconCode
+            )
         ).toDomain()
     }
 
-    override suspend fun deleteCategory(id: String): Unit = execute {
+    override suspend fun deleteCategory(
+        id: String
+    ): Unit = execute {
         api.deleteCategory(
             authorization = authorization,
-            categoryId = id,
+            categoryId = id
         )
     }
 
-    private suspend fun <T> execute(block: suspend RequestContext.() -> T): T {
+    private suspend fun <T> execute(
+        block: suspend RequestContext.() -> T
+    ): T {
         if (apiToken.isBlank()) throw CategoriesException.MissingApiToken
 
         return try {
@@ -105,6 +106,6 @@ private fun CategoryDto.toDomain(): Category = Category(
     },
     icon = CategoryIcon(
         code = icon.code,
-        emoji = icon.emoji,
-    ),
+        emoji = icon.emoji
+    )
 )

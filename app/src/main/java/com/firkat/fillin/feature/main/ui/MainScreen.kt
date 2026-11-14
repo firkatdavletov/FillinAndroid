@@ -3,7 +3,6 @@ package com.firkat.fillin.feature.main.ui
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 
@@ -19,7 +18,7 @@ internal fun MainScreen(
     onOperationClick: (String, String) -> Unit = { _, _ -> },
     onForecastClick: () -> Unit = {},
     readOnly: Boolean = false,
-    onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit = { _, _ -> },
+    onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit = { _, _ -> }
 ) {
     MainContent(
         modifier = modifier,
@@ -37,6 +36,6 @@ internal fun MainScreen(
         budgetViewModelStoreOwner = budgetViewModelStoreOwner,
         onOperationClick = onOperationClick,
         onForecastClick = onForecastClick,
-        onPlannedOperationEditorClick = onPlannedOperationEditorClick,
+        onPlannedOperationEditorClick = onPlannedOperationEditorClick
     )
 }

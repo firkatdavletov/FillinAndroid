@@ -9,7 +9,7 @@ data class PlanLinkTarget(
     val planId: String? = null,
     val ruleId: String? = null,
     val dueOn: String,
-    val scheduledOn: String? = null,
+    val scheduledOn: String? = null
 ) {
     val stableKey: String get() = if (type == "EXPENSE") "$ruleId@$dueOn" else requireNotNull(planId)
 }
@@ -21,18 +21,37 @@ data class SuggestedPlan(
     val categoryName: String,
     val plannedAmount: String,
     val remainingAmount: String,
-    val version: Long,
+    val version: Long
 )
 
 data class CreateOperationResult(val operationId: String, val suggestedPlan: SuggestedPlan? = null)
-data class OperationPlanLinks(val candidates: List<SuggestedPlan> = emptyList(), val current: List<SuggestedPlan> = emptyList())
+data class OperationPlanLinks(
+    val candidates: List<SuggestedPlan> = emptyList(),
+    val current: List<SuggestedPlan> = emptyList()
+)
 
 interface OperationPlanLinkStore {
-    fun observeLinks(operationId: String): Flow<OperationPlanLinks>
+    fun observeLinks(
+        operationId: String
+    ): Flow<OperationPlanLinks>
     val pendingProposal: Flow<String?>
-    suspend fun proposal(operationId: String): SuggestedPlan?
-    suspend fun selectProposal(operationId: String, plan: SuggestedPlan)
-    suspend fun dismissProposal(operationId: String)
-    suspend fun setLink(operationId: String, plan: SuggestedPlan, operationVersion: Long)
-    suspend fun removeLink(operationId: String, operationVersion: Long)
+    suspend fun proposal(
+        operationId: String
+    ): SuggestedPlan?
+    suspend fun selectProposal(
+        operationId: String,
+        plan: SuggestedPlan
+    )
+    suspend fun dismissProposal(
+        operationId: String
+    )
+    suspend fun setLink(
+        operationId: String,
+        plan: SuggestedPlan,
+        operationVersion: Long
+    )
+    suspend fun removeLink(
+        operationId: String,
+        operationVersion: Long
+    )
 }

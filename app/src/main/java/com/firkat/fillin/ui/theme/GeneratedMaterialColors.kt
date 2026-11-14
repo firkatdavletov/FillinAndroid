@@ -68,7 +68,7 @@ data class SaldomiDesignColors(
     val textSecondary: Color,
     val transfer: Color,
     val warning: Color,
-    val warningContainer: Color,
+    val warningContainer: Color
 )
 
 val SaldomiLightDesignColors = SaldomiDesignColors(
@@ -130,7 +130,7 @@ val SaldomiLightDesignColors = SaldomiDesignColors(
     textSecondary = Color(0xFF455A51),
     transfer = Color(0xFF326BA8),
     warning = Color(0xFF784700),
-    warningContainer = Color(0xFFFFF0CD),
+    warningContainer = Color(0xFFFFF0CD)
 )
 
 val SaldomiLightColors = lightColorScheme(
@@ -181,7 +181,7 @@ val SaldomiLightColors = lightColorScheme(
     tertiaryFixedDim = Color(0xFFAFD6DC),
     onTertiaryFixed = Color(0xFF0B2D33),
     onTertiaryFixedVariant = Color(0xFF285A63),
-    scrim = Color(0xFF102B23),
+    scrim = Color(0xFF102B23)
 )
 
 val SaldomiDarkDesignColors = SaldomiDesignColors(
@@ -243,7 +243,7 @@ val SaldomiDarkDesignColors = SaldomiDesignColors(
     textSecondary = Color(0xFFC6DACC),
     transfer = Color(0xFFA7CAFF),
     warning = Color(0xFFFFD181),
-    warningContainer = Color(0xFF4A370F),
+    warningContainer = Color(0xFF4A370F)
 )
 
 val SaldomiDarkColors = darkColorScheme(
@@ -294,5 +294,5 @@ val SaldomiDarkColors = darkColorScheme(
     tertiaryFixedDim = Color(0xFFAFD6DC),
     onTertiaryFixed = Color(0xFF0B2D33),
     onTertiaryFixedVariant = Color(0xFF285A63),
-    scrim = Color(0xFF06130D),
+    scrim = Color(0xFF06130D)
 )

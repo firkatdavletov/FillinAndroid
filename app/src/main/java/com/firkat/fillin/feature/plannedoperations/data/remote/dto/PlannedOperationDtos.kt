@@ -8,14 +8,11 @@ data class PlannedOperationsResponseDto(
     val dateFrom: String,
     val dateTo: String,
     val items: List<PlannedOperationDto>,
-    val totals: PlannedOperationTotalsDto,
+    val totals: PlannedOperationTotalsDto
 )
 
 @Serializable
-data class PlannedOperationTotalsDto(
-    val expenses: PlannedOperationMoneyDto,
-    val incomes: PlannedOperationMoneyDto,
-)
+data class PlannedOperationTotalsDto(val expenses: PlannedOperationMoneyDto, val incomes: PlannedOperationMoneyDto)
 
 @Serializable
 data class PlannedOperationDto(
@@ -31,7 +28,7 @@ data class PlannedOperationDto(
     val version: Long,
     val createdAt: String,
     val modifiedAt: String,
-    val rule: PlannedOperationRuleDto? = null,
+    val rule: PlannedOperationRuleDto? = null
 )
 
 @Serializable

@@ -37,7 +37,7 @@ fun PrimaryButton(
     leadingIcon: Painter? = null,
     iconTint: Color = textColor,
     border: BorderStroke? = null,
-    cornerRadius: Dp = 28.dp,
+    cornerRadius: Dp = 28.dp
 ) {
     Button(
         onClick = onClick,
@@ -53,28 +53,28 @@ fun PrimaryButton(
             ),
             disabledContentColor = textColor.copy(
                 alpha = 0.7f
-            ),
+            )
         ),
         contentPadding = PaddingValues(horizontal = 20.dp),
-        elevation = null,
+        elevation = null
     ) {
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(22.dp),
                 color = textColor,
-                strokeWidth = 2.dp,
+                strokeWidth = 2.dp
             )
         } else {
             Row(
                 horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 leadingIcon?.let { painter ->
                     Icon(
                         painter = painter,
                         contentDescription = null,
                         modifier = Modifier.size(22.dp),
-                        tint = iconTint,
+                        tint = iconTint
                     )
 
                     Spacer(Modifier.width(12.dp))
@@ -85,7 +85,7 @@ fun PrimaryButton(
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

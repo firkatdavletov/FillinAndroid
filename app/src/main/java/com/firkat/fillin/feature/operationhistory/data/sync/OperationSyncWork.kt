@@ -18,30 +18,45 @@ import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetprofile.data.BudgetWorkIdentity
 import com.firkat.fillin.feature.budgetprofile.domain.BudgetSyncIdentity
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
 
 class WorkManagerOperationSyncScheduler(
     private val context: Context,
     private val identity: BudgetSyncIdentity,
     private val budgets: ActiveBudgetManager,
-    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null
 ) : OperationSyncScheduler {
     override fun schedule() {
         if (access?.cloudAllowed == false) return
         budgets.applicationScope.launch {
             val lease = budgets.acquire(identity) ?: return@launch
             try {
-                if (lease.scope.get<OperationDatabase>().operations().state()?.let { it.cloudEnabled && (it.localReady || it.initialSyncComplete) } != true) return@launch
-                if (access?.cloudAllowed != false && budgets.isCurrent(lease.runtime.profile)) scheduleEnabled(lease.scope.get())
-            } finally { lease.close() }
+                if (lease.scope.get<OperationDatabase>().operations().state()?.let {
+                        it.cloudEnabled &&
+                            (it.localReady || it.initialSyncComplete)
+                    } !=
+                    true
+                ) {
+                    return@launch
+                }
+                if (access?.cloudAllowed != false &&
+                    budgets.isCurrent(lease.runtime.profile)
+                ) {
+                    scheduleEnabled(lease.scope.get())
+                }
+            } finally {
+                lease.close()
+            }
         }
     }
 
-    private fun scheduleEnabled(requests: OperationSyncRequests) {
+    private fun scheduleEnabled(
+        requests: OperationSyncRequests
+    ) {
         val request =
             OneTimeWorkRequestBuilder<OperationSyncWorker>()
                 .setInputData(BudgetWorkIdentity.data(identity))
@@ -50,20 +65,23 @@ class WorkManagerOperationSyncScheduler(
                 .build()
         // An explicit foreground retry must not wait behind an older worker's exponential backoff.
         val manager = context.getSystemService(ConnectivityManager::class.java)
-        if (manager.getNetworkCapabilities(manager.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true) {
+        if (manager.getNetworkCapabilities(
+                manager.activeNetwork
+            )?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ==
+            true
+        ) {
             // Register before enqueueing so even a worker that starts immediately shares this attempt.
             requests.startForeground(request.id)
         }
         // Appending also preserves a wake-up arriving just as the current worker finishes its last query.
-        WorkManager.getInstance(context).enqueueUniqueWork(BudgetWorkIdentity.uniqueName(identity), ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+        WorkManager.getInstance(
+            context
+        ).enqueueUniqueWork(BudgetWorkIdentity.uniqueName(identity), ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 }
 
-class OperationSyncWorker(
-    context: Context,
-    parameters: WorkerParameters,
-    private val budgets: ActiveBudgetManager,
-) : CoroutineWorker(context, parameters) {
+class OperationSyncWorker(context: Context, parameters: WorkerParameters, private val budgets: ActiveBudgetManager) :
+    CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
         // Pre-profile jobs have no safe routing information. Their outboxes remain in the imported DB.
         val identity = BudgetWorkIdentity.read(inputData) ?: return Result.success()
@@ -83,24 +101,26 @@ class OperationSyncWorker(
     }
 }
 
-class OperationWorkerFactory(
-    private val budgets: ActiveBudgetManager,
-) : WorkerFactory() {
+class OperationWorkerFactory(private val budgets: ActiveBudgetManager) : WorkerFactory() {
     override fun createWorker(
         appContext: Context,
         workerClassName: String,
-        workerParameters: WorkerParameters,
-    ): ListenableWorker? = if (workerClassName == OperationSyncWorker::class.java.name) OperationSyncWorker(appContext, workerParameters, budgets) else null
+        workerParameters: WorkerParameters
+    ): ListenableWorker? = if (workerClassName ==
+        OperationSyncWorker::class.java.name
+    ) {
+        OperationSyncWorker(appContext, workerParameters, budgets)
+    } else {
+        null
+    }
 }
 
 interface OperationConnectivity {
     val online: StateFlow<Boolean>
 }
 
-class AndroidOperationConnectivity(
-    context: Context,
-    private val scheduler: OperationSyncScheduler,
-) : OperationConnectivity {
+class AndroidOperationConnectivity(context: Context, private val scheduler: OperationSyncScheduler) :
+    OperationConnectivity {
     private val manager = context.getSystemService(ConnectivityManager::class.java)
     private val _online = MutableStateFlow(connected())
     override val online: StateFlow<Boolean> = _online
@@ -110,23 +130,24 @@ class AndroidOperationConnectivity(
             object : ConnectivityManager.NetworkCallback() {
                 override fun onCapabilitiesChanged(
                     network: Network,
-                    capabilities: NetworkCapabilities,
+                    capabilities: NetworkCapabilities
                 ) = update()
 
-                override fun onLost(network: Network) = update()
+                override fun onLost(
+                    network: Network
+                ) = update()
 
                 private fun update() {
                     val previous = _online.value
                     _online.value = connected()
                     if (!previous && _online.value) scheduler.schedule()
                 }
-            },
+            }
         )
     }
 
-    private fun connected(): Boolean =
-        manager.getNetworkCapabilities(manager.activeNetwork)?.let {
-            it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                it.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-        } == true
+    private fun connected(): Boolean = manager.getNetworkCapabilities(manager.activeNetwork)?.let {
+        it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            it.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    } == true
 }

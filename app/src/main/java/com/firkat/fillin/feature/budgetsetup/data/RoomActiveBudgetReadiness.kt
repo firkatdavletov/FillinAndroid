@@ -9,22 +9,25 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.transformLatest
 
-class RoomActiveBudgetReadiness(
-    private val manager: ActiveBudgetManager,
-) : ActiveBudgetReadiness {
+class RoomActiveBudgetReadiness(private val manager: ActiveBudgetManager) : ActiveBudgetReadiness {
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observe(): Flow<Boolean> = flow {
         // The account observer and navigation may run in either order after sign-in.
         manager.restore()
         check(!manager.failed.value) { "Could not restore the active budget" }
-        emitAll(manager.active.transformLatest { runtime ->
-            if (runtime == null || !manager.isCurrent(runtime.profile)) { emit(false); return@transformLatest }
-            val lease = runtime.retain() ?: return@transformLatest
-            try {
-                emitAll(lease.scope.get<BudgetSetupRepository>().ready)
-            } finally {
-                lease.close()
+        emitAll(
+            manager.active.transformLatest { runtime ->
+                if (runtime == null || !manager.isCurrent(runtime.profile)) {
+                    emit(false)
+                    return@transformLatest
+                }
+                val lease = runtime.retain() ?: return@transformLatest
+                try {
+                    emitAll(lease.scope.get<BudgetSetupRepository>().ready)
+                } finally {
+                    lease.close()
+                }
             }
-        })
+        )
     }
 }

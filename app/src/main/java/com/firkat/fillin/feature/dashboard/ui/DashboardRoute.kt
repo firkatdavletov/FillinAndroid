@@ -12,8 +12,8 @@ import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.Available
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastRoute
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitRoute
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceRoute
-import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDate
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun DashboardRoute(
@@ -22,10 +22,10 @@ fun DashboardRoute(
     onForecastClick: () -> Unit = {},
     onPaymentsClick: (LocalDate, LocalDate) -> Unit = { _, _ -> },
     onProfileClick: () -> Unit = {},
-    bottomBarOverlap: Dp = 0.dp,
+    bottomBarOverlap: Dp = 0.dp
 ) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.onEvent(DashboardEvent.Resume) 
+        viewModel.onEvent(DashboardEvent.Resume)
     }
 
     val title by viewModel.budgetState.collectAsStateWithLifecycle()
@@ -34,7 +34,7 @@ fun DashboardRoute(
         modifier = modifier,
         title = title,
         bottomBarOverlap = bottomBarOverlap,
-        onProfileClick = onProfileClick,
+        onProfileClick = onProfileClick
     ) { widget ->
         when (widget.kind) {
             DashboardWidgetKind.TotalBalance -> TotalBalanceRoute()

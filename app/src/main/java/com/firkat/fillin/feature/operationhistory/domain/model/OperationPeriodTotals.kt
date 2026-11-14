@@ -6,5 +6,5 @@ import java.math.BigDecimal
 data class OperationPeriodTotals(
     val expenses: BigDecimal = BigDecimal.ZERO,
     val incomes: BigDecimal = BigDecimal.ZERO,
-    val currency: String = "KZT",
+    val currency: String = "KZT"
 )

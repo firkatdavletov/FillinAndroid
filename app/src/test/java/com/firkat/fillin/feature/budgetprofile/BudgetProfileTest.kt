@@ -14,14 +14,16 @@ class BudgetProfileTest {
     }
 
     @Test fun cloudProfileRequiresItsExactOwnerUid() {
-        val profile = BudgetProfile("profile", "budget-profile.db", BudgetProfileKind.CLOUD, "owner-uid", "budget-id", "MEMBER")
+        val profile =
+            BudgetProfile("profile", "budget-profile.db", BudgetProfileKind.CLOUD, "owner-uid", "budget-id", "MEMBER")
         assertTrue(profile.accessibleTo("owner-uid"))
         assertFalse(profile.accessibleTo(null))
         assertFalse(profile.accessibleTo("other-uid"))
     }
 
     @Test fun archivedMembershipCannotBeSelectedEvenByItsOriginalUid() {
-        val profile = BudgetProfile("old", "budget-old.db", BudgetProfileKind.CLOUD, "owner", "budget", "MEMBER", archived = true)
+        val profile =
+            BudgetProfile("old", "budget-old.db", BudgetProfileKind.CLOUD, "owner", "budget", "MEMBER", archived = true)
         assertFalse(profile.accessibleTo("owner"))
         assertFalse(profile.accessibleTo(null))
     }

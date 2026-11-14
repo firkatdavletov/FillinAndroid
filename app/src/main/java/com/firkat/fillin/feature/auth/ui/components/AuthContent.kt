@@ -31,7 +31,7 @@ internal fun AuthContent(
     onGoogleClick: () -> Unit = {},
     onEmailClick: () -> Unit = {},
     onGuestClick: () -> Unit = {},
-    googleEnabled: Boolean = true,
+    googleEnabled: Boolean = true
 ) {
     Box(
         modifier = modifier

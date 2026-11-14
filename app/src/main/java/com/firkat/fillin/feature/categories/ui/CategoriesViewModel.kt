@@ -11,9 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class CategoriesViewModel(
-    private val getCategories: GetCategories,
-) : ViewModel() {
+class CategoriesViewModel(private val getCategories: GetCategories) : ViewModel() {
     private val _uiState = MutableStateFlow(CategoriesUiState())
     val uiState: StateFlow<CategoriesUiState> = _uiState.asStateFlow()
 
@@ -23,7 +21,9 @@ class CategoriesViewModel(
         load()
     }
 
-    fun onEvent(event: CategoriesEvent) {
+    fun onEvent(
+        event: CategoriesEvent
+    ) {
         when (event) {
             CategoriesEvent.Retry -> {
                 load()
@@ -32,11 +32,12 @@ class CategoriesViewModel(
             CategoriesEvent.Refresh -> {
                 load(isRefreshing = true)
             }
-
         }
     }
 
-    private fun load(isRefreshing: Boolean = false) {
+    private fun load(
+        isRefreshing: Boolean = false
+    ) {
         if (_uiState.value.isLoading || _uiState.value.isRefreshing) return
 
         _uiState.update {
@@ -52,7 +53,7 @@ class CategoriesViewModel(
                             it.copy(
                                 items = categories,
                                 isLoading = false,
-                                isRefreshing = false,
+                                isRefreshing = false
                             )
                         }
                     }
@@ -63,7 +64,7 @@ class CategoriesViewModel(
                         it.copy(
                             isLoading = false,
                             isRefreshing = false,
-                            error = exception.toUiError(),
+                            error = exception.toUiError()
                         )
                     }
                 } catch (exception: Exception) {
@@ -71,7 +72,7 @@ class CategoriesViewModel(
                         it.copy(
                             isLoading = false,
                             isRefreshing = false,
-                            error = CategoriesError.Unknown,
+                            error = CategoriesError.Unknown
                         )
                     }
                 }

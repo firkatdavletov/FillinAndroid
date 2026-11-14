@@ -57,34 +57,34 @@ fun DashboardScreen(
     title: String?,
     bottomBarOverlap: Dp = 0.dp,
     onProfileClick: () -> Unit = {},
-    widgetContent: @Composable (DashboardWidget) -> Unit,
+    widgetContent: @Composable (DashboardWidget) -> Unit
 ) {
     Column(
-        modifier = modifier,
+        modifier = modifier
     ) {
         DashboardGrid(
             header = {
                 MainScreenHeader(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(
-                                brush =
-                                    Brush.verticalGradient(
-                                        0f to MaterialTheme.saldomiDesignColors.background,
-                                        0.7f to MaterialTheme.saldomiDesignColors.background,
-                                        1f to MaterialTheme.saldomiDesignColors.background.copy(alpha = 0f),
-                                    ),
-                            ).padding(bottom = 16.dp)
-                            .statusBarsPadding(),
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush =
+                            Brush.verticalGradient(
+                                0f to MaterialTheme.saldomiDesignColors.background,
+                                0.7f to MaterialTheme.saldomiDesignColors.background,
+                                1f to MaterialTheme.saldomiDesignColors.background.copy(alpha = 0f)
+                            )
+                        ).padding(bottom = 16.dp)
+                        .statusBarsPadding(),
                     title = title ?: "",
                     subtitle = DateUtils.getCurrentDate(),
                     textColor = MaterialTheme.colorScheme.onBackground,
-                    onProfileClick = onProfileClick,
+                    onProfileClick = onProfileClick
                 )
             },
             widgetContent = widgetContent,
-            bottomBarOverlap = bottomBarOverlap,
+            bottomBarOverlap = bottomBarOverlap
         )
     }
 }
@@ -95,11 +95,11 @@ fun DashboardGrid(
     widgets: List<DashboardWidget> = DefaultDashboardWidgets,
     header: (@Composable () -> Unit)? = null,
     bottomBarOverlap: Dp = 0.dp,
-    widgetContent: @Composable (DashboardWidget) -> Unit,
+    widgetContent: @Composable (DashboardWidget) -> Unit
 ) {
     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
     BoxWithConstraints(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize()
     ) {
         val cellWidth = (maxWidth - 32.dp - 12.dp) / 2
         val cellHeight = cellWidth * 0.5f
@@ -110,7 +110,7 @@ fun DashboardGrid(
             modifier = Modifier.fillMaxSize().testTag("dashboard-grid"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomBarOverlap),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (header != null) {
                 stickyHeader {
@@ -120,19 +120,21 @@ fun DashboardGrid(
             items(
                 items = widgets,
                 key = { it.id },
-                span = { GridItemSpan(it.size.columns) },
+                span = { GridItemSpan(it.size.columns) }
             ) { widget ->
                 Box(
                     Modifier
                         .fillMaxWidth()
                         .then(
-                            if (widget.kind in setOf(DashboardWidgetKind.DailyLimit, DashboardWidgetKind.BalanceForecast)) {
+                            if (widget.kind in
+                                setOf(DashboardWidgetKind.DailyLimit, DashboardWidgetKind.BalanceForecast)
+                            ) {
                                 Modifier
                             } else {
                                 Modifier.height(rowHeight * widget.size.rows + 12.dp * (widget.size.rows - 1))
-                            },
+                            }
                         ).testTag("dashboard-widget-${widget.id}"),
-                    propagateMinConstraints = true,
+                    propagateMinConstraints = true
                 ) { widgetContent(widget) }
             }
             item {
@@ -148,40 +150,40 @@ fun MainScreenHeader(
     title: String,
     subtitle: String? = null,
     textColor: Color = MaterialTheme.colorScheme.onBackground,
-    onProfileClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {}
 ) {
     Row(
         modifier = modifier,
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.Top
     ) {
         Column(
             modifier =
-                Modifier
-                    .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            Modifier
+                .weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = textColor,
+                color = textColor
             )
 
             if (subtitle != null) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelLarge,
-                    color = textColor,
+                    color = textColor
                 )
             }
         }
         IconButton(
-            onClick = onProfileClick,
+            onClick = onProfileClick
         ) {
             Icon(
                 modifier = Modifier.size(24.dp),
                 imageVector = ImageVector.vectorResource(R.drawable.ic_account_box),
-                contentDescription = "Profile",
+                contentDescription = "Profile"
             )
         }
     }
@@ -190,34 +192,40 @@ fun MainScreenHeader(
 @Preview(name = "Compact grid", widthDp = 320, heightDp = 640)
 @Preview(name = "Dark grid", widthDp = 320, heightDp = 640, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "Large text grid", widthDp = 320, heightDp = 840, fontScale = 2f)
-@Preview(name = "Dark large text grid", widthDp = 320, heightDp = 840, fontScale = 2f, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Dark large text grid",
+    widthDp = 320,
+    heightDp = 840,
+    fontScale = 2f,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Preview(name = "Expanded grid", widthDp = 840, heightDp = 960)
 @Composable
 private fun MainScreenGridPreview() {
     FillinTheme {
         DashboardGrid(
             widgets =
-                DefaultDashboardWidgets +
-                    listOf(
-                        DashboardWidget("wide", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
-                        DashboardWidget("large", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByTwo),
-                    ),
+            DefaultDashboardWidgets +
+                listOf(
+                    DashboardWidget("wide", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
+                    DashboardWidget("large", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByTwo)
+                ),
             header = {
                 MainScreenHeader(
-                    title = stringResource(R.string.app_name),
+                    title = stringResource(R.string.app_name)
                 )
-            },
+            }
         ) { widget ->
             when (widget.kind) {
                 DashboardWidgetKind.TotalBalance -> {
                     TotalBalanceWidget(
-                        TotalBalanceUiState(Money("12345678.90".toBigDecimal(), "KZT")),
+                        TotalBalanceUiState(Money("12345678.90".toBigDecimal(), "KZT"))
                     )
                 }
 
                 DashboardWidgetKind.AvailableToSpend -> {
                     AvailableToSpendWidget(
-                        AvailableToSpendUiState(Money("-12345.67".toBigDecimal(), "KZT")),
+                        AvailableToSpendUiState(Money("-12345.67".toBigDecimal(), "KZT"))
                     )
                 }
 
@@ -229,14 +237,14 @@ private fun MainScreenGridPreview() {
                             remainingToday = Money("92592.00".toBigDecimal(), "KZT"),
                             spentPercent = "25.0".toBigDecimal(),
                             remainingPercent = "75.0".toBigDecimal(),
-                            progress = 0.25f,
-                        ),
+                            progress = 0.25f
+                        )
                     )
                 }
 
                 DashboardWidgetKind.BalanceForecast -> {
                     BalanceForecastWidget(
-                        forecastPreviewState,
+                        forecastPreviewState
                     )
                 }
             }
