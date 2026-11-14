@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -75,7 +76,17 @@ fun DashboardScreen(
             title = title ?: "",
             subtitle = DateUtils.getCurrentDate(),
             textColor = MaterialTheme.colorScheme.onBackground,
-            onProfileClick = onProfileClick
+            action = {
+                IconButton(
+                    onClick = onProfileClick
+                ) {
+                    Icon(
+                        modifier = Modifier.size(24.dp),
+                        imageVector = ImageVector.vectorResource(R.drawable.ic_profile_24),
+                        contentDescription = "Profile"
+                    )
+                }
+            }
         )
         DashboardGrid(
             widgetContent = widgetContent,
@@ -91,33 +102,26 @@ fun DashboardGrid(
     bottomBarOverlap: Dp = 0.dp,
     widgetContent: @Composable (DashboardWidget) -> Unit
 ) {
-    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
-    BoxWithConstraints(
-        modifier = modifier.fillMaxSize()
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("dashboard-grid"),
+        contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = bottomBarOverlap),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        val cellWidth = (maxWidth - 32.dp - 12.dp) / 2
-        val cellHeight = cellWidth * 0.5f
-        // Keep two columns while allowing enlarged labels to wrap above the values.
-        val rowHeight = cellHeight + (cellWidth + 32.dp) * (fontScale - 1f)
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier.fillMaxSize().testTag("dashboard-grid"),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomBarOverlap),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(
-                items = widgets,
-                key = { it.id },
-                span = { GridItemSpan(it.size.columns) }
-            ) { widget ->
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .testTag("dashboard-widget-${widget.id}"),
-                    propagateMinConstraints = true
-                ) { widgetContent(widget) }
-            }
+        items(
+            items = widgets,
+            key = { it.id },
+            span = { GridItemSpan(it.size.columns) }
+        ) { widget ->
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .testTag("dashboard-widget-${widget.id}"),
+                propagateMinConstraints = true
+            ) { widgetContent(widget) }
         }
     }
 }
@@ -128,12 +132,15 @@ fun MainScreenHeader(
     title: String,
     subtitle: String? = null,
     textColor: Color = MaterialTheme.colorScheme.onBackground,
-    onProfileClick: () -> Unit = {}
+    leading: @Composable (RowScope.() -> Unit)? = null,
+    action: @Composable (RowScope.() -> Unit)? = null
 ) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.Top
     ) {
+        leading?.let { it() }
+
         Column(
             modifier =
                 Modifier
@@ -155,14 +162,8 @@ fun MainScreenHeader(
                 )
             }
         }
-        IconButton(
-            onClick = onProfileClick
-        ) {
-            Icon(
-                modifier = Modifier.size(24.dp),
-                imageVector = ImageVector.vectorResource(R.drawable.ic_profile_24),
-                contentDescription = "Profile"
-            )
+        action?.let {
+            it()
         }
     }
 }

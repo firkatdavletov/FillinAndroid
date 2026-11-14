@@ -42,7 +42,7 @@ internal fun SaldomiBottomSheet(
         properties = properties,
         content = content,
         containerColor = MaterialTheme.colorScheme.background,
-        tonalElevation = 8.dp,
+        tonalElevation = 64.dp,
         dragHandle = {
             Box(
                 modifier = Modifier

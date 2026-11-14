@@ -39,6 +39,7 @@ internal fun MainContent(
     budgetViewModelStoreOwner: MainBudgetViewModelStore,
     onOperationClick: (String, String) -> Unit,
     onForecastClick: () -> Unit,
+    onBack: () -> Unit,
     readOnly: Boolean = false,
     onPlannedOperationEditorClick: (PlannedOperationType, String?) -> Unit
 ) {
@@ -82,7 +83,8 @@ internal fun MainContent(
                         OperationHistoryRoute(
                             snackbarHostState = snackbarHostState,
                             onOperationClick = onOperationClick,
-                            bottomBarOverlap = bottomBarOverlap
+                            bottomBarOverlap = bottomBarOverlap,
+                            onBack = onBack
                         )
                     }
                 }

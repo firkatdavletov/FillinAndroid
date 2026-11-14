@@ -120,7 +120,7 @@ private fun OperationTotalCard(
             .selectable(selected = false, enabled = enabled, role = Role.Button, onClick = onClick),
         shape = shape,
         color = colors.surfaceContainer,
-        contentColor = colors.onSurfaceVariant
+        contentColor = colors.onBackground
     ) {
         Column(
             modifier = Modifier.heightIn(min = TotalsMinHeight).padding(12.dp),

@@ -2,14 +2,41 @@ package com.firkat.fillin.feature.operationhistory.ui
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.LinkOff
-import androidx.compose.material3.*
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -74,10 +101,16 @@ internal fun OperationDetailsRoute(
         }
     }
     EditOperationContent(
-        operation = state.operation, mode = if (readOnly) EditOperationMode.ReadOnly else state.mode, input = state.input, type = state.type,
+        operation = state.operation,
+        mode = if (readOnly) EditOperationMode.ReadOnly else state.mode,
+        input = state.input,
+        type = state.type,
         categories = state.categories, selectedCategoryId = state.categoryId, isLoading = state.isLoading,
         isSaving = state.isSaving, canSave = state.canSave, canRefund = state.canRefund,
-        inputError = state.inputError, error = state.error, description = state.description, descriptionError = state.descriptionError,
+        inputError = state.inputError,
+        error = state.error,
+        description = state.description,
+        descriptionError = state.descriptionError,
         onDescriptionChange = { event(EditOperationEvent.DescriptionChanged(it)) },
         onInputChange = {
             event(EditOperationEvent.InputChanged(it))
@@ -103,9 +136,9 @@ internal fun OperationDetailsRoute(
                     OutlinedButton(
                         onClick = onLinkSelected,
                         enabled =
-                        !state.isSaving &&
-                            state.mode == EditOperationMode.Edit &&
-                            state.operation?.let { it.amount > it.refundedAmount } == true,
+                            !state.isSaving &&
+                                state.mode == EditOperationMode.Edit &&
+                                state.operation?.let { it.amount > it.refundedAmount } == true,
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.secondary
                         ),
@@ -205,31 +238,37 @@ internal fun EditOperationContent(
     onSaveClick: () -> Unit,
     onRefundClick: () -> Unit,
     onCloseClick: () -> Unit,
+    modifier: Modifier = Modifier,
     description: String = operation?.description.orEmpty(),
     descriptionError: Boolean = false,
     onDescriptionChange: (String) -> Unit = {},
-    modifier: Modifier = Modifier,
     planLinksContent: @Composable () -> Unit = {},
     onCategoryOpen: () -> Unit = {}
 ) {
-    val editable =
-        !isSaving &&
-            (
-                mode == EditOperationMode.Correct ||
-                    mode == EditOperationMode.Edit &&
-                    operation?.refundedAmount?.signum() == 0
-                )
+    val editable = !isSaving &&
+        (
+            mode == EditOperationMode.Correct ||
+                mode == EditOperationMode.Edit &&
+                operation?.refundedAmount?.signum() == 0
+            )
+
     val locale = LocalConfiguration.current.locales[0]
     Scaffold(modifier.fillMaxSize().testTag("operation_details"), topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.edit_operation_title)) }, navigationIcon = {
-            IconButton(
-                onClick = onCloseClick,
-                enabled = !isSaving,
-                modifier = Modifier.testTag("edit_operation_close")
-            ) {
-                Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.navigation_back))
-            }
-        })
+        TopAppBar(
+            title = { Text(stringResource(R.string.edit_operation_title)) },
+            navigationIcon = {
+                IconButton(
+                    onClick = onCloseClick,
+                    enabled = !isSaving,
+                    modifier = Modifier.testTag("edit_operation_close")
+                ) {
+                    Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.navigation_back))
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.background
+            )
+        )
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) {
             Column(
@@ -337,8 +376,12 @@ internal fun EditOperationContent(
                             Text(
                                 stringResource(
                                     when (reason) {
-                                        OperationInputError.DescriptionTooLong -> R.string.operation_create_description_too_long
-                                        OperationInputError.AmbiguousAmount -> R.string.operation_create_ambiguous_amount
+                                        OperationInputError.DescriptionTooLong ->
+                                            R.string.operation_create_description_too_long
+
+                                        OperationInputError.AmbiguousAmount ->
+                                            R.string.operation_create_ambiguous_amount
+
                                         else -> R.string.operation_create_invalid_input
                                     }
                                 ),

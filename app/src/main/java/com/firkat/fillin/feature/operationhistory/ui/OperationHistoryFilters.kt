@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.DateRangePickerDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDateRangePickerState
@@ -113,7 +115,11 @@ internal fun OperationPeriodFilterBottomSheet(
                         stringResource(R.string.operation_history_period_title),
                         modifier = Modifier.padding(start = 24.dp, top = 16.dp)
                     )
-                }
+                },
+                colors = DatePickerDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         }
     )

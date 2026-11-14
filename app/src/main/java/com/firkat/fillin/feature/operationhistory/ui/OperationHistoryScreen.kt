@@ -11,12 +11,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,8 +38,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
@@ -73,6 +78,7 @@ fun OperationHistoryRoute(
     viewModel: OperationHistoryViewModel = koinViewModel(),
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
     onOperationClick: (String, String) -> Unit,
+    onBack: () -> Unit = {},
     bottomBarOverlap: Dp = 0.dp
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -102,7 +108,8 @@ fun OperationHistoryRoute(
         state = state,
         onEvent = viewModel::onEvent,
         onOperationClick = { id -> onOperationClick(id, resultKey) },
-        bottomBarOverlap = bottomBarOverlap
+        bottomBarOverlap = bottomBarOverlap,
+        onBack = onBack
     )
 }
 
@@ -111,6 +118,7 @@ fun OperationHistoryScreen(
     state: OperationHistoryUiState,
     onEvent: (OperationHistoryEvent) -> Unit,
     onOperationClick: (String) -> Unit = {},
+    onBack: () -> Unit = {},
     bottomBarOverlap: Dp = 0.dp
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -147,6 +155,7 @@ fun OperationHistoryScreen(
     }
 }
 
+@Suppress("ktlint:standard:property-naming")
 private const val HistoryLoadingDelayMillis = 300L
 
 @Composable
@@ -204,13 +213,16 @@ private fun OperationHistoryContent(
                 ) {
                     when {
                         displayed.isInitialLoading -> LoadingContent()
+
                         displayed.error != null && displayed.operations.isEmpty() -> ErrorContent(
                             error = displayed.error,
                             onRetry = onRetry,
                             modifier = Modifier.fillMaxSize(),
                             enabled = !switching
                         )
+
                         displayed.operations.isEmpty() -> EmptyContent()
+
                         else -> OperationList(
                             operations = displayed.operations,
                             isLoadingNextPage = displayed.isLoadingNextPage,
@@ -287,19 +299,19 @@ private fun OperationList(
         state = listState,
         userScrollEnabled = enabled,
         contentPadding =
-        PaddingValues(
-            top = 4.dp,
-            bottom = 12.dp + bottomBarOverlap
-        )
+            PaddingValues(
+                top = 4.dp,
+                bottom = 12.dp + bottomBarOverlap
+            )
     ) {
         operationDayGroups.forEach { group ->
             item(key = "date-${group.date}", contentType = "day-header") {
                 Row(
                     modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .semantics { heading() }
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .semantics { heading() }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -338,9 +350,9 @@ private fun OperationList(
             item(key = "next-page-loading") {
                 Box(
                     modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator()
@@ -355,9 +367,9 @@ private fun OperationList(
                     onRetry = onRetry,
                     enabled = enabled,
                     modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 20.dp)
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp)
                 )
             }
         }
@@ -401,8 +413,8 @@ private fun ErrorContent(
 ) {
     Column(
         modifier =
-        modifier
-            .padding(horizontal = 32.dp),
+            modifier
+                .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -441,6 +453,7 @@ internal val OperationHistoryError.messageResource: Int
             OperationHistoryError.InvalidResponse -> R.string.operation_history_error_invalid_response
 
             OperationHistoryError.UnlinkBeforeCategoryChange -> R.string.plan_link_unlink_before_category
+
             OperationHistoryError.Unknown -> R.string.operation_history_error_generic
         }
 
@@ -483,25 +496,25 @@ private fun OperationHistoryPreview() {
     FillinTheme(dynamicColor = false) {
         OperationHistoryScreen(
             state =
-            OperationHistoryUiState(
-                periodTotals = OperationPeriodTotals(expenses = BigDecimal("15000.00")),
-                operations =
-                listOf(
-                    Operation(
-                        id = "preview",
-                        categoryName = "Продукты",
-                        description = "Супермаркет",
-                        amount = BigDecimal("15000.00"),
-                        currency = "KZT",
-                        originalAmount = BigDecimal("30.00"),
-                        originalCurrency = "USD",
-                        occurredOn = LocalDate.of(2026, 10, 6),
-                        status = OperationStatus.Posted,
-                        version = 0
-                    )
+                OperationHistoryUiState(
+                    periodTotals = OperationPeriodTotals(expenses = BigDecimal("15000.00")),
+                    operations =
+                        listOf(
+                            Operation(
+                                id = "preview",
+                                categoryName = "Продукты",
+                                description = "Супермаркет",
+                                amount = BigDecimal("15000.00"),
+                                currency = "KZT",
+                                originalAmount = BigDecimal("30.00"),
+                                originalCurrency = "USD",
+                                occurredOn = LocalDate.of(2026, 10, 6),
+                                status = OperationStatus.Posted,
+                                version = 0
+                            )
+                        ),
+                    isInitialLoading = false
                 ),
-                isInitialLoading = false
-            ),
             onEvent = {}
         )
     }

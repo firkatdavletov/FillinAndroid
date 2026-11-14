@@ -64,12 +64,12 @@ internal fun OperationItem(
         ) {
             Surface(
                 shape = CircleShape,
-                color = if (isIncome) MaterialTheme.saldomiColors.incomeContainer else MaterialTheme.saldomiColors.expenseContainer
+                color = MaterialTheme.colorScheme.onBackground
             ) {
                 CategoryIconImage(
                     iconCode = operation.categoryIconCode,
                     categoryName = operation.categoryName,
-                    modifier = Modifier.padding(12.dp)
+                    modifier = Modifier.padding(4.dp)
                 )
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {

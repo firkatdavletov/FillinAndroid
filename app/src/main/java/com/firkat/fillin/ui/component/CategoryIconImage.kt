@@ -33,7 +33,7 @@ internal fun CategoryIconImage(
     contentDescription: String? = null
 ) {
     val icon = CategoryIcons.find(iconCode)
-    val iconModifier = modifier.size(24.dp)
+    val iconModifier = modifier.size(32.dp)
     if (icon != null) {
         Image(painterResource(icon.drawableResource), contentDescription, iconModifier)
     } else {

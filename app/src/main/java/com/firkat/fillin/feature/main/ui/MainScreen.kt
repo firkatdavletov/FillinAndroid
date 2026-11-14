@@ -14,6 +14,7 @@ internal fun MainScreen(
     selectedDestination: AppDestination,
     onSelectDestination: (AppDestination) -> Unit,
     modifier: Modifier = Modifier,
+    onBack: () -> Unit,
     onCreateOperationClick: () -> Unit = {},
     onOperationClick: (String, String) -> Unit = { _, _ -> },
     onForecastClick: () -> Unit = {},
@@ -36,6 +37,7 @@ internal fun MainScreen(
         budgetViewModelStoreOwner = budgetViewModelStoreOwner,
         onOperationClick = onOperationClick,
         onForecastClick = onForecastClick,
+        onBack = onBack,
         onPlannedOperationEditorClick = onPlannedOperationEditorClick
     )
 }

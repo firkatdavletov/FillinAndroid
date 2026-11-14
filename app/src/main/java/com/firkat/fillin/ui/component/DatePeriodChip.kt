@@ -5,6 +5,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SelectableChipColors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -64,7 +66,7 @@ fun DatePeriodChip(
                 }
             }
         },
-        modifier = modifier
+        modifier = modifier,
     )
 }
 

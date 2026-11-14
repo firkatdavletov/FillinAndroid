@@ -287,6 +287,9 @@ fun FillinNavHost(
                         onAccountClick = {
                             navigation.openProfile()
                         },
+                        onBack = {
+                            navigation.back()
+                        },
                         snackbarHostState = snackbar,
                         budgetViewModelStoreOwner = mainModels,
                         selectedDestination = navigation.mainDestination,
