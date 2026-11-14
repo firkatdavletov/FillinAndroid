@@ -17,8 +17,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
-import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.plannedoperations.domain.model.*
+import com.firkat.fillin.feature.plannedoperations.ui.bottomsheets.PlanningRuleEditorBottomSheetHost
 import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.*
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -232,95 +232,26 @@ internal fun PlanningRuleEditorScreen(
             }
         }
     }
-    if (state.window == RuleWindow.Category) {
-        CategorySelectionSheet(
-            categories = state.categories.filter {
-                it.kind ==
-                    if (draft.type == PlannedOperationType.Expense) CategoryKind.Expense else CategoryKind.Income
-            },
-            selectedId = draft.categoryId,
-            loading = state.categoriesLoading,
-            hasError = state.categoriesError,
-            onSelect = onCategory,
-            onDismiss = { onWindow(null) },
-            onRetry = onRetryCategories
-        )
-    }
-    if (state.window == RuleWindow.Date) {
-        val minimumDate = maxOf(state.accountingStart, LocalDate.now(ZoneId.of("Asia/Almaty")))
-        val picker =
-            rememberDatePickerState(
-                initialSelectedDateMillis = draft.date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-                selectableDates = object : SelectableDates {
-                    override fun isSelectableDate(
-                        utcTimeMillis: Long
-                    ): Boolean {
-                        val date = Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate()
-                        return date >= minimumDate || state.original != null && date == state.initial.date
-                    }
-                }
-            )
-        SaldomiActionBottomSheet(
-            onDismissRequest = { onWindow(null) },
-            confirmButton = {
-                SaldomiButton(enabled = enabled && picker.selectedDateMillis != null, onClick = {
-                    picker.selectedDateMillis?.let { millis ->
-                        onChange { it.copy(date = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()) }
-                    }
-                    onWindow(null)
-                }, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.rule_select)) }
-            },
-            dismissButton = {
-                SaldomiOutlinedButton({
-                    onWindow(null)
-                }, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.rule_cancel)) }
-            },
-            edgeToEdgeContent = true,
-            text = { DatePicker(picker) }
-        )
-    }
-    if (state.window == RuleWindow.Discard ||
-        state.window == RuleWindow.Delete
-    ) {
-        SaldomiActionBottomSheet(
-            onDismissRequest = { onWindow(null) },
-            title = {
-                Text(
-                    stringResource(
-                        if (state.window ==
-                            RuleWindow.Delete
-                        ) {
-                            R.string.rule_delete_question
-                        } else {
-                            R.string.rule_discard_question
-                        }
-                    )
-                )
-            },
-            confirmButton = {
-                SaldomiButton(
-                    if (state.window ==
-                        RuleWindow.Delete
-                    ) {
-                        onDelete
-                    } else {
-                        onDiscard
-                    },
-                    enabled =
-                    !state.saving && (state.window != RuleWindow.Delete || canWrite),
-                    modifier = Modifier.fillMaxWidth(),
-                    large = true,
-                    destructive =
-                    state.window == RuleWindow.Delete
-                ) { Text(stringResource(R.string.rule_confirm)) }
-            },
-            dismissButton = {
-                SaldomiOutlinedButton({
-                    onWindow(null)
-                }, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.rule_cancel)) }
-            }
-        )
-    }
+    PlanningRuleEditorBottomSheetHost(
+        window = state.window,
+        type = draft.type,
+        categoryId = draft.categoryId,
+        categories = state.categories,
+        categoriesLoading = state.categoriesLoading,
+        categoriesError = state.categoriesError,
+        date = draft.date,
+        accountingStart = state.accountingStart,
+        originalDate = state.original?.let { state.initial.date },
+        canSelectDate = enabled,
+        canDiscard = !state.saving,
+        canDelete = !state.saving && canWrite,
+        onCategorySelected = onCategory,
+        onRetryCategories = onRetryCategories,
+        onDateSelected = { date -> onChange { it.copy(date = date) } },
+        onDiscard = onDiscard,
+        onDelete = onDelete,
+        onDismiss = { onWindow(null) }
+    )
 }
 
 @Composable
@@ -425,28 +356,4 @@ private val PlanningFrequency.editorTitleResource: Int get() = when (this) {
     PlanningFrequency.Weekly -> R.string.income_frequency_weekly
     PlanningFrequency.Biweekly -> R.string.income_frequency_biweekly
     PlanningFrequency.Monthly -> R.string.income_frequency_monthly
-}
-
-@Preview(name = "Date sheet")
-@Preview(name = "Date sheet dark", uiMode = UI_MODE_NIGHT_YES)
-@Preview(name = "Date sheet compact", widthDp = 320, heightDp = 600, fontScale = 2f)
-@Composable
-private fun RuleDateSheetPreview() {
-    EditorPreviewState(RuleEditorState(loading = false, window = RuleWindow.Date))
-}
-
-@Preview(name = "Discard sheet")
-@Preview(name = "Discard sheet dark", uiMode = UI_MODE_NIGHT_YES)
-@Preview(name = "Discard sheet compact", widthDp = 320, heightDp = 600, fontScale = 2f)
-@Composable
-private fun RuleDiscardSheetPreview() {
-    EditorPreviewState(RuleEditorState(loading = false, window = RuleWindow.Discard))
-}
-
-@Preview(name = "Delete sheet")
-@Preview(name = "Delete sheet dark", uiMode = UI_MODE_NIGHT_YES)
-@Preview(name = "Delete sheet compact", widthDp = 320, heightDp = 600, fontScale = 2f)
-@Composable
-private fun RuleDeleteSheetPreview() {
-    EditorPreviewState(RuleEditorState(loading = false, window = RuleWindow.Delete))
 }

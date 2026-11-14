@@ -46,13 +46,11 @@ import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
+import com.firkat.fillin.feature.plannedincomes.ui.bottomsheets.PlannedIncomesBottomSheetHost
 import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.RefreshableContent
-import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
-import com.firkat.fillin.ui.component.SaldomiButton
-import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
@@ -97,39 +95,40 @@ fun PlannedIncomesScreen(
             onEvent = onEvent,
             modifier = Modifier.fillMaxSize()
         )
-        if (editor.isDeleteConfirmationVisible) {
-            DeleteIncomeConfirmation(onEvent = onEvent)
-        }
-        return
-    }
+    } else {
+        Box(modifier = Modifier.fillMaxSize()) {
+            RefreshableContent(
+                isRefreshing = state.isRefreshing,
+                onRefresh = { onEvent(PlannedIncomesEvent.Refresh) },
+                hasScrollableContent = state.items.isNotEmpty()
+            ) {
+                when {
+                    state.isLoading && state.items.isEmpty() -> LoadingContent()
+                    state.error != null && state.items.isEmpty() -> ErrorContent(
+                        error = state.error,
+                        onRetry = { onEvent(PlannedIncomesEvent.Retry) },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    state.items.isEmpty() -> EmptyContent()
+                    else -> PlannedIncomesList(state = state, onEvent = onEvent)
+                }
+            }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        RefreshableContent(
-            isRefreshing = state.isRefreshing,
-            onRefresh = { onEvent(PlannedIncomesEvent.Refresh) },
-            hasScrollableContent = state.items.isNotEmpty()
-        ) {
-            when {
-                state.isLoading && state.items.isEmpty() -> LoadingContent()
-                state.error != null && state.items.isEmpty() -> ErrorContent(
-                    error = state.error,
-                    onRetry = { onEvent(PlannedIncomesEvent.Retry) },
-                    modifier = Modifier.fillMaxSize()
-                )
-                state.items.isEmpty() -> EmptyContent()
-                else -> PlannedIncomesList(state = state, onEvent = onEvent)
+            ExtendedFloatingActionButton(
+                onClick = { onEvent(PlannedIncomesEvent.CreateRequested) },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+            ) {
+                Text(stringResource(R.string.planned_incomes_create_action))
             }
         }
-
-        ExtendedFloatingActionButton(
-            onClick = { onEvent(PlannedIncomesEvent.CreateRequested) },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        ) {
-            Text(stringResource(R.string.planned_incomes_create_action))
-        }
     }
+    PlannedIncomesBottomSheetHost(
+        showDeleteConfirmation = editor?.isDeleteConfirmationVisible == true,
+        onDelete = { onEvent(PlannedIncomesEvent.DeleteConfirmed) },
+        onDismiss = { onEvent(PlannedIncomesEvent.DeleteDismissed) }
+    )
 }
 
 @Composable
@@ -334,35 +333,6 @@ internal fun PlannedIncomeEditor(
             }
         }
     }
-}
-
-@Composable
-internal fun DeleteIncomeConfirmation(
-    onEvent: (PlannedIncomesEvent) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    SaldomiActionBottomSheet(
-        modifier = modifier,
-        onDismissRequest = { onEvent(PlannedIncomesEvent.DeleteDismissed) },
-        title = { Text(stringResource(R.string.planned_incomes_delete_title)) },
-        text = { Text(stringResource(R.string.planned_incomes_delete_message)) },
-        confirmButton = {
-            SaldomiButton(onClick = {
-                onEvent(PlannedIncomesEvent.DeleteConfirmed)
-            }, modifier = Modifier.fillMaxWidth(), large = true, destructive = true) {
-                Text(
-                    text = stringResource(R.string.planned_incomes_delete_confirm)
-                )
-            }
-        },
-        dismissButton = {
-            SaldomiOutlinedButton(onClick = {
-                onEvent(PlannedIncomesEvent.DeleteDismissed)
-            }, modifier = Modifier.fillMaxWidth(), large = true) {
-                Text(stringResource(R.string.planned_incomes_delete_cancel))
-            }
-        }
-    )
 }
 
 @Composable

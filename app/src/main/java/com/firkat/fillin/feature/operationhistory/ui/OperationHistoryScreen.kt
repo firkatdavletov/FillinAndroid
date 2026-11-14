@@ -59,6 +59,7 @@ import com.firkat.fillin.feature.operationhistory.domain.model.Operation
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTotals
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
+import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.OperationHistoryBottomSheetHost
 import com.firkat.fillin.ui.component.RefreshableContent
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
 import com.firkat.fillin.ui.format.formatMoney
@@ -150,9 +151,13 @@ fun OperationHistoryScreen(
             )
         }
     }
-    if (state.isPeriodFilterVisible) {
-        OperationPeriodFilterBottomSheet(filters = state.filters, onEvent = onEvent)
-    }
+    OperationHistoryBottomSheetHost(
+        showPeriodFilter = state.isPeriodFilterVisible,
+        dateFrom = state.filters.dateFrom,
+        dateTo = state.filters.dateTo,
+        onPeriodSelected = { from, to -> onEvent(OperationHistoryEvent.PeriodSelected(from, to)) },
+        onDismiss = { onEvent(OperationHistoryEvent.PeriodFilterClosed) }
+    )
 }
 
 @Suppress("ktlint:standard:property-naming")

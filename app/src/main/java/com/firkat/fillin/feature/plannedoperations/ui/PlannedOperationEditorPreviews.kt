@@ -11,13 +11,11 @@ import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseStatus
-import com.firkat.fillin.feature.plannedexpenses.ui.DeleteRuleConfirmation
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpenseRuleEditor
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpenseRuleEditorUiState
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesError
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
-import com.firkat.fillin.feature.plannedincomes.ui.DeleteIncomeConfirmation
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomeEditor
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomeEditorUiState
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesError
@@ -222,20 +220,6 @@ private fun IncomeMissingOriginalCategoryPreview() {
 @Composable
 private fun IncomeLoadingCategoriesPreview() {
     IncomePreview(loading = true)
-}
-
-@Preview(name = "ExpenseDeleteConfirmation")
-@Preview(name = "ExpenseDeleteConfirmation dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun ExpenseDeleteConfirmationPreview() {
-    FillinTheme { DeleteRuleConfirmation({}) }
-}
-
-@Preview(name = "IncomeDeleteConfirmation")
-@Preview(name = "IncomeDeleteConfirmation dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun IncomeDeleteConfirmationPreview() {
-    FillinTheme { DeleteIncomeConfirmation({}) }
 }
 
 @Preview(name = "ExpenseMissingApiToken")

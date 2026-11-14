@@ -51,9 +51,9 @@ import com.firkat.fillin.feature.launch.presentation.LaunchScreen
 import com.firkat.fillin.feature.main.ui.MainScreen
 import com.firkat.fillin.feature.operationhistory.ui.OperationCreateRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationDetailsRoute
-import com.firkat.fillin.feature.operationhistory.ui.OperationPlanLinkBottomSheet
 import com.firkat.fillin.feature.operationhistory.ui.PendingPlanLinkRecovery
-import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationBottomSheet
+import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.OperationPlanLinkBottomSheet
+import com.firkat.fillin.feature.plannedoperations.ui.bottomsheets.PlannedOperationBottomSheet
 import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import com.firkat.fillin.feature.sync.ui.CloudSyncRoute
 import com.firkat.fillin.ui.component.SnackbarType

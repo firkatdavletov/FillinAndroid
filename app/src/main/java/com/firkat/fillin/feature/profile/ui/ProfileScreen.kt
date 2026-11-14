@@ -61,19 +61,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
-import com.firkat.fillin.feature.appaccess.ui.AboutAppRoute
 import com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel
 import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
-import com.firkat.fillin.feature.budgetmanagement.ui.BudgetCurrencyConfirmation
-import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementSheet
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel
 import com.firkat.fillin.feature.budgetmanagement.ui.PendingBudgetDeletion
-import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyPicker
 import com.firkat.fillin.feature.budgetsetup.ui.accessErrorResource
 import com.firkat.fillin.feature.profile.domain.DeletionPhase
 import com.firkat.fillin.feature.profile.domain.ProfileBudget
 import com.firkat.fillin.feature.profile.domain.ProfileDeletionState
+import com.firkat.fillin.feature.profile.ui.bottomsheets.ProfileBottomSheetHost
 import com.firkat.fillin.ui.component.AccountIdentity
 import com.firkat.fillin.ui.component.PrimaryButton
 import com.firkat.fillin.ui.component.SaldomiButton
@@ -98,36 +95,13 @@ fun ProfileRoute(
     budgetReadOnly: Boolean = false
 ) {
     val about: AboutAppViewModel = koinViewModel()
-    AboutAppRoute(about)
+    val installationId by about.installationId.collectAsStateWithLifecycle()
+    val accessChecking by about.checking.collectAsStateWithLifecycle()
+    val accessRefreshResult by about.refreshResult.collectAsStateWithLifecycle()
     val management: BudgetManagementViewModel = koinViewModel()
     val managementState by management.state.collectAsStateWithLifecycle()
     val pendingDeletions by management.pending.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
-    managementState?.takeIf { state.fullAccess || !it.family }?.let {
-        if (it.pickerOpen) {
-            BudgetCurrencyPicker(
-                it.currency,
-                management::selectCurrency,
-                management::closeCurrencyPicker
-            )
-        } else {
-            BudgetManagementSheet(
-                it,
-                management::change,
-                management::confirm,
-                management::close,
-                onCurrencyClick = management::openCurrencyPicker
-            )
-        }
-        if (it.confirmCurrency) {
-            BudgetCurrencyConfirmation(
-                it.originalCurrency,
-                it.currency,
-                management::confirmCurrencyChange,
-                management::dismissCurrencyConfirmation
-            )
-        }
-    }
     val deletionState by deletionViewModel.deletion.state.collectAsStateWithLifecycle()
     val confirmation by deletionViewModel.confirmation.collectAsStateWithLifecycle()
     val password by deletionViewModel.password.collectAsStateWithLifecycle()
@@ -138,25 +112,29 @@ fun ProfileRoute(
         deletionViewModel.deletion.setVisible(true)
         onDispose { deletionViewModel.deletion.setVisible(false) }
     }
-    confirmation?.takeIf { it.uid == user?.uid }?.let { current ->
-        when (current.kind) {
-            AccountConfirmationKind.SignOut -> {
-                SignOutAccountBottomSheet(
-                    onConfirm = { deletionViewModel.confirmSignOut(onAccountClick) },
-                    onDismiss = deletionViewModel::close
-                )
-            }
-
-            AccountConfirmationKind.Delete -> {
-                DeleteAccountBottomSheet(
-                    value = current.value,
-                    onChange = deletionViewModel::changeConfirmation,
-                    onConfirm = deletionViewModel::submit,
-                    onDismiss = deletionViewModel::close
-                )
-            }
-        }
-    }
+    ProfileBottomSheetHost(
+        installationId = installationId,
+        accessChecking = accessChecking,
+        accessRefreshResult = accessRefreshResult,
+        fullAccess = state.fullAccess,
+        management = managementState,
+        userId = user?.uid,
+        confirmation = confirmation,
+        onRefreshAccess = about::refresh,
+        onCloseAbout = about::close,
+        onBudgetNameChanged = management::change,
+        onConfirmBudget = management::confirm,
+        onCloseBudget = management::close,
+        onOpenCurrencyPicker = management::openCurrencyPicker,
+        onCurrencySelected = management::selectCurrency,
+        onCloseCurrencyPicker = management::closeCurrencyPicker,
+        onConfirmCurrencyChange = management::confirmCurrencyChange,
+        onDismissCurrencyChange = management::dismissCurrencyConfirmation,
+        onSignOut = { deletionViewModel.confirmSignOut(onAccountClick) },
+        onAccountConfirmationChanged = deletionViewModel::changeConfirmation,
+        onDeleteAccount = deletionViewModel::submit,
+        onDismissAccountConfirmation = deletionViewModel::close
+    )
     ProfileScreen(
         onManageBudget = { id, name, deleting ->
             viewModel.closeBudgetActions()

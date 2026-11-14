@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.budgetconnection.domain.BudgetCreationErrors
-import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyPicker
+import com.firkat.fillin.feature.budgetsetup.ui.bottomsheets.BudgetSetupBottomSheetHost
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
 import com.firkat.fillin.ui.component.*
 import com.firkat.fillin.ui.icon.FillinIcons
@@ -29,13 +29,14 @@ internal fun BudgetSetupContent(
     modifier: Modifier = Modifier,
     fromProfile: Boolean = false
 ) {
-    if (state.currencyPickerOpen && state.editable && state.page == SetupPage.Create) {
-        BudgetCurrencyPicker(
-            state.currency,
-            { onAction(BudgetSetupAction.CurrencyChanged(it)) },
-            { onAction(BudgetSetupAction.CloseCurrencyPicker) }
-        )
-    }
+    BudgetSetupBottomSheetHost(
+        pickerOpen = state.currencyPickerOpen,
+        editable = state.editable,
+        page = state.page,
+        currency = state.currency,
+        onCurrencySelected = { onAction(BudgetSetupAction.CurrencyChanged(it)) },
+        onDismiss = { onAction(BudgetSetupAction.CloseCurrencyPicker) }
+    )
     Box(modifier.fillMaxSize()) {
         Image(
             painterResource(R.drawable.saldomi_auth_background),

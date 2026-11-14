@@ -1,4 +1,4 @@
-package com.firkat.fillin.feature.appaccess.ui
+package com.firkat.fillin.feature.appaccess.ui.bottomsheets
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -9,86 +9,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.R
-import com.firkat.fillin.feature.appaccess.domain.AppAccess
 import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import com.firkat.fillin.ui.component.SaldomiButton
 import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.theme.FillinTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-
-class AboutAppViewModel(private val access: AppAccess) : ViewModel() {
-    private val dialog = MutableStateFlow<String?>(null)
-    val installationId = dialog.asStateFlow()
-    val checking = access.checking
-    private val result = MutableStateFlow<Boolean?>(null)
-    val refreshResult = result.asStateFlow()
-
-    fun open() {
-        viewModelScope.launch(Dispatchers.IO) {
-            dialog.value = runCatching { access.installationId() }.getOrDefault("")
-        }
-    }
-
-    fun close() {
-        dialog.value = null
-        result.value = null
-    }
-
-    fun refresh() {
-        viewModelScope.launch(Dispatchers.IO) { result.value = access.refresh(manual = true) }
-    }
-}
 
 @Composable
-internal fun AboutAppRoute(
-    viewModel: AboutAppViewModel
-) {
-    val id by viewModel.installationId.collectAsStateWithLifecycle()
-    val checking by viewModel.checking.collectAsStateWithLifecycle()
-    val result by viewModel.refreshResult.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    id?.let { installationId ->
-        val label = stringResource(R.string.app_installation_id)
-        AboutAppBottomSheet(
-            version = BuildConfig.VERSION_NAME,
-            id = installationId,
-            checking = checking,
-            refreshResult = result,
-            onCopy = {
-                context.getSystemService(ClipboardManager::class.java)
-                    .setPrimaryClip(ClipData.newPlainText(label, installationId))
-            },
-            onRefresh = viewModel::refresh,
-            onClose = viewModel::close
-        )
-    }
-}
-
-@Composable
-private fun AboutAppBottomSheet(
-    version: String,
+internal fun AboutAppBottomSheet(
     id: String,
     checking: Boolean,
     refreshResult: Boolean?,
-    onCopy: () -> Unit,
     onRefresh: () -> Unit,
     onClose: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    version: String = BuildConfig.VERSION_NAME
 ) {
+    val context = LocalContext.current
+    val label = stringResource(R.string.app_installation_id)
     SaldomiActionBottomSheet(
         modifier = modifier,
         onDismissRequest = onClose,
@@ -98,7 +42,13 @@ private fun AboutAppBottomSheet(
                 Text(stringResource(R.string.app_version, version))
                 Text(stringResource(R.string.app_installation_id))
                 Text(id.ifEmpty { stringResource(R.string.app_installation_unavailable) })
-                TextButton(onClick = onCopy, enabled = id.isNotEmpty()) {
+                TextButton(
+                    onClick = {
+                        context.getSystemService(ClipboardManager::class.java)
+                            .setPrimaryClip(ClipData.newPlainText(label, id))
+                    },
+                    enabled = id.isNotEmpty()
+                ) {
                     Text(stringResource(R.string.app_copy_installation_id))
                 }
                 if (checking || refreshResult != null) {
@@ -168,5 +118,5 @@ private fun AboutPreview(
     result: Boolean? = null,
     id: String = "a625153f-4be5-47b1-adfa-2c404603c034"
 ) {
-    FillinTheme { AboutAppBottomSheet("0.1", id, checking, result, {}, {}, {}) }
+    FillinTheme { AboutAppBottomSheet(id, checking, result, {}, {}, version = "0.1") }
 }

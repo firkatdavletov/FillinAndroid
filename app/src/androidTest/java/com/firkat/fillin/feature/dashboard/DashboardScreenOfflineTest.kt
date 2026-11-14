@@ -57,7 +57,7 @@ class DashboardScreenOfflineTest {
         val empty = calculate().let {
             it.copy(balanceForecast = it.balanceForecast.copy(points = emptyList(), insufficientHistory = true))
         }
-        show(DashboardUiState(empty.date, DashboardStatus.Ready), empty, fontScale = fontScale)
+        show(DashboardUiState(date = empty.date, status = DashboardStatus.Ready), empty, fontScale = fontScale)
         compose.onNodeWithText("Общий баланс").assertIsDisplayed()
         scrollTo("balance-forecast")
         compose.onNodeWithText("Недостаточно истории").assertIsDisplayed()
@@ -193,7 +193,7 @@ class DashboardScreenOfflineTest {
     private fun showReady(
         dark: Boolean = false,
         fontScale: Float = 1f
-    ) = show(DashboardUiState(SAMPLE.date, DashboardStatus.Ready), SAMPLE, dark, fontScale)
+    ) = show(DashboardUiState(date = SAMPLE.date, status = DashboardStatus.Ready), SAMPLE, dark, fontScale)
 
     private fun show(
         state: DashboardUiState,
@@ -206,7 +206,7 @@ class DashboardScreenOfflineTest {
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
                 FillinTheme(darkTheme = dark, dynamicColor = false) {
                     Box(Modifier.width(320.dp).fillMaxHeight()) {
-                        DashboardScreen { widget -> SampleWidget(widget, dashboard) }
+                        DashboardScreen(title = state.budgetName) { widget -> SampleWidget(widget, dashboard) }
                     }
                 }
             }
@@ -229,6 +229,7 @@ class DashboardScreenOfflineTest {
             DashboardWidgetKind.BalanceForecast -> BalanceForecastWidget(
                 ForecastUiState.from(dashboard.balanceForecast)
             )
+            DashboardWidgetKind.PlannedOperations -> Unit
         }
     }
 

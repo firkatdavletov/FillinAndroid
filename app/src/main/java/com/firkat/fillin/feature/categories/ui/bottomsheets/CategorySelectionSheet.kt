@@ -1,19 +1,30 @@
-package com.firkat.fillin.ui.component
+package com.firkat.fillin.feature.categories.ui.bottomsheets
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.*
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.ui.CategoryItem
+import com.firkat.fillin.ui.component.SaldomiBottomSheet
 import com.firkat.fillin.ui.theme.FillinTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,9 +39,9 @@ internal fun CategorySelectionSheet(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    SaldomiBottomSheet(onDismissRequest = onDismiss) {
+    SaldomiBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
         Column(
-            modifier.fillMaxWidth().heightIn(max = 500.dp).verticalScroll(rememberScrollState()).padding(24.dp),
+            Modifier.fillMaxWidth().heightIn(max = 500.dp).verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(stringResource(R.string.rule_category), style = MaterialTheme.typography.titleLarge)

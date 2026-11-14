@@ -192,7 +192,7 @@ class AppNavigationViewModelTest {
         assertEquals(stack, model.backStack)
         assertFalse(model.exitSetup())
         assertEquals(listOf(AppRoute.Main), model.backStack)
-        assertEquals(AppDestination.Profile, model.mainDestination)
+        assertEquals(AppDestination.Dashboard, model.mainDestination)
 
         model.openBudgetCreation()
         model.finishSetup()
@@ -231,7 +231,7 @@ class AppNavigationViewModelTest {
         assertTrue(restored.backStack.last().isBudgetSetup())
         assertFalse(restored.exitSetup())
         assertEquals(listOf(AppRoute.Main), restored.backStack)
-        assertEquals(AppDestination.Profile, restored.mainDestination)
+        assertEquals(AppDestination.Dashboard, restored.mainDestination)
     }
 
     @Test fun `losing cloud access inside profile setup returns to the local form`() = runTest {

@@ -25,16 +25,17 @@ import com.firkat.fillin.feature.plannedincomes.domain.repository.*
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.*
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesViewModel
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
+import com.firkat.fillin.feature.plannedoperations.ui.bottomsheets.PlannedOperationBottomSheet
 import com.firkat.fillin.ui.navigation.BottomSheetScene
 import com.firkat.fillin.ui.theme.FillinTheme
-import java.math.BigDecimal
-import java.time.Instant
-import java.time.LocalDate
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import java.math.BigDecimal
+import java.time.Instant
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 class PlannedOperationBottomSheetUiTest {
@@ -71,6 +72,14 @@ class PlannedOperationBottomSheetUiTest {
 
     @Test fun expenseDeletionClosesTheSheetAfterConfirmation() {
         show(PlannedOperationType.Expense)
+        compose.onNodeWithTag("planned-editor-delete").performScrollTo().performClick()
+        compose.onNodeWithText("Отмена").performClick()
+        compose.onNodeWithText("Отмена").assertDoesNotExist()
+        compose.onNodeWithTag("planned-operation-bottom-sheet").assertExists()
+        compose.runOnIdle {
+            assertEquals(0, closes)
+            assertEquals(0, commands.deletions)
+        }
         compose.onNodeWithTag("planned-editor-delete").performScrollTo().performClick()
         compose.onNodeWithText("Отключить", ignoreCase = false).performClick()
         compose.runOnIdle { commands.gate.complete(Unit) }

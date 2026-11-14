@@ -50,13 +50,11 @@ import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseStatus
+import com.firkat.fillin.feature.plannedexpenses.ui.bottomsheets.PlannedExpensesBottomSheetHost
 import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.RefreshableContent
-import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
-import com.firkat.fillin.ui.component.SaldomiButton
-import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
@@ -105,62 +103,59 @@ fun PlannedExpensesScreen(
             onEvent = onEvent,
             modifier = Modifier.fillMaxSize()
         )
-        if (editor.isDeleteConfirmationVisible) {
-            DeleteRuleConfirmation(onEvent = onEvent)
-        }
-        return
-    }
+    } else {
+        Box(modifier = Modifier.fillMaxSize()) {
+            RefreshableContent(
+                isRefreshing = state.isRefreshing,
+                onRefresh = { onEvent(PlannedExpensesEvent.Refresh) },
+                hasScrollableContent = state.items.isNotEmpty()
+            ) {
+                when {
+                    state.isLoading && state.items.isEmpty() -> LoadingContent()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        RefreshableContent(
-            isRefreshing = state.isRefreshing,
-            onRefresh = { onEvent(PlannedExpensesEvent.Refresh) },
-            hasScrollableContent = state.items.isNotEmpty()
-        ) {
-            when {
-                state.isLoading && state.items.isEmpty() -> LoadingContent()
-
-                state.error != null && state.items.isEmpty() -> ErrorContent(
-                    error = state.error,
-                    onRetry = { onEvent(PlannedExpensesEvent.Retry) },
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                state.items.isEmpty() -> EmptyContent(
-                    throughInclusive = plannedExpensesPeriodEnd(
-                        asOf = state.asOf,
-                        throughInclusive = state.throughInclusive,
-                        period = state.selectedPeriod
+                    state.error != null && state.items.isEmpty() -> ErrorContent(
+                        error = state.error,
+                        onRetry = { onEvent(PlannedExpensesEvent.Retry) },
+                        modifier = Modifier.fillMaxSize()
                     )
-                )
 
-                else -> PlannedExpensesList(
-                    state = state,
-                    onEvent = onEvent
-                )
+                    state.items.isEmpty() -> EmptyContent(
+                        throughInclusive = plannedExpensesPeriodEnd(
+                            asOf = state.asOf,
+                            throughInclusive = state.throughInclusive,
+                            period = state.selectedPeriod
+                        )
+                    )
+
+                    else -> PlannedExpensesList(
+                        state = state,
+                        onEvent = onEvent
+                    )
+                }
+            }
+
+            ExtendedFloatingActionButton(
+                onClick = { onEvent(PlannedExpensesEvent.CreateRequested) },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+            ) {
+                Text(stringResource(R.string.planned_expenses_create_action))
             }
         }
-
-        ExtendedFloatingActionButton(
-            onClick = { onEvent(PlannedExpensesEvent.CreateRequested) },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        ) {
-            Text(stringResource(R.string.planned_expenses_create_action))
-        }
     }
-
-    state.closeConfirmationExpenseId
-        ?.let { expenseId -> state.items.firstOrNull { it.id == expenseId } }
-        ?.let { expense ->
-            CloseExpenseConfirmation(
-                expense = expense,
-                isClosing = state.isClosingExpense,
-                error = state.closeError,
-                onEvent = onEvent
-            )
-        }
+    PlannedExpensesBottomSheetHost(
+        editorOpen = editor != null,
+        showDeleteConfirmation = editor?.isDeleteConfirmationVisible == true,
+        closeExpenseId = state.closeConfirmationExpenseId,
+        expenses = state.items,
+        isClosing = state.isClosingExpense,
+        closeError = state.closeError,
+        onDelete = { onEvent(PlannedExpensesEvent.DeleteConfirmed) },
+        onDismissDelete = { onEvent(PlannedExpensesEvent.DeleteDismissed) },
+        onCloseExpense = { onEvent(PlannedExpensesEvent.CloseConfirmed) },
+        onDismissClose = { onEvent(PlannedExpensesEvent.CloseDismissed) }
+    )
 }
 
 @Composable
@@ -365,95 +360,6 @@ internal fun PlannedExpenseRuleEditor(
             }
         }
     }
-}
-
-@Composable
-internal fun DeleteRuleConfirmation(
-    onEvent: (PlannedExpensesEvent) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    SaldomiActionBottomSheet(
-        modifier = modifier,
-        onDismissRequest = { onEvent(PlannedExpensesEvent.DeleteDismissed) },
-        title = { Text(stringResource(R.string.planned_expenses_delete_title)) },
-        text = { Text(stringResource(R.string.planned_expenses_delete_message)) },
-        confirmButton = {
-            SaldomiButton(onClick = {
-                onEvent(PlannedExpensesEvent.DeleteConfirmed)
-            }, modifier = Modifier.fillMaxWidth(), large = true, destructive = true) {
-                Text(
-                    text = stringResource(R.string.planned_expenses_delete_confirm)
-                )
-            }
-        },
-        dismissButton = {
-            SaldomiOutlinedButton(onClick = {
-                onEvent(PlannedExpensesEvent.DeleteDismissed)
-            }, modifier = Modifier.fillMaxWidth(), large = true) {
-                Text(stringResource(R.string.planned_expenses_delete_cancel))
-            }
-        }
-    )
-}
-
-@Composable
-internal fun CloseExpenseConfirmation(
-    expense: PlannedExpense,
-    isClosing: Boolean,
-    error: PlannedExpensesError?,
-    onEvent: (PlannedExpensesEvent) -> Unit
-) {
-    SaldomiActionBottomSheet(
-        dismissEnabled = !isClosing,
-        onDismissRequest = { onEvent(PlannedExpensesEvent.CloseDismissed) },
-        title = { Text(stringResource(R.string.planned_expenses_close_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    stringResource(
-                        R.string.planned_expenses_close_message,
-                        formatMoney(expense.paidAmount, expense.currency),
-                        formatMoney(expense.plannedAmount, expense.currency),
-                        formatMoney(expense.remainingAmount, expense.currency)
-                    )
-                )
-                error?.let {
-                    Text(
-                        text = stringResource(it.closeMessageResource),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            SaldomiButton(
-                onClick = { onEvent(PlannedExpensesEvent.CloseConfirmed) },
-                enabled = !isClosing,
-                modifier = Modifier.fillMaxWidth(),
-                large = true
-            ) {
-                Text(
-                    stringResource(
-                        if (isClosing) {
-                            R.string.planned_expenses_close_in_progress
-                        } else {
-                            R.string.planned_expenses_close_confirm
-                        }
-                    )
-                )
-            }
-        },
-        dismissButton = {
-            SaldomiOutlinedButton(
-                onClick = { onEvent(PlannedExpensesEvent.CloseDismissed) },
-                enabled = !isClosing,
-                modifier = Modifier.fillMaxWidth(),
-                large = true
-            ) {
-                Text(stringResource(R.string.planned_expenses_close_cancel))
-            }
-        }
-    )
 }
 
 @Composable
@@ -885,21 +791,6 @@ private val PlannedExpensesError.messageResource: Int
         PlannedExpensesError.Network -> R.string.planned_expenses_error_network
         PlannedExpensesError.InvalidResponse -> R.string.planned_expenses_error_invalid_response
         PlannedExpensesError.Unknown -> R.string.planned_expenses_error_generic
-    }
-
-private val PlannedExpensesError.closeMessageResource: Int
-    @StringRes get() = when (this) {
-        PlannedExpensesError.MissingApiToken,
-        PlannedExpensesError.Unauthorized
-        -> R.string.planned_expenses_error_unauthorized
-
-        PlannedExpensesError.Forbidden -> R.string.planned_expenses_close_error_forbidden
-        PlannedExpensesError.InvalidRequest -> R.string.planned_expenses_close_error_invalid_request
-        PlannedExpensesError.NotFound -> R.string.planned_expenses_close_error_not_found
-        PlannedExpensesError.Conflict -> R.string.planned_expenses_close_error_conflict
-        PlannedExpensesError.Network -> R.string.planned_expenses_error_network
-        PlannedExpensesError.InvalidResponse -> R.string.planned_expenses_error_invalid_response
-        PlannedExpensesError.Unknown -> R.string.planned_expenses_close_error_generic
     }
 
 private val PlannedExpenseFrequency.labelResource: Int

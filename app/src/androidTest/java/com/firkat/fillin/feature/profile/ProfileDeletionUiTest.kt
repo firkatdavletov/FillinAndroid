@@ -6,6 +6,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.profile.domain.*
 import com.firkat.fillin.feature.profile.ui.*
+import com.firkat.fillin.feature.profile.ui.bottomsheets.DeleteAccountBottomSheet
+import com.firkat.fillin.feature.profile.ui.bottomsheets.SignOutAccountBottomSheet
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.junit.Assert.*
 import org.junit.Rule

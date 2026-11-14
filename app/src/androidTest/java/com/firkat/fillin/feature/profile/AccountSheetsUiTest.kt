@@ -9,13 +9,13 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.platform.app.InstrumentationRegistry
-import com.firkat.fillin.feature.profile.ui.DeleteAccountBottomSheet
-import com.firkat.fillin.feature.profile.ui.SignOutAccountBottomSheet
+import com.firkat.fillin.feature.profile.ui.bottomsheets.DeleteAccountBottomSheet
+import com.firkat.fillin.feature.profile.ui.bottomsheets.SignOutAccountBottomSheet
 import com.firkat.fillin.ui.theme.FillinTheme
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
 
 class AccountSheetsUiTest {
     @get:Rule val compose = createComposeRule()

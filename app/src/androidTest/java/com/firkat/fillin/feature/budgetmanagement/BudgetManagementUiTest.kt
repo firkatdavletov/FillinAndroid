@@ -4,6 +4,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.firkat.fillin.feature.budgetmanagement.ui.*
+import com.firkat.fillin.feature.budgetmanagement.ui.bottomsheets.BudgetManagementSheet
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule

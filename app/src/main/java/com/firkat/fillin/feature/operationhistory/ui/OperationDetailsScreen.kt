@@ -58,12 +58,9 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.SuggestedPlan
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
+import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.OperationDetailsBottomSheetHost
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
-import com.firkat.fillin.ui.component.CategorySelectionSheet
 import com.firkat.fillin.ui.component.PrimaryButton
-import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
-import com.firkat.fillin.ui.component.SaldomiButton
-import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.component.SaldomiTextField
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
@@ -136,9 +133,9 @@ internal fun OperationDetailsRoute(
                     OutlinedButton(
                         onClick = onLinkSelected,
                         enabled =
-                            !state.isSaving &&
-                                state.mode == EditOperationMode.Edit &&
-                                state.operation?.let { it.amount > it.refundedAmount } == true,
+                        !state.isSaving &&
+                            state.mode == EditOperationMode.Edit &&
+                            state.operation?.let { it.amount > it.refundedAmount } == true,
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.secondary
                         ),
@@ -156,66 +153,20 @@ internal fun OperationDetailsRoute(
             }
         }
     )
-    if (!readOnly &&
-        state.window == OperationDetailsWindow.Category
-    ) {
-        CategorySelectionSheet(
-            state.categories,
-            state.categoryId,
-            false,
-            false,
-            { event(EditOperationEvent.CategorySelected(it)) },
-            { event(EditOperationEvent.WindowChanged(null)) },
-            {}
-        )
-    }
-    if (!readOnly &&
-        (state.window == OperationDetailsWindow.Discard || state.window == OperationDetailsWindow.Unlink)
-    ) {
-        SaldomiActionBottomSheet(
-            onDismissRequest = { event(EditOperationEvent.WindowChanged(null)) },
-            title = {
-                Text(
-                    stringResource(
-                        if (state.window ==
-                            OperationDetailsWindow.Discard
-                        ) {
-                            R.string.rule_discard_question
-                        } else {
-                            R.string.operation_details_unlink_question
-                        }
-                    )
-                )
-            },
-            confirmButton = {
-                SaldomiButton(onClick = {
-                    event(
-                        if (state.window ==
-                            OperationDetailsWindow.Discard
-                        ) {
-                            EditOperationEvent.DiscardConfirmed
-                        } else {
-                            EditOperationEvent.UnlinkConfirmed
-                        }
-                    )
-                }, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.rule_confirm)) }
-            },
-            dismissButton = {
-                SaldomiOutlinedButton(onClick = {
-                    event(EditOperationEvent.WindowChanged(null))
-                }, modifier = Modifier.fillMaxWidth(), large = true) { Text(stringResource(R.string.rule_cancel)) }
-            }
-        )
-    }
-    if (!readOnly && state.isRefundConfirmationVisible) {
-        RefundConfirmation(
-            {
-                event(EditOperationEvent.RefundConfirmed)
-            },
-            { event(EditOperationEvent.RefundDismissed) },
-            dirty = state.dirty
-        )
-    }
+    OperationDetailsBottomSheetHost(
+        window = state.window,
+        readOnly = readOnly,
+        categories = state.categories,
+        categoryId = state.categoryId,
+        showRefundConfirmation = state.isRefundConfirmationVisible,
+        dirty = state.dirty,
+        onCategorySelected = { event(EditOperationEvent.CategorySelected(it)) },
+        onDismissWindow = { event(EditOperationEvent.WindowChanged(null)) },
+        onDiscard = { event(EditOperationEvent.DiscardConfirmed) },
+        onUnlink = { event(EditOperationEvent.UnlinkConfirmed) },
+        onRefund = { event(EditOperationEvent.RefundConfirmed) },
+        onDismissRefund = { event(EditOperationEvent.RefundDismissed) }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -562,37 +513,6 @@ private fun OperationLinkedPlanCard(
     }
 }
 
-@Composable
-private fun RefundConfirmation(
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-    dirty: Boolean = false
-) {
-    SaldomiActionBottomSheet(
-        modifier = modifier,
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.operation_history_refund_title)) },
-        text = {
-            Text(
-                stringResource(
-                    if (dirty) R.string.operation_details_refund_draft else R.string.operation_history_refund_message
-                )
-            )
-        },
-        confirmButton = {
-            SaldomiButton(onConfirm, modifier = Modifier.fillMaxWidth(), large = true) {
-                Text(stringResource(R.string.operation_history_refund_confirm))
-            }
-        },
-        dismissButton = {
-            SaldomiOutlinedButton(onDismiss, modifier = Modifier.fillMaxWidth(), large = true) {
-                Text(stringResource(R.string.operation_history_refund_cancel))
-            }
-        }
-    )
-}
-
 private val previewOperation =
     Operation(
         "preview", "Продукты", "Супермаркет",
@@ -864,13 +784,6 @@ private fun EditOperationLongPreview() {
     )
 }
 
-@Preview(name = "Refund confirmation")
-@Preview(name = "Refund confirmation dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun RefundConfirmationPreview() {
-    FillinTheme { RefundConfirmation({}, {}) }
-}
-
 private val previewLinkedPlan =
     SuggestedPlan(
         com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkTarget(
@@ -914,11 +827,4 @@ private fun LinkedPlanLongPreview() {
             {}
         )
     }
-}
-
-@Preview
-@Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun RefundWithDraftPreview() {
-    FillinTheme { RefundConfirmation({}, {}, dirty = true) }
 }
