@@ -9,6 +9,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.google.services) apply false
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.ktlint)
 }
 
 // A checkout without Firebase configuration must still support the local budget.
@@ -111,6 +113,44 @@ android {
         compose = true
         buildConfig = true
     }
+    lint {
+        abortOnError = true
+
+        warningsAsErrors = true
+
+        checkReleaseBuilds = true
+
+        checkTestSources = true
+    }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+}
+
+tasks.register("qualityCheck") {
+    group = "verification"
+    description = "Runs all static code quality checks"
+
+    dependsOn(
+        ":app:ktlintCheck",
+        ":app:detekt",
+        ":app:lintDebug",
+    )
+}
+
+detekt {
+    toolVersion = "1.23.8"
+
+    buildUponDefaultConfig = true
+    allRules = false
+
+    config.setFrom(
+        rootProject.file("config/detekt/detekt.yml")
+    )
+
+    baseline = file("detekt-baseline.xml")
+
+    ignoreFailures = false
 }
 
 dependencies {
@@ -165,6 +205,10 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    detektPlugins(
+        libs.detekt.formatting
+    )
 }
 
 ksp {

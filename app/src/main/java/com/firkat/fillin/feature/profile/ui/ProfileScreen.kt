@@ -256,7 +256,7 @@ fun ProfileScreen(
             Text(
                 text = stringResource(R.string.navigation_profile),
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground,
             )
             if (user != null) {
                 Card(
