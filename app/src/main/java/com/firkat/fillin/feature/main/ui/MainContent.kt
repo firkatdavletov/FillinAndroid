@@ -1,17 +1,25 @@
 package com.firkat.fillin.feature.main.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.IntOffset
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
@@ -41,6 +49,8 @@ internal fun MainContent(
         snackbarHost = {
             SaldomiSnackbarHost(snackbarHostState)
         },
+        topBar = {
+        },
         bottomBar = {
             MainBottomNavigation(
                 selectedDestination = selectedDestination,
@@ -55,8 +65,7 @@ internal fun MainContent(
                     ActiveBudgetContent(viewModelStoreOwner = budgetViewModelStoreOwner) {
                         val plansViewModel = planningRulesViewModel()
                         DashboardRoute(
-                            modifier =
-                            Modifier
+                            modifier = Modifier
                                 .fillMaxSize(),
                             bottomBarOverlap = bottomBarOverlap,
                             onForecastClick = onForecastClick,
@@ -108,10 +117,23 @@ internal fun MainContent(
             } else {
                 listOf(AppDestination.Dashboard, selectedDestination)
             }
+        val tabsByContentKey = tabEntries.entries.associate { (destination, entries) ->
+            entries.last().contentKey to destination
+        }
+        val slideSpec = tween<IntOffset>(durationMillis = 300)
+        val tabTransition: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
+            val from = tabsByContentKey.getValue(initialState.key)
+            val to = tabsByContentKey.getValue(targetState.key)
+            val direction = if (to > from) SlideDirection.Start else SlideDirection.End
+            slideIntoContainer(direction, slideSpec) togetherWith slideOutOfContainer(direction, slideSpec)
+        }
         NavDisplay(
             entries = visibleTabs.flatMap { tabEntries.getValue(it) },
             onBack = { onSelectDestination(AppDestination.Dashboard) },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().clipToBounds(),
+            transitionSpec = tabTransition,
+            popTransitionSpec = tabTransition,
+            predictivePopTransitionSpec = { tabTransition() }
         )
     }
 }

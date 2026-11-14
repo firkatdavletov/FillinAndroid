@@ -12,6 +12,7 @@ import com.firkat.fillin.feature.dashboard.widgets.availabletospend.ui.Available
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.BalanceForecastRoute
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitRoute
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceRoute
+import com.firkat.fillin.feature.plannedoperationswidget.ui.PlannedOperationsWidget
 import java.time.LocalDate
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -29,6 +30,8 @@ fun DashboardRoute(
     }
 
     val title by viewModel.budgetState.collectAsStateWithLifecycle()
+    val expenses by viewModel.plannedExpenses.collectAsStateWithLifecycle()
+    val income by viewModel.plannedIncome.collectAsStateWithLifecycle()
 
     DashboardScreen(
         modifier = modifier,
@@ -41,6 +44,10 @@ fun DashboardRoute(
             DashboardWidgetKind.TotalBalance -> TotalBalanceRoute()
             DashboardWidgetKind.AvailableToSpend -> AvailableToSpendRoute()
             DashboardWidgetKind.BalanceForecast -> BalanceForecastRoute(onDetailsClick = onForecastClick)
+            DashboardWidgetKind.PlannedOperations -> PlannedOperationsWidget(
+                expenses = expenses,
+                income = income
+            )
         }
     }
 }

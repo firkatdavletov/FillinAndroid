@@ -402,4 +402,5 @@
     <string name="app_access_check_failed">Не удалось проверить доступ</string>
     <string name="app_about_close">Закрыть</string>
     <string name="app_add_plan">Добавить план</string>
+    <string name="closest_payments">Ближайшие платежи</string>
 </resources>

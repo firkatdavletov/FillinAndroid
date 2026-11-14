@@ -1,9 +1,14 @@
 package com.firkat.fillin.feature.plannedexpenses.data.repository
 
-import androidx.room.CoroutinesRoom.Companion.execute
-import com.firkat.fillin.feature.plannedexpenses.domain.model.*
-import com.firkat.fillin.feature.plannedexpenses.domain.repository.*
-import com.firkat.fillin.feature.plannedoperations.domain.model.*
+import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
+import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseRule
+import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenses
+import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesException
+import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesRepository
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import com.firkat.fillin.feature.sync.data.BudgetLocalFailure
 import com.firkat.fillin.feature.sync.data.BudgetStore
 import java.math.BigDecimal
@@ -55,11 +60,11 @@ class OfflinePlannedExpensesRepository(private val store: BudgetStore) : Planned
                     period = PlannedOperationPeriod.Custom,
                     dateFrom = LocalDate.of(1, 1, 1),
                     dateTo =
-                    today
-                        .plusMonths(2)
-                        .withDayOfMonth(1)
-                        .plusMonths(1)
-                        .minusDays(1)
+                        today
+                            .plusMonths(2)
+                            .withDayOfMonth(1)
+                            .plusMonths(1)
+                            .minusDays(1)
                 )
             )
         PlannedExpenses(

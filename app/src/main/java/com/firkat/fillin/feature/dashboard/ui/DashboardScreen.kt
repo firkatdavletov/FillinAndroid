@@ -47,6 +47,7 @@ import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitUiSta
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.DailyLimitWidget
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceUiState
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceWidget
+import com.firkat.fillin.feature.plannedoperationswidget.ui.PlannedOperationsWidget
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.theme.saldomiDesignColors
 import com.firkat.fillin.utils.DateUtils
@@ -182,7 +183,7 @@ fun MainScreenHeader(
         ) {
             Icon(
                 modifier = Modifier.size(24.dp),
-                imageVector = ImageVector.vectorResource(R.drawable.ic_account_box),
+                imageVector = ImageVector.vectorResource(R.drawable.ic_profile_24),
                 contentDescription = "Profile"
             )
         }
@@ -245,6 +246,13 @@ private fun MainScreenGridPreview() {
                 DashboardWidgetKind.BalanceForecast -> {
                     BalanceForecastWidget(
                         forecastPreviewState
+                    )
+                }
+
+                DashboardWidgetKind.PlannedOperations -> {
+                    PlannedOperationsWidget(
+                        expenses = emptyList(),
+                        income = null
                     )
                 }
             }

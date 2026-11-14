@@ -7,12 +7,35 @@ enum class DashboardWidgetSize(val columns: Int, val rows: Int) {
     TwoByThree(2, 3)
 }
 
-enum class DashboardWidgetKind { TotalBalance, AvailableToSpend, DailyLimit, BalanceForecast }
+enum class DashboardWidgetKind {
+    TotalBalance,
+    AvailableToSpend,
+    DailyLimit,
+    BalanceForecast,
+    PlannedOperations
+}
 
 data class DashboardWidget(val id: String, val kind: DashboardWidgetKind, val size: DashboardWidgetSize)
 
 val DefaultDashboardWidgets = listOf(
-    DashboardWidget("daily-limit", DashboardWidgetKind.DailyLimit, DashboardWidgetSize.TwoByTwo),
-    DashboardWidget("total-balance", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
-    DashboardWidget("balance-forecast", DashboardWidgetKind.BalanceForecast, DashboardWidgetSize.TwoByThree)
+    DashboardWidget(
+        id = "daily-limit",
+        kind = DashboardWidgetKind.DailyLimit,
+        size = DashboardWidgetSize.TwoByTwo
+    ),
+    DashboardWidget(
+        id = "total-balance",
+        kind = DashboardWidgetKind.TotalBalance,
+        size = DashboardWidgetSize.TwoByOne
+    ),
+    DashboardWidget(
+        id = "planned-operations",
+        kind = DashboardWidgetKind.PlannedOperations,
+        size = DashboardWidgetSize.TwoByThree
+    ),
+    DashboardWidget(
+        id = "balance-forecast",
+        kind = DashboardWidgetKind.BalanceForecast,
+        size = DashboardWidgetSize.TwoByThree
+    )
 )

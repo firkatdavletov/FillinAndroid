@@ -97,7 +97,9 @@ val budgetModule =
             viewModel {
                 DashboardViewModel(
                     source = get(),
-                    budgets = get()
+                    budgets = get(),
+                    getPlannedIncomes = get(),
+                    getPlannedExpenses = get(),
                 )
             }
             factory { ObserveTotalBalance(get()) }

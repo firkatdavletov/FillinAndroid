@@ -100,7 +100,7 @@ fun MoneyAmount(
 ) {
     BasicText(
         text = money?.let { formatMoney(it.amount, it.currency) } ?: "—",
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier,
         style =
             MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.SemiBold,
