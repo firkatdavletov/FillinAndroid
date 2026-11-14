@@ -66,17 +66,17 @@ fun DashboardScreen(
             header = {
                 MainScreenHeader(
                     modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            brush =
-                            Brush.verticalGradient(
-                                0f to MaterialTheme.saldomiDesignColors.background,
-                                0.7f to MaterialTheme.saldomiDesignColors.background,
-                                1f to MaterialTheme.saldomiDesignColors.background.copy(alpha = 0f)
-                            )
-                        ).padding(bottom = 16.dp)
-                        .statusBarsPadding(),
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush =
+                                    Brush.verticalGradient(
+                                        0f to MaterialTheme.saldomiDesignColors.background,
+                                        0.7f to MaterialTheme.saldomiDesignColors.background,
+                                        1f to MaterialTheme.saldomiDesignColors.background.copy(alpha = 0f)
+                                    )
+                            ).padding(bottom = 16.dp)
+                            .statusBarsPadding(),
                     title = title ?: "",
                     subtitle = DateUtils.getCurrentDate(),
                     textColor = MaterialTheme.colorScheme.onBackground,
@@ -158,8 +158,8 @@ fun MainScreenHeader(
     ) {
         Column(
             modifier =
-            Modifier
-                .weight(1f),
+                Modifier
+                    .weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
@@ -205,11 +205,11 @@ private fun MainScreenGridPreview() {
     FillinTheme {
         DashboardGrid(
             widgets =
-            DefaultDashboardWidgets +
-                listOf(
-                    DashboardWidget("wide", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
-                    DashboardWidget("large", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByTwo)
-                ),
+                DefaultDashboardWidgets +
+                    listOf(
+                        DashboardWidget("wide", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
+                        DashboardWidget("large", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByTwo)
+                    ),
             header = {
                 MainScreenHeader(
                     title = stringResource(R.string.app_name)

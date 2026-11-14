@@ -22,5 +22,5 @@ fun AvailableToSpendWidget(
     state: AvailableToSpendUiState,
     modifier: Modifier = Modifier
 ) {
-    MetricWidget(R.string.dashboard_available_to_spend, R.drawable.ic_wallet, state.amount, modifier)
+    MetricWidget(R.string.dashboard_available_to_spend, state.amount, modifier)
 }

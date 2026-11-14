@@ -2,12 +2,29 @@ package com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui
 
 import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -32,6 +49,7 @@ import com.firkat.fillin.feature.dashboard.domain.model.*
 import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetCard
 import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetHeading
 import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiTextButton
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.theme.saldomiColors
@@ -72,12 +90,7 @@ internal fun BalanceForecastWidget(
                 ForecastLegend(state.currentPace != null)
                 ForecastChart(state, Modifier.fillMaxWidth(), interactive = false)
                 HorizontalDivider()
-                Text(
-                    stringResource(R.string.forecast_ending_on, forecastDate(requireNotNull(state.endDate), "d MMMM")),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                ForecastEndings(state)
-                SaldomiOutlinedButton(
+                SaldomiTextButton(
                     onClick = onDetailsClick,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -97,8 +110,7 @@ internal fun ForecastHeading(
 ) {
     Column(modifier) {
         WidgetHeading(
-            title = R.string.forecast_title,
-            icon = R.drawable.ic_forecast
+            title = R.string.forecast_title
         )
 
         val start = state.startDate
@@ -210,9 +222,7 @@ internal fun ForecastStatusMessage(
                 )
             }
 
-            else -> {
-                Unit
-            }
+            else -> {}
         }
         if (showHistoryHints &&
             status == BalanceForecastStatus.STRUCTURAL_DEFICIT &&
@@ -240,8 +250,16 @@ private fun ForecastLegendItem(
     modifier: Modifier = Modifier
 ) {
     val color = if (pace) MaterialTheme.saldomiColors.forecastPace else MaterialTheme.saldomiColors.income
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Canvas(Modifier.width(24.dp).height(8.dp)) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Canvas(
+            modifier = Modifier
+                .width(24.dp)
+                .height(8.dp)
+        ) {
             drawLine(
                 color,
                 Offset(0f, size.height / 2),
@@ -280,17 +298,6 @@ internal fun ForecastAdaptiveRow(
 }
 
 @Composable
-internal fun ForecastEndings(
-    state: ForecastUiState,
-    modifier: Modifier = Modifier
-) {
-    ForecastAdaptiveRow(modifier) {
-        state.currentPace?.let { ForecastAmount(R.string.forecast_current_pace, it.endingBalance) }
-        ForecastAmount(R.string.forecast_by_limit, state.byLimit.endingBalance)
-    }
-}
-
-@Composable
 internal fun ForecastAmount(
     label: Int,
     money: Money?,
@@ -301,17 +308,17 @@ internal fun ForecastAmount(
         BasicText(
             money?.let { signedForecastMoney(it) } ?: stringResource(R.string.dashboard_value_unavailable),
             style =
-            MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color =
-                if (money != null &&
-                    money.amount.signum() < 0
-                ) {
-                    MaterialTheme.saldomiColors.expense
-                } else {
-                    MaterialTheme.saldomiColors.income
-                }
-            ),
+                MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color =
+                        if (money != null &&
+                            money.amount.signum() < 0
+                        ) {
+                            MaterialTheme.saldomiColors.expense
+                        } else {
+                            MaterialTheme.saldomiColors.income
+                        }
+                ),
             maxLines = 1,
             autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = 24.sp)
         )
@@ -459,17 +466,17 @@ internal fun ForecastChart(
                             path,
                             tint,
                             style =
-                            Stroke(
-                                width = 2.5.dp.toPx(),
-                                pathEffect =
-                                if (state.currentPacePoints != null &&
-                                    index == 0
-                                ) {
-                                    PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 3.dp.toPx()))
-                                } else {
-                                    null
-                                }
-                            )
+                                Stroke(
+                                    width = 2.5.dp.toPx(),
+                                    pathEffect =
+                                        if (state.currentPacePoints != null &&
+                                            index == 0
+                                        ) {
+                                            PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 3.dp.toPx()))
+                                        } else {
+                                            null
+                                        }
+                                )
                         )
                     }
                     if (points.size ==
@@ -581,15 +588,15 @@ internal val forecastPreviewState: ForecastUiState =
                 nextDaysLimit = Money(2000.toBigDecimal(), "KZT"),
                 dependsOnPlannedIncome = true,
                 events =
-                listOf(
-                    com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(
-                        "salary",
-                        "Зарплата",
-                        start.plusDays(13),
-                        Money(50000.toBigDecimal(), "KZT"),
-                        true
+                    listOf(
+                        com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(
+                            "salary",
+                            "Зарплата",
+                            start.plusDays(13),
+                            Money(50000.toBigDecimal(), "KZT"),
+                            true
+                        )
                     )
-                )
             )
         )
     }
@@ -721,13 +728,6 @@ private fun LegendItemPaceComponentPreview() {
 @Composable
 private fun LegendItemLimitComponentPreview() {
     FillinTheme { ForecastLegendItem(false) }
-}
-
-@Preview(name = "Endings", widthDp = 390)
-@Preview(name = "Endings dark", widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable
-private fun EndingsComponentPreview() {
-    FillinTheme { ForecastEndings(forecastPreviewState) }
 }
 
 @Preview(name = "PositiveAmount", widthDp = 390)

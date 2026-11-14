@@ -24,7 +24,6 @@ fun TotalBalanceWidget(
 ) {
     MetricWidget(
         title = R.string.dashboard_total_balance,
-        icon = R.drawable.ic_account_balance,
         state.amount,
         modifier
     )

@@ -12,8 +12,7 @@ enum class DashboardWidgetKind { TotalBalance, AvailableToSpend, DailyLimit, Bal
 data class DashboardWidget(val id: String, val kind: DashboardWidgetKind, val size: DashboardWidgetSize)
 
 val DefaultDashboardWidgets = listOf(
-    DashboardWidget("total-balance", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.OneByOne),
-    DashboardWidget("available-to-spend", DashboardWidgetKind.AvailableToSpend, DashboardWidgetSize.OneByOne),
     DashboardWidget("daily-limit", DashboardWidgetKind.DailyLimit, DashboardWidgetSize.TwoByTwo),
+    DashboardWidget("total-balance", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
     DashboardWidget("balance-forecast", DashboardWidgetKind.BalanceForecast, DashboardWidgetSize.TwoByThree)
 )

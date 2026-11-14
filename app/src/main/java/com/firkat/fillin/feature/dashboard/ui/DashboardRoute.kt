@@ -37,9 +37,9 @@ fun DashboardRoute(
         onProfileClick = onProfileClick
     ) { widget ->
         when (widget.kind) {
+            DashboardWidgetKind.DailyLimit -> DailyLimitRoute(onPaymentsClick = onPaymentsClick)
             DashboardWidgetKind.TotalBalance -> TotalBalanceRoute()
             DashboardWidgetKind.AvailableToSpend -> AvailableToSpendRoute()
-            DashboardWidgetKind.DailyLimit -> DailyLimitRoute(onPaymentsClick = onPaymentsClick)
             DashboardWidgetKind.BalanceForecast -> BalanceForecastRoute(onDetailsClick = onForecastClick)
         }
     }
