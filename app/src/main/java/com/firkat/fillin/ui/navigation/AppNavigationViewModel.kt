@@ -342,7 +342,9 @@ class AppNavigationViewModel(
         }
     }
 
-    fun openCategories() = openMainDestination(AppRoute.Categories)
+    fun openCategories() {
+        openMainDestination(AppRoute.Categories)
+    }
 
     fun openCategoryEditor(
         budgetScopeId: String,
