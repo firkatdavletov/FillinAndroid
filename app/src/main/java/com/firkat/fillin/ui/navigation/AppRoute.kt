@@ -40,6 +40,7 @@ sealed interface AppRoute : NavKey {
         val budgetScopeId: String,
         val requestId: String = UUID.randomUUID().toString(),
     ) : AppRoute
+    @Serializable data object Profile: AppRoute
 }
 
 internal fun AppRoute.isBudgetSetup() = this is AppRoute.BudgetSetup || this == AppRoute.BudgetSetupList || this == AppRoute.BudgetSetupJoin

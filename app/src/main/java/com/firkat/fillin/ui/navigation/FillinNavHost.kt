@@ -43,12 +43,14 @@ import com.firkat.fillin.feature.dailylimit.ui.DailyLimitDetailsRoute
 import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastDetailsRoute
 import com.firkat.fillin.feature.editcategory.ui.EditCategoryRoute
 import com.firkat.fillin.feature.launch.presentation.LaunchScreen
+import com.firkat.fillin.feature.main.ui.AppDestination
 import com.firkat.fillin.feature.main.ui.MainScreen
 import com.firkat.fillin.feature.operationhistory.ui.OperationCreateRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationDetailsRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationPlanLinkBottomSheet
 import com.firkat.fillin.feature.operationhistory.ui.PendingPlanLinkRecovery
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationBottomSheet
+import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import com.firkat.fillin.feature.sync.ui.CloudSyncRoute
 import com.firkat.fillin.ui.component.SnackbarType
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
@@ -58,15 +60,18 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun FillinNavHost(
-    navigation: AppNavigationViewModel = koinViewModel(
-        viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)
-    ),
-    auth: AuthViewModel = koinViewModel(
-        viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)
-    ),
-    setup: BudgetSetupViewModel = koinViewModel(
-        viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity)
-    ),
+    navigation: AppNavigationViewModel =
+        koinViewModel(
+            viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity),
+        ),
+    auth: AuthViewModel =
+        koinViewModel(
+            viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity),
+        ),
+    setup: BudgetSetupViewModel =
+        koinViewModel(
+            viewModelStoreOwner = checkNotNull(LocalActivity.current as? ComponentActivity),
+        ),
     budgets: ActiveBudgetManager = koinInject(),
 ) {
     val setupState by setup.state.collectAsStateWithLifecycle()
@@ -80,7 +85,7 @@ fun FillinNavHost(
     LaunchedEffect(
         navigation.backStack.lastOrNull(),
         setupState.uid,
-        state.session
+        state.session,
     ) {
         if (navigation.backStack.lastOrNull() == AppRoute.Auth && !navigation.configuringBudget) {
             setup.onAction(
@@ -111,7 +116,7 @@ fun FillinNavHost(
     val linkSheet = navigation.backStack.lastOrNull() as? AppRoute.OperationPlanLinkBottomSheet
     LaunchedEffect(
         runtime?.scope?.id,
-        linkSheet
+        linkSheet,
     ) {
         if (linkSheet != null && linkSheet.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissOperationPlanLink(
@@ -122,7 +127,7 @@ fun FillinNavHost(
     val editorRoute = navigation.backStack.lastOrNull() as? AppRoute.PlanningRuleEditor
     LaunchedEffect(
         runtime?.scope?.id,
-        editorRoute
+        editorRoute,
     ) {
         if (editorRoute != null && editorRoute.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissPlanningRuleEditor(
@@ -139,7 +144,7 @@ fun FillinNavHost(
     val plannedSheet = navigation.backStack.lastOrNull() as? AppRoute.PlannedOperationBottomSheet
     LaunchedEffect(
         runtime?.scope?.id,
-        sheet
+        sheet,
     ) {
         if (sheet != null && sheet.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissOperationDetails(sheet)
@@ -147,7 +152,7 @@ fun FillinNavHost(
     }
     LaunchedEffect(
         runtime?.scope?.id,
-        plannedSheet
+        plannedSheet,
     ) {
         if (plannedSheet != null && plannedSheet.budgetScopeId != runtime?.scope?.id) {
             navigation.dismissPlannedOperationBottomSheet(plannedSheet)
@@ -156,7 +161,7 @@ fun FillinNavHost(
     DisposableEffect(
         mainModels,
         operationCreateModels,
-        context
+        context,
     ) {
         onDispose {
             if ((context as? Activity)?.isChangingConfigurations != true) {
@@ -172,7 +177,7 @@ fun FillinNavHost(
         state.errorId,
         state.error,
         lifecycleOwner,
-        resources
+        resources,
     ) {
         if (!authVisible) {
             lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -212,7 +217,7 @@ fun FillinNavHost(
                     LaunchScreen(
                         failed = launchFailed,
                         onShown = navigation::onLaunchShown,
-                        onRetry = navigation::retryLaunch
+                        onRetry = navigation::retryLaunch,
                     )
                 }
                 entry<AppRoute.DailyLimitDetails> { route ->
@@ -236,37 +241,28 @@ fun FillinNavHost(
                     }
                 }
                 entry<AppRoute.Main> {
-                    if (!readOnly) ActiveBudgetContent(viewModelStoreOwner = mainModels) {
-                        PendingPlanLinkRecovery(
-                            onPending = { id ->
-                                runtime?.scope?.id?.let { navigation.openOperationPlanLink(id, it) }
-                            },
-                            isActive =
-                                navigation.backStack.lastOrNull() == AppRoute.Main,
-                        )
+                    if (!readOnly) {
+                        ActiveBudgetContent(viewModelStoreOwner = mainModels) {
+                            PendingPlanLinkRecovery(
+                                onPending = { id ->
+                                    runtime?.scope?.id?.let { navigation.openOperationPlanLink(id, it) }
+                                },
+                                isActive =
+                                    navigation.backStack.lastOrNull() == AppRoute.Main,
+                            )
+                        }
                     }
                     MainScreen(
                         modifier = Modifier.fillMaxSize(),
-                        authBusy = state.busy,
                         readOnly = readOnly,
                         onAccountClick = {
-                            if (state.session.userOrNull != null) {
-                                auth.onAction(AuthAction.SignOut)
-                            } else {
-                                navigation.openAuthentication()
-                            }
+                            navigation.openProfile()
                         },
-                        onMethodsClick = navigation::openAccountMethods,
                         snackbarHostState = snackbar,
                         budgetViewModelStoreOwner = mainModels,
                         selectedDestination = navigation.mainDestination,
                         onSelectDestination = navigation::selectMainDestination,
-                        onCreateBudgetClick = navigation::openBudgetCreation,
-                        user = state.session.userOrNull,
                         onForecastClick = { runtime?.scope?.id?.let(navigation::openForecast) },
-                        onCategoriesClick = navigation::openCategories,
-                        onFamilyAccessClick = navigation::openFamilyAccess,
-                        onCloudSyncClick = navigation::openCloudSync,
                         onCreateOperationClick = navigation::openOperationCreate,
                         onOperationClick = { operationId, resultKey ->
                             runtime?.scope?.id?.let { scopeId ->
@@ -432,6 +428,25 @@ fun FillinNavHost(
                         navigation::finishSetup,
                         navigation::showSetupPage,
                         fromProfile = navigation.setupFromProfile,
+                    )
+                }
+                entry(AppRoute.Profile) {
+                    ProfileRoute(
+                        user = state.session.userOrNull,
+                        authBusy = state.busy,
+                        onAccountClick = {
+                            if (state.session.userOrNull != null) {
+                                auth.onAction(AuthAction.SignOut)
+                            } else {
+                                navigation.openAuthentication()
+                            }
+                        },
+                        onMethodsClick = navigation::openAccountMethods,
+                        onCategoriesClick = navigation::openCategories,
+                        budgetReadOnly = readOnly,
+                        onFamilyAccessClick = navigation::openFamilyAccess,
+                        onCloudSyncClick = navigation::openCloudSync,
+                        onCreateBudgetClick = navigation::openBudgetCreation,
                     )
                 }
             },

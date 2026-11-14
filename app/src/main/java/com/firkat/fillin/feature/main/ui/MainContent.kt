@@ -13,7 +13,6 @@ import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
 import com.firkat.fillin.feature.dashboard.ui.DashboardRoute
@@ -22,7 +21,6 @@ import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsEvent
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsRoute
 import com.firkat.fillin.feature.plannedoperations.ui.planningRulesViewModel
-import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import com.firkat.fillin.ui.component.SaldomiSnackbarHost
 
 @Composable
@@ -30,16 +28,9 @@ internal fun MainContent(
     modifier: Modifier = Modifier,
     selectedDestination: AppDestination,
     onSelectDestination: (AppDestination) -> Unit,
-    authBusy: Boolean,
     onAccountClick: () -> Unit,
-    onMethodsClick: () -> Unit = onAccountClick,
     snackbarHostState: SnackbarHostState,
-    user: AuthUser?,
     budgetViewModelStoreOwner: MainBudgetViewModelStore,
-    onCategoriesClick: () -> Unit,
-    onFamilyAccessClick: () -> Unit,
-    onCloudSyncClick: () -> Unit,
-    onCreateBudgetClick: () -> Unit,
     onOperationClick: (String, String) -> Unit,
     onForecastClick: () -> Unit,
     readOnly: Boolean = false,
@@ -53,7 +44,6 @@ internal fun MainContent(
         bottomBar = {
             MainBottomNavigation(
                 selectedDestination = selectedDestination,
-                canCreateOperation = !readOnly,
                 onSelectDestination = onSelectDestination,
             )
         },
@@ -76,6 +66,7 @@ internal fun MainContent(
                                 )
                                 onSelectDestination(AppDestination.Planned)
                             },
+                            onProfileClick = onAccountClick,
                         )
                     }
                 }
@@ -97,20 +88,6 @@ internal fun MainContent(
                             bottomBarOverlap = bottomBarOverlap,
                         )
                     }
-                }
-                entry(AppDestination.Profile) {
-                    ProfileRoute(
-                        user = user,
-                        authBusy = authBusy,
-                        onAccountClick = onAccountClick,
-                        onMethodsClick = onMethodsClick,
-                        onCategoriesClick = onCategoriesClick,
-                        budgetReadOnly = readOnly,
-                        onFamilyAccessClick = onFamilyAccessClick,
-                        onCloudSyncClick = onCloudSyncClick,
-                        onCreateBudgetClick = onCreateBudgetClick,
-                        bottomBarOverlap = bottomBarOverlap,
-                    )
                 }
             }
         // Keep each tab's decorators alive even while that tab is absent from NavDisplay.

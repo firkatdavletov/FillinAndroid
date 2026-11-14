@@ -4,11 +4,14 @@ import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -16,6 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -33,9 +39,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,6 +52,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.firkat.fillin.R
+import com.firkat.fillin.ui.component.SaldomiButton
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.theme.saldomiDesignColors
 
@@ -52,52 +62,90 @@ internal fun MainBottomNavigation(
     selectedDestination: AppDestination,
     onSelectDestination: (AppDestination) -> Unit,
     modifier: Modifier = Modifier,
-    canCreateOperation: Boolean = true,
 ) {
-    val shape = if (canCreateOperation) MainNavigationShape else androidx.compose.foundation.shape.RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     val colors = MaterialTheme.colorScheme
+    val destinations =
+        listOf(
+            AppDestination.Dashboard,
+            AppDestination.History,
+            AppDestination.Planned,
+            AppDestination.AddOperation,
+        )
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
         contentAlignment = Alignment.TopCenter,
     ) {
+        HorizontalDivider(
+            modifier =
+                Modifier
+                    .padding(top = 24.dp),
+            thickness = 1.dp,
+            color = MaterialTheme.saldomiDesignColors.outlineReference,
+        )
         NavigationBar(
-            modifier = Modifier
-                .padding(top = 24.dp)
-                .clip(shape)
-                .background(
-                    Brush.verticalGradient(listOf(colors.surfaceContainer.copy(alpha = 0.9f), colors.surfaceContainerLowest)),
-                )
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.saldomiDesignColors.border,
-                    shape = MainNavigationShape,
-                ),
+            modifier =
+                Modifier
+                    .padding(top = 24.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors =
+                                listOf(
+                                    colors.surfaceContainer.copy(alpha = 0.9f),
+                                    colors.surfaceContainerLowest,
+                                ),
+                        ),
+                    ),
             containerColor = Color.Transparent,
             tonalElevation = 0.dp,
             windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom),
         ) {
             // Own the spacing so Material's inter-item gaps do not squeeze the labels.
-            Row(modifier = Modifier.fillMaxWidth()) {
-                AppDestination.entries.forEach { destination ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                destinations.forEach { destination ->
+                    val selected = selectedDestination == destination
                     if (destination == AppDestination.AddOperation) {
-                        // Reserve the cradle; creation is an action, not a selectable destination.
-                        if (canCreateOperation) Spacer(Modifier.width(80.dp))
+                        Button(
+                            modifier =
+                                Modifier
+                                    .height(64.dp)
+                                    .padding(top = 14.dp, end = 16.dp),
+                            contentPadding =
+                                PaddingValues(
+                                    horizontal = 12.dp,
+                                ),
+                            shape = RoundedCornerShape(14.dp),
+                            onClick = {
+                                onSelectDestination(destination)
+                            },
+                        ) {
+                            Icon(
+                                imageVector = ImageVector.vectorResource(R.drawable.ic_add_24),
+                                contentDescription = null,
+                            )
+                            Text(
+                                text = stringResource(R.string.notice),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
                     } else {
-                        val selected = selectedDestination == destination
                         NavigationBarItem(
                             modifier = Modifier.testTag("tab_${destination.name}"),
                             selected = selected,
                             onClick = { onSelectDestination(destination) },
                             icon = {
                                 Box(
-                                    modifier = Modifier
-                                        .size(width = 48.dp, height = 28.dp)
-                                        .background(
-                                            color = if (selected) colors.primary.copy(alpha = 0.18f) else Color.Transparent,
-                                            shape = CircleShape,
-                                        ),
+                                    modifier =
+                                        Modifier
+                                            .size(width = 48.dp, height = 28.dp)
+                                            .background(
+                                                color = if (selected) colors.primary.copy(alpha = 0.18f) else Color.Transparent,
+                                                shape = CircleShape,
+                                            ),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(
@@ -119,28 +167,29 @@ internal fun MainBottomNavigation(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                             },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = colors.primary,
-                                selectedTextColor = colors.onSurface,
-                                indicatorColor = Color.Transparent,
-                                unselectedIconColor = colors.onSurfaceVariant,
-                                unselectedTextColor = colors.onSurfaceVariant,
-                            ),
+                            colors =
+                                NavigationBarItemDefaults.colors(
+                                    selectedIconColor = colors.primary,
+                                    selectedTextColor = colors.onSurface,
+                                    indicatorColor = Color.Transparent,
+                                    unselectedIconColor = colors.onSurfaceVariant,
+                                    unselectedTextColor = colors.onSurfaceVariant,
+                                ),
                         )
                     }
                 }
             }
         }
-        if (canCreateOperation) CreateOperationButton(
-            onClick = { onSelectDestination(AppDestination.AddOperation) },
-            modifier = Modifier.testTag("tab_AddOperation"),
-        )
     }
 }
 
 /** Rounded panel with tangent shoulders and an 8dp gap below the raised 64dp button. */
 private object MainNavigationShape : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
         val radius = with(density) { 24.dp.toPx() }.coerceAtMost(size.height / 2f)
         val center = size.width / 2f
         val halfNotch = with(density) { 64.dp.toPx() }.coerceAtMost((center - radius).coerceAtLeast(0f))
@@ -186,13 +235,6 @@ private fun MainBottomNavigationPlannedPreview() {
     MainBottomNavigationPreview(AppDestination.Planned)
 }
 
-@Preview(name = "Profile", widthDp = 411)
-@Preview(name = "Profile dark", widthDp = 411, uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun MainBottomNavigationProfilePreview() {
-    MainBottomNavigationPreview(AppDestination.Profile)
-}
-
 @Preview(name = "Compact", widthDp = 320)
 @Preview(name = "Compact dark", widthDp = 320, uiMode = UI_MODE_NIGHT_YES)
 @Preview(name = "Large text", widthDp = 320, fontScale = 2f)
@@ -205,7 +247,9 @@ private fun MainBottomNavigationAdaptivePreview() {
 }
 
 @Composable
-private fun MainBottomNavigationPreview(destination: AppDestination) {
+private fun MainBottomNavigationPreview(
+    destination: AppDestination,
+) {
     FillinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             MainBottomNavigation(
@@ -217,8 +261,9 @@ private fun MainBottomNavigationPreview(destination: AppDestination) {
     }
 }
 
-@Preview @Preview(uiMode = UI_MODE_NIGHT_YES)
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun MainBottomNavigationReadOnlyPreview() {
-    FillinTheme { MainBottomNavigation(AppDestination.Dashboard, {}, canCreateOperation = false) }
+    FillinTheme { MainBottomNavigation(AppDestination.Dashboard, {}) }
 }

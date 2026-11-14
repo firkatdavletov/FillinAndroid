@@ -4,6 +4,7 @@ import com.firkat.fillin.feature.dashboard.domain.model.DashboardStatus
 import java.time.LocalDate
 
 data class DashboardUiState(
+    val budgetName: String? = null,
     val date: LocalDate? = null,
     val status: DashboardStatus = DashboardStatus.WaitingForBudget,
     val isRefreshing: Boolean = false,

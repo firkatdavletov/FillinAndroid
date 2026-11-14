@@ -27,8 +27,4 @@ internal enum class AppDestination(
         labelResource = R.string.navigation_planned,
         iconResource = R.drawable.ic_calendar,
     ),
-    Profile(
-        labelResource = R.string.navigation_profile,
-        iconResource = R.drawable.ic_account_box,
-    ),
 }

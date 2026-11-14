@@ -43,9 +43,9 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -253,7 +253,11 @@ fun ProfileScreen(
                     .padding(horizontal = 16.dp)
                     .padding(top = 78.dp, bottom = 32.dp + bottomBarOverlap),
         ) {
-            Spacer(Modifier.height(32.dp))
+            Text(
+                text = stringResource(R.string.navigation_profile),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
             if (user != null) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -419,22 +423,6 @@ fun ProfileScreen(
                 )
             }
         }
-        MainScreenHeader(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        brush =
-                            Brush.verticalGradient(
-                                0f to MaterialTheme.saldomiDesignColors.background,
-                                0.7f to MaterialTheme.saldomiDesignColors.background,
-                                1f to MaterialTheme.saldomiDesignColors.background.copy(alpha = 0f),
-                            ),
-                    ).padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp)
-                    .statusBarsPadding(),
-            title = stringResource(R.string.navigation_profile),
-        )
     }
 }
 
