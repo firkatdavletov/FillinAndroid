@@ -43,19 +43,27 @@ class PlannedExpensesViewModel(
     ) {
         when (event) {
             PlannedExpensesEvent.Retry -> load()
+
             PlannedExpensesEvent.Refresh -> load(isRefreshing = true)
+
             is PlannedExpensesEvent.PeriodSelected -> _uiState.update {
                 it.copy(selectedPeriod = event.period)
             }
+
             PlannedExpensesEvent.CreateRequested -> openCreateEditor()
+
             is PlannedExpensesEvent.EditRequested -> openEditEditor(event.expenseId)
+
             PlannedExpensesEvent.EditorClosed -> closeEditor()
+
             is PlannedExpensesEvent.CategorySelected -> updateEditor {
                 copy(categoryId = event.categoryId, error = null)
             }
+
             is PlannedExpensesEvent.AmountChanged -> updateEditor {
                 copy(amount = event.amount, error = null)
             }
+
             is PlannedExpensesEvent.FrequencyChanged -> updateEditor {
                 copy(
                     frequency = event.frequency,
@@ -63,22 +71,31 @@ class PlannedExpensesViewModel(
                     error = null
                 )
             }
+
             is PlannedExpensesEvent.ScheduleValueChanged -> updateEditor {
                 copy(scheduleValue = event.scheduleValue.filter(Char::isDigit), error = null)
             }
+
             is PlannedExpensesEvent.StartsOnChanged -> updateEditor {
                 copy(startsOn = event.startsOn, error = null)
             }
+
             PlannedExpensesEvent.SaveRequested -> save()
+
             PlannedExpensesEvent.DeleteRequested -> updateEditor {
                 if (canDelete) copy(isDeleteConfirmationVisible = true) else this
             }
+
             PlannedExpensesEvent.DeleteDismissed -> updateEditor {
                 copy(isDeleteConfirmationVisible = false)
             }
+
             PlannedExpensesEvent.DeleteConfirmed -> delete()
+
             is PlannedExpensesEvent.CloseRequested -> requestClose(event.expenseId)
+
             PlannedExpensesEvent.CloseDismissed -> dismissClose()
+
             PlannedExpensesEvent.CloseConfirmed -> close()
         }
     }

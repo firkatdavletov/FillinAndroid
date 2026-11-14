@@ -3,8 +3,6 @@ package com.firkat.fillin.feature.main.ui
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
@@ -13,7 +11,6 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.IntOffset
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
@@ -30,6 +27,7 @@ import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsEvent
 import com.firkat.fillin.feature.plannedoperations.ui.PlannedOperationsRoute
 import com.firkat.fillin.feature.plannedoperations.ui.planningRulesViewModel
 import com.firkat.fillin.ui.component.SaldomiSnackbarHost
+import com.firkat.fillin.ui.navigation.slideNavigation
 
 @Composable
 internal fun MainContent(
@@ -120,12 +118,11 @@ internal fun MainContent(
         val tabsByContentKey = tabEntries.entries.associate { (destination, entries) ->
             entries.last().contentKey to destination
         }
-        val slideSpec = tween<IntOffset>(durationMillis = 300)
         val tabTransition: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
             val from = tabsByContentKey.getValue(initialState.key)
             val to = tabsByContentKey.getValue(targetState.key)
             val direction = if (to > from) SlideDirection.Start else SlideDirection.End
-            slideIntoContainer(direction, slideSpec) togetherWith slideOutOfContainer(direction, slideSpec)
+            slideNavigation(direction)
         }
         NavDisplay(
             entries = visibleTabs.flatMap { tabEntries.getValue(it) },

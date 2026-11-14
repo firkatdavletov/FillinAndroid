@@ -24,7 +24,6 @@ fun LocalDate.toRelativeDateString(): String {
     }
 }
 
-fun LocalDate.toDate(): Date =
-    Date.from(
-        atStartOfDay(ZoneId.systemDefault()).toInstant()
-    )
+fun LocalDate.toDate(): Date = Date.from(
+    atStartOfDay(ZoneId.systemDefault()).toInstant()
+)

@@ -68,31 +68,31 @@ internal fun MainBottomNavigation(
         )
     Box(
         modifier =
-        modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+            modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
         contentAlignment = Alignment.TopCenter
     ) {
         HorizontalDivider(
             modifier =
-            Modifier
-                .padding(top = 24.dp),
+                Modifier
+                    .padding(top = 24.dp),
             thickness = 1.dp,
             color = MaterialTheme.saldomiDesignColors.outlineReference
         )
         NavigationBar(
             modifier =
-            Modifier
-                .padding(top = 24.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors =
-                        listOf(
-                            colors.surfaceContainer.copy(alpha = 0.9f),
-                            colors.surfaceContainerLowest
+                Modifier
+                    .padding(top = 24.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors =
+                                listOf(
+                                    colors.surfaceContainer.copy(alpha = 0.9f),
+                                    colors.surfaceContainerLowest
+                                )
                         )
-                    )
-                ),
+                    ),
             containerColor = Color.Transparent,
             tonalElevation = 0.dp,
             windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
@@ -106,13 +106,13 @@ internal fun MainBottomNavigation(
                     if (destination == AppDestination.AddOperation) {
                         Button(
                             modifier =
-                            Modifier
-                                .height(64.dp)
-                                .padding(top = 14.dp, end = 16.dp),
+                                Modifier
+                                    .height(64.dp)
+                                    .padding(top = 14.dp, end = 16.dp),
                             contentPadding =
-                            PaddingValues(
-                                horizontal = 12.dp
-                            ),
+                                PaddingValues(
+                                    horizontal = 12.dp
+                                ),
                             shape = RoundedCornerShape(14.dp),
                             onClick = {
                                 onSelectDestination(destination)
@@ -135,18 +135,18 @@ internal fun MainBottomNavigation(
                             icon = {
                                 Box(
                                     modifier =
-                                    Modifier
-                                        .size(width = 48.dp, height = 28.dp)
-                                        .background(
-                                            color = if (selected) {
-                                                colors.primary.copy(
-                                                    alpha = 0.18f
-                                                )
-                                            } else {
-                                                Color.Transparent
-                                            },
-                                            shape = CircleShape
-                                        ),
+                                        Modifier
+                                            .size(width = 48.dp, height = 28.dp)
+                                            .background(
+                                                color = if (selected) {
+                                                    colors.primary.copy(
+                                                        alpha = 0.18f
+                                                    )
+                                                } else {
+                                                    Color.Transparent
+                                                },
+                                                shape = CircleShape
+                                            ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -169,13 +169,13 @@ internal fun MainBottomNavigation(
                                 )
                             },
                             colors =
-                            NavigationBarItemDefaults.colors(
-                                selectedIconColor = colors.primary,
-                                selectedTextColor = colors.onSurface,
-                                indicatorColor = Color.Transparent,
-                                unselectedIconColor = colors.onSurfaceVariant,
-                                unselectedTextColor = colors.onSurfaceVariant
-                            )
+                                NavigationBarItemDefaults.colors(
+                                    selectedIconColor = colors.primary,
+                                    selectedTextColor = colors.onSurface,
+                                    indicatorColor = Color.Transparent,
+                                    unselectedIconColor = colors.onSurfaceVariant,
+                                    unselectedTextColor = colors.onSurfaceVariant
+                                )
                         )
                     }
                 }

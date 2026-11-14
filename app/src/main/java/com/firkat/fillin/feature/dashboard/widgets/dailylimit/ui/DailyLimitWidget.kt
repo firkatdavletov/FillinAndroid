@@ -32,10 +32,10 @@ import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.navigation.AppNavigationViewModel
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.theme.saldomiDesignColors
-import org.koin.compose.koinInject
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.Locale
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -62,8 +62,8 @@ fun DailyLimitRoute(
                 ?.let(navigation::openDailyLimit)
         },
         onPaymentsClick = {
-            state.forecast?.let {
-                result -> result.firstDeficitDate?.let { onPaymentsClick(result.horizonStart, it) }
+            state.forecast?.let { result ->
+                result.firstDeficitDate?.let { onPaymentsClick(result.horizonStart, it) }
             }
         }
     )
@@ -98,7 +98,7 @@ internal fun DailyLimitWidget(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             WidgetHeading(
-                title = R.string.daily_remaining_today,
+                title = R.string.daily_remaining_today
             )
             Text(
                 text = state.displayedRemainingToday?.let { formatMoney(it.amount, it.currency) } ?: "—",
@@ -114,7 +114,7 @@ internal fun DailyLimitWidget(
                     Column {
                         Text(
                             text = stringResource(R.string.dashboard_daily_limit),
-                            modifier = Modifier.testTag("daily-limit-spent"),
+                            modifier = Modifier.testTag("daily-limit-spent")
                         )
                         Text(
                             text = state.amount.let { formatMoney(it.amount, it.currency) } ?: "—"
@@ -125,7 +125,7 @@ internal fun DailyLimitWidget(
                         Column {
                             Text(
                                 text = stringResource(R.string.daily_spent_today),
-                                modifier = Modifier.testTag("daily-limit-remaining"),
+                                modifier = Modifier.testTag("daily-limit-remaining")
                             )
                             Text(
                                 text = state.spentToday?.let { formatMoney(it.amount, it.currency) } ?: "—"

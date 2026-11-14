@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -15,6 +18,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
@@ -41,6 +45,7 @@ import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
 import com.firkat.fillin.ui.navigation.AppNavigationViewModel
 import com.firkat.fillin.ui.navigation.AppRoute
+import com.firkat.fillin.ui.navigation.slideNavigation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -66,7 +71,8 @@ fun AuthScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val resolvingBudget by navigation.resolvingBudget.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    val authVisible = navigation.backStack.lastOrNull() in listOf(AppRoute.Auth, AppRoute.AccountMethods)
+    val route = if (methods) AppRoute.AccountMethods else AppRoute.Auth
+    val authVisible = navigation.backStack.lastOrNull() == route
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -157,70 +163,85 @@ fun AuthScreen(
             )
         }
     }
-    BackHandler(enabled = state.page != EmailPage.Welcome) { if (!state.busy) emailBack() }
-    if (state.page != EmailPage.Welcome) {
-        EmailAuthContent(
-            state.page, state.email, state.password, state.confirmation, state.busy, state.error,
-            state.notice, state.session.userOrNull, now >= state.resendAt,
-            { viewModel.onAction(AuthAction.EmailChanged(it)) }, { viewModel.onAction(AuthAction.PasswordChanged(it)) },
-            { viewModel.onAction(AuthAction.ConfirmationChanged(it)) }, { viewModel.onAction(AuthAction.Page(it)) },
-            { viewModel.onAction(AuthAction.SubmitEmail(it)) },
-            { reauthenticate ->
-                scope.launch {
-                    if (viewModel.state.value.busy) return@launch
-                    viewModel.onAction(AuthAction.GoogleLinkPicking(true))
-                    try {
-                        val token = googleSignIn.launch(context)
-                        viewModel.onAction(AuthAction.GoogleLinkPicking(false))
-                        viewModel.onAction(
-                            AuthAction.SubmitEmail(
-                                if (reauthenticate) EmailTask.ReauthenticateGoogle else EmailTask.LinkGoogle,
-                                token
+    BackHandler(enabled = authVisible && state.page != EmailPage.Welcome) { if (!state.busy) emailBack() }
+    AnimatedContent(
+        targetState = state.page,
+        modifier = Modifier.fillMaxSize().clipToBounds(),
+        transitionSpec = {
+            val returnsToPreviousPage = when {
+                targetState == EmailPage.Methods -> true
+                initialState == EmailPage.Methods -> false
+                else -> targetState < initialState
+            }
+            slideNavigation(if (returnsToPreviousPage) SlideDirection.End else SlideDirection.Start)
+        },
+        label = "Auth page"
+    ) { page ->
+        if (page != EmailPage.Welcome) {
+            EmailAuthContent(
+                page, state.email, state.password, state.confirmation, state.busy, state.error,
+                state.notice, state.session.userOrNull, now >= state.resendAt,
+                { viewModel.onAction(AuthAction.EmailChanged(it)) },
+                { viewModel.onAction(AuthAction.PasswordChanged(it)) },
+                { viewModel.onAction(AuthAction.ConfirmationChanged(it)) },
+                { viewModel.onAction(AuthAction.Page(it)) },
+                { viewModel.onAction(AuthAction.SubmitEmail(it)) },
+                { reauthenticate ->
+                    scope.launch {
+                        if (viewModel.state.value.busy) return@launch
+                        viewModel.onAction(AuthAction.GoogleLinkPicking(true))
+                        try {
+                            val token = googleSignIn.launch(context)
+                            viewModel.onAction(AuthAction.GoogleLinkPicking(false))
+                            viewModel.onAction(
+                                AuthAction.SubmitEmail(
+                                    if (reauthenticate) EmailTask.ReauthenticateGoogle else EmailTask.LinkGoogle,
+                                    token
+                                )
                             )
-                        )
-                    } catch (
-                        _: GetCredentialCancellationException
-                    ) {
-                        viewModel.onAction(AuthAction.GoogleLinkPicking(false))
-                    } catch (
-                        e: CancellationException
-                    ) {
-                        viewModel.onAction(AuthAction.GoogleLinkPicking(false))
-                        throw e
-                    } catch (
-                        _: NoCredentialException
-                    ) {
-                        viewModel.onAction(AuthAction.EmailFailed(AuthError.NoGoogleAccount))
-                    } catch (
-                        e: AuthFailure
-                    ) {
-                        viewModel.onAction(AuthAction.EmailFailed(e.error))
-                    } catch (
-                        _: Exception
-                    ) {
-                        viewModel.onAction(AuthAction.EmailFailed(AuthError.SignInFailed))
+                        } catch (
+                            _: GetCredentialCancellationException
+                        ) {
+                            viewModel.onAction(AuthAction.GoogleLinkPicking(false))
+                        } catch (
+                            e: CancellationException
+                        ) {
+                            viewModel.onAction(AuthAction.GoogleLinkPicking(false))
+                            throw e
+                        } catch (
+                            _: NoCredentialException
+                        ) {
+                            viewModel.onAction(AuthAction.EmailFailed(AuthError.NoGoogleAccount))
+                        } catch (
+                            e: AuthFailure
+                        ) {
+                            viewModel.onAction(AuthAction.EmailFailed(e.error))
+                        } catch (
+                            _: Exception
+                        ) {
+                            viewModel.onAction(AuthAction.EmailFailed(AuthError.SignInFailed))
+                        }
                     }
-                }
-            },
-            {
-                viewModel.onAction(AuthAction.Page(EmailPage.Welcome))
-                continueAsGuest()
-            },
-            { viewModel.onAction(AuthAction.SignOut) }, emailBack
-        )
-        return
+                },
+                {
+                    viewModel.onAction(AuthAction.Page(EmailPage.Welcome))
+                    continueAsGuest()
+                },
+                { viewModel.onAction(AuthAction.SignOut) }, emailBack
+            )
+        } else {
+            AuthContent(
+                modifier = Modifier.testTag("auth_screen"),
+                snackBarHostState = snackbar,
+                isLoading = state.busy || state.session == AuthSession.Loading || resolvingBudget,
+                loadingButton = state.selectedButton,
+                googleEnabled = state.session != AuthSession.Unavailable,
+                onGoogleClick = { viewModel.onAction(AuthAction.GoogleClicked) },
+                onEmailClick = { viewModel.onAction(AuthAction.EmailClicked) },
+                onGuestClick = { viewModel.onAction(AuthAction.GuestClicked) }
+            )
+        }
     }
-
-    AuthContent(
-        modifier = Modifier.testTag("auth_screen"),
-        snackBarHostState = snackbar,
-        isLoading = state.busy || state.session == AuthSession.Loading || resolvingBudget,
-        loadingButton = state.selectedButton,
-        googleEnabled = state.session != AuthSession.Unavailable,
-        onGoogleClick = { viewModel.onAction(AuthAction.GoogleClicked) },
-        onEmailClick = { viewModel.onAction(AuthAction.EmailClicked) },
-        onGuestClick = { viewModel.onAction(AuthAction.GuestClicked) }
-    )
 }
 
 private suspend fun receiveGoogleCredential(

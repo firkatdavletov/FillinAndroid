@@ -39,13 +39,16 @@ data class PlanningRule(
                 }
                 date
             }
+
             PlanningFrequency.Weekly -> from.plusDays(
                 ((scheduleValue ?: startsOn.dayOfWeek.value) - from.dayOfWeek.value + 7L) % 7
             )
+
             PlanningFrequency.Biweekly -> {
                 val days = java.time.temporal.ChronoUnit.DAYS.between(startsOn, from)
                 startsOn.plusDays(((days + 13) / 14) * 14)
             }
+
             PlanningFrequency.Once -> startsOn
         }
     }

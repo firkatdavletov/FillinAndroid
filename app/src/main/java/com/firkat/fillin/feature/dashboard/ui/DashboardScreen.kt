@@ -63,27 +63,21 @@ fun DashboardScreen(
     Column(
         modifier = modifier
     ) {
+        MainScreenHeader(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.background.copy(alpha = 0.8f)
+                    )
+                    .padding(start = 16.dp, bottom = 8.dp, end = 8.dp)
+                    .statusBarsPadding(),
+            title = title ?: "",
+            subtitle = DateUtils.getCurrentDate(),
+            textColor = MaterialTheme.colorScheme.onBackground,
+            onProfileClick = onProfileClick
+        )
         DashboardGrid(
-            header = {
-                MainScreenHeader(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(
-                                brush =
-                                    Brush.verticalGradient(
-                                        0f to MaterialTheme.saldomiDesignColors.background,
-                                        0.7f to MaterialTheme.saldomiDesignColors.background,
-                                        1f to MaterialTheme.saldomiDesignColors.background.copy(alpha = 0f)
-                                    )
-                            ).padding(bottom = 16.dp)
-                            .statusBarsPadding(),
-                    title = title ?: "",
-                    subtitle = DateUtils.getCurrentDate(),
-                    textColor = MaterialTheme.colorScheme.onBackground,
-                    onProfileClick = onProfileClick
-                )
-            },
             widgetContent = widgetContent,
             bottomBarOverlap = bottomBarOverlap
         )
@@ -94,7 +88,6 @@ fun DashboardScreen(
 fun DashboardGrid(
     modifier: Modifier = Modifier,
     widgets: List<DashboardWidget> = DefaultDashboardWidgets,
-    header: (@Composable () -> Unit)? = null,
     bottomBarOverlap: Dp = 0.dp,
     widgetContent: @Composable (DashboardWidget) -> Unit
 ) {
@@ -113,11 +106,6 @@ fun DashboardGrid(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (header != null) {
-                stickyHeader {
-                    header()
-                }
-            }
             items(
                 items = widgets,
                 key = { it.id },
@@ -126,20 +114,9 @@ fun DashboardGrid(
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .then(
-                            if (widget.kind in
-                                setOf(DashboardWidgetKind.DailyLimit, DashboardWidgetKind.BalanceForecast)
-                            ) {
-                                Modifier
-                            } else {
-                                Modifier.height(rowHeight * widget.size.rows + 12.dp * (widget.size.rows - 1))
-                            }
-                        ).testTag("dashboard-widget-${widget.id}"),
+                        .testTag("dashboard-widget-${widget.id}"),
                     propagateMinConstraints = true
                 ) { widgetContent(widget) }
-            }
-            item {
-                Spacer(Modifier.height(54.dp))
             }
         }
     }
@@ -210,12 +187,7 @@ private fun MainScreenGridPreview() {
                     listOf(
                         DashboardWidget("wide", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByOne),
                         DashboardWidget("large", DashboardWidgetKind.TotalBalance, DashboardWidgetSize.TwoByTwo)
-                    ),
-            header = {
-                MainScreenHeader(
-                    title = stringResource(R.string.app_name)
-                )
-            }
+                    )
         ) { widget ->
             when (widget.kind) {
                 DashboardWidgetKind.TotalBalance -> {

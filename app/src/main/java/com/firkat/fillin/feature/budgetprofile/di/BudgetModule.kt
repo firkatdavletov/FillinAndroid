@@ -99,7 +99,7 @@ val budgetModule =
                     source = get(),
                     budgets = get(),
                     getPlannedIncomes = get(),
-                    getPlannedExpenses = get(),
+                    getPlannedExpenses = get()
                 )
             }
             factory { ObserveTotalBalance(get()) }

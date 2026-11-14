@@ -59,10 +59,12 @@ class PlannedOperationsViewModel(
                 savedStateHandle["planning-type"] = event.type?.name
                 _uiState.update { it.copy(selectedType = event.type) }
             }
+
             PlannedOperationsEvent.Refresh -> if (!_uiState.value.isRefreshing) {
                 observeRules.requestSync()
                 load(refresh = true)
             }
+
             PlannedOperationsEvent.Retry -> load()
         }
     }

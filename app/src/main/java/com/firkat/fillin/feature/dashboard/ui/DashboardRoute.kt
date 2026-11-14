@@ -41,13 +41,19 @@ fun DashboardRoute(
     ) { widget ->
         when (widget.kind) {
             DashboardWidgetKind.DailyLimit -> DailyLimitRoute(onPaymentsClick = onPaymentsClick)
+
             DashboardWidgetKind.TotalBalance -> TotalBalanceRoute()
+
             DashboardWidgetKind.AvailableToSpend -> AvailableToSpendRoute()
+
             DashboardWidgetKind.BalanceForecast -> BalanceForecastRoute(onDetailsClick = onForecastClick)
-            DashboardWidgetKind.PlannedOperations -> PlannedOperationsWidget(
-                expenses = expenses,
-                income = income
-            )
+
+            DashboardWidgetKind.PlannedOperations -> if (expenses.isNotEmpty() || income != null) {
+                PlannedOperationsWidget(
+                    expenses = expenses,
+                    income = income
+                )
+            }
         }
     }
 }

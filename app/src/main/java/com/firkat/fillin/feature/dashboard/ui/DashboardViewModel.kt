@@ -21,7 +21,7 @@ class DashboardViewModel(
     budgets: ProfileBudgetsRepository,
     private val source: DashboardDataSource,
     private val getPlannedExpenses: GetPlannedExpenses,
-    private val getPlannedIncomes: GetPlannedIncomes,
+    private val getPlannedIncomes: GetPlannedIncomes
 ) : ViewModel() {
     val budgetState =
         budgets

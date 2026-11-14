@@ -29,7 +29,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -72,11 +74,20 @@ internal fun OperationCreateRoute(
     viewModel: OperationCreateViewModel = koinViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val lastEditor = remember { mutableStateOf(state.createEditor) }
+    SideEffect {
+        // Keep the form visible until NavDisplay finishes the exit transition.
+        state.createEditor?.let { lastEditor.value = it }
+    }
     LaunchedEffect(state.createEditor == null) {
-        if (state.createEditor == null) state.created?.let(onCreated) ?: onBack()
+        if (state.createEditor == null) {
+            keyboard?.hide()
+            state.created?.let(onCreated) ?: onBack()
+        }
     }
     OperationCreateScreen(
-        editor = state.createEditor,
+        editor = state.createEditor ?: lastEditor.value,
         context = state.offline,
         onEvent = viewModel::onEvent
     )

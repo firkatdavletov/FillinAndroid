@@ -2,13 +2,20 @@ package com.firkat.fillin.feature.budgetsetup.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.BudgetSetupAction
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.BudgetSetupEffect
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupPage
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
 
 @Composable
@@ -18,15 +25,20 @@ internal fun BudgetSetupScreen(
     onSignIn: (SetupAuthTarget) -> Unit,
     onComplete: () -> Unit,
     onPageChange: (SetupPage) -> Unit,
-    fromProfile: Boolean
+    fromProfile: Boolean,
+    page: SetupPage? = null,
+    isActive: Boolean = true
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val resources = LocalResources.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val back by rememberUpdatedState(onBack)
-    LaunchedEffect(viewModel, fromProfile) { viewModel.onAction(BudgetSetupAction.Start) }
-    LaunchedEffect(viewModel, lifecycle) {
+    LaunchedEffect(viewModel, fromProfile, isActive) {
+        if (isActive) viewModel.onAction(BudgetSetupAction.Start)
+    }
+    LaunchedEffect(viewModel, lifecycle, isActive) {
+        if (!isActive) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             viewModel.effects.collect {
                 if (it ==
@@ -38,7 +50,8 @@ internal fun BudgetSetupScreen(
             }
         }
     }
-    LaunchedEffect(state.error, lifecycle, resources) {
+    LaunchedEffect(state.error, lifecycle, resources, isActive) {
+        if (!isActive) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             state.error?.let {
                 snackbar.showSaldomiSnackbar(accessErrorResource(it)?.let(resources::getString) ?: it)
@@ -46,13 +59,14 @@ internal fun BudgetSetupScreen(
             }
         }
     }
-    LaunchedEffect(state.completed) {
-        if (state.completed) {
+    LaunchedEffect(state.completed, isActive) {
+        if (isActive && state.completed) {
             viewModel.onAction(BudgetSetupAction.Reset)
             onComplete()
         }
     }
-    LaunchedEffect(state.authTarget, state.uid) {
+    LaunchedEffect(state.authTarget, state.uid, isActive) {
+        if (!isActive) return@LaunchedEffect
         state.authTarget?.let { target ->
             if (state.uid != null) {
                 viewModel.onAction(BudgetSetupAction.AuthReturned)
@@ -62,11 +76,13 @@ internal fun BudgetSetupScreen(
             }
         }
     }
-    LaunchedEffect(state.page, state.initialized) { if (state.initialized) onPageChange(state.page) }
-    BackHandler {
+    LaunchedEffect(state.page, state.initialized, isActive) {
+        if (isActive && state.initialized) onPageChange(state.page)
+    }
+    BackHandler(enabled = isActive) {
         viewModel.onAction(
             if (state.currencyPickerOpen) BudgetSetupAction.CloseCurrencyPicker else BudgetSetupAction.Back
         )
     }
-    BudgetSetupContent(state, viewModel::onAction, snackbar, fromProfile = fromProfile)
+    BudgetSetupContent(state.copy(page = page ?: state.page), viewModel::onAction, snackbar, fromProfile = fromProfile)
 }

@@ -34,10 +34,10 @@ import java.util.Locale
 fun PlannedOperationsWidget(
     expenses: List<PlannedExpense>,
     income: PlannedIncome?,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     WidgetCard(
-        modifier = modifier,
+        modifier = modifier
     ) {
         WidgetHeading(
             title = R.string.closest_payments
@@ -61,11 +61,11 @@ fun PlannedOperationsWidget(
 @Composable
 private fun ExpenseRow(
     expense: PlannedExpense,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         DateColumn(
             modifier = Modifier.padding(end = 8.dp),
@@ -89,7 +89,7 @@ private fun ExpenseRow(
         MoneyAmount(
             money = Money(
                 amount = expense.plannedAmount,
-                currency = expense.currency,
+                currency = expense.currency
             )
         )
     }
@@ -98,7 +98,7 @@ private fun ExpenseRow(
 @Composable
 private fun DateColumn(
     date: LocalDate,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val locale = Locale.forLanguageTag("ru-RU")
     val month = date.month
@@ -111,18 +111,18 @@ private fun DateColumn(
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.saldomiDesignColors.primaryContainer)
             .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = date.dayOfMonth.toString(),
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold
         )
 
         Text(
             text = month,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold
         )
     }
 }
@@ -130,7 +130,7 @@ private fun DateColumn(
 @Composable
 private fun IncomeCard(
     income: PlannedIncome,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
@@ -159,7 +159,7 @@ private fun IncomeCard(
             MoneyAmount(
                 money = Money(
                     amount = income.plannedAmount,
-                    currency = income.currency,
+                    currency = income.currency
                 )
             )
         }
