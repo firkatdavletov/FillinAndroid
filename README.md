@@ -12,12 +12,6 @@ Start with a local budget without an account, then connect it to your account to
 
 Screenshots will be added here.
 
-<!--
-To publish the gallery:
-1. Add four screenshots to docs/screenshots/ using the filenames below.
-2. Remove the "Screenshots will be added here." sentence above.
-3. Move the table below outside this HTML comment.
-
 <table>
   <tr>
     <th>Dashboard</th>
@@ -32,7 +26,6 @@ To publish the gallery:
     <td><img src="docs/screenshots/forecast.png" width="220" alt="Forecast"></td>
   </tr>
 </table>
--->
 
 ## Features
 
