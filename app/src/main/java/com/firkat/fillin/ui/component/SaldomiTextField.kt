@@ -67,9 +67,11 @@ fun SaldomiTextField(
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier.heightIn(min = 44.dp).semantics {
-            if (isError) error(errorDescription)
-        },
+        modifier = modifier
+            .heightIn(min = 54.dp)
+            .semantics {
+                if (isError) error(errorDescription)
+            },
         enabled = enabled,
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyLarge.copy(
@@ -97,7 +99,7 @@ fun SaldomiTextField(
                         isError = isError,
                         interactionSource = interactions,
                         colors = colors,
-                        shape = RoundedCornerShape(22.dp),
+                        shape = RoundedCornerShape(14.dp),
                         focusedBorderThickness = 1.dp
                     )
                 }

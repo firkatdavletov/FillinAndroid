@@ -171,7 +171,8 @@ private fun offerTitle(
 @Composable
 private fun offerHeightLimit(): androidx.compose.ui.unit.Dp {
     val fraction = if (LocalDensity.current.fontScale >= LARGE_TEXT_SCALE) LARGE_SHEET_HEIGHT else SHEET_HEIGHT
-    return (LocalConfiguration.current.screenHeightDp.dp * fraction - HANDLE_HEIGHT.dp).coerceAtLeast(0.dp)
+    val height = LocalConfiguration.current.screenHeightDp.dp * fraction - HANDLE_HEIGHT.dp
+    return height.coerceAtLeast(0.dp)
 }
 
 private fun LazyListScope.reviewItems(

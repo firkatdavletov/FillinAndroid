@@ -40,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
@@ -59,7 +60,9 @@ import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputE
 import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.OperationDetailsBottomSheetHost
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.ui.component.PrimaryButton
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.component.SaldomiTextField
+import com.firkat.fillin.utils.DateUtils
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import org.koin.compose.viewmodel.koinViewModel
@@ -226,7 +229,7 @@ internal fun EditOperationContent(
                                 R.string.planned_operations_income
                             }
                         ),
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.headlineSmall
                     )
                 }
 
@@ -242,7 +245,8 @@ internal fun EditOperationContent(
                         ) {
                             Row(
                                 Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val selected = categories.firstOrNull { it.id == selectedCategoryId }
                                 selected?.let {
@@ -364,6 +368,18 @@ internal fun EditOperationContent(
                         modifier = Modifier.testTag("edit_operation_error")
                     )
                 }
+
+                if (operation != null && links.current.isEmpty()) {
+                    SaldomiOutlinedButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onLinkSelected,
+                        enabled = (!isSaving && mode == EditOperationMode.Edit) &&
+                            operation.let { it.amount > it.refundedAmount },
+                        large = true
+                    ) {
+                        Text(stringResource(R.string.operation_details_bind))
+                    }
+                }
             }
             if (operation != null &&
                 mode != EditOperationMode.ReadOnly
@@ -373,19 +389,6 @@ internal fun EditOperationContent(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    if (links.current.isEmpty()) {
-                        OutlinedButton(
-                            onClick = onLinkSelected,
-                            enabled = (!isSaving && mode == EditOperationMode.Edit) &&
-                                operation.let { it.amount > it.refundedAmount },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.secondary
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.operation_details_bind))
-                        }
-                    }
                     PrimaryButton(
                         stringResource(
                             if (mode ==
@@ -475,7 +478,7 @@ private fun OperationLinkedPlanCard(
             Text(
                 stringResource(
                     R.string.operation_details_payment_date,
-                    LocalDate.parse(plan.target.dueOn).format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
+                    DateUtils.getShortDate(LocalDate.parse(plan.target.dueOn))
                 ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
