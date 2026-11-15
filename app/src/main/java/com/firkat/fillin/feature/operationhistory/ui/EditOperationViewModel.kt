@@ -137,10 +137,6 @@ class EditOperationViewModel(
             ) {
                 linkAction { links?.removeLink(operationId, requireNotNull(current.operation).version) }
             }
-            is EditOperationEvent.PlanSelected -> linkAction {
-                requireNotNull(links).selectProposal(operationId, event.plan)
-                effectChannel.send(EditOperationEffect.OpenLinkConfirmation)
-            }
             is EditOperationEvent.OpenPlan -> linkAction {
                 val type = if (event.plan.target.type ==
                     "EXPENSE"

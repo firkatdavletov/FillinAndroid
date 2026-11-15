@@ -7,14 +7,19 @@ import com.firkat.fillin.feature.categories.domain.model.isValidCategoryName
 import com.firkat.fillin.feature.operationhistory.data.local.*
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
 import com.firkat.fillin.feature.operationhistory.domain.repository.*
+import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationPlanSuggestionPolicy
 import com.firkat.fillin.feature.plannedoperations.domain.model.*
 import com.firkat.fillin.feature.sync.domain.*
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 
 class BudgetLocalFailure(val code: String) : Exception(code)
 
@@ -24,9 +29,11 @@ class BudgetStore(
     private val json: Json,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
     private val canWrite: () -> Boolean = { true },
-    private val currencyOverride: Flow<BudgetCurrencyOverride> = flowOf(BudgetCurrencyOverride())
+    private val currencyOverride: Flow<BudgetCurrencyOverride> = flowOf(BudgetCurrencyOverride()),
+    private val suggestionPolicy: OperationPlanSuggestionPolicy = OperationPlanSuggestionPolicy()
 ) : BudgetSyncControl,
-    OperationPlanLinkStore {
+    OperationPlanLinkStore,
+    OperationPlanOfferStore {
     internal fun checkWritable() {
         if (!canWrite()) throw BudgetLocalFailure("access_denied")
     }
@@ -175,64 +182,98 @@ class BudgetStore(
         project(c).let { LocalHistoryContent(c.sync, it.operations.values.toList(), it.categories.values.toList()) }
     }
 
-    override val pendingProposal = dao.observePendingProposal()
-
     override fun observeLinks(
         operationId: String
-    ): Flow<OperationPlanLinks> = dao.observeContent().map {
-        it?.let { content -> project(content).links(operationId) } ?: OperationPlanLinks()
-    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+    ): Flow<OperationPlanLinks> = observeOfferContext(operationId).map { it.links }.distinctUntilChanged()
+
+    override fun observeOfferContext(
+        operationId: String
+    ): Flow<OperationPlanLinkContext> = observeContent().map { content ->
+        content?.let { project(it).planLinkContext(operationId) } ?: OperationPlanLinkContext()
+    }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     override suspend fun proposal(
         operationId: String
-    ): SuggestedPlan? {
-        val content = dao.content() ?: return null
-        return dao.proposal(content.sync.scopeKey, operationId)?.takeIf {
-            it.decision == "PENDING"
-        }?.payload?.let { json.decodeFromString(it) }
+    ): OperationPlanOffer? = withContext(Dispatchers.Default) {
+        val content = currentContent() ?: return@withContext null
+        val payload = dao.proposal(content.sync.scopeKey, operationId)
+            ?.takeIf { it.decision == "PENDING" }?.payload ?: return@withContext null
+        if ("formatVersion" in json.parseToJsonElement(payload).jsonObject) {
+            val stored = json.decodeFromString<StoredPlanOffer>(payload)
+            stored.offer.takeIf { stored.formatVersion == OFFER_FORMAT_VERSION }
+        } else {
+            // Old records can be read explicitly, but never start a new automatic offer.
+            val operation = project(content).planLinkContext(operationId).operation ?: return@withContext null
+            val plan = json.decodeFromString<SuggestedPlan>(payload).copy(currency = operation.currency)
+            OperationPlanOffer(operation, PlanSuggestion.Recommended(plan))
+        }
     }
 
-    suspend fun suggest(
+    override suspend fun prepareOffer(
         operationId: String
-    ): SuggestedPlan? {
+    ): Boolean = withContext(Dispatchers.Default) {
         checkWritable()
-        val content = requireNotNull(dao.content())
-        val plan = project(content).links(operationId).candidates.firstOrNull()
-        dao.putProposal(
-            OperationPlanProposal(
-                content.sync.scopeKey,
-                operationId,
-                plan?.let {
-                    json.encodeToString(it)
-                },
-                if (plan ==
-                    null
-                ) {
-                    "NONE"
-                } else {
-                    "PENDING"
-                }
+        val content = currentContent() ?: return@withContext false
+        writable(content, allowMember = true)
+        val scope = content.sync.scopeKey
+        if (dao.proposal(scope, operationId) != null) return@withContext false
+        val projection = project(content)
+        val context = projection.planLinkContext(operationId)
+        val offer = context.operation?.let { operation ->
+            val suggestion = suggestionPolicy.suggest(
+                operation,
+                projection.categories[operation.categoryId]?.dictionaryKey,
+                context.isLinked,
+                alreadyProcessed = false,
+                context.links.candidates
             )
-        )
-        return plan
+            if (suggestion == PlanSuggestion.None) null else OperationPlanOffer(operation, suggestion)
+        }
+        database.withTransaction {
+            checkWritable()
+            val state = database.operations().state() ?: return@withTransaction false
+            if (state.scopeKey != scope || dao.proposal(scope, operationId) != null) {
+                return@withTransaction false
+            }
+            writable(content.copy(sync = state), allowMember = true)
+            val payload = offer?.let { json.encodeToString(StoredPlanOffer(OFFER_FORMAT_VERSION, it)) }
+            dao.putProposal(
+                OperationPlanProposal(
+                    scope,
+                    operationId,
+                    payload,
+                    if (offer ==
+                        null
+                    ) {
+                        "NONE"
+                    } else {
+                        "PENDING"
+                    }
+                )
+            )
+            offer != null
+        }
     }
 
-    override suspend fun selectProposal(
+    override suspend fun confirmOffer(
         operationId: String,
+        operation: PlanLinkOperation,
         plan: SuggestedPlan
     ) = database.withTransaction {
         checkWritable()
-        val content = requireNotNull(dao.content())
+        val content = currentContent() ?: throw BudgetLocalFailure("not_initialized")
         writable(content, allowMember = true)
-        val current =
-            project(content).links(operationId).candidates.firstOrNull {
-                it.target.stableKey == plan.target.stableKey &&
-                    it.target.type == plan.target.type
-            }
-                ?: throw BudgetLocalFailure("plan_unavailable")
-        dao.putProposal(
-            OperationPlanProposal(content.sync.scopeKey, operationId, json.encodeToString(current), "PENDING")
-        )
+        val stored = dao.proposal(content.sync.scopeKey, operationId)
+        val context = project(content).planLinkContext(operationId)
+        if (stored?.decision != "PENDING" || context.isLinked || context.operation == null) {
+            throw BudgetLocalFailure("plan_unavailable")
+        }
+        if (!operation.matches(context.operation)) throw BudgetLocalFailure("operation_changed")
+        val current = context.links.candidates.firstOrNull {
+            it.target.stableKey == plan.target.stableKey && it.target.type == plan.target.type
+        } ?: throw BudgetLocalFailure("plan_unavailable")
+        if (!plan.matches(current)) throw BudgetLocalFailure("plan_changed")
+        writeLink(operationId, current, operation.version, stored.payload)
     }
 
     override suspend fun dismissProposal(
@@ -250,12 +291,21 @@ class BudgetStore(
         operationVersion: Long
     ) {
         database.withTransaction {
-            enqueue("SET_OPERATION_PLAN_LINK", operationId, operationVersion) {
-                it.copy(planTarget = plan.target, expectedPlanVersion = plan.version)
-            }
-            val scope = requireNotNull(dao.content()).sync.scopeKey
-            dao.putProposal(OperationPlanProposal(scope, operationId, json.encodeToString(plan), "CONFIRMED"))
+            writeLink(operationId, plan, operationVersion, json.encodeToString(plan))
         }
+    }
+
+    private suspend fun writeLink(
+        operationId: String,
+        plan: SuggestedPlan,
+        operationVersion: Long,
+        payload: String?
+    ) {
+        enqueue("SET_OPERATION_PLAN_LINK", operationId, operationVersion) {
+            it.copy(planTarget = plan.target, expectedPlanVersion = plan.version)
+        }
+        val scope = requireNotNull(dao.content()).sync.scopeKey
+        dao.putProposal(OperationPlanProposal(scope, operationId, payload, "CONFIRMED"))
     }
 
     override suspend fun removeLink(
@@ -872,17 +922,6 @@ class BudgetStore(
                 receipt.entityToken >= 0
         )
         val current = requireNotNull(dao.command(item.requestId))
-        val proposal = dao.proposal(item.scopeKey, item.entityId)
-        if (receipt.suggestedPlan != null && proposal?.decision == "NONE") {
-            dao.putProposal(
-                OperationPlanProposal(
-                    item.scopeKey,
-                    item.entityId,
-                    json.encodeToString(receipt.suggestedPlan),
-                    "PENDING"
-                )
-            )
-        }
         dao.update(
             current.copy(
                 status = "ACKNOWLEDGED",
@@ -1107,3 +1146,8 @@ class BudgetStore(
         )
     }
 }
+
+private const val OFFER_FORMAT_VERSION = 1
+
+@Serializable
+private data class StoredPlanOffer(val formatVersion: Int, val offer: OperationPlanOffer)

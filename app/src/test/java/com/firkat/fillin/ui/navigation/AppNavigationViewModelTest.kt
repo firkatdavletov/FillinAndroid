@@ -573,40 +573,44 @@ class AppNavigationViewModelTest {
         assertEquals(listOf(AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
     }
 
-    @Test fun `saved operation replaces creation with a separate link sheet and ignores duplicate callbacks`() =
-        runTest {
-            val model = model(FakeAuth()) { true }
-            model.onLaunchShown()
-            runCurrent()
-            model.openOperationCreate()
-            val result = com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult(
-                "operation",
-                com.firkat.fillin.feature.operationhistory.domain.repository.SuggestedPlan(
-                    com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkTarget(
-                        "INCOME",
-                        "plan",
-                        dueOn = "2026-10-30"
-                    ),
-                    "category",
-                    "Доход",
-                    "100.00",
-                    "100.00",
-                    0
-                )
-            )
-            model.operationCreated(result, "budget")
-            val sheet = model.backStack.last() as AppRoute.OperationPlanLinkBottomSheet
-            assertEquals(listOf(AppRoute.Main, sheet), model.backStack)
-            model.operationCreated(result, "budget")
-            assertEquals(listOf(AppRoute.Main, sheet), model.backStack)
-            model.chooseAnotherPlan(sheet)
-            val editor = model.backStack.last() as AppRoute.OperationDetails
-            assertEquals(listOf(AppRoute.Main, editor), model.backStack)
-            model.openDetailsPlanLink(editor)
-            val next = model.backStack.last() as AppRoute.OperationPlanLinkBottomSheet
-            model.dismissOperationPlanLink(sheet)
-            assertEquals(listOf(AppRoute.Main, editor, next), model.backStack)
-        }
+    @Test fun `saving closes creation before an offer is ready and ignores duplicate callbacks`() = runTest {
+        val model = model(FakeAuth()) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openOperationCreate()
+        val result = com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("operation")
+        model.operationCreated(result, "budget")
+        val request = requireNotNull(model.pendingPlanOffer)
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        model.operationCreated(result, "budget")
+        assertSame(request, model.pendingPlanOffer)
+        model.finishPlanOffer(request, canShow = true)
+        val sheet = model.backStack.last() as AppRoute.OperationPlanLinkBottomSheet
+        assertEquals("operation", sheet.operationId)
+        assertEquals("budget", sheet.budgetScopeId)
+        assertNull(model.pendingPlanOffer)
+        assertTrue(model.dismissOperationPlanLink(sheet))
+        model.finishPlanOffer(request, canShow = true)
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
+
+    @Test fun `a new navigation action or a lookup without a result prevents an offer`() = runTest {
+        val model = model(FakeAuth()) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openOperationCreate()
+        val result = com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("operation")
+        model.operationCreated(result, "budget")
+        model.finishPlanOffer(requireNotNull(model.pendingPlanOffer), canShow = false)
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        model.openOperationCreate()
+        model.operationCreated(result, "budget")
+        val stale = requireNotNull(model.pendingPlanOffer)
+        model.openOperationCreate()
+        model.back()
+        model.finishPlanOffer(stale, canShow = true)
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
 
     @Test fun `setup login returns to the draft even when the account has a ready budget`() = runTest {
         val auth = FakeAuth()

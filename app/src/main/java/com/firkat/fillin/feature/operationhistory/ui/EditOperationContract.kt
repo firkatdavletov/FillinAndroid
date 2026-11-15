@@ -38,7 +38,6 @@ sealed interface EditOperationEvent {
     data class WindowChanged(val window: OperationDetailsWindow?) : EditOperationEvent
     data object DiscardConfirmed : EditOperationEvent
     data object UnlinkConfirmed : EditOperationEvent
-    data class PlanSelected(val plan: SuggestedPlan) : EditOperationEvent
     data class OpenPlan(val plan: SuggestedPlan) : EditOperationEvent
     data class InputChanged(val value: String) : EditOperationEvent
     data class DescriptionChanged(val value: String) : EditOperationEvent
@@ -57,7 +56,6 @@ enum class EditOperationOutcome { Updated, Corrected, Refunded }
 data class EditOperationResult(val operationId: String, val outcome: EditOperationOutcome)
 
 sealed interface EditOperationEffect {
-    data object OpenLinkConfirmation : EditOperationEffect
     data class OpenPlan(val type: PlannedOperationType, val ruleId: String) : EditOperationEffect
     data object Close : EditOperationEffect
     data class Saved(val result: EditOperationResult) : EditOperationEffect

@@ -79,7 +79,6 @@ internal fun OperationDetailsRoute(
     val close by rememberUpdatedState(onClose)
     val result by rememberUpdatedState(onResult)
     val openPlan by rememberUpdatedState(onOpenPlan)
-    val openLink by rememberUpdatedState(onLinkSelected)
     val event = viewModel::onEvent
     val closeDetails = { if (readOnly) onClose() else event(EditOperationEvent.CloseClicked) }
     BackHandler(onBack = closeDetails)
@@ -88,7 +87,6 @@ internal fun OperationDetailsRoute(
             when (effect) {
                 EditOperationEffect.Close -> close()
                 is EditOperationEffect.Saved -> result(effect.result)
-                EditOperationEffect.OpenLinkConfirmation -> openLink()
                 is EditOperationEffect.OpenPlan -> openPlan(effect.type, effect.ruleId)
             }
         }

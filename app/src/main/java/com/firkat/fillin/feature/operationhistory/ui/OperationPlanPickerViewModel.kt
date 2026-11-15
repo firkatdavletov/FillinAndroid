@@ -27,8 +27,8 @@ internal fun pickerGroups(
         }
         PlanPickerGroup(
             key,
-            rule?.name?.takeIf(String::isNotBlank) ?: first.categoryName,
-            rule?.frequency ?: PlanningFrequency.Once,
+            rule?.name?.takeIf(String::isNotBlank) ?: first.displayName,
+            rule?.frequency ?: first.frequency,
             payments
         )
     }

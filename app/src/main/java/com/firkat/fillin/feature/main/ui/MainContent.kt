@@ -32,6 +32,7 @@ import com.firkat.fillin.ui.navigation.slideNavigation
 @Composable
 internal fun MainContent(
     modifier: Modifier = Modifier,
+    addOperationModifier: Modifier = Modifier,
     selectedDestination: AppDestination,
     onSelectDestination: (AppDestination) -> Unit,
     onAccountClick: () -> Unit,
@@ -53,7 +54,8 @@ internal fun MainContent(
         bottomBar = {
             MainBottomNavigation(
                 selectedDestination = selectedDestination,
-                onSelectDestination = onSelectDestination
+                onSelectDestination = onSelectDestination,
+                addOperationModifier = addOperationModifier
             )
         }
     ) { innerPadding ->

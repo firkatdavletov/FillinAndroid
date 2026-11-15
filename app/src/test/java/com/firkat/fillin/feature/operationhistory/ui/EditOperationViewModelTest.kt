@@ -462,20 +462,9 @@ class EditOperationViewModelTest {
         val linkState = kotlinx.coroutines.flow.MutableStateFlow(OperationPlanLinks(current = listOf(plan)))
         var removals = 0
         val links = object : OperationPlanLinkStore {
-            override val pendingProposal = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
             override fun observeLinks(
                 operationId: String
             ) = linkState
-            override suspend fun proposal(
-                operationId: String
-            ): SuggestedPlan? = null
-            override suspend fun selectProposal(
-                operationId: String,
-                plan: SuggestedPlan
-            ) = Unit
-            override suspend fun dismissProposal(
-                operationId: String
-            ) = Unit
             override suspend fun setLink(
                 operationId: String,
                 plan: SuggestedPlan,

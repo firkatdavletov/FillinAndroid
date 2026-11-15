@@ -76,7 +76,7 @@ class OperationPlanLinkPersistenceTest {
     }
     private suspend fun createOperation(
         store: BudgetStore,
-        amount: String = "30.00"
+        amount: String = "100.00"
     ): CreateOperationResult {
         val category = requireNotNull(store.historySnapshot()).categories.first { it.kind == "INCOME" }
         return history(store).create(NewOperation(OperationType.Income, category.id, BigDecimal(amount), today, null))
@@ -92,18 +92,22 @@ class OperationPlanLinkPersistenceTest {
         initialize()
         var store = store()
         val planId = createIncomePlan(store)
-        val result = createOperation(store)
-        assertEquals(planId, result.suggestedPlan!!.target.planId)
+        val result = createOperation(store, "85.00")
+        assertNotNull(history(store).observeOperation(result.operationId).first())
+        assertNull(store.proposal(result.operationId))
+        assertTrue(store.prepareOffer(result.operationId))
         assertEquals("100.00", store.observeLinks(result.operationId).first().candidates.single().remainingAmount)
         database.close()
         database = open()
         store = store()
-        assertEquals(result.operationId, store.pendingProposal.first())
+        assertFalse(store.prepareOffer(result.operationId))
         val proposal = requireNotNull(store.proposal(result.operationId))
-        store.setLink(result.operationId, proposal, 0)
+        val suggested = (proposal.suggestion as PlanSuggestion.Choice).plans.single()
+        assertEquals(planId, suggested.target.planId)
+        store.confirmOffer(result.operationId, proposal.operation, suggested)
         val links = store.observeLinks(result.operationId).first()
-        assertEquals("70.00", links.current.single().remainingAmount)
-        assertNull(store.pendingProposal.first())
+        assertEquals("15.00", links.current.single().remainingAmount)
+        assertNull(store.proposal(result.operationId))
         assertEquals(1, requireNotNull(database.budget().content()).operations.size)
         store.removeLink(
             result.operationId,
@@ -118,15 +122,53 @@ class OperationPlanLinkPersistenceTest {
         var store = store()
         createIncomePlan(store)
         val result = createOperation(store)
+        val candidate = store.observeLinks(result.operationId).first().candidates.single()
+        assertTrue(store.prepareOffer(result.operationId))
         store.dismissProposal(result.operationId)
         database.close()
         database = open()
         store = store()
-        assertNull(store.pendingProposal.first())
+        assertNull(store.proposal(result.operationId))
         val create = store.pending().first { it.entityId == result.operationId }
-        store.acknowledge(create, BudgetCommandReceipt(create.requestId, 10, 1, result.suggestedPlan))
-        assertNull(store.pendingProposal.first())
+        store.acknowledge(create, BudgetCommandReceipt(create.requestId, 10, 1, candidate))
+        assertNull(store.proposal(result.operationId))
+        assertFalse(store.prepareOffer(result.operationId))
         assertTrue(store.observeLinks(result.operationId).first().current.isEmpty())
+    }
+
+    @Test fun noMatchIgnoresLateServerReceiptButStillAllowsManualLink() = runBlocking {
+        initialize()
+        val store = store()
+        createIncomePlan(store)
+        val result = createOperation(store, "30.00")
+        assertFalse(store.prepareOffer(result.operationId))
+        val candidate = store.observeLinks(result.operationId).first().candidates.single()
+        val create = store.pending().single { it.entityId == result.operationId }
+        store.acknowledge(create, BudgetCommandReceipt(create.requestId, 10, 1, candidate))
+        assertNull(store.proposal(result.operationId))
+        store.setLink(result.operationId, candidate, 0)
+        assertEquals("70.00", store.observeLinks(result.operationId).first().current.single().remainingAmount)
+    }
+
+    @Test fun confirmingStaleRemainderDoesNotLinkOperation() = runBlocking {
+        initialize()
+        val store = store()
+        createIncomePlan(store)
+        val result = createOperation(store)
+        assertTrue(store.prepareOffer(result.operationId))
+        val offer = requireNotNull(store.proposal(result.operationId))
+        val candidate = (offer.suggestion as PlanSuggestion.Recommended).plan
+        val payment = createOperation(store, "15.00")
+        store.setLink(payment.operationId, candidate, 0)
+        val current = store.observeLinks(result.operationId).first().candidates.single()
+        assertEquals(candidate.version, current.version)
+        assertEquals("85.00", current.remainingAmount)
+        val failure = runCatching {
+            store.confirmOffer(result.operationId, offer.operation, candidate)
+        }.exceptionOrNull()
+        assertEquals("plan_changed", (failure as? BudgetLocalFailure)?.code)
+        assertTrue(store.observeLinks(result.operationId).first().current.isEmpty())
+        assertNotNull(history(store).observeOperation(result.operationId).first())
     }
 
     @Test fun linkWaitsForBothCreatesAndFreezesWirePayloadForRetry() = runBlocking {
@@ -134,7 +176,7 @@ class OperationPlanLinkPersistenceTest {
         val store = store()
         val plan = createIncomePlan(store)
         val result = createOperation(store)
-        store.setLink(result.operationId, requireNotNull(result.suggestedPlan), 0)
+        store.setLink(result.operationId, store.observeLinks(result.operationId).first().candidates.single(), 0)
         val pending = store.pending()
         val link = pending.last()
         assertNull(store.prepare(link))
@@ -163,9 +205,12 @@ class OperationPlanLinkPersistenceTest {
         val store = store()
         val plan = createIncomePlan(store)
         val result = createOperation(store)
+        assertTrue(store.prepareOffer(result.operationId))
+        val offer = requireNotNull(store.proposal(result.operationId))
+        val candidate = (offer.suggestion as PlanSuggestion.Recommended).plan
         store.enqueue("DELETE_INCOME", plan, 0)
         try {
-            store.setLink(result.operationId, requireNotNull(result.suggestedPlan), 0)
+            store.confirmOffer(result.operationId, offer.operation, candidate)
             fail("Expected stale plan")
         } catch (
             expected: BudgetLocalFailure
@@ -186,7 +231,7 @@ class OperationPlanLinkPersistenceTest {
         createIncomePlan(store)
         val result = createOperation(store)
         val history = history(store)
-        store.setLink(result.operationId, requireNotNull(result.suggestedPlan), 0)
+        store.setLink(result.operationId, store.observeLinks(result.operationId).first().candidates.single(), 0)
         val old = requireNotNull(history.observeOperation(result.operationId).first())
         history.updateOperation(old.id, old.version, OperationUpdate(BigDecimal("40.00"), old.categoryId, null))
         assertEquals("60.00", store.observeLinks(old.id).first().current.single().remainingAmount)
@@ -265,7 +310,7 @@ class OperationPlanLinkPersistenceTest {
         initialize()
         val store = store()
         val planId = createIncomePlan(store)
-        val result = createOperation(store)
+        val result = createOperation(store, "30.00")
         val initial = requireNotNull(database.operations().state())
         store.pending().forEach { store.acknowledge(it, BudgetCommandReceipt(it.requestId, 1, 1)) }
         database.budget().putRecord(
@@ -276,7 +321,7 @@ class OperationPlanLinkPersistenceTest {
                 json.encodeToString(
                     SyncPlanRecord(
                         planId,
-                        result.suggestedPlan!!.categoryId,
+                        requireNotNull(database.operations().operation(result.operationId)).categoryId,
                         amount = "100.00",
                         dueOn = today.toString(),
                         status = "SCHEDULED",

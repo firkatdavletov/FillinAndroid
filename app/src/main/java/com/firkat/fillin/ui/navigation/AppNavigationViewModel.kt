@@ -15,7 +15,10 @@ import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupPage
 import com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer
 import com.firkat.fillin.feature.main.ui.AppDestination
+import com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -28,6 +31,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+internal data class NewOperationPlanOffer(val operationId: String, val scopeId: String, val started: TimeMark)
+
 class AppNavigationViewModel(
     private val auth: AuthRepository,
     private val localBudget: LocalBudgetRestorer,
@@ -39,6 +44,8 @@ class AppNavigationViewModel(
     // A new process starts at Launch and restores an unfinished setup after checking readiness.
     private val entries = mutableStateListOf<AppRoute>(AppRoute.Launch)
     val backStack: List<AppRoute> get() = entries
+    internal var pendingPlanOffer by mutableStateOf<NewOperationPlanOffer?>(null)
+        private set
     private val failure = MutableStateFlow(false)
     val launchFailed = failure.asStateFlow()
     private val resolving = MutableStateFlow(true)
@@ -117,6 +124,7 @@ class AppNavigationViewModel(
     internal fun selectMainDestination(
         destination: AppDestination
     ) {
+        cancelPlanOffer()
         mainDestination = destination
         savedState["main_destination"] = destination.name
     }
@@ -389,24 +397,27 @@ class AppNavigationViewModel(
     }
 
     fun operationCreated(
-        result: com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult,
+        result: CreateOperationResult,
         scopeId: String
     ) {
         if (entries.lastOrNull() != AppRoute.OperationCreate) return
         back()
-        if (result.suggestedPlan != null) openOperationPlanLink(result.operationId, scopeId)
+        if (entries.lastOrNull() == AppRoute.Main && !readOnly) {
+            pendingPlanOffer = NewOperationPlanOffer(result.operationId, scopeId, TimeSource.Monotonic.markNow())
+        }
     }
 
-    fun openOperationPlanLink(
-        operationId: String,
-        scopeId: String
-    ) = openMainDestination(AppRoute.OperationPlanLinkBottomSheet(operationId, scopeId))
-
-    fun openDetailsPlanLink(
-        route: AppRoute.OperationDetails
+    internal fun finishPlanOffer(
+        request: NewOperationPlanOffer,
+        canShow: Boolean
     ) {
-        if (readOnly || entries.lastOrNull() != route) return
-        entries.add(AppRoute.OperationPlanLinkBottomSheet(route.operationId, route.budgetScopeId))
+        if (pendingPlanOffer !== request) return
+        pendingPlanOffer = null
+        if (canShow) openMainDestination(AppRoute.OperationPlanLinkBottomSheet(request.operationId, request.scopeId))
+    }
+
+    internal fun cancelPlanOffer() {
+        pendingPlanOffer = null
     }
 
     fun openOperationPlanPicker(
@@ -429,23 +440,12 @@ class AppNavigationViewModel(
         }
     }
 
-    fun chooseAnotherPlan(
-        route: AppRoute.OperationPlanLinkBottomSheet
-    ) {
-        if (entries.lastOrNull() != route) return
-        val parent = entries.getOrNull(entries.lastIndex - 1) as? AppRoute.OperationDetails
-        if (parent?.operationId == route.operationId && parent.budgetScopeId == route.budgetScopeId) {
-            back()
-        } else {
-            entries[entries.lastIndex] =
-                AppRoute.OperationDetails(route.operationId, "plan-link-${route.requestId}", route.budgetScopeId)
-        }
-    }
-
     fun dismissOperationPlanLink(
         route: AppRoute.OperationPlanLinkBottomSheet
-    ) {
-        if (entries.lastOrNull() == route) back()
+    ): Boolean {
+        if (entries.lastOrNull() != route) return false
+        back()
+        return true
     }
 
     fun dismissPlanningRuleEditor(
@@ -474,6 +474,7 @@ class AppNavigationViewModel(
     private fun openMainDestination(
         route: AppRoute
     ) {
+        cancelPlanOffer()
         if (readOnly &&
             route !is AppRoute.ForecastDetails &&
             route !is AppRoute.DailyLimitDetails &&
@@ -510,6 +511,7 @@ class AppNavigationViewModel(
     }
 
     fun back() {
+        cancelPlanOffer()
         if (entries.last().isBudgetSetup()) {
             exitSetup()
             return
@@ -527,6 +529,7 @@ class AppNavigationViewModel(
     }
 
     private fun openMain() {
+        cancelPlanOffer()
         if (AppRoute.Main in entries) {
             while (entries.last() != AppRoute.Main) entries.removeAt(entries.lastIndex)
         } else {
@@ -537,6 +540,7 @@ class AppNavigationViewModel(
     private fun replaceWith(
         route: AppRoute
     ) {
+        cancelPlanOffer()
         entries.clear()
         entries.add(route)
     }

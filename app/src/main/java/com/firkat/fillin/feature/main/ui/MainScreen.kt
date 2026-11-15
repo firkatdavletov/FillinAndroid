@@ -16,6 +16,7 @@ internal fun MainScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
     onCreateOperationClick: () -> Unit = {},
+    addOperationModifier: Modifier = Modifier,
     onOperationClick: (String, String) -> Unit = { _, _ -> },
     onForecastClick: () -> Unit = {},
     readOnly: Boolean = false,
@@ -23,6 +24,7 @@ internal fun MainScreen(
 ) {
     MainContent(
         modifier = modifier,
+        addOperationModifier = addOperationModifier,
         readOnly = readOnly,
         selectedDestination = selectedDestination,
         onSelectDestination = {

@@ -119,6 +119,25 @@ class ConfirmedPlanLinksTest {
         assertEquals(BigDecimal("100.00"), overpaid.plans(filter).totals.incomes)
     }
 
+    @Test fun `inactive rule neither generates payments nor resurrects cancelled ones`() {
+        val rule = income("rule", today.toString()).copy(
+            incomeName = "Зарплата", incomeFrequency = "WEEKLY", incomeActive = false
+        )
+        val open = income("open", today.plusDays(1).toString()).copy(
+            ruleId = rule.id, scheduledOn = today.toString()
+        )
+        val cancelled = income("cancelled", today.plusWeeks(1).toString()).copy(
+            ruleId = rule.id, status = "CANCELLED"
+        )
+        val data = content(listOf(open, cancelled))
+        val projection = BudgetProjection(data.copy(records = data.records + record("INCOME_RULE", rule)), json, today)
+        val payment = projection.links("op").candidates.single()
+        assertEquals(open.id, payment.target.planId)
+        assertEquals(open.dueOn, payment.target.dueOn)
+        assertEquals(open.scheduledOn, payment.target.scheduledOn)
+        assertEquals(PlanningFrequency.Weekly, payment.frequency)
+    }
+
     @Test fun `replacement and removal restore old plan and never change ledger amounts`() {
         val a = income("a", "2026-10-30")
         val b = income("b", "2026-11-01")

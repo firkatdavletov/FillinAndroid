@@ -4,6 +4,7 @@ import com.firkat.fillin.core.database.BudgetContent
 import com.firkat.fillin.feature.categories.domain.model.*
 import com.firkat.fillin.feature.dashboard.domain.calculation.*
 import com.firkat.fillin.feature.operationhistory.data.local.LocalCategory
+import com.firkat.fillin.feature.operationhistory.data.local.LocalOperation
 import com.firkat.fillin.feature.operationhistory.domain.repository.*
 import com.firkat.fillin.feature.plannedexpenses.domain.model.*
 import com.firkat.fillin.feature.plannedincomes.domain.model.*
@@ -306,6 +307,10 @@ internal class BudgetProjection(
             command.planTarget?.planId?.takeIf { command.type == "SET_OPERATION_PLAN_LINK" }
         }.toSet()
         incomeRules.values.forEach { rule ->
+            if (rule.incomeActive == false || rule.status == "CANCELLED") {
+                deactivateIncomeOccurrences(rule, pendingLinked)
+                return@forEach
+            }
             val anchor = LocalDate.parse(rule.dueOn)
             val frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.valueOf(
                 rule.incomeFrequency ?: "ONCE"
@@ -318,6 +323,8 @@ internal class BudgetProjection(
             // Materialized/linked history is immutable when a future schedule changes.
             incomes.replaceAll { id, old ->
                 if (old.ruleId != rule.id ||
+                    rule.id !in changedIncomeRules ||
+                    old.status != "SCHEDULED" ||
                     LocalDate.parse(old.scheduledOn ?: old.dueOn) < today ||
                     (received(id).signum() > 0 || id in pendingLinked)
                 ) {
@@ -367,10 +374,26 @@ internal class BudgetProjection(
                     )
                 }
             }
-            // Deactivation affects all unpaid forecasts but never deletes actual operations.
-            if (rule.incomeActive == false || rule.status == "CANCELLED") {
-                incomes.replaceAll { _, old ->
-                    if (old.ruleId == rule.id) old.copy(incomeActive = false) else old
+        }
+    }
+
+    private fun deactivateIncomeOccurrences(
+        rule: SyncPlanRecord,
+        pendingLinked: Set<String>
+    ) {
+        incomes.replaceAll { id, old ->
+            if (old.ruleId != rule.id) {
+                old
+            } else {
+                val deletedLocally = rule.id in changedIncomeRules && rule.status == "CANCELLED"
+                val toCancel = old.status == "SCHEDULED" &&
+                    LocalDate.parse(old.scheduledOn ?: old.dueOn) >= today &&
+                    received(id).signum() == 0 &&
+                    id !in pendingLinked
+                if (deletedLocally && toCancel) {
+                    old.copy(incomeActive = false, status = "CANCELLED", version = (old.version ?: 0) + 1)
+                } else {
+                    old.copy(incomeActive = false)
                 }
             }
         }
@@ -521,43 +544,55 @@ internal class BudgetProjection(
 
     fun links(
         operationId: String
-    ): OperationPlanLinks {
+    ): OperationPlanLinks = planLinkContext(operationId).links
+
+    fun planLinkContext(
+        operationId: String
+    ): OperationPlanLinkContext {
         // Matching is independent of the Plans tab's period and includes historic open occurrences.
-        plans(
-            PlannedOperationsFilter(
-                period = PlannedOperationPeriod.Custom,
-                dateFrom = LocalDate.of(1, 1, 1),
-                dateTo = today.plusYears(5)
-            )
-        )
-        val operation = operations[operationId] ?: return OperationPlanLinks()
+        applyPlanCommands(today.plusYears(LINK_HORIZON_YEARS))
+        val operation = operations[operationId] ?: return OperationPlanLinkContext()
         fun describe(
             record: SyncPlanRecord,
             type: String
-        ): SuggestedPlan = SuggestedPlan(
-            PlanLinkTarget(
-                type,
-                record.id.takeUnless {
-                    it.contains("@")
+        ): SuggestedPlan {
+            val rule = if (type == "EXPENSE") rules[record.ruleId] else incomeRules[record.ruleId]
+            val frequency = if (type == "EXPENSE") rule?.frequency else rule?.incomeFrequency ?: record.incomeFrequency
+            return SuggestedPlan(
+                PlanLinkTarget(
+                    type,
+                    record.id.takeUnless {
+                        it.contains("@")
+                    },
+                    record.ruleId,
+                    requireNotNull(record.dueOn),
+                    record.scheduledOn
+                ),
+                requireNotNull(record.categoryId),
+                categories[record.categoryId]?.name.orEmpty(),
+                requireNotNull(record.amount),
+                (
+                    record.amount.toBigDecimal() - if (type ==
+                        "EXPENSE"
+                    ) {
+                        paid(record.id)
+                    } else {
+                        received(record.id)
+                    }
+                    ).max(BigDecimal.ZERO).toPlainString(),
+                record.version ?: 0,
+                name = if (type == "EXPENSE") rule?.ruleName else rule?.incomeName ?: record.incomeName,
+                frequency = when (frequency) {
+                    "WEEKLY" -> PlanningFrequency.Weekly
+                    "BIWEEKLY" -> PlanningFrequency.Biweekly
+                    "MONTHLY" -> PlanningFrequency.Monthly
+                    else -> PlanningFrequency.Once
                 },
-                record.ruleId,
-                requireNotNull(record.dueOn),
-                record.scheduledOn
-            ),
-            requireNotNull(record.categoryId),
-            categories[record.categoryId]?.name.orEmpty(),
-            requireNotNull(record.amount),
-            (
-                record.amount.toBigDecimal() - if (type ==
-                    "EXPENSE"
-                ) {
-                    paid(record.id)
-                } else {
-                    received(record.id)
-                }
-                ).max(BigDecimal.ZERO).toPlainString(),
-            record.version ?: 0
-        )
+                currency = currency
+            )
+        }
+        val isLinked = expenseLinks.any { it.ledgerId == operationId } ||
+            incomeLinks.any { it.ledgerId == operationId }
         val current =
             expenseLinks.filter {
                 it.ledgerId == operationId
@@ -565,14 +600,13 @@ internal class BudgetProjection(
                 incomeLinks.filter {
                     it.ledgerId == operationId
                 }.mapNotNull { incomes[it.id]?.let { record -> describe(record, "INCOME") } }
-        if (operation.status != "POSTED" ||
-            operation.syncStatus == "REJECTED" ||
-            operation.hasOriginalValuation ||
-            operation.type !in setOf("EXPENSE", "INCOME") ||
-            contribution(operationId).signum() == 0
-        ) {
-            return OperationPlanLinks(current = current)
+        val amount = contribution(operationId)
+        val category = categories[operation.categoryId]
+        val validAmountAndCategory = category?.archived == false && amount.signum() > 0
+        if (!validAmountAndCategory || !isLinkable(operation)) {
+            return OperationPlanLinkContext(links = OperationPlanLinks(current = current), isLinked = isLinked)
         }
+        requireNotNull(category)
         val records = if (operation.type == "EXPENSE") occurrences.values else incomes.values
         val candidates = records.filter {
             it.status == "SCHEDULED" &&
@@ -601,7 +635,24 @@ internal class BudgetProjection(
                     { it.target.stableKey }
                 )
             )
-        return OperationPlanLinks(candidates, current)
+        return OperationPlanLinkContext(
+            PlanLinkOperation(
+                operation.version, operation.type, category.id, category.name, category.iconCode, currency,
+                operation.occurredOn, operation.accountingAmount, amount.toPlainString()
+            ),
+            OperationPlanLinks(candidates, current),
+            isLinked
+        )
+    }
+
+    private fun isLinkable(
+        operation: LocalOperation
+    ): Boolean {
+        val postedInBudget = operation.scopeKey == scope &&
+            operation.status == "POSTED" &&
+            operation.syncStatus != "REJECTED"
+        val supportedType = operation.type in setOf("EXPENSE", "INCOME") && operation.refundOf == null
+        return postedInBudget && supportedType && !operation.hasOriginalValuation
     }
 
     private fun applyPlanCommands(
@@ -871,7 +922,7 @@ internal class BudgetProjection(
         if (rule.frequency == "ONCE") {
             if (originalStart >= start &&
                 start <= through &&
-                occurrences.values.none { it.ruleId == rule.id && it.dueOn == start.toString() }
+                occurrences.values.none { it.ruleId == rule.id && (it.scheduledOn ?: it.dueOn) == start.toString() }
             ) {
                 val id = "${rule.id}@$start"
                 occurrences[id] = SyncPlanRecord(
@@ -894,7 +945,7 @@ internal class BudgetProjection(
         val existing =
             occurrences.values
                 .filter { it.ruleId == rule.id }
-                .map { it.dueOn }
+                .flatMap { listOfNotNull(it.dueOn, it.scheduledOn) }
                 .toHashSet()
         while (due <= through) {
             if (due >= start && due.toString() !in existing) {
@@ -1028,6 +1079,7 @@ internal class BudgetProjection(
     }
 
     companion object {
+        private const val LINK_HORIZON_YEARS = 5L
         val LINK_COMMANDS = setOf("SET_OPERATION_PLAN_LINK", "REMOVE_OPERATION_PLAN_LINK")
         private val PLAN_KINDS =
             setOf(

@@ -28,20 +28,9 @@ class OperationPlanPickerViewModelTest {
     private var fail = false
     private val gate = CompletableDeferred<Unit>()
     private val links = object : OperationPlanLinkStore {
-        override val pendingProposal = MutableStateFlow<String?>(null)
         override fun observeLinks(
             operationId: String
         ) = candidates
-        override suspend fun proposal(
-            operationId: String
-        ): SuggestedPlan? = null
-        override suspend fun selectProposal(
-            operationId: String,
-            plan: SuggestedPlan
-        ) = Unit
-        override suspend fun dismissProposal(
-            operationId: String
-        ) = Unit
         override suspend fun removeLink(
             operationId: String,
             operationVersion: Long

@@ -200,7 +200,7 @@ class OfflineOperationHistoryRepository(
                     CategoryUsageEvent(state.scopeKey, id, id, operation.categoryId, savedAt.toEpochMilli())
                 )
             }
-            CreateOperationResult(id, budgetStore?.suggest(id))
+            CreateOperationResult(id)
         }
         // A scheduler failure must not turn a committed local save into an apparent failure.
         // Startup will discover the durable outbox again.

@@ -68,11 +68,6 @@ interface BudgetDao {
         id: String
     ): OperationPlanProposal?
 
-    @Query(
-        "SELECT operationId FROM operation_plan_proposals WHERE scopeKey = (SELECT scopeKey FROM operation_sync_state WHERE id = 1) AND decision = 'PENDING' ORDER BY rowid LIMIT 1"
-    )
-    fun observePendingProposal(): Flow<String?>
-
     @Transaction
     @Query("SELECT * FROM operation_sync_state WHERE id = 1")
     fun observeContent(): Flow<BudgetContent?>

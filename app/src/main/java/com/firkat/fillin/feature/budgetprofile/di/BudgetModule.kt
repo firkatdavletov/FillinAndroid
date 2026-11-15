@@ -175,6 +175,7 @@ val budgetModule =
                     .CreateLocalBudget(get())
             }
             scoped<OperationSyncStorage> { RoomOperationSyncStorage(get(), get()) }
+            factory { com.firkat.fillin.feature.operationhistory.domain.usecase.OperationPlanSuggestionPolicy() }
             scoped {
                 val profile = get<BudgetProfile>()
                 val uid = profile.firebaseUid
@@ -195,7 +196,8 @@ val budgetModule =
                         profile.kind != BudgetProfileKind.CLOUD ||
                             getOrNull<AppAccess>()?.cloudAllowed != false
                     },
-                    currencyOverride = currencyOverride
+                    currencyOverride = currencyOverride,
+                    suggestionPolicy = get()
                 )
             }
             scoped<com.firkat.fillin.feature.sync.domain.BudgetSyncControl> {
@@ -277,9 +279,12 @@ val budgetModule =
             scoped<com.firkat.fillin.feature.operationhistory.domain.repository.OperationPlanLinkStore> {
                 get<com.firkat.fillin.feature.sync.data.BudgetStore>()
             }
+            scoped<com.firkat.fillin.feature.operationhistory.domain.repository.OperationPlanOfferStore> {
+                get<com.firkat.fillin.feature.sync.data.BudgetStore>()
+            }
             viewModel { parameters ->
                 com.firkat.fillin.feature.operationhistory.ui
-                    .OperationPlanLinkViewModel(parameters.get(), get(), get())
+                    .OperationPlanLinkViewModel(parameters.get(), get())
             }
             viewModel { parameters ->
                 com.firkat.fillin.feature.operationhistory.ui
