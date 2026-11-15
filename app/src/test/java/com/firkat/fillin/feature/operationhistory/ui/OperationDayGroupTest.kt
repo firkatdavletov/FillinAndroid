@@ -14,14 +14,14 @@ class OperationDayGroupTest {
         val date = LocalDate.of(2026, 10, 1)
         val operations = listOf(
             purchase("expense", date, "1000.00", "KZT"),
-            purchase("income", date, "3000.00", "KZT").copy(type = OperationType.Income),
+            purchase("income", date, "3000.00", "KZT").copy(type = OperationType.Income)
         )
         assertEquals(
             listOf(
                 OperationDayTotal(BigDecimal("1000.00"), "KZT", OperationType.Expense),
-                OperationDayTotal(BigDecimal("3000.00"), "KZT", OperationType.Income),
+                OperationDayTotal(BigDecimal("3000.00"), "KZT", OperationType.Income)
             ),
-            groupOperationsByDate(operations).single().totals,
+            groupOperationsByDate(operations).single().totals
         )
     }
 
@@ -32,7 +32,7 @@ class OperationDayGroupTest {
         val operations = listOf(
             purchase("1", octoberFirst, "1000.00", "KZT"),
             purchase("2", octoberFirst, "2500.00", "KZT"),
-            purchase("3", octoberSecond, "10.00", "USD"),
+            purchase("3", octoberSecond, "10.00", "USD")
         )
 
         val groups = groupOperationsByDate(operations)
@@ -49,7 +49,7 @@ class OperationDayGroupTest {
         val operations = listOf(
             purchase("1", date, "1000.00", "KZT", OperationStatus.Posted),
             purchase("2", date, "2500.00", "KZT", OperationStatus.Voided),
-            purchase("3", date, "500.00", "KZT", OperationStatus.Unknown),
+            purchase("3", date, "500.00", "KZT", OperationStatus.Unknown)
         )
 
         val total = groupOperationsByDate(operations).single().totals.single()
@@ -63,7 +63,7 @@ class OperationDayGroupTest {
         val operations = listOf(
             purchase("1", date, "1000.00", "KZT"),
             purchase("2", date, "20.00", "USD"),
-            purchase("3", date, "500.00", "KZT"),
+            purchase("3", date, "500.00", "KZT")
         )
 
         val totals = groupOperationsByDate(operations).single().totals
@@ -71,9 +71,9 @@ class OperationDayGroupTest {
         assertEquals(
             listOf(
                 OperationDayTotal(BigDecimal("1500.00"), "KZT"),
-                OperationDayTotal(BigDecimal("20.00"), "USD"),
+                OperationDayTotal(BigDecimal("20.00"), "USD")
             ),
-            totals,
+            totals
         )
     }
 
@@ -81,7 +81,7 @@ class OperationDayGroupTest {
     fun `shows zero in group currency when there are no posted operations`() {
         val date = LocalDate.of(2026, 10, 1)
         val operations = listOf(
-            purchase("1", date, "1000.00", "KZT", OperationStatus.Voided),
+            purchase("1", date, "1000.00", "KZT", OperationStatus.Voided)
         )
 
         val total = groupOperationsByDate(operations).single().totals.single()
@@ -94,7 +94,7 @@ class OperationDayGroupTest {
         date: LocalDate,
         amount: String,
         currency: String,
-        status: OperationStatus = OperationStatus.Posted,
+        status: OperationStatus = OperationStatus.Posted
     ) = Operation(
         id = id,
         categoryName = "Категория",
@@ -105,6 +105,6 @@ class OperationDayGroupTest {
         originalCurrency = currency,
         occurredOn = date,
         status = status,
-        version = 0,
+        version = 0
     )
 }

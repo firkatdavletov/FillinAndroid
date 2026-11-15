@@ -21,7 +21,7 @@ fun SaldomiRadioButton(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
+    enabled: Boolean = true
 ) {
     Row(
         modifier = modifier
@@ -30,7 +30,7 @@ fun SaldomiRadioButton(
             .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(selected = selected, onClick = null, enabled = enabled)
         Text(label, color = LocalContentColor.current.run { if (enabled) this else copy(alpha = 0.38f) })

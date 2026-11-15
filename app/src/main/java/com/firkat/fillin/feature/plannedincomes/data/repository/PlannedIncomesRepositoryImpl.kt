@@ -5,8 +5,8 @@ import com.firkat.fillin.feature.plannedincomes.data.remote.dto.CreatePlannedInc
 import com.firkat.fillin.feature.plannedincomes.data.remote.dto.PlannedIncomeDto
 import com.firkat.fillin.feature.plannedincomes.data.remote.dto.UpdatePlannedIncomeRequestDto
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
-import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomes
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
+import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomes
 import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesException
 import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesRepository
 import java.io.IOException
@@ -19,10 +19,8 @@ import kotlinx.serialization.SerializationException
 import retrofit2.HttpException
 import retrofit2.Response
 
-class PlannedIncomesRepositoryImpl(
-    private val api: PlannedIncomesApi,
-    private val apiToken: String,
-) : PlannedIncomesRepository {
+class PlannedIncomesRepositoryImpl(private val api: PlannedIncomesApi, private val apiToken: String) :
+    PlannedIncomesRepository {
     override suspend fun getPlannedIncomes(): PlannedIncomes = execute {
         val response = api.getPlannedIncomes(authorization = authorization)
         PlannedIncomes(
@@ -31,23 +29,23 @@ class PlannedIncomesRepositoryImpl(
                 .map(PlannedIncomeDto::toDomain)
                 .sortedWith(
                     compareByDescending<PlannedIncome> { it.overdue }
-                        .thenBy(PlannedIncome::dueOn),
-                ),
+                        .thenBy(PlannedIncome::dueOn)
+                )
         )
     }
 
     override suspend fun createPlannedIncome(
         categoryId: String,
         amount: BigDecimal,
-        dueOn: LocalDate,
+        dueOn: LocalDate
     ): PlannedIncome = execute {
         val created = api.createPlannedIncome(
             authorization = authorization,
             request = CreatePlannedIncomeRequestDto(
                 categoryId = categoryId,
                 amount = amount.toPlainString(),
-                dueOn = dueOn.toString(),
-            ),
+                dueOn = dueOn.toString()
+            )
         ).requireBody(expectedCode = 201).toDomain()
 
         if (created.version != 0L) throw PlannedIncomesException.InvalidResponse
@@ -59,7 +57,7 @@ class PlannedIncomesRepositoryImpl(
         version: Long,
         categoryId: String?,
         amount: BigDecimal?,
-        dueOn: LocalDate?,
+        dueOn: LocalDate?
     ): PlannedIncome = execute {
         val updated = api.updatePlannedIncome(
             authorization = authorization,
@@ -68,8 +66,8 @@ class PlannedIncomesRepositoryImpl(
                 version = version,
                 categoryId = categoryId,
                 amount = amount?.toPlainString(),
-                dueOn = dueOn?.toString(),
-            ),
+                dueOn = dueOn?.toString()
+            )
         ).requireBody(expectedCode = 200).toDomain()
 
         if (updated.id != id || updated.version != version + 1) {
@@ -78,15 +76,20 @@ class PlannedIncomesRepositoryImpl(
         updated
     }
 
-    override suspend fun deletePlannedIncome(id: String, version: Long): Unit = execute {
+    override suspend fun deletePlannedIncome(
+        id: String,
+        version: Long
+    ): Unit = execute {
         api.deletePlannedIncome(
             authorization = authorization,
             incomeId = id,
-            version = version,
+            version = version
         ).requireStatus(expectedCode = 204)
     }
 
-    private suspend fun <T> execute(block: suspend RequestContext.() -> T): T {
+    private suspend fun <T> execute(
+        block: suspend RequestContext.() -> T
+    ): T {
         if (apiToken.isBlank()) throw PlannedIncomesException.MissingApiToken
 
         return try {
@@ -118,12 +121,16 @@ class PlannedIncomesRepositoryImpl(
     private data class RequestContext(val authorization: String)
 }
 
-private fun <T> Response<T>.requireBody(expectedCode: Int): T {
+private fun <T> Response<T>.requireBody(
+    expectedCode: Int
+): T {
     requireStatus(expectedCode)
     return body() ?: throw PlannedIncomesException.InvalidResponse
 }
 
-private fun Response<*>.requireStatus(expectedCode: Int) {
+private fun Response<*>.requireStatus(
+    expectedCode: Int
+) {
     if (!isSuccessful) throw HttpException(this)
     if (code() != expectedCode) throw PlannedIncomesException.InvalidResponse
 }
@@ -142,5 +149,5 @@ private fun PlannedIncomeDto.toDomain(): PlannedIncome = PlannedIncome(
     },
     version = version,
     createdAt = Instant.parse(createdAt),
-    modifiedAt = Instant.parse(modifiedAt),
+    modifiedAt = Instant.parse(modifiedAt)
 )

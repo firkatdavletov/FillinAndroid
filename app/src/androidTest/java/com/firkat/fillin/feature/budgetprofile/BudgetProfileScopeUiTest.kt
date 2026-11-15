@@ -1,19 +1,19 @@
 package com.firkat.fillin.feature.budgetprofile
 
+import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
-import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.dashboard.widgets.totalbalance.ui.TotalBalanceViewModel
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotSame
 import org.junit.Rule
 import org.junit.Test
 import org.koin.compose.viewmodel.koinViewModel
-import java.util.concurrent.ConcurrentHashMap
 
 class BudgetProfileScopeUiTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
@@ -37,14 +37,20 @@ class BudgetProfileScopeUiTest {
                     Text(state.amount?.amount?.toPlainString() ?: "loading")
                 }
             }
-            compose.waitUntil(5000) { compose.onAllNodes(androidx.compose.ui.test.hasText("88.75")).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(5000) {
+                compose.onAllNodes(androidx.compose.ui.test.hasText("88.75")).fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithText("88.75").assertExists()
             runBlocking { env.manager.select(second.id) }
-            compose.waitUntil(5000) { compose.onAllNodes(androidx.compose.ui.test.hasText("877.50")).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(5000) {
+                compose.onAllNodes(androidx.compose.ui.test.hasText("877.50")).fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithText("877.50").assertExists()
             assertNotSame(models[first.id], models[second.id])
             runBlocking { env.manager.select(first.id) }
-            compose.waitUntil(5000) { compose.onAllNodes(androidx.compose.ui.test.hasText("88.75")).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(5000) {
+                compose.onAllNodes(androidx.compose.ui.test.hasText("88.75")).fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithText("88.75").assertExists()
             // Release Compose's lease before the isolated Koin application is shut down.
             compose.activityRule.scenario.onActivity { it.setContentView(android.widget.FrameLayout(it)) }

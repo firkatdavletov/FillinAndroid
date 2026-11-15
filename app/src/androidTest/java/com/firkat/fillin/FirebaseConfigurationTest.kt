@@ -33,7 +33,7 @@ class FirebaseConfigurationTest {
         val clientIdResource = context.resources.getIdentifier(
             "default_web_client_id",
             "string",
-            context.packageName,
+            context.packageName
         )
         assertTrue("Google Sign-In Web client is missing from google-services.json", clientIdResource != 0)
         assertTrue(context.getString(clientIdResource).endsWith(".apps.googleusercontent.com"))

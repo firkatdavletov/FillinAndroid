@@ -1,4 +1,4 @@
-package com.firkat.fillin.feature.plannedoperations.ui
+package com.firkat.fillin.feature.plannedoperations.ui.bottomsheets
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.imePadding
@@ -10,21 +10,21 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.firkat.fillin.feature.plannedexpenses.ui.DeleteRuleConfirmation
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpenseRuleEditor
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesEvent
 import com.firkat.fillin.feature.plannedexpenses.ui.PlannedExpensesViewModel
-import com.firkat.fillin.feature.plannedincomes.ui.DeleteIncomeConfirmation
+import com.firkat.fillin.feature.plannedexpenses.ui.bottomsheets.PlannedExpensesBottomSheetHost
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomeEditor
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesEvent
 import com.firkat.fillin.feature.plannedincomes.ui.PlannedIncomesViewModel
+import com.firkat.fillin.feature.plannedincomes.ui.bottomsheets.PlannedIncomesBottomSheetHost
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.ui.navigation.LocalBottomSheetDismissController
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
-internal const val PlannedExpenseEditorKey = "planned-expense-editor"
-internal const val PlannedIncomeEditorKey = "planned-income-editor"
+private const val EXPENSE_EDITOR_KEY = "planned-expense-editor"
+private const val INCOME_EDITOR_KEY = "planned-income-editor"
 
 @Composable
 internal fun PlannedOperationBottomSheet(
@@ -32,13 +32,13 @@ internal fun PlannedOperationBottomSheet(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     expenseEditor: PlannedExpensesViewModel = koinViewModel(
-        key = PlannedExpenseEditorKey,
-        parameters = { parametersOf(true) },
+        key = EXPENSE_EDITOR_KEY,
+        parameters = { parametersOf(true) }
     ),
     incomeEditor: PlannedIncomesViewModel = koinViewModel(
-        key = PlannedIncomeEditorKey,
-        parameters = { parametersOf(true) },
-    ),
+        key = INCOME_EDITOR_KEY,
+        parameters = { parametersOf(true) }
+    )
 ) {
     val expenseState by expenseEditor.uiState.collectAsStateWithLifecycle()
     val incomeState by incomeEditor.uiState.collectAsStateWithLifecycle()
@@ -82,11 +82,14 @@ internal fun PlannedOperationBottomSheet(
                 editor = editor,
                 onEvent = expenseEditor::onEvent,
                 modifier = contentModifier,
-                onClose = requestClose,
+                onClose = requestClose
             )
-            if (editor.isDeleteConfirmationVisible) {
-                DeleteRuleConfirmation(onEvent = expenseEditor::onEvent)
-            }
+            PlannedExpensesBottomSheetHost(
+                editorOpen = true,
+                showDeleteConfirmation = editor.isDeleteConfirmationVisible,
+                onDelete = { expenseEditor.onEvent(PlannedExpensesEvent.DeleteConfirmed) },
+                onDismissDelete = { expenseEditor.onEvent(PlannedExpensesEvent.DeleteDismissed) }
+            )
         }
         PlannedOperationType.Income -> incomeState.editor?.let { editor ->
             PlannedIncomeEditor(
@@ -95,11 +98,13 @@ internal fun PlannedOperationBottomSheet(
                 editor = editor,
                 onEvent = incomeEditor::onEvent,
                 modifier = contentModifier,
-                onClose = requestClose,
+                onClose = requestClose
             )
-            if (editor.isDeleteConfirmationVisible) {
-                DeleteIncomeConfirmation(onEvent = incomeEditor::onEvent)
-            }
+            PlannedIncomesBottomSheetHost(
+                showDeleteConfirmation = editor.isDeleteConfirmationVisible,
+                onDelete = { incomeEditor.onEvent(PlannedIncomesEvent.DeleteConfirmed) },
+                onDismiss = { incomeEditor.onEvent(PlannedIncomesEvent.DeleteDismissed) }
+            )
         }
     }
 }

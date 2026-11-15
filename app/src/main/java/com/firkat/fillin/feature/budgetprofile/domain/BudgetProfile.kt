@@ -11,15 +11,26 @@ data class BudgetProfile(
     val budgetId: String? = null,
     val role: String? = null,
     val archived: Boolean = false,
-    val name: String? = null,
+    val name: String? = null
 ) {
     init {
         require(id.isNotBlank())
         require(databaseName.matches(Regex("[a-zA-Z0-9-]+\\.db")))
-        require(if (kind == BudgetProfileKind.CLOUD) !firebaseUid.isNullOrBlank() && !budgetId.isNullOrBlank() else firebaseUid == null && budgetId == null)
+        require(
+            if (kind ==
+                BudgetProfileKind.CLOUD
+            ) {
+                !firebaseUid.isNullOrBlank() && !budgetId.isNullOrBlank()
+            } else {
+                firebaseUid == null &&
+                    budgetId == null
+            }
+        )
     }
 
-    fun accessibleTo(uid: String?): Boolean = !archived && (kind != BudgetProfileKind.CLOUD || firebaseUid == uid)
+    fun accessibleTo(
+        uid: String?
+    ): Boolean = !archived && (kind != BudgetProfileKind.CLOUD || firebaseUid == uid)
 
     val syncIdentity: BudgetSyncIdentity get() = BudgetSyncIdentity(id, firebaseUid)
 }
@@ -28,13 +39,36 @@ data class BudgetSyncIdentity(val profileId: String, val firebaseUid: String?)
 
 interface BudgetProfileRegistry {
     suspend fun initialize(): BudgetProfile
-    suspend fun find(id: String): BudgetProfile?
-    suspend fun available(uid: String?): List<BudgetProfile>
+    suspend fun find(
+        id: String
+    ): BudgetProfile?
+    suspend fun available(
+        uid: String?
+    ): List<BudgetProfile>
     suspend fun createLocal(): BudgetProfile
-    suspend fun createLocal(name: String): BudgetProfile
-    suspend fun registerCloud(uid: String, budgetId: String, role: String): BudgetProfile
-    suspend fun attachLegacy(id: String, uid: String, budgetId: String, role: String): BudgetProfile
-    suspend fun replaceCloudMembership(originalId: String, replacement: BudgetProfile)
-    suspend fun selected(uid: String?): BudgetProfile
-    suspend fun select(id: String, uid: String?): BudgetProfile
+    suspend fun createLocal(
+        name: String
+    ): BudgetProfile
+    suspend fun registerCloud(
+        uid: String,
+        budgetId: String,
+        role: String
+    ): BudgetProfile
+    suspend fun attachLegacy(
+        id: String,
+        uid: String,
+        budgetId: String,
+        role: String
+    ): BudgetProfile
+    suspend fun replaceCloudMembership(
+        originalId: String,
+        replacement: BudgetProfile
+    )
+    suspend fun selected(
+        uid: String?
+    ): BudgetProfile
+    suspend fun select(
+        id: String,
+        uid: String?
+    ): BudgetProfile
 }

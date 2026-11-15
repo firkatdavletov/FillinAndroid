@@ -12,6 +12,6 @@ interface PlannedOperationsApi {
         @Query("type") type: String?,
         @Query("period") period: String,
         @Query("dateFrom") dateFrom: String?,
-        @Query("dateTo") dateTo: String?,
+        @Query("dateTo") dateTo: String?
     ): PlannedOperationsResponseDto
 }

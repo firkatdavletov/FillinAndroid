@@ -6,7 +6,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import com.firkat.fillin.feature.budgetsetup.ui.interactor.*
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget
+import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupPage
 
 @Composable
 fun BudgetSetupRoute(
@@ -16,8 +17,10 @@ fun BudgetSetupRoute(
     onComplete: () -> Unit,
     onPageChange: (SetupPage) -> Unit,
     fromProfile: Boolean = false,
+    page: SetupPage? = null,
+    isActive: Boolean = true
 ) {
     Surface(Modifier.fillMaxSize().testTag("budget_setup_screen"), color = MaterialTheme.colorScheme.background) {
-        BudgetSetupScreen(viewModel, onBack, onSignIn, onComplete, onPageChange, fromProfile)
+        BudgetSetupScreen(viewModel, onBack, onSignIn, onComplete, onPageChange, fromProfile, page, isActive)
     }
 }

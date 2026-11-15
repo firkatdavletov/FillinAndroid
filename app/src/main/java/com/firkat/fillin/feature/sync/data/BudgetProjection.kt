@@ -5,22 +5,22 @@ import com.firkat.fillin.feature.categories.domain.model.*
 import com.firkat.fillin.feature.dashboard.domain.calculation.*
 import com.firkat.fillin.feature.operationhistory.data.local.LocalCategory
 import com.firkat.fillin.feature.operationhistory.data.local.LocalOperation
+import com.firkat.fillin.feature.operationhistory.domain.repository.*
 import com.firkat.fillin.feature.plannedexpenses.domain.model.*
 import com.firkat.fillin.feature.plannedincomes.domain.model.*
 import com.firkat.fillin.feature.plannedoperations.domain.model.*
-import kotlinx.serialization.json.Json
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import com.firkat.fillin.feature.operationhistory.domain.repository.*
+import kotlinx.serialization.json.Json
 
 /** A server snapshot plus an ordered overlay. Import never rewrites a user's queued intent. */
 internal class BudgetProjection(
     private val content: BudgetContent,
     private val json: Json,
-    private val today: LocalDate,
+    private val today: LocalDate
 ) {
     val categories = content.categories.associateBy { it.id }.toMutableMap()
     val operations = content.operations.associateBy { it.id }.toMutableMap()
@@ -32,7 +32,8 @@ internal class BudgetProjection(
     private val incomeLinks = mutableListOf<SyncPlanRecord>()
     private val overlays =
         content.commands.sortedBy { it.createdOrder }.filter {
-            it.status != "CANCELLED" && (it.status != "REJECTED" || content.sync.protocolVersion >= 4 && it.kind != "LEDGER") &&
+            it.status != "CANCELLED" &&
+                (it.status != "REJECTED" || content.sync.protocolVersion >= 4 && it.kind != "LEDGER") &&
                 !(it.status == "ACKNOWLEDGED" && (it.receiptRevision ?: Long.MAX_VALUE) <= content.sync.lastRevision)
         }
     private val scope = content.sync.scopeKey
@@ -54,7 +55,10 @@ internal class BudgetProjection(
             }
         }
         overlays.filter { it.kind == "CATEGORY" }.forEach { overlayCategory(json.decodeFromString(it.intent)) }
-        overlays.filter { it.kind == "EXPECTED_INCOME" && json.decodeFromString<BudgetSyncCommand>(it.intent).type != "CONFIRM_REMAINDER_INCOME" }.forEach { overlayIncome(json.decodeFromString(it.intent)) }
+        overlays.filter {
+            it.kind == "EXPECTED_INCOME" &&
+                json.decodeFromString<BudgetSyncCommand>(it.intent).type != "CONFIRM_REMAINDER_INCOME"
+        }.forEach { overlayIncome(json.decodeFromString(it.intent)) }
         overlays.filter { it.kind == "INCOME_RULE" }.forEach {
             val command = json.decodeFromString<BudgetSyncCommand>(it.intent)
             if (command.entityId !in incomeRules && command.type == "UPDATE_INCOME_RULE") {
@@ -68,7 +72,10 @@ internal class BudgetProjection(
             changedIncomeRules += command.entityId
         }
         expandIncomes(today.plusYears(5))
-        overlays.filter { it.kind == "EXPECTED_INCOME" && json.decodeFromString<BudgetSyncCommand>(it.intent).type == "CONFIRM_REMAINDER_INCOME" }
+        overlays.filter {
+            it.kind == "EXPECTED_INCOME" &&
+                json.decodeFromString<BudgetSyncCommand>(it.intent).type == "CONFIRM_REMAINDER_INCOME"
+        }
             .forEach { overlayIncome(json.decodeFromString(it.intent)) }
         overlays.filter { it.kind == "LEDGER" }.forEach { item ->
             val command = json.decodeFromString<BudgetSyncCommand>(item.intent)
@@ -79,13 +86,19 @@ internal class BudgetProjection(
             if (operation != null && command.type == "UPDATE_OPERATION") {
                 operations[operation.id] =
                     operation.copy(
-                        categoryId = if (command.replaceDetails) requireNotNull(command.categoryId) else operation.categoryId,
+                        categoryId = if (command.replaceDetails) {
+                            requireNotNull(
+                                command.categoryId
+                            )
+                        } else {
+                            operation.categoryId
+                        },
                         description = if (command.replaceDetails) command.description else operation.description,
                         originalAmount = requireNotNull(command.amount),
                         amountKzt = command.amount,
                         version = operation.version + 1,
                         status = "POSTED",
-                        syncStatus = "PENDING",
+                        syncStatus = "PENDING"
                     )
             }
             if (operation != null && command.type == "REFUND_OPERATION") {
@@ -107,7 +120,7 @@ internal class BudgetProjection(
                             requestId = command.requestId,
                             version = 0,
                             sequence = 0,
-                            syncStatus = "PENDING",
+                            syncStatus = "PENDING"
                         )
                     operations[operation.id] = operation.copy(version = operation.version + 1)
                 }
@@ -115,26 +128,49 @@ internal class BudgetProjection(
         }
     }
 
-    private fun linkEligible(item: com.firkat.fillin.core.database.BudgetOutbox, visiting: Set<String> = emptySet()): Boolean {
+    private fun linkEligible(
+        item: com.firkat.fillin.core.database.BudgetOutbox,
+        visiting: Set<String> = emptySet()
+    ): Boolean {
         if (item.status !in setOf("PENDING", "ACKNOWLEDGED") || item.requestId in visiting) return false
-        val ids = listOfNotNull(item.predecessor, item.dependency) + json.decodeFromString<List<String>>(item.dependencies)
-        return ids.all { id -> content.commands.firstOrNull { it.requestId == id }?.let { linkEligible(it, visiting + item.requestId) } != false }
+        val ids =
+            listOfNotNull(item.predecessor, item.dependency) + json.decodeFromString<List<String>>(item.dependencies)
+        return ids.all { id ->
+            content.commands.firstOrNull { it.requestId == id }?.let {
+                linkEligible(
+                    it,
+                    visiting + item.requestId
+                )
+            } !=
+                false
+        }
     }
 
-    fun categoryList(): List<Category> =
-        categories.values.filterNot { it.archived }.sortedBy { it.name }.map {
-            Category(
-                it.id,
-                it.name,
-                if (it.kind == "INCOME") CategoryKind.Income else CategoryKind.Expense,
-                CategoryIcon(it.iconCode, it.iconEmoji),
-                it.dictionaryKey,
-                it.revision,
-            )
-        }
+    fun categoryList(): List<Category> = categories.values.filterNot { it.archived }.sortedBy { it.name }.map {
+        Category(
+            it.id,
+            it.name,
+            if (it.kind == "INCOME") CategoryKind.Income else CategoryKind.Expense,
+            CategoryIcon(it.iconCode, it.iconEmoji),
+            it.dictionaryKey,
+            it.revision
+        )
+    }
 
-    private fun overlayCategory(c: BudgetSyncCommand) {
-        val old = categories[c.entityId] ?: if (c.type == "UPDATE_CATEGORY" && c.name != null && c.kind != null && c.icon != null) LocalCategory(scope, c.entityId, c.name, c.kind, c.icon, "📦", false, 0) else null
+    private fun overlayCategory(
+        c: BudgetSyncCommand
+    ) {
+        val old =
+            categories[c.entityId]
+                ?: if (c.type == "UPDATE_CATEGORY" &&
+                    c.name != null &&
+                    c.kind != null &&
+                    c.icon != null
+                ) {
+                    LocalCategory(scope, c.entityId, c.name, c.kind, c.icon, "📦", false, 0)
+                } else {
+                    null
+                }
         when (c.type) {
             "CREATE_CATEGORY" -> {
                 if (old == null) {
@@ -147,7 +183,7 @@ internal class BudgetProjection(
                             requireNotNull(c.icon),
                             "📦",
                             false,
-                            0,
+                            0
                         )
                 }
             }
@@ -160,7 +196,7 @@ internal class BudgetProjection(
                             archived = if (content.sync.protocolVersion >= 4) false else old.archived,
                             iconCode = c.icon ?: old.iconCode,
                             iconEmoji =
-                                if (c.icon != null) "📦" else old.iconEmoji,
+                            if (c.icon != null) "📦" else old.iconEmoji
                         )
                 }
             }
@@ -184,8 +220,28 @@ internal class BudgetProjection(
         }
     }
 
-    private fun overlayIncome(c: BudgetSyncCommand, target: MutableMap<String, SyncPlanRecord> = incomes) {
-        val old = target[c.entityId] ?: if (c.type.removeSuffix("_RULE") == "UPDATE_INCOME" && c.categoryId != null && c.amount != null && c.dueOn != null) SyncPlanRecord(c.entityId, categoryId = c.categoryId, amount = c.amount, dueOn = c.dueOn, status = "SCHEDULED", version = 0) else null
+    private fun overlayIncome(
+        c: BudgetSyncCommand,
+        target: MutableMap<String, SyncPlanRecord> = incomes
+    ) {
+        val old =
+            target[c.entityId]
+                ?: if (c.type.removeSuffix("_RULE") == "UPDATE_INCOME" &&
+                    c.categoryId != null &&
+                    c.amount != null &&
+                    c.dueOn != null
+                ) {
+                    SyncPlanRecord(
+                        c.entityId,
+                        categoryId = c.categoryId,
+                        amount = c.amount,
+                        dueOn = c.dueOn,
+                        status = "SCHEDULED",
+                        version = 0
+                    )
+                } else {
+                    null
+                }
         val at = "${c.authoredOn}T00:00:00Z"
         when (c.type.removeSuffix("_RULE")) {
             "CREATE_INCOME" -> {
@@ -200,7 +256,7 @@ internal class BudgetProjection(
                             status = "SCHEDULED",
                             version = 0,
                             createdAt = at,
-                            modifiedAt = at,
+                            modifiedAt = at
                         )
                 }
             }
@@ -211,21 +267,27 @@ internal class BudgetProjection(
                 ) {
                     target[c.entityId] =
                         old.copy(
-                            incomeName = c.incomeName ?: old.incomeName, incomeFrequency = c.incomeFrequency ?: old.incomeFrequency,
+                            incomeName = c.incomeName ?: old.incomeName,
+                            incomeFrequency =
+                            c.incomeFrequency ?: old.incomeFrequency,
                             incomeActive = c.incomeActive ?: old.incomeActive,
                             categoryId = c.categoryId ?: old.categoryId,
                             amount = c.amount ?: old.amount,
                             dueOn = c.dueOn ?: old.dueOn,
                             status = if (content.sync.protocolVersion >= 4) "SCHEDULED" else old.status,
                             version = (old.version ?: 0) + 1,
-                            modifiedAt = at,
+                            modifiedAt = at
                         )
                 }
             }
 
             "CONFIRM_REMAINDER_INCOME" -> if (old != null) {
-                target[c.entityId] = old.copy(remainderAmount = c.remainderAmount, remainderDueOn = c.remainderDueOn,
-                    remainderReceived = c.remainderReceived, version = (old.version ?: 0) + 1)
+                target[c.entityId] = old.copy(
+                    remainderAmount = c.remainderAmount,
+                    remainderDueOn = c.remainderDueOn,
+                    remainderReceived = c.remainderReceived,
+                    version = (old.version ?: 0) + 1
+                )
             }
             "DELETE_INCOME" -> {
                 if (old !=
@@ -237,40 +299,109 @@ internal class BudgetProjection(
         }
     }
 
-    private fun expandIncomes(through: LocalDate) {
+    private fun expandIncomes(
+        through: LocalDate
+    ) {
         val pendingLinked = overlays.filter { it.kind == "LEDGER" && linkEligible(it) }.mapNotNull {
             val command = json.decodeFromString<BudgetSyncCommand>(it.intent)
             command.planTarget?.planId?.takeIf { command.type == "SET_OPERATION_PLAN_LINK" }
         }.toSet()
         incomeRules.values.forEach { rule ->
+            if (rule.incomeActive == false || rule.status == "CANCELLED") {
+                deactivateIncomeOccurrences(rule, pendingLinked)
+                return@forEach
+            }
             val anchor = LocalDate.parse(rule.dueOn)
-            val frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.valueOf(rule.incomeFrequency ?: "ONCE")
-            val dates = com.firkat.fillin.feature.dailylimit.domain.ForecastEventGenerator.dates(anchor, frequency, through).toSet()
+            val frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.valueOf(
+                rule.incomeFrequency ?: "ONCE"
+            )
+            val dates = com.firkat.fillin.feature.dailylimit.domain.ForecastEventGenerator.dates(
+                anchor,
+                frequency,
+                through
+            ).toSet()
             // Materialized/linked history is immutable when a future schedule changes.
             incomes.replaceAll { id, old ->
-                if (old.ruleId != rule.id || LocalDate.parse(old.scheduledOn ?: old.dueOn) < today || (received(id).signum() > 0 || id in pendingLinked)) old
-                else {
-                    val updated = old.copy(status = if (LocalDate.parse(old.scheduledOn ?: old.dueOn) in dates) rule.status else "CANCELLED",
-                        amount = rule.amount, categoryId = rule.categoryId, incomeName = rule.incomeName, incomeActive = rule.incomeActive,
-                        incomeFrequency = rule.incomeFrequency)
-                    if (updated != old && content.records.any { it.kind == "EXPECTED_INCOME" && it.id == id })
-                        updated.copy(version = (old.version ?: 0) + 1) else updated
+                if (old.ruleId != rule.id ||
+                    rule.id !in changedIncomeRules ||
+                    old.status != "SCHEDULED" ||
+                    LocalDate.parse(old.scheduledOn ?: old.dueOn) < today ||
+                    (received(id).signum() > 0 || id in pendingLinked)
+                ) {
+                    old
+                } else {
+                    val updated = old.copy(
+                        status = if (LocalDate.parse(old.scheduledOn ?: old.dueOn) in
+                            dates
+                        ) {
+                            rule.status
+                        } else {
+                            "CANCELLED"
+                        },
+                        amount = rule.amount,
+                        categoryId = rule.categoryId,
+                        incomeName = rule.incomeName,
+                        incomeActive = rule.incomeActive,
+                        incomeFrequency = rule.incomeFrequency
+                    )
+                    if (updated != old && content.records.any { it.kind == "EXPECTED_INCOME" && it.id == id }) {
+                        updated.copy(version = (old.version ?: 0) + 1)
+                    } else {
+                        updated
+                    }
                 }
             }
             dates.filter { rule.id !in changedIncomeRules || it >= today }.forEach { date ->
-                val id = incomes.values.firstOrNull { it.ruleId == rule.id && (it.scheduledOn ?: it.dueOn) == date.toString() }?.id
-                    ?: java.util.UUID.nameUUIDFromBytes("income:${rule.id}:$date".toByteArray(Charsets.UTF_8)).toString()
-                if (id !in incomes) incomes[id] = rule.copy(id = id, ruleId = rule.id, dueOn = date.toString(), version = 0,
-                    scheduledOn = date.toString(), remainderAmount = null, remainderDueOn = null, remainderReceived = null)
-            }
-            // Deactivation affects all unpaid forecasts but never deletes actual operations.
-            if (rule.incomeActive == false || rule.status == "CANCELLED") incomes.replaceAll { _, old ->
-                if (old.ruleId == rule.id) old.copy(incomeActive = false) else old
+                val id =
+                    incomes.values.firstOrNull {
+                        it.ruleId == rule.id && (it.scheduledOn ?: it.dueOn) == date.toString()
+                    }?.id
+                        ?: java.util.UUID.nameUUIDFromBytes(
+                            "income:${rule.id}:$date".toByteArray(Charsets.UTF_8)
+                        ).toString()
+                if (id !in
+                    incomes
+                ) {
+                    incomes[id] = rule.copy(
+                        id = id,
+                        ruleId = rule.id,
+                        dueOn = date.toString(),
+                        version = 0,
+                        scheduledOn = date.toString(),
+                        remainderAmount = null,
+                        remainderDueOn = null,
+                        remainderReceived = null
+                    )
+                }
             }
         }
     }
 
-    fun plans(filter: PlannedOperationsFilter): PlannedOperations {
+    private fun deactivateIncomeOccurrences(
+        rule: SyncPlanRecord,
+        pendingLinked: Set<String>
+    ) {
+        incomes.replaceAll { id, old ->
+            if (old.ruleId != rule.id) {
+                old
+            } else {
+                val deletedLocally = rule.id in changedIncomeRules && rule.status == "CANCELLED"
+                val toCancel = old.status == "SCHEDULED" &&
+                    LocalDate.parse(old.scheduledOn ?: old.dueOn) >= today &&
+                    received(id).signum() == 0 &&
+                    id !in pendingLinked
+                if (deletedLocally && toCancel) {
+                    old.copy(incomeActive = false, status = "CANCELLED", version = (old.version ?: 0) + 1)
+                } else {
+                    old.copy(incomeActive = false)
+                }
+            }
+        }
+    }
+
+    fun plans(
+        filter: PlannedOperationsFilter
+    ): PlannedOperations {
         val from = filter.dateFrom ?: today
         val to =
             filter.dateTo
@@ -307,8 +438,8 @@ internal class BudgetProjection(
                         instant(o.createdAt),
                         instant(o.modifiedAt),
                         requireNotNull(o.ruleId),
-                        rule.version ?: 0,
-                    ),
+                        rule.version ?: 0
+                    )
                 )
             }
         val incomeItems =
@@ -316,7 +447,14 @@ internal class BudgetProjection(
                 val due = LocalDate.parse(i.dueOn)
                 val received = received(i.id)
                 val remaining = (requireNotNull(i.amount).toBigDecimal() - received).max(BigDecimal.ZERO)
-                if (i.status != "SCHEDULED" || remaining.signum() == 0 || due < from || due > to || categories[i.categoryId]?.archived == true) return@mapNotNull null
+                if (i.status != "SCHEDULED" ||
+                    remaining.signum() == 0 ||
+                    due < from ||
+                    due > to ||
+                    categories[i.categoryId]?.archived == true
+                ) {
+                    return@mapNotNull null
+                }
                 PlannedOperation.Income(
                     PlannedIncome(
                         i.id,
@@ -331,11 +469,16 @@ internal class BudgetProjection(
                         instant(i.createdAt),
                         instant(i.modifiedAt),
                         name = i.incomeName ?: categories[i.categoryId]?.name.orEmpty(),
-                        frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.valueOf(i.incomeFrequency ?: "ONCE"),
-                        active = i.incomeActive != false, ruleId = i.ruleId, scheduledOn = LocalDate.parse(i.scheduledOn ?: i.dueOn),
+                        frequency = com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.valueOf(
+                            i.incomeFrequency ?: "ONCE"
+                        ),
+                        active = i.incomeActive != false, ruleId = i.ruleId,
+                        scheduledOn = LocalDate.parse(
+                            i.scheduledOn ?: i.dueOn
+                        ),
                         remainderConfirmed = i.remainderReceived?.toBigDecimal()?.compareTo(received) == 0,
-                        receivedAmount = received, remainingAmount = remaining,
-                    ),
+                        receivedAmount = received, remainingAmount = remaining
+                    )
                 )
             }
         val totals =
@@ -343,7 +486,7 @@ internal class BudgetProjection(
                 expenseItems.sumOf {
                     it.expense.remainingAmount
                 },
-                incomeItems.sumOf { it.income.remainingAmount },
+                incomeItems.sumOf { it.income.remainingAmount }
             )
         return PlannedOperations(
             today,
@@ -354,17 +497,28 @@ internal class BudgetProjection(
                     filter.type == null ||
                         it.type == filter.type
                 }.sortedWith(compareBy({ it.dueOn }, { it.id })),
-            totals,
+            totals
         )
     }
 
-    private fun contribution(ledgerId: String?): BigDecimal {
-        val operation = operations[ledgerId]?.takeIf { it.status == "POSTED" && it.syncStatus != "REJECTED" } ?: return BigDecimal.ZERO
-        val refunds = operations.values.filter { it.refundOf == ledgerId && it.status == "POSTED" && it.syncStatus != "REJECTED" }.sumOf { it.accountingAmount.toBigDecimal() }
+    private fun contribution(
+        ledgerId: String?
+    ): BigDecimal {
+        val operation =
+            operations[ledgerId]?.takeIf { it.status == "POSTED" && it.syncStatus != "REJECTED" }
+                ?: return BigDecimal.ZERO
+        val refunds = operations.values.filter {
+            it.refundOf == ledgerId &&
+                it.status == "POSTED" &&
+                it.syncStatus != "REJECTED"
+        }.sumOf { it.accountingAmount.toBigDecimal() }
         return (operation.accountingAmount.toBigDecimal() - refunds).max(BigDecimal.ZERO)
     }
 
-    private fun paidBefore(id: String, order: Long): BigDecimal {
+    private fun paidBefore(
+        id: String,
+        order: Long
+    ): BigDecimal {
         val links = expenseLinks.toMutableList()
         overlays.filter { it.createdOrder < order && linkEligible(it) }.forEach { item ->
             val c = json.decodeFromString<BudgetSyncCommand>(item.intent)
@@ -381,40 +535,133 @@ internal class BudgetProjection(
         return links.filter { it.id == id }.sumOf { contribution(it.ledgerId) }
     }
 
-    private fun paid(id: String): BigDecimal = expenseLinks.filter { it.id == id }.sumOf { contribution(it.ledgerId) }
-    private fun received(id: String): BigDecimal = incomeLinks.filter { it.id == id }.sumOf { contribution(it.ledgerId) }
+    private fun paid(
+        id: String
+    ): BigDecimal = expenseLinks.filter { it.id == id }.sumOf { contribution(it.ledgerId) }
+    private fun received(
+        id: String
+    ): BigDecimal = incomeLinks.filter { it.id == id }.sumOf { contribution(it.ledgerId) }
 
-    fun links(operationId: String): OperationPlanLinks {
+    fun links(
+        operationId: String
+    ): OperationPlanLinks = planLinkContext(operationId).links
+
+    fun planLinkContext(
+        operationId: String
+    ): OperationPlanLinkContext {
         // Matching is independent of the Plans tab's period and includes historic open occurrences.
-        plans(PlannedOperationsFilter(period = PlannedOperationPeriod.Custom, dateFrom = LocalDate.of(1, 1, 1), dateTo = today.plusYears(5)))
-        val operation = operations[operationId] ?: return OperationPlanLinks()
-        fun describe(record: SyncPlanRecord, type: String): SuggestedPlan = SuggestedPlan(
-            PlanLinkTarget(type, record.id.takeUnless { it.contains("@") }, record.ruleId, requireNotNull(record.dueOn), record.scheduledOn),
-            requireNotNull(record.categoryId), categories[record.categoryId]?.name.orEmpty(), requireNotNull(record.amount),
-            (record.amount.toBigDecimal() - if (type == "EXPENSE") paid(record.id) else received(record.id)).max(BigDecimal.ZERO).toPlainString(),
-            record.version ?: 0,
-        )
-        val current = expenseLinks.filter { it.ledgerId == operationId }.mapNotNull { occurrences[it.id]?.let { record -> describe(record, "EXPENSE") } } +
-            incomeLinks.filter { it.ledgerId == operationId }.mapNotNull { incomes[it.id]?.let { record -> describe(record, "INCOME") } }
-        if (operation.status != "POSTED" || operation.syncStatus == "REJECTED" || operation.hasOriginalValuation || operation.type !in setOf("EXPENSE", "INCOME") || contribution(operationId).signum() == 0) return OperationPlanLinks(current = current)
+        applyPlanCommands(today.plusYears(LINK_HORIZON_YEARS))
+        val operation = operations[operationId] ?: return OperationPlanLinkContext()
+        fun describe(
+            record: SyncPlanRecord,
+            type: String
+        ): SuggestedPlan {
+            val rule = if (type == "EXPENSE") rules[record.ruleId] else incomeRules[record.ruleId]
+            val frequency = if (type == "EXPENSE") rule?.frequency else rule?.incomeFrequency ?: record.incomeFrequency
+            return SuggestedPlan(
+                PlanLinkTarget(
+                    type,
+                    record.id.takeUnless {
+                        it.contains("@")
+                    },
+                    record.ruleId,
+                    requireNotNull(record.dueOn),
+                    record.scheduledOn
+                ),
+                requireNotNull(record.categoryId),
+                categories[record.categoryId]?.name.orEmpty(),
+                requireNotNull(record.amount),
+                (
+                    record.amount.toBigDecimal() - if (type ==
+                        "EXPENSE"
+                    ) {
+                        paid(record.id)
+                    } else {
+                        received(record.id)
+                    }
+                    ).max(BigDecimal.ZERO).toPlainString(),
+                record.version ?: 0,
+                name = if (type == "EXPENSE") rule?.ruleName else rule?.incomeName ?: record.incomeName,
+                frequency = when (frequency) {
+                    "WEEKLY" -> PlanningFrequency.Weekly
+                    "BIWEEKLY" -> PlanningFrequency.Biweekly
+                    "MONTHLY" -> PlanningFrequency.Monthly
+                    else -> PlanningFrequency.Once
+                },
+                currency = currency
+            )
+        }
+        val isLinked = expenseLinks.any { it.ledgerId == operationId } ||
+            incomeLinks.any { it.ledgerId == operationId }
+        val current =
+            expenseLinks.filter {
+                it.ledgerId == operationId
+            }.mapNotNull { occurrences[it.id]?.let { record -> describe(record, "EXPENSE") } } +
+                incomeLinks.filter {
+                    it.ledgerId == operationId
+                }.mapNotNull { incomes[it.id]?.let { record -> describe(record, "INCOME") } }
+        val amount = contribution(operationId)
+        val category = categories[operation.categoryId]
+        val validAmountAndCategory = category?.archived == false && amount.signum() > 0
+        if (!validAmountAndCategory || !isLinkable(operation)) {
+            return OperationPlanLinkContext(links = OperationPlanLinks(current = current), isLinked = isLinked)
+        }
+        requireNotNull(category)
         val records = if (operation.type == "EXPENSE") occurrences.values else incomes.values
         val candidates = records.filter {
-            it.status == "SCHEDULED" && it.categoryId == operation.categoryId && categories[it.categoryId]?.archived == false
+            it.status == "SCHEDULED" &&
+                it.categoryId == operation.categoryId &&
+                categories[it.categoryId]?.archived == false
         }.map { describe(it, operation.type) }.filter { candidate ->
-            candidate.remainingAmount.toBigDecimal().signum() > 0 && current.none {
-                it.target.type == candidate.target.type && it.target.stableKey == candidate.target.stableKey
-            }
+            candidate.remainingAmount.toBigDecimal().signum() > 0 &&
+                current.none {
+                    it.target.type == candidate.target.type && it.target.stableKey == candidate.target.stableKey
+                }
         }
-            .sortedWith(compareBy<SuggestedPlan>(
-                { if (it.target.dueOn < operation.occurredOn) 0 else if (it.target.dueOn == operation.occurredOn) 1 else 2 },
-                { it.target.dueOn }, { it.target.stableKey },
-            ))
-        return OperationPlanLinks(candidates, current)
+            .sortedWith(
+                compareBy<SuggestedPlan>(
+                    {
+                        if (it.target.dueOn <
+                            operation.occurredOn
+                        ) {
+                            0
+                        } else if (it.target.dueOn == operation.occurredOn) {
+                            1
+                        } else {
+                            2
+                        }
+                    },
+                    { it.target.dueOn },
+                    { it.target.stableKey }
+                )
+            )
+        return OperationPlanLinkContext(
+            PlanLinkOperation(
+                operation.version, operation.type, category.id, category.name, category.iconCode, currency,
+                operation.occurredOn, operation.accountingAmount, amount.toPlainString()
+            ),
+            OperationPlanLinks(candidates, current),
+            isLinked
+        )
     }
 
-    private fun applyPlanCommands(through: LocalDate) {
+    private fun isLinkable(
+        operation: LocalOperation
+    ): Boolean {
+        val postedInBudget = operation.scopeKey == scope &&
+            operation.status == "POSTED" &&
+            operation.syncStatus != "REJECTED"
+        val supportedType = operation.type in setOf("EXPENSE", "INCOME") && operation.refundOf == null
+        return postedInBudget && supportedType && !operation.hasOriginalValuation
+    }
+
+    private fun applyPlanCommands(
+        through: LocalDate
+    ) {
         // Explicit links must be projected even when their target lies outside the visible period.
-        val linkedThrough = overlays.filter { linkEligible(it) }.map { json.decodeFromString<BudgetSyncCommand>(it.intent) }
+        val linkedThrough = overlays.filter {
+            linkEligible(it)
+        }.map { json.decodeFromString<BudgetSyncCommand>(it.intent) }
             .filter { it.type == "SET_OPERATION_PLAN_LINK" && it.planTarget?.type == "EXPENSE" }
             .map { LocalDate.parse(requireNotNull(it.planTarget).dueOn) }.maxOrNull()
         val materializationThrough = maxOf(through, linkedThrough ?: through)
@@ -422,7 +669,17 @@ internal class BudgetProjection(
         if (!rulesApplied) {
             overlays.filter { it.kind == "RECURRING_RULE" }.forEach { item ->
                 val c = json.decodeFromString<BudgetSyncCommand>(item.intent)
-                val old = rules[c.entityId] ?: if (c.type == "UPDATE_RULE" && c.categoryId != null && c.amount != null && c.startsOn != null) SyncPlanRecord(c.entityId, categoryId = c.categoryId, amount = c.amount, frequency = c.frequency, scheduleValue = c.scheduleValue, startsOn = c.startsOn, active = true, version = 0, createdAt = "${c.authoredOn}T00:00:00Z", modifiedAt = "${c.authoredOn}T00:00:00Z") else null
+                val old =
+                    rules[c.entityId]
+                        ?: if (c.type == "UPDATE_RULE" &&
+                            c.categoryId != null &&
+                            c.amount != null &&
+                            c.startsOn != null
+                        ) {
+                            SyncPlanRecord(c.entityId, categoryId = c.categoryId, amount = c.amount, frequency = c.frequency, scheduleValue = c.scheduleValue, startsOn = c.startsOn, active = true, version = 0, createdAt = "${c.authoredOn}T00:00:00Z", modifiedAt = "${c.authoredOn}T00:00:00Z")
+                        } else {
+                            null
+                        }
                 val effective = LocalDate.parse(c.authoredOn)
                 when (c.type) {
                     "CREATE_RULE" -> {
@@ -439,53 +696,100 @@ internal class BudgetProjection(
                                     active = true,
                                     version = 0,
                                     createdAt = "${c.authoredOn}T00:00:00Z",
-                                    modifiedAt = "${c.authoredOn}T00:00:00Z",
+                                    modifiedAt = "${c.authoredOn}T00:00:00Z"
                                 )
                         }
                     }
 
                     "UPDATE_RULE", "DELETE_RULE" -> {
                         if (old != null) {
-                            val restoring = c.type == "UPDATE_RULE" && content.sync.protocolVersion >= 4 && old.active == false
+                            val restoring =
+                                c.type == "UPDATE_RULE" && content.sync.protocolVersion >= 4 && old.active == false
                             val baseRule = if (restoring) old.copy(active = true) else old
                             if (restoring) {
                                 occurrences.replaceAll { _, occurrence ->
-                                    if (occurrence.ruleId == c.entityId && occurrence.status == "CANCELLED" && LocalDate.parse(occurrence.dueOn) >= effective) occurrence.copy(status = "SCHEDULED") else occurrence
+                                    if (occurrence.ruleId == c.entityId &&
+                                        occurrence.status == "CANCELLED" &&
+                                        LocalDate.parse(occurrence.dueOn) >= effective
+                                    ) {
+                                        occurrence.copy(status = "SCHEDULED")
+                                    } else {
+                                        occurrence
+                                    }
                                 }
                             }
                             rules[c.entityId] = baseRule
                             materialize(baseRule, materializationThrough)
                             if (c.type == "UPDATE_RULE") {
-                                val updated = baseRule.copy(amount = c.amount, ruleName = c.ruleName ?: baseRule.ruleName,
+                                val updated = baseRule.copy(
+                                    amount = c.amount,
+                                    ruleName =
+                                    c.ruleName ?: baseRule.ruleName,
                                     categoryId = c.categoryId ?: baseRule.categoryId,
                                     frequency = c.frequency ?: baseRule.frequency,
                                     startsOn = c.startsOn ?: baseRule.startsOn,
-                                    scheduleValue = if (c.frequency == "ONCE") null else c.scheduleValue ?: baseRule.scheduleValue,
-                                    version = (old.version ?: 0) + 1)
-                                fun matches(date: LocalDate): Boolean {
+                                    scheduleValue = if (c.frequency ==
+                                        "ONCE"
+                                    ) {
+                                        null
+                                    } else {
+                                        c.scheduleValue ?: baseRule.scheduleValue
+                                    },
+                                    version = (old.version ?: 0) + 1
+                                )
+                                fun matches(
+                                    date: LocalDate
+                                ): Boolean {
                                     val start = LocalDate.parse(updated.startsOn)
                                     if (date < start) return false
                                     return when (updated.frequency) {
                                         "ONCE" -> date == start
                                         "WEEKLY" -> date.dayOfWeek.value == updated.scheduleValue
-                                        else -> date.dayOfMonth == minOf(requireNotNull(updated.scheduleValue), date.lengthOfMonth())
+                                        else ->
+                                            date.dayOfMonth ==
+                                                minOf(requireNotNull(updated.scheduleValue), date.lengthOfMonth())
                                     }
                                 }
                                 occurrences.replaceAll { _, o ->
-                                    if (o.ruleId == c.entityId && LocalDate.parse(o.dueOn) >= effective &&
+                                    if (o.ruleId == c.entityId &&
+                                        LocalDate.parse(o.dueOn) >= effective &&
                                         (o.status == "SCHEDULED" || c.replaceDetails && o.status == "CANCELLED") &&
                                         paidBefore(o.id, item.createdOrder).signum() == 0
                                     ) {
-                                        o.copy(amount = c.amount, categoryId = updated.categoryId, status = if (matches(LocalDate.parse(o.dueOn))) "SCHEDULED" else "CANCELLED", version = (o.version ?: 0) + 1)
+                                        o.copy(
+                                            amount = c.amount,
+                                            categoryId = updated.categoryId,
+                                            status = if (matches(
+                                                    LocalDate.parse(o.dueOn)
+                                                )
+                                            ) {
+                                                "SCHEDULED"
+                                            } else {
+                                                "CANCELLED"
+                                            },
+                                            version =
+                                            (o.version ?: 0) + 1
+                                        )
                                     } else {
                                         o
                                     }
                                 }
-                                                                rules[c.entityId] = updated
+                                rules[c.entityId] = updated
                                 if (c.replaceDetails) ruleEffectiveDates[c.entityId] = effective
                                 // Generate only future dates; old and settled occurrences remain untouched.
                                 val generationStart = maxOf(effective, LocalDate.parse(updated.startsOn))
-                                materialize(updated.copy(startsOn = if (updated.frequency == "ONCE") updated.startsOn else generationStart.toString()), materializationThrough)
+                                materialize(
+                                    updated.copy(
+                                        startsOn = if (updated.frequency ==
+                                            "ONCE"
+                                        ) {
+                                            updated.startsOn
+                                        } else {
+                                            generationStart.toString()
+                                        }
+                                    ),
+                                    materializationThrough
+                                )
                             } else {
                                 occurrences.replaceAll { _, o ->
                                     if (o.ruleId == c.entityId &&
@@ -520,9 +824,13 @@ internal class BudgetProjection(
                     expenseLinks.removeAll { it.ledgerId == c.entityId }
                     incomeLinks.removeAll { it.ledgerId == c.entityId }
                     c.planTarget?.takeIf { c.type == "SET_OPERATION_PLAN_LINK" }?.let { target ->
-                        val id = if (target.type == "EXPENSE") occurrences.values.firstOrNull {
-                            it.ruleId == target.ruleId && it.dueOn == target.dueOn
-                        }?.id else target.planId
+                        val id = if (target.type == "EXPENSE") {
+                            occurrences.values.firstOrNull {
+                                it.ruleId == target.ruleId && it.dueOn == target.dueOn
+                            }?.id
+                        } else {
+                            target.planId
+                        }
                         if (id != null) {
                             val link = SyncPlanRecord(id, ledgerId = c.entityId)
                             if (target.type == "EXPENSE") expenseLinks += link else incomeLinks += link
@@ -534,7 +842,9 @@ internal class BudgetProjection(
         }
     }
 
-    fun planningRules(includeSettled: Boolean = false): List<PlanningRule> {
+    fun planningRules(
+        includeSettled: Boolean = false
+    ): List<PlanningRule> {
         // Apply the same overlay as payment projections, without selecting a payment period.
         applyPlanCommands(today)
         val result = mutableListOf<PlanningRule>()
@@ -547,15 +857,31 @@ internal class BudgetProjection(
             }
             if (!includeSettled && frequency == PlanningFrequency.Once) {
                 val occurrence = occurrences.values.firstOrNull { it.ruleId == r.id }
-                if (occurrence != null && (occurrence.status != "SCHEDULED" || paid(occurrence.id) >= requireNotNull(occurrence.amount).toBigDecimal())) return@forEach
+                if (occurrence != null &&
+                    (
+                        occurrence.status != "SCHEDULED" ||
+                            paid(occurrence.id) >= requireNotNull(occurrence.amount).toBigDecimal()
+                        )
+                ) {
+                    return@forEach
+                }
             }
             val category = categories[r.categoryId]
-            result += PlanningRule(r.id, r.version ?: 0, PlannedOperationType.Expense,
+            result += PlanningRule(
+                r.id, r.version ?: 0, PlannedOperationType.Expense,
                 requireNotNull(r.categoryId), category?.name.orEmpty(), category?.iconCode.orEmpty(),
-                r.ruleName ?: category?.name.orEmpty(), requireNotNull(r.amount).toBigDecimal(), currency = currency, frequency = frequency,
-                startsOn = LocalDate.parse(r.startsOn), scheduleValue = r.scheduleValue)
+                r.ruleName ?: category?.name.orEmpty(),
+                requireNotNull(
+                    r.amount
+                ).toBigDecimal(),
+                currency = currency, frequency = frequency,
+                startsOn = LocalDate.parse(r.startsOn), scheduleValue = r.scheduleValue
+            )
         }
-        fun addIncome(r: SyncPlanRecord, rule: Boolean) {
+        fun addIncome(
+            r: SyncPlanRecord,
+            rule: Boolean
+        ) {
             if (r.incomeActive == false || !includeSettled && r.status != "SCHEDULED") return
             val frequency = when (r.incomeFrequency ?: "ONCE") {
                 "ONCE" -> PlanningFrequency.Once
@@ -566,14 +892,20 @@ internal class BudgetProjection(
             }
             if (!includeSettled && frequency == PlanningFrequency.Once) {
                 val item = if (rule) incomes.values.firstOrNull { it.ruleId == r.id } ?: r else r
-                if (item.status != "SCHEDULED" || received(item.id) >= requireNotNull(item.amount).toBigDecimal()) return
+                if (item.status != "SCHEDULED" ||
+                    received(item.id) >= requireNotNull(item.amount).toBigDecimal()
+                ) {
+                    return
+                }
             }
             val category = categories[r.categoryId]
-            result += PlanningRule(r.id, r.version ?: 0, PlannedOperationType.Income,
+            result += PlanningRule(
+                r.id, r.version ?: 0, PlannedOperationType.Income,
                 requireNotNull(r.categoryId), category?.name.orEmpty(), category?.iconCode.orEmpty(),
                 r.incomeName?.takeIf { it.isNotBlank() } ?: category?.name.orEmpty(),
                 requireNotNull(r.amount).toBigDecimal(), currency = currency, frequency = frequency,
-                startsOn = LocalDate.parse(r.dueOn), isIncomeRule = rule)
+                startsOn = LocalDate.parse(r.dueOn), isIncomeRule = rule
+            )
         }
         incomeRules.values.forEach { addIncome(it, true) }
         incomes.values.filter { it.ruleId == null && it.id !in incomeRules }.forEach { addIncome(it, false) }
@@ -582,18 +914,21 @@ internal class BudgetProjection(
 
     private fun materialize(
         rule: SyncPlanRecord,
-        through: LocalDate,
+        through: LocalDate
     ) {
         if (rule.active != true) return
         val originalStart = LocalDate.parse(rule.startsOn)
         val start = maxOf(originalStart, ruleEffectiveDates[rule.id] ?: originalStart)
         if (rule.frequency == "ONCE") {
-            if (originalStart >= start && start <= through && occurrences.values.none { it.ruleId == rule.id && it.dueOn == start.toString() }) {
+            if (originalStart >= start &&
+                start <= through &&
+                occurrences.values.none { it.ruleId == rule.id && (it.scheduledOn ?: it.dueOn) == start.toString() }
+            ) {
                 val id = "${rule.id}@$start"
                 occurrences[id] = SyncPlanRecord(
                     id, rule.categoryId, rule.id, amount = rule.amount,
                     dueOn = start.toString(), status = "SCHEDULED", version = 0,
-                    createdAt = rule.createdAt, modifiedAt = rule.modifiedAt,
+                    createdAt = rule.createdAt, modifiedAt = rule.modifiedAt
                 )
             }
             return
@@ -610,7 +945,7 @@ internal class BudgetProjection(
         val existing =
             occurrences.values
                 .filter { it.ruleId == rule.id }
-                .map { it.dueOn }
+                .flatMap { listOfNotNull(it.dueOn, it.scheduledOn) }
                 .toHashSet()
         while (due <= through) {
             if (due >= start && due.toString() !in existing) {
@@ -625,7 +960,7 @@ internal class BudgetProjection(
                         status = "SCHEDULED",
                         version = 0,
                         createdAt = rule.createdAt,
-                        modifiedAt = rule.modifiedAt,
+                        modifiedAt = rule.modifiedAt
                     )
             }
             due =
@@ -641,7 +976,9 @@ internal class BudgetProjection(
 
     val currency: String get() = content.sync.currency
 
-    fun dashboardInput(asOf: Instant): DashboardCalculationInput {
+    fun dashboardInput(
+        asOf: Instant
+    ): DashboardCalculationInput {
         val settings =
             content.records
                 .single { it.kind == "BUDGET_SETTINGS" }
@@ -652,8 +989,8 @@ internal class BudgetProjection(
                 PlannedOperationsFilter(
                     period = PlannedOperationPeriod.Custom,
                     dateFrom = LocalDate.of(1, 1, 1),
-                    dateTo = horizon,
-                ),
+                    dateTo = horizon
+                )
             )
         val eligible = operations.values.filter { it.status == "POSTED" && it.syncStatus != "REJECTED" }
         val excluded = expenseLinks.mapNotNullTo(hashSetOf()) { it.ledgerId }
@@ -682,36 +1019,80 @@ internal class BudgetProjection(
                     LocalDate.parse(it.occurredOn),
                     it.occurredAt?.let(Instant::parse)
                         ?: LocalDate.parse(it.occurredOn).atStartOfDay(ZoneId.of("Asia/Almaty")).toInstant(),
-                    it.refundOf,
+                    it.refundOf
                 )
             },
             categories.values.map { DashboardCategory(it.id, it.name, it.kind == "EXPENSE") },
             plans.items.filterIsInstance<PlannedOperation.Expense>().map {
                 DashboardPayment(it.id, it.expense.categoryName, it.dueOn, it.expense.remainingAmount)
             },
-            incomes.values.filter { it.status == "SCHEDULED" && it.incomeActive != false && categories[it.categoryId]?.archived != true }.mapNotNull {
+            incomes.values.filter {
+                it.status == "SCHEDULED" &&
+                    it.incomeActive != false &&
+                    categories[it.categoryId]?.archived != true
+            }.mapNotNull {
                 val received = received(it.id)
                 val remaining = (requireNotNull(it.amount).toBigDecimal() - received).max(BigDecimal.ZERO)
-                if (remaining.signum() == 0) null
-                else if (received.signum() > 0 && it.remainderReceived?.toBigDecimal()?.compareTo(received) != 0) null
-                else DashboardExpectedIncome(LocalDate.parse(if (received.signum() > 0) it.remainderDueOn ?: it.dueOn else it.dueOn),
-                    if (received.signum() > 0) minOf(remaining, it.remainderAmount?.toBigDecimal() ?: BigDecimal.ZERO) else remaining,
-                    it.id, it.incomeName ?: categories[it.categoryId]?.name.orEmpty())
+                if (remaining.signum() == 0) {
+                    null
+                } else if (received.signum() > 0 && it.remainderReceived?.toBigDecimal()?.compareTo(received) != 0) {
+                    null
+                } else {
+                    DashboardExpectedIncome(
+                        LocalDate.parse(
+                            if (received.signum() >
+                                0
+                            ) {
+                                it.remainderDueOn ?: it.dueOn
+                            } else {
+                                it.dueOn
+                            }
+                        ),
+                        if (received.signum() >
+                            0
+                        ) {
+                            minOf(remaining, it.remainderAmount?.toBigDecimal() ?: BigDecimal.ZERO)
+                        } else {
+                            remaining
+                        },
+                        it.id,
+                        it.incomeName ?: categories[it.categoryId]?.name.orEmpty()
+                    )
+                }
             },
             excluded,
             operations.values.filter { it.type == "EXPENSE" }.mapTo(hashSetOf()) { it.id },
-            if (incomes.values.any { it.status == "SCHEDULED" && it.incomeActive != false && received(it.id).signum() > 0 &&
-                received(it.id) < requireNotNull(it.amount).toBigDecimal() && it.remainderReceived?.toBigDecimal()?.compareTo(received(it.id)) != 0 })
-                setOf(com.firkat.fillin.feature.dailylimit.domain.ForecastWarning.UNCONFIRMED_REMAINDER) else emptySet(),
-            currency = currency,
+            if (incomes.values.any {
+                    it.status == "SCHEDULED" &&
+                        it.incomeActive != false &&
+                        received(it.id).signum() > 0 &&
+                        received(it.id) < requireNotNull(it.amount).toBigDecimal() &&
+                        it.remainderReceived?.toBigDecimal()?.compareTo(received(it.id)) != 0
+                }
+            ) {
+                setOf(com.firkat.fillin.feature.dailylimit.domain.ForecastWarning.UNCONFIRMED_REMAINDER)
+            } else {
+                emptySet()
+            },
+            currency = currency
         )
     }
 
     companion object {
+        private const val LINK_HORIZON_YEARS = 5L
         val LINK_COMMANDS = setOf("SET_OPERATION_PLAN_LINK", "REMOVE_OPERATION_PLAN_LINK")
         private val PLAN_KINDS =
-            setOf("INCOME_RULE", "RECURRING_RULE", "RECURRING_OCCURRENCE", "EXPECTED_INCOME", "OCCURRENCE_PAYMENT", "INCOME_MATCH")
+            setOf(
+                "INCOME_RULE",
+                "RECURRING_RULE",
+                "RECURRING_OCCURRENCE",
+                "EXPECTED_INCOME",
+                "OCCURRENCE_PAYMENT",
+                "INCOME_MATCH"
+            )
     }
 
-    private fun instant(value: String?): Instant = value?.let(Instant::parse) ?: Instant.EPOCH
+    private fun instant(
+        value: String?
+    ): Instant = value?.let(Instant::parse) ?: Instant.EPOCH
 }

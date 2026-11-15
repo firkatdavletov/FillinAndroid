@@ -20,7 +20,7 @@ class CategoryCommandsTest {
         CreateCategory(repository)(
             name = "  Кафе  ",
             kind = CategoryKind.Expense,
-            iconCode = " custom.icon-v2 ",
+            iconCode = " custom.icon-v2 "
         )
 
         assertEquals("Кафе", repository.createdName)
@@ -36,7 +36,7 @@ class CategoryCommandsTest {
         UpdateCategory(repository)(
             category = category,
             name = "Рестораны",
-            iconCode = "custom.icon-v2",
+            iconCode = "custom.icon-v2"
         )
 
         assertEquals("Рестораны", repository.updatedName)
@@ -51,7 +51,7 @@ class CategoryCommandsTest {
         UpdateCategory(repository)(
             category = other,
             name = "Прочее",
-            iconCode = "food",
+            iconCode = "food"
         )
 
         assertEquals("Прочее", repository.updatedName)
@@ -65,7 +65,7 @@ class CategoryCommandsTest {
         CreateCategory(repository)(
             name = "Прочее",
             kind = CategoryKind.Expense,
-            iconCode = "other",
+            iconCode = "other"
         )
 
         assertEquals("other", repository.createdIcon)
@@ -103,7 +103,7 @@ class CategoryCommandsTest {
         val income = category(
             name = "Зарплата",
             iconCode = "SALARY",
-            kind = CategoryKind.Income,
+            kind = CategoryKind.Income
         )
 
         val exception = assertThrows(CategoriesException.InvalidRequest::class.java) {
@@ -117,12 +117,12 @@ class CategoryCommandsTest {
     private fun category(
         name: String,
         iconCode: String,
-        kind: CategoryKind = CategoryKind.Expense,
+        kind: CategoryKind = CategoryKind.Expense
     ) = Category(
         id = "category-id",
         name = name,
         kind = kind,
-        icon = CategoryIcon(code = iconCode, emoji = "📦"),
+        icon = CategoryIcon(code = iconCode, emoji = "📦")
     )
 }
 
@@ -139,7 +139,7 @@ private class RecordingCategoriesRepository : CategoriesRepository {
     override suspend fun createCategory(
         name: String,
         kind: CategoryKind,
-        iconCode: String,
+        iconCode: String
     ): Category {
         createdName = name
         createdKind = kind
@@ -150,28 +150,30 @@ private class RecordingCategoriesRepository : CategoriesRepository {
     override suspend fun updateCategory(
         id: String,
         name: String?,
-        iconCode: String?,
+        iconCode: String?
     ): Category {
         updatedName = name
         updatedIcon = iconCode
         return category(
             name = name ?: "Кафе",
-            iconCode = iconCode ?: "FOOD",
+            iconCode = iconCode ?: "FOOD"
         )
     }
 
-    override suspend fun deleteCategory(id: String) {
+    override suspend fun deleteCategory(
+        id: String
+    ) {
         deletedId = id
     }
 
     private fun category(
         name: String,
         kind: CategoryKind = CategoryKind.Expense,
-        iconCode: String,
+        iconCode: String
     ) = Category(
         id = "category-id",
         name = name,
         kind = kind,
-        icon = CategoryIcon(code = iconCode, emoji = "📦"),
+        icon = CategoryIcon(code = iconCode, emoji = "📦")
     )
 }

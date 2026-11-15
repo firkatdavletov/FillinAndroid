@@ -11,10 +11,14 @@ import kotlinx.coroutines.withContext
 class RoomLocalBudgetRestorer(
     private val registry: BudgetProfileRegistry,
     private val databases: BudgetDatabaseFactory,
-    private val manager: ActiveBudgetManager,
+    private val manager: ActiveBudgetManager
 ) : LocalBudgetRestorer {
     override suspend fun restoreCreatedBudget(): Boolean = withContext(Dispatchers.IO) {
-        if (registry is com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry && registry.requiresSelection(null)) return@withContext false
+        if (registry is com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry &&
+            registry.requiresSelection(null)
+        ) {
+            return@withContext false
+        }
         val selected = registry.selected(null)
         val candidates = (listOf(selected) + registry.available(null)).distinctBy { it.id }
         for (profile in candidates) {

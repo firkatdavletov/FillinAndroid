@@ -1,115 +1,140 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
-import androidx.activity.ComponentActivity
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.geometry.Offset
-import androidx.lifecycle.ViewModelStore
-import androidx.navigation3.runtime.NavEntry
-import com.firkat.fillin.feature.operationhistory.domain.model.*
-import com.firkat.fillin.ui.navigation.BottomSheetScene
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.flow.*
-import java.math.BigDecimal
-import java.time.LocalDate
-import org.junit.After
-import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import com.firkat.fillin.feature.operationhistory.domain.repository.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationPlanLinkContext
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationPlanLinks
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationPlanOffer
+import com.firkat.fillin.feature.operationhistory.domain.repository.OperationPlanOfferStore
+import com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkOperation
+import com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkTarget
+import com.firkat.fillin.feature.operationhistory.domain.repository.PlanSuggestion
+import com.firkat.fillin.feature.operationhistory.domain.repository.SuggestedPlan
+import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.OperationPlanLinkBottomSheet
 import com.firkat.fillin.ui.theme.FillinTheme
-import org.junit.Assert.*
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
-@OptIn(ExperimentalMaterial3Api::class)
 class OperationPlanLinkBottomSheetTest {
-    private val models = ViewModelStore()
-    @After fun cleanup() { compose.runOnIdle { models.clear() } }
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
-    private val plan = SuggestedPlan(PlanLinkTarget("INCOME", "plan", dueOn = "2026-10-30"), "category", "Зарплата", "100.00", "80.00", 0)
+    @get:Rule val compose = createComposeRule()
 
-    @Test fun savingBlocksBackScrimAndSwipeUntilTheLinkIsDurable() {
-        val links = GatedLinks()
-        val history = SheetHistory()
-        val model = OperationPlanLinkViewModel("operation", history, links)
-        models.put("link", model)
-        var closes = 0
-        compose.setContent {
-            var visible by remember { mutableStateOf(true) }
-            FillinTheme {
-                Text("History")
-                if (visible) {
-                    val entry = remember { NavEntry("link") {
-                        OperationPlanLinkBottomSheet("operation", { closes++; visible = false }, {}, model)
-                    } }
-                    val scene = remember { BottomSheetScene(entry, listOf(NavEntry("history") { Text("History") }), ModalBottomSheetProperties(), { visible = false }) }
-                    scene.content()
-                }
-            }
-        }
-        compose.onNodeWithText("Связать").performScrollTo().performClick()
-        androidx.test.espresso.Espresso.pressBack()
-        compose.onNode(isDialog()).performTouchInput { click(Offset(centerX, 1f)) }
-        compose.onNodeWithTag("operation_plan_link_sheet").performTouchInput { swipeDown() }
-        compose.onNodeWithTag("operation_plan_link_sheet").assertIsDisplayed()
+    private val plan = SuggestedPlan(
+        PlanLinkTarget("EXPENSE", ruleId = "internet", dueOn = "2026-11-16"),
+        "communication",
+        "Связь",
+        "5000",
+        "5000",
+        0,
+        name = "Интернет",
+        currency = "KZT"
+    )
+    private val operation = PlanLinkOperation(
+        0, "EXPENSE", "communication", "Связь", "COMMUNICATION", "KZT", "2026-11-15", "4850", "4850"
+    )
+
+    @Test fun exactReviewShowsSavedRecordAndExplainsRemainder() {
+        val store = Offers()
+        var result: String? = null
+        setContent(store) { result = it }
+        compose.onNodeWithText("Расход записан").assertExists()
+        compose.onNodeWithText("Останется оплатить", substring = true).assertExists()
+        compose.onNodeWithText("Связать с планом").performClick()
+        compose.onNodeWithText("Оставить без связи").assertIsNotEnabled()
         compose.runOnIdle {
-            assertEquals(1, links.sets)
-            assertEquals(0, links.dismisses)
-            assertEquals(0, closes)
-            links.gate.complete(Unit)
+            assertEquals(1, store.confirms)
+            store.gate.complete(Unit)
         }
-        compose.waitUntil { closes == 1 }
-        assertEquals(0, history.creates)
+        compose.runOnIdle { assertEquals("Интернет", result) }
     }
 
-    @Test fun confirmationDisplaysPartialRemainderAndLeavesOperationOnRefusal() {
-        var confirms = 0
-        var refusals = 0
-        compose.setContent { FillinTheme { OperationPlanLinkContent(plan, "30.00", false, true, null, { confirms++ }, { refusals++ }) } }
+    @Test fun ambiguousOfferStartsUnselectedAndManualChoiceStaysInSheet() {
+        val store = Offers(PlanSuggestion.Choice(listOf(plan), true))
+        setContent(store)
+        compose.onNodeWithText("Продолжить").assertIsNotEnabled()
+        compose.onNodeWithText("Интернет").performClick()
+        compose.onNodeWithText("Продолжить").assertIsEnabled().performClick()
+        compose.onNodeWithText("Связать с планом").assertIsEnabled()
+        compose.runOnIdle { assertEquals(0, store.confirms) }
         compose.onNodeWithTag("operation_plan_link_sheet").assertExists()
-        compose.onNodeWithText("Остаток после привязки: 50.00 ₸").assertExists()
-        compose.onNodeWithText("Оставить без связи").performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(1, refusals); assertEquals(0, confirms) }
+        compose.onNodeWithTag("operation_plan_link_body").performScrollToNode(hasText("Выбрать другой план"))
+        compose.onNodeWithText("Выбрать другой план").performClick()
+        compose.onNodeWithText("Выберите другой план").assertExists()
+        compose.onNodeWithText("Интернет").performClick()
+        compose.onNodeWithText("Интернет").performClick()
+        compose.onNodeWithText("Продолжить").performClick()
+        compose.onNodeWithText("Связать с планом").assertIsEnabled()
+        compose.runOnIdle { assertEquals(0, store.confirms) }
     }
 
-    @Test fun refusingReplacementKeepsTheExistingLink() {
-        var refusals = 0
-        compose.setContent { FillinTheme { OperationPlanLinkContent(plan, "30.00", false, true, null, {}, { refusals++ }, isReplacing = true) } }
-        compose.onNodeWithText("Оставить без связи").assertDoesNotExist()
-        compose.onNodeWithText("Сохранить текущую связь").performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(1, refusals) }
+    @Test fun changedPaymentDisablesConfirmationAndAllowsSkip() {
+        val store = Offers()
+        setContent(store)
+        compose.runOnIdle {
+            store.context.value =
+                OperationPlanLinkContext(operation, OperationPlanLinks(listOf(plan.copy(remainingAmount = "100"))))
+        }
+        compose.onNodeWithText("Данные изменились").assertExists()
+        compose.onNodeWithText("Связать с планом").assertIsNotEnabled()
+        compose.onNodeWithText("Оставить без связи").performClick()
+        compose.runOnIdle {
+            assertEquals(0, store.confirms)
+            assertEquals(1, store.dismisses)
+        }
     }
 
-    @Test fun savingBlocksBothConfirmationAndRefusal() {
-        compose.setContent { FillinTheme { OperationPlanLinkContent(plan, "30.00", true, true, null, {}, {}) } }
-        compose.onNodeWithText("Оставить без связи").performScrollTo().assertIsNotEnabled()
+    private fun setContent(
+        store: Offers,
+        onClose: (String?) -> Unit = {}
+    ) {
+        val model = OperationPlanLinkViewModel("operation", store)
+        compose.setContent { Content(model, onClose) }
     }
 
-    @Test fun stalePlanRequiresNewChoiceAndGenericFailureAllowsRetry() {
-        var choices = 0
-        compose.setContent { FillinTheme { OperationPlanLinkContent(plan, "30.00", false, true, "plan_changed", {}, {}, onChooseAnother = { choices++ }) } }
-        compose.onNodeWithText("Связать").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithText("Выбрать другой план").performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(1, choices) }
+    @Composable
+    private fun Content(
+        model: OperationPlanLinkViewModel,
+        onClose: (String?) -> Unit
+    ) {
+        FillinTheme { OperationPlanLinkBottomSheet("operation", onClose, viewModel = model) }
     }
-    private inner class GatedLinks : OperationPlanLinkStore {
+
+    private inner class Offers(private val suggestion: PlanSuggestion = PlanSuggestion.Recommended(plan)) :
+        OperationPlanOfferStore {
+        val context = MutableStateFlow(OperationPlanLinkContext(operation, OperationPlanLinks(listOf(plan))))
         val gate = CompletableDeferred<Unit>()
-        var sets = 0
+        var confirms = 0
         var dismisses = 0
-        override fun observeLinks(operationId: String): Flow<OperationPlanLinks> = MutableStateFlow(OperationPlanLinks(listOf(plan)))
-        override val pendingProposal = MutableStateFlow<String?>("operation")
-        override suspend fun proposal(operationId: String) = plan
-        override suspend fun selectProposal(operationId: String, plan: SuggestedPlan) = Unit
-        override suspend fun dismissProposal(operationId: String) { dismisses++ }
-        override suspend fun setLink(operationId: String, plan: SuggestedPlan, operationVersion: Long) { sets++; gate.await() }
-        override suspend fun removeLink(operationId: String, operationVersion: Long) = Unit
-    }
-    private class SheetHistory : OperationHistoryStore {
-        var creates = 0
-        override val context = MutableStateFlow(OfflineHistoryContext(initialSyncComplete = true))
-        override fun observeOperation(id: String): Flow<Operation?> = MutableStateFlow(Operation(id, "Зарплата", null, BigDecimal("30.00"), "KZT", BigDecimal("30.00"), "KZT", LocalDate.parse("2026-10-30"), OperationStatus.Posted, 0, OperationType.Income, "category"))
-        override fun observeHistory(filter: OperationHistoryFilter, limit: Int): Flow<OperationPage> = MutableStateFlow(OperationPage(emptyList(), null))
-        override fun requestSync() = Unit
-        override suspend fun create(operation: NewOperation, replacesRejectedId: String?): CreateOperationResult { creates++; return CreateOperationResult("unexpected") }
+        override suspend fun prepareOffer(
+            operationId: String
+        ) = true
+        override suspend fun proposal(
+            operationId: String
+        ) = OperationPlanOffer(operation, suggestion)
+        override fun observeOfferContext(
+            operationId: String
+        ) = context
+        override suspend fun confirmOffer(
+            operationId: String,
+            operation: PlanLinkOperation,
+            plan: SuggestedPlan
+        ) {
+            confirms++
+            gate.await()
+        }
+        override suspend fun dismissProposal(
+            operationId: String
+        ) {
+            dismisses++
+        }
     }
 }

@@ -1,6 +1,5 @@
 package com.firkat.fillin.feature.plannedincomes.data.repository
 
-import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomes
@@ -9,108 +8,186 @@ import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomes
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import com.firkat.fillin.feature.sync.data.BudgetLocalFailure
 import com.firkat.fillin.feature.sync.data.BudgetStore
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 
 class OfflinePlannedIncomesRepository(
     private val store: BudgetStore,
-    private val currentDate: () -> LocalDate = store::currentDate,
+    private val currentDate: () -> LocalDate = store::currentDate
 ) : PlannedIncomesRepository {
-    override suspend fun saveDetails(income: PlannedIncome?, categoryId: String, amount: BigDecimal, dueOn: LocalDate,
-        name: String, frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency, active: Boolean,
-        confirmRemainder: Boolean): PlannedIncome = execute {
+    override suspend fun saveDetails(
+        income: PlannedIncome?,
+        categoryId: String,
+        amount: BigDecimal,
+        dueOn: LocalDate,
+        name: String,
+        frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency,
+        active: Boolean,
+        confirmRemainder: Boolean
+    ): PlannedIncome = execute {
         require(name.isNotBlank() && name.length <= 160 && amount.signum() > 0 && amount.scale() <= 2)
         val source = store.snapshot()
-        val targetId = if (confirmRemainder) requireNotNull(income).id else income?.ruleId ?: income?.id ?: java.util.UUID.randomUUID().toString()
-        val target = source.incomeRules[targetId] ?: source.incomes[targetId]
-        val effectiveDue = if (!confirmRemainder && income?.ruleId != null && dueOn == income.dueOn) LocalDate.parse(target?.dueOn) else dueOn
-        val isRule = !confirmRemainder && (income?.ruleId != null || frequency != com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.ONCE)
-        val type = if (confirmRemainder) "CONFIRM_REMAINDER_INCOME" else (if (income == null) "CREATE_INCOME" else "UPDATE_INCOME") + if (isRule) "_RULE" else ""
-        val id = store.enqueue(type,
-            targetId, target?.version) {
-            if (confirmRemainder) it.copy(entityId = requireNotNull(income).id, amount = null, ruleId = income.ruleId, scheduledOn = income.scheduledOn.toString(),
-                remainderAmount = amount.toPlainString(), remainderDueOn = dueOn.toString(), remainderReceived = income.receivedAmount.toPlainString())
-            else it.copy(categoryId = categoryId, amount = amount.toPlainString(), dueOn = effectiveDue.toString(),
-                incomeName = name.trim(), incomeFrequency = frequency.name, incomeActive = active)
+        val targetId = if (confirmRemainder) {
+            requireNotNull(income).id
+        } else {
+            income?.ruleId ?: income?.id
+                ?: java.util.UUID.randomUUID().toString()
         }
-        val p = store.snapshot().plans(com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter(
-            period = com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod.Custom,
-            dateFrom = LocalDate.of(1,1,1), dateTo = currentDate().plusYears(5)))
+        val target = source.incomeRules[targetId] ?: source.incomes[targetId]
+        val effectiveDue = if (!confirmRemainder &&
+            income?.ruleId != null &&
+            dueOn == income.dueOn
+        ) {
+            LocalDate.parse(target?.dueOn)
+        } else {
+            dueOn
+        }
+        val isRule =
+            !confirmRemainder &&
+                (income?.ruleId != null || frequency != com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency.ONCE)
+        val type = if (confirmRemainder) {
+            "CONFIRM_REMAINDER_INCOME"
+        } else {
+            (
+                if (income ==
+                    null
+                ) {
+                    "CREATE_INCOME"
+                } else {
+                    "UPDATE_INCOME"
+                }
+                ) +
+                if (isRule) "_RULE" else ""
+        }
+        val id = store.enqueue(
+            type,
+            targetId,
+            target?.version
+        ) {
+            if (confirmRemainder) {
+                it.copy(
+                    entityId = requireNotNull(income).id,
+                    amount = null,
+                    ruleId = income.ruleId,
+                    scheduledOn = income.scheduledOn.toString(),
+                    remainderAmount = amount.toPlainString(),
+                    remainderDueOn = dueOn.toString(),
+                    remainderReceived = income.receivedAmount.toPlainString()
+                )
+            } else {
+                it.copy(
+                    categoryId = categoryId,
+                    amount = amount.toPlainString(),
+                    dueOn = effectiveDue.toString(),
+                    incomeName = name.trim(),
+                    incomeFrequency = frequency.name,
+                    incomeActive = active
+                )
+            }
+        }
+        val p = store.snapshot().plans(
+            com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter(
+                period = com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationPeriod.Custom,
+                dateFrom = LocalDate.of(1, 1, 1),
+                dateTo = currentDate().plusYears(5)
+            )
+        )
         p.items.filterIsInstance<com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation.Income>()
             .firstOrNull { it.id == id || it.income.ruleId == id }?.income ?: income ?: error("Missing income")
     }
 
-    override suspend fun saveRuleDetails(rule: PlanningRule, categoryId: String, amount: BigDecimal,
-        dueOn: LocalDate, name: String, frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency,
-        active: Boolean) {
+    override suspend fun saveRuleDetails(
+        rule: PlanningRule,
+        categoryId: String,
+        amount: BigDecimal,
+        dueOn: LocalDate,
+        name: String,
+        frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency,
+        active: Boolean
+    ) {
         execute {
             require(name.isNotBlank() && name.length <= 160 && amount.signum() > 0 && amount.scale() <= 2)
             // Separate the rule from its occurrence so settled or past payments remain immutable.
             store.enqueue("UPDATE_INCOME_RULE", rule.id, rule.version) {
-                it.copy(categoryId = categoryId, amount = amount.toPlainString(), dueOn = dueOn.toString(),
-                    incomeName = name.trim(), incomeFrequency = frequency.name, incomeActive = active)
+                it.copy(
+                    categoryId = categoryId,
+                    amount = amount.toPlainString(),
+                    dueOn = dueOn.toString(),
+                    incomeName = name.trim(),
+                    incomeFrequency = frequency.name,
+                    incomeActive = active
+                )
             }
         }
     }
 
-    override suspend fun getPlannedIncomes(): PlannedIncomes =
-        execute {
-            val today = currentDate()
-            val plans =
-                store.snapshot().plans(
-                    PlannedOperationsFilter(
-                        period = PlannedOperationPeriod.Custom,
-                        dateFrom = LocalDate.of(1, 1, 1),
-                        dateTo = today.plusYears(5),
-                    ),
+    override suspend fun getPlannedIncomes(): PlannedIncomes = execute {
+        val today = currentDate()
+        val plans =
+            store.snapshot().plans(
+                PlannedOperationsFilter(
+                    period = PlannedOperationPeriod.Custom,
+                    dateFrom = LocalDate.of(1, 1, 1),
+                    dateTo = today.plusYears(5)
                 )
-            PlannedIncomes(plans.asOf, plans.items.filterIsInstance<PlannedOperation.Income>().map { it.income })
-        }
+            )
+        PlannedIncomes(plans.asOf, plans.items.filterIsInstance<PlannedOperation.Income>().map { it.income })
+    }
 
     override suspend fun createPlannedIncome(
         categoryId: String,
         amount: BigDecimal,
-        dueOn: LocalDate,
-    ): PlannedIncome =
-        execute {
-            val id =
-                store.enqueue("CREATE_INCOME") {
-                    it.copy(categoryId = categoryId, amount = amount.toPlainString(), dueOn = dueOn.toString())
-                }
-            income(id)
-        }
+        dueOn: LocalDate
+    ): PlannedIncome = execute {
+        val id =
+            store.enqueue("CREATE_INCOME") {
+                it.copy(categoryId = categoryId, amount = amount.toPlainString(), dueOn = dueOn.toString())
+            }
+        income(id)
+    }
 
     override suspend fun updatePlannedIncome(
         id: String,
         version: Long,
         categoryId: String?,
         amount: BigDecimal?,
-        dueOn: LocalDate?,
-    ): PlannedIncome =
-        execute {
-            store.enqueue("UPDATE_INCOME", id, version) {
-                it.copy(categoryId = categoryId, amount = amount?.toPlainString(), dueOn = dueOn?.toString())
-            }
-            income(id)
+        dueOn: LocalDate?
+    ): PlannedIncome = execute {
+        store.enqueue("UPDATE_INCOME", id, version) {
+            it.copy(categoryId = categoryId, amount = amount?.toPlainString(), dueOn = dueOn?.toString())
         }
+        income(id)
+    }
 
     override suspend fun deletePlannedIncome(
         id: String,
-        version: Long,
+        version: Long
     ) {
         execute {
             val source = store.snapshot()
             val item = source.incomes[id]
             val targetId = item?.ruleId ?: id
-            store.enqueue(if (targetId in source.incomeRules) "DELETE_INCOME_RULE" else "DELETE_INCOME", targetId, (source.incomeRules[targetId] ?: source.incomes[targetId])?.version ?: version)
+            store.enqueue(
+                if (targetId in
+                    source.incomeRules
+                ) {
+                    "DELETE_INCOME_RULE"
+                } else {
+                    "DELETE_INCOME"
+                },
+                targetId,
+                (source.incomeRules[targetId] ?: source.incomes[targetId])?.version ?: version
+            )
         }
     }
 
-    private suspend fun income(id: String): PlannedIncome {
+    private suspend fun income(
+        id: String
+    ): PlannedIncome {
         val p = store.snapshot()
         val i = requireNotNull(p.incomes[id])
         val due = LocalDate.parse(i.dueOn)
@@ -125,21 +202,22 @@ class OfflinePlannedIncomesRepository(
             PlannedIncomeStatus.Scheduled,
             i.version ?: 0,
             Instant.parse(i.createdAt),
-            Instant.parse(i.modifiedAt),
+            Instant.parse(i.modifiedAt)
         )
     }
 
-    private suspend fun <T> execute(block: suspend () -> T): T =
-        try {
-            block()
-        } catch (e: BudgetLocalFailure) {
-            throw when (e.code) {
-                "forbidden" -> PlannedIncomesException.Forbidden
-                "conflict" -> PlannedIncomesException.Conflict
-                "not_found" -> PlannedIncomesException.NotFound
-                else -> PlannedIncomesException.InvalidRequest
-            }
-        } catch (_: IllegalArgumentException) {
-            throw PlannedIncomesException.InvalidRequest
+    private suspend fun <T> execute(
+        block: suspend () -> T
+    ): T = try {
+        block()
+    } catch (e: BudgetLocalFailure) {
+        throw when (e.code) {
+            "forbidden" -> PlannedIncomesException.Forbidden
+            "conflict" -> PlannedIncomesException.Conflict
+            "not_found" -> PlannedIncomesException.NotFound
+            else -> PlannedIncomesException.InvalidRequest
         }
+    } catch (_: IllegalArgumentException) {
+        throw PlannedIncomesException.InvalidRequest
+    }
 }

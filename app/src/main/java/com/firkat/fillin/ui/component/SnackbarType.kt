@@ -32,7 +32,7 @@ enum class SnackbarType {
     Success,
     Error,
     Warning,
-    Info,
+    Info
 }
 
 data class SaldomiSnackbarVisuals(
@@ -40,13 +40,13 @@ data class SaldomiSnackbarVisuals(
     val type: SnackbarType = SnackbarType.Info,
     override val actionLabel: String? = null,
     override val withDismissAction: Boolean = true,
-    override val duration: SnackbarDuration = SnackbarDuration.Short,
+    override val duration: SnackbarDuration = SnackbarDuration.Short
 ) : SnackbarVisuals
 
 @Composable
 fun SaldomiSnackbar(
     data: SnackbarData,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val visuals = data.visuals
     val type = (visuals as? SaldomiSnackbarVisuals)
@@ -80,21 +80,21 @@ fun SaldomiSnackbar(
         shape = RoundedCornerShape(20.dp),
         color = backgroundColor,
         contentColor = contentColor,
-        shadowElevation = 4.dp,
+        shadowElevation = 4.dp
     ) {
         Row(
             modifier = Modifier.padding(
                 start = 16.dp,
                 end = 8.dp,
                 top = 12.dp,
-                bottom = 12.dp,
+                bottom = 12.dp
             ),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(24.dp)
             )
 
             Spacer(Modifier.width(12.dp))
@@ -103,19 +103,19 @@ fun SaldomiSnackbar(
                 text = visuals.message,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Medium
             )
 
             visuals.actionLabel?.let { label ->
                 TextButton(
                     onClick = data::performAction,
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = contentColor,
-                    ),
+                        contentColor = contentColor
+                    )
                 ) {
                     Text(
                         text = label,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -123,12 +123,12 @@ fun SaldomiSnackbar(
             if (visuals.withDismissAction) {
                 IconButton(
                     onClick = data::dismiss,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Close,
                         contentDescription = "Закрыть",
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }

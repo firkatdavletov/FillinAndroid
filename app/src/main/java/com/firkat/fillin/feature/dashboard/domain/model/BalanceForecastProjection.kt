@@ -20,7 +20,7 @@ data class BalanceForecastProjection(
     val remainingToday: Money? = null,
     val nextDaysLimit: Money? = null,
     val events: List<com.firkat.fillin.feature.dailylimit.domain.ForecastEvent> = emptyList(),
-    val structuralDeficitDate: LocalDate? = null,
+    val structuralDeficitDate: LocalDate? = null
 ) {
     val byLimit = ForecastSeries.from(points, Money(BigDecimal.ZERO, reserve.currency))
     val currentPace = currentPacePoints?.let { ForecastSeries.from(it, Money(BigDecimal.ZERO, reserve.currency)) }
@@ -33,9 +33,15 @@ data class BalanceForecastProjection(
     val recommendedReduction: Money? get() {
         val average = averageDailyExpenses ?: return null
         val limit = dailyLimit ?: return null
-        return if (structuralDeficitDate == null && byLimit.firstDeficitDate == null &&
-            limit.amount.signum() > 0 && average.amount > limit.amount)
-            Money(average.amount - limit.amount, limit.currency) else null
+        return if (structuralDeficitDate == null &&
+            byLimit.firstDeficitDate == null &&
+            limit.amount.signum() > 0 &&
+            average.amount > limit.amount
+        ) {
+            Money(average.amount - limit.amount, limit.currency)
+        } else {
+            null
+        }
     }
     val minimum: ForecastPoint? get() = byLimit.minimum
     val maximum: ForecastPoint? get() = byLimit.maximum
@@ -49,7 +55,7 @@ data class ForecastSeries(
     val minimum: ForecastPoint?,
     val maximum: ForecastPoint?,
     val firstDeficitDate: LocalDate?,
-    val deficitAmount: Money?,
+    val deficitAmount: Money?
 ) {
     val risk = when {
         endingBalance == null -> ForecastRisk.Unavailable
@@ -58,11 +64,21 @@ data class ForecastSeries(
     }
 
     companion object {
-        fun from(points: List<ForecastPoint>, reserve: Money): ForecastSeries {
+        fun from(
+            points: List<ForecastPoint>,
+            reserve: Money
+        ): ForecastSeries {
             val deficit = points.firstOrNull { it.balance.amount < reserve.amount }
-            return ForecastSeries(points, points.lastOrNull()?.balance,
-                points.minByOrNull { it.balance.amount }, points.maxByOrNull { it.balance.amount },
-                deficit?.date, deficit?.let { Money((reserve.amount - it.balance.amount).setScale(2), reserve.currency) })
+            return ForecastSeries(
+                points,
+                points.lastOrNull()?.balance,
+                points.minByOrNull { it.balance.amount },
+                points.maxByOrNull { it.balance.amount },
+                deficit?.date,
+                deficit?.let {
+                    Money((reserve.amount - it.balance.amount).setScale(2), reserve.currency)
+                }
+            )
         }
     }
 }

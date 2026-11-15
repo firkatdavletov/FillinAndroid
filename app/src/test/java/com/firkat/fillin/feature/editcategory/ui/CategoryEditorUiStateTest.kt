@@ -22,7 +22,7 @@ class CategoryEditorUiStateTest {
     fun `other is a valid icon for a new category`() {
         val state = CategoryEditorUiState(
             name = "Прочее",
-            iconCode = "OTHER",
+            iconCode = "OTHER"
         )
 
         assertTrue(state.canSave)
@@ -34,13 +34,13 @@ class CategoryEditorUiStateTest {
             id = "category-id",
             name = "Прочее",
             kind = CategoryKind.Expense,
-            icon = CategoryIcon(code = "OTHER", emoji = "📦"),
+            icon = CategoryIcon(code = "OTHER", emoji = "📦")
         )
         val state = CategoryEditorUiState(
             original = category,
             name = category.name,
             kind = category.kind,
-            iconCode = "FOOD",
+            iconCode = "FOOD"
         )
 
         assertTrue(state.canSave)

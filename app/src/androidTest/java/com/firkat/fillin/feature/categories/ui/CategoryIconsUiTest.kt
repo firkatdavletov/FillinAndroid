@@ -23,11 +23,12 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
@@ -66,7 +67,10 @@ class CategoryIconsUiTest {
             }
         }
         listOf(false to 1f, true to 1f, false to 2f, true to 2f).forEach { (night, scale) ->
-            compose.runOnIdle { dark = night; fontScale = scale }
+            compose.runOnIdle {
+                dark = night
+                fontScale = scale
+            }
             CategoryIcons.options.forEach {
                 compose.onNodeWithTag(it.code).assertWidthIsEqualTo(24.dp).assertHeightIsEqualTo(24.dp)
             }
@@ -91,7 +95,9 @@ class CategoryIconsUiTest {
                 }
             }
         }
-        fun bitmap(tag: String) = compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
+        fun bitmap(
+            tag: String
+        ) = compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
         val placeholder = bitmap("unknown")
         assertTrue(placeholder.sameAs(bitmap("automatic")))
         compose.runOnIdle { name = "Кафе" }
@@ -129,12 +135,48 @@ class CategoryIconsUiTest {
     }
 
     @Test fun legacyIconIsHighlightedAndSavingDisablesTheSelector() {
-        var editor by mutableStateOf(CategoryEditorUiState(
-            name = "Кафе", iconCode = "FOOD", overlay = CategoryEditorOverlay.IconPicker,
-        ))
+        var editor by mutableStateOf(
+            CategoryEditorUiState(
+                name = "Кафе",
+                iconCode = "FOOD",
+                overlay = CategoryEditorOverlay.IconPicker
+            )
+        )
         compose.setContent { FillinTheme { EditCategoryScreen(true, EditCategoryState.Ready(editor), true) {} } }
         compose.onNodeWithContentDescription("Продукты").assertIsSelected()
         compose.runOnIdle { editor = editor.copy(overlay = null, operation = CategoryEditorOperation.Save) }
         compose.onNodeWithContentDescription("Выберите иконку").assertIsNotEnabled()
+    }
+
+    @Test fun discardSheetKeepsDraftOnCancelAndClosesEditorOnConfirm() {
+        var editor by mutableStateOf(CategoryEditorUiState())
+        var closed by mutableStateOf(false)
+        compose.setContent {
+            FillinTheme {
+                EditCategoryScreen(
+                    true,
+                    if (closed) EditCategoryState.Closed else EditCategoryState.Ready(editor),
+                    true
+                ) { event ->
+                    when (event) {
+                        is EditCategoryEvent.NameChanged -> editor = editor.copy(name = event.value)
+                        EditCategoryEvent.Back -> editor = editor.copy(overlay = CategoryEditorOverlay.DiscardConfirmation)
+                        EditCategoryEvent.DismissOverlay -> editor = editor.copy(overlay = null)
+                        EditCategoryEvent.Discard -> closed = true
+                        else -> Unit
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("Название").performTextInput("Черновик")
+        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.onNodeWithText("Выйти без сохранения?").assertExists()
+        compose.onNodeWithText("Продолжить редактирование").performClick()
+        compose.onNodeWithText("Выйти без сохранения?").assertDoesNotExist()
+        compose.onNodeWithText("Черновик").assertExists()
+        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.onNodeWithText("Выйти без сохранения").performClick()
+        compose.onNodeWithText("Черновик").assertDoesNotExist()
+        compose.runOnIdle { assertTrue(closed) }
     }
 }

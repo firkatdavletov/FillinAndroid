@@ -20,7 +20,7 @@ internal class EditCategoryViewModel(
     private val getCategories: GetCategories,
     private val createCategory: CreateCategory,
     private val updateCategory: UpdateCategory,
-    private val deleteCategory: DeleteCategory,
+    private val deleteCategory: DeleteCategory
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<EditCategoryState>(EditCategoryState.Loading)
     val state = mutableState.asStateFlow()
@@ -30,7 +30,10 @@ internal class EditCategoryViewModel(
         load()
     }
 
-    fun onEvent(event: EditCategoryEvent, canWrite: Boolean) {
+    fun onEvent(
+        event: EditCategoryEvent,
+        canWrite: Boolean
+    ) {
         val current = state.value
         if (current == EditCategoryState.Closed) return
         val form = (current as? EditCategoryState.Ready)?.form
@@ -49,10 +52,17 @@ internal class EditCategoryViewModel(
         }
     }
 
-    private fun edit(form: CategoryEditorUiState, event: EditCategoryEvent) {
+    private fun edit(
+        form: CategoryEditorUiState,
+        event: EditCategoryEvent
+    ) {
         when (event) {
             is EditCategoryEvent.NameChanged -> if (form.canRename) show(form.copy(name = event.value, error = null))
-            is EditCategoryEvent.KindChanged -> if (form.canChangeKind) show(form.copy(kind = event.value, error = null))
+            is EditCategoryEvent.KindChanged -> if (form.canChangeKind) {
+                show(
+                    form.copy(kind = event.value, error = null)
+                )
+            }
             EditCategoryEvent.PickIcon -> show(form.copy(overlay = CategoryEditorOverlay.IconPicker))
             is EditCategoryEvent.IconSelected -> if (form.overlay == CategoryEditorOverlay.IconPicker) {
                 show(form.copy(iconCode = event.code, overlay = null, error = null))
@@ -63,11 +73,16 @@ internal class EditCategoryViewModel(
             EditCategoryEvent.Save -> if (form.canSave && form.overlay == null) {
                 runCommand(form, CategoryEditorOperation.Save) {
                     val original = form.original
-                    if (original == null) createCategory(form.name, form.kind, form.iconCode)
-                    else updateCategory(original, form.name, form.iconCode)
+                    if (original == null) {
+                        createCategory(form.name, form.kind, form.iconCode)
+                    } else {
+                        updateCategory(original, form.name, form.iconCode)
+                    }
                 }
             }
-            EditCategoryEvent.ConfirmDelete -> if (form.supportsDelete && form.overlay == CategoryEditorOverlay.DeleteConfirmation) {
+            EditCategoryEvent.ConfirmDelete -> if (form.supportsDelete &&
+                form.overlay == CategoryEditorOverlay.DeleteConfirmation
+            ) {
                 runCommand(form, CategoryEditorOperation.Delete) { deleteCategory(checkNotNull(form.original)) }
             }
             else -> Unit
@@ -93,7 +108,7 @@ internal class EditCategoryViewModel(
     private fun runCommand(
         form: CategoryEditorUiState,
         operation: CategoryEditorOperation,
-        command: suspend () -> Unit,
+        command: suspend () -> Unit
     ) {
         show(form.copy(operation = operation, overlay = null, error = null))
         viewModelScope.launch {
@@ -108,7 +123,9 @@ internal class EditCategoryViewModel(
         }
     }
 
-    private fun show(form: CategoryEditorUiState) {
+    private fun show(
+        form: CategoryEditorUiState
+    ) {
         mutableState.value = EditCategoryState.Ready(form)
     }
 

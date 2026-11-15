@@ -3,8 +3,8 @@ package com.firkat.fillin.feature.plannedexpenses.domain.usecase
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseRule
-import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenses
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseStatus
+import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenses
 import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesException
 import com.firkat.fillin.feature.plannedexpenses.domain.repository.PlannedExpensesRepository
 import java.math.BigDecimal
@@ -46,7 +46,7 @@ class PlannedExpenseRuleCommandsTest {
             amount = BigDecimal("120000.00"),
             frequency = PlannedExpenseFrequency.Monthly,
             scheduleValue = 31,
-            startsOn = LocalDate.of(2026, 10, 10),
+            startsOn = LocalDate.of(2026, 10, 10)
         )
 
         assertEquals(31, repository.createdScheduleValue)
@@ -64,7 +64,7 @@ class PlannedExpenseRuleCommandsTest {
                     amount = BigDecimal("100.00"),
                     frequency = PlannedExpenseFrequency.Weekly,
                     scheduleValue = 8,
-                    startsOn = LocalDate.of(2026, 10, 10),
+                    startsOn = LocalDate.of(2026, 10, 10)
                 )
             }
         }
@@ -80,7 +80,7 @@ class PlannedExpenseRuleCommandsTest {
             runBlocking {
                 UpdatePlannedExpenseRule(repository)(
                     expense = expense(),
-                    amount = BigDecimal("1.001"),
+                    amount = BigDecimal("1.001")
                 )
             }
         }
@@ -106,7 +106,7 @@ class PlannedExpenseRuleCommandsTest {
         val repository = RecordingPlannedExpensesRepository()
         val expense = expense().copy(
             paidAmount = BigDecimal("39000.00"),
-            remainingAmount = BigDecimal("81000.00"),
+            remainingAmount = BigDecimal("81000.00")
         )
 
         ClosePlannedExpense(repository)(expense)
@@ -142,7 +142,7 @@ class PlannedExpenseRuleCommandsTest {
         createdAt = Instant.parse("2026-10-01T00:00:00Z"),
         modifiedAt = Instant.parse("2026-10-01T00:00:00Z"),
         ruleId = "rule-id",
-        ruleVersion = 7,
+        ruleVersion = 7
     )
 }
 
@@ -158,7 +158,7 @@ private class RecordingPlannedExpensesRepository : PlannedExpensesRepository {
     override suspend fun getPlannedExpenses(): PlannedExpenses = PlannedExpenses(
         asOf = LocalDate.of(2026, 10, 8),
         throughInclusive = LocalDate.of(2026, 12, 31),
-        items = emptyList(),
+        items = emptyList()
     )
 
     override suspend fun createRule(
@@ -166,7 +166,7 @@ private class RecordingPlannedExpensesRepository : PlannedExpensesRepository {
         amount: BigDecimal,
         frequency: PlannedExpenseFrequency,
         scheduleValue: Int?,
-        startsOn: LocalDate,
+        startsOn: LocalDate
     ): PlannedExpenseRule {
         createdAmount = amount
         createdScheduleValue = scheduleValue
@@ -176,7 +176,7 @@ private class RecordingPlannedExpensesRepository : PlannedExpensesRepository {
     override suspend fun updateRule(
         id: String,
         version: Long,
-        amount: BigDecimal,
+        amount: BigDecimal
     ): PlannedExpenseRule {
         ruleId = id
         ruleVersion = version
@@ -184,12 +184,18 @@ private class RecordingPlannedExpensesRepository : PlannedExpensesRepository {
         return PlannedExpenseRule(id = id, version = version + 1)
     }
 
-    override suspend fun deleteRule(id: String, version: Long) {
+    override suspend fun deleteRule(
+        id: String,
+        version: Long
+    ) {
         ruleId = id
         ruleVersion = version
     }
 
-    override suspend fun closeExpense(id: String, version: Long) {
+    override suspend fun closeExpense(
+        id: String,
+        version: Long
+    ) {
         closedExpenseId = id
         closedExpenseVersion = version
     }

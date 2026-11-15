@@ -6,6 +6,4 @@ interface CloudSyncSettings {
     suspend fun disable()
 }
 
-open class BudgetConnectionFailure(
-    val code: String,
-) : Exception(code)
+open class BudgetConnectionFailure(val code: String) : Exception(code)

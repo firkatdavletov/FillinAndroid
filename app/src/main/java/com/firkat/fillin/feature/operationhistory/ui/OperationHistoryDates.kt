@@ -7,5 +7,6 @@ import java.time.ZoneOffset
 // Material date pickers represent calendar days as UTC midnight, independently of the device zone.
 internal fun LocalDate.toPickerMillis(): Long = atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
 
-internal fun pickerMillisToDate(millis: Long): LocalDate =
-    Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+internal fun pickerMillisToDate(
+    millis: Long
+): LocalDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()

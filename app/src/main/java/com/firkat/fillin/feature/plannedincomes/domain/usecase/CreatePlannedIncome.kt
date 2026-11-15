@@ -9,12 +9,12 @@ import java.time.ZoneId
 
 class CreatePlannedIncome(
     private val repository: PlannedIncomesRepository,
-    private val currentDate: () -> LocalDate = { LocalDate.now(ALMATY_ZONE) },
+    private val currentDate: () -> LocalDate = { LocalDate.now(ALMATY_ZONE) }
 ) {
     suspend operator fun invoke(
         categoryId: String,
         amount: BigDecimal,
-        dueOn: LocalDate,
+        dueOn: LocalDate
     ): PlannedIncome {
         if (
             categoryId.isBlank() ||
@@ -27,13 +27,12 @@ class CreatePlannedIncome(
         return repository.createPlannedIncome(
             categoryId = categoryId,
             amount = amount,
-            dueOn = dueOn,
+            dueOn = dueOn
         )
     }
 }
 
-internal fun BigDecimal.isValidKztAmount(): Boolean =
-    this > BigDecimal.ZERO && scale() <= KZT_FRACTION_DIGITS
+internal fun BigDecimal.isValidKztAmount(): Boolean = this > BigDecimal.ZERO && scale() <= KZT_FRACTION_DIGITS
 
 internal val ALMATY_ZONE: ZoneId = ZoneId.of("Asia/Almaty")
 

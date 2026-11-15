@@ -26,7 +26,7 @@ data class DashboardCalculationInput(
         it.kind == DashboardOperationKind.Expense
     }.mapTo(hashSetOf()) { it.id },
     val incomeWarnings: Set<com.firkat.fillin.feature.dailylimit.domain.ForecastWarning> = emptySet(),
-    val currency: String = "KZT",
+    val currency: String = "KZT"
 )
 
 enum class DashboardOperationKind { Income, Expense, Refund }
@@ -43,14 +43,23 @@ data class DashboardOperation(
 
 data class DashboardCategory(val id: String, val name: String, val isExpense: Boolean)
 data class DashboardPayment(val id: String, val categoryName: String, val dueOn: LocalDate, val remaining: BigDecimal)
-data class DashboardExpectedIncome(val dueOn: LocalDate, val amount: BigDecimal, val id: String = dueOn.toString(), val name: String = "")
+data class DashboardExpectedIncome(
+    val dueOn: LocalDate,
+    val amount: BigDecimal,
+    val id: String = dueOn.toString(),
+    val name: String = ""
+)
 
 /** Mirrors DashboardCalculator, BudgetCalculator and the summary fields of BudgetForecastCalculator. */
 object CalculateDashboard {
     private val zone = ZoneId.of("Asia/Almaty")
 
-    fun calculate(input: DashboardCalculationInput): Dashboard {
-        fun money(amount: BigDecimal) = Money(amount.setScale(2), input.currency)
+    fun calculate(
+        input: DashboardCalculationInput
+    ): Dashboard {
+        fun money(
+            amount: BigDecimal
+        ) = Money(amount.setScale(2), input.currency)
         val today = input.asOf.atZone(zone).toLocalDate()
         val monthStart = today.withDayOfMonth(1)
         val monthEnd = YearMonth.from(today).atEndOfMonth()
@@ -76,19 +85,24 @@ object CalculateDashboard {
         val historyStart = maxOf(today.minusDays(30), input.accountingStartedAt.atZone(zone).toLocalDate())
         val historyDays = ChronoUnit.DAYS.between(historyStart, today).toInt().coerceAtLeast(0)
         val originalIds = input.knownExpenseIds
-        fun variableNet(operations: List<DashboardOperation>): BigDecimal = operations.sumOf {
+        fun variableNet(
+            operations: List<DashboardOperation>
+        ): BigDecimal = operations.sumOf {
             when {
                 it.kind == DashboardOperationKind.Expense && it.id !in input.excludedVariableExpenseIds -> it.amount
 
-                it.kind == DashboardOperationKind.Refund && it.refundOf in originalIds &&
+                it.kind == DashboardOperationKind.Refund &&
+                    it.refundOf in originalIds &&
                     it.refundOf !in input.excludedVariableExpenseIds -> -it.amount
 
                 else -> BigDecimal.ZERO
             }
         }
-        val todayVariableNet = variableNet(input.operations.filter {
-            it.occurredOn == today && it.occurredAt <= input.asOf
-        })
+        val todayVariableNet = variableNet(
+            input.operations.filter {
+                it.occurredOn == today && it.occurredAt <= input.asOf
+            }
+        )
         val hasExpenseHistory = historyDays > 0
         val daily = if (hasExpenseHistory) {
             variableNet(input.operations.filter { it.occurredOn >= historyStart && it.occurredOn < today })
@@ -98,7 +112,10 @@ object CalculateDashboard {
             BigDecimal.ZERO.setScale(2)
         }
         val cautiousDaily = (daily * BigDecimal("1.20")).setScale(2, RoundingMode.CEILING)
-        fun scenario(dailySpending: BigDecimal, incomeDelay: Long): ForecastScenario {
+        fun scenario(
+            dailySpending: BigDecimal,
+            incomeDelay: Long
+        ): ForecastScenario {
             val expectedIncome = input.incomes.filter {
                 it.dueOn >= today && it.dueOn.plusDays(incomeDelay) <= monthEnd
             }.sumOf { it.amount }
@@ -128,14 +145,32 @@ object CalculateDashboard {
             ExpenseCategory(categories.getValue(it.key).name, money(it.value), percent(it.value, shareBasis))
         }
         val cashFlowForecast = com.firkat.fillin.feature.dailylimit.domain.CashFlowForecaster().forecast(
-                com.firkat.fillin.feature.dailylimit.domain.DailyLimitInput(
-                    money(balance), money(todayVariableNet),
-                    input.incomes.map { com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(it.id, it.name, it.dueOn, money(it.amount), true) } +
-                        input.payments.map { com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(it.id, it.categoryName, it.dueOn, money(it.remaining), false) },
-                    today, warnings = input.incomeWarnings,
-                ),
-                averageDailySpending = if (hasExpenseHistory) money(daily) else null,
-            )
+            com.firkat.fillin.feature.dailylimit.domain.DailyLimitInput(
+                money(balance),
+                money(todayVariableNet),
+                input.incomes.map {
+                    com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(
+                        it.id,
+                        it.name,
+                        it.dueOn,
+                        money(it.amount),
+                        true
+                    )
+                } +
+                    input.payments.map {
+                        com.firkat.fillin.feature.dailylimit.domain.ForecastEvent(
+                            it.id,
+                            it.categoryName,
+                            it.dueOn,
+                            money(it.remaining),
+                            false
+                        )
+                    },
+                today,
+                warnings = input.incomeWarnings
+            ),
+            averageDailySpending = if (hasExpenseHistory) money(daily) else null
+        )
         val dailyLimit = cashFlowForecast.dailyLimit
         return Dashboard(
             today,
@@ -159,21 +194,40 @@ object CalculateDashboard {
             BudgetExecution(
                 BudgetBasis.Forecast,
                 progress(spent, spent + base.expectedExpenses.amount, today, hasExpenseHistory, input.currency),
-                progress(variableSpent, variableSpent + daily * BigDecimal(days), today, hasExpenseHistory, input.currency)
+                progress(
+                    variableSpent,
+                    variableSpent + daily * BigDecimal(days),
+                    today,
+                    hasExpenseHistory,
+                    input.currency
+                )
             ),
-            Forecast(monthEnd, if (hasExpenseHistory) "HISTORICAL_AVERAGE" else "UNAVAILABLE", base, scenario(cautiousDaily, 3)),
+            Forecast(
+                monthEnd,
+                if (hasExpenseHistory) "HISTORICAL_AVERAGE" else "UNAVAILABLE",
+                base,
+                scenario(cautiousDaily, 3)
+            ),
             topCategories,
             input.payments.sortedWith(compareBy({ it.dueOn }, { it.id })).take(5).map {
                 UpcomingPayment(it.categoryName, it.dueOn, money(it.remaining))
             },
             money(todayVariableNet),
             cashFlowForecast.projection,
-            dailyLimit,
+            dailyLimit
         )
     }
 
-    private fun progress(spent: BigDecimal, planned: BigDecimal, date: LocalDate, hasExpenseHistory: Boolean, currency: String): BudgetProgress {
-        fun money(amount: BigDecimal) = Money(amount.setScale(2), currency)
+    private fun progress(
+        spent: BigDecimal,
+        planned: BigDecimal,
+        date: LocalDate,
+        hasExpenseHistory: Boolean,
+        currency: String
+    ): BudgetProgress {
+        fun money(
+            amount: BigDecimal
+        ) = Money(amount.setScale(2), currency)
         val comparison = (spent * BigDecimal(date.lengthOfMonth())).compareTo(planned * BigDecimal(date.dayOfMonth))
         val pace = when {
             !hasExpenseHistory -> PaceStatus.InsufficientData
@@ -192,6 +246,8 @@ object CalculateDashboard {
         )
     }
 
-    private fun percent(numerator: BigDecimal, denominator: BigDecimal) =
-        numerator.multiply(BigDecimal(100)).divide(denominator, 1, RoundingMode.HALF_UP)
+    private fun percent(
+        numerator: BigDecimal,
+        denominator: BigDecimal
+    ) = numerator.multiply(BigDecimal(100)).divide(denominator, 1, RoundingMode.HALF_UP)
 }

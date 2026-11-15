@@ -38,7 +38,7 @@ internal fun OperationItem(
     operation: Operation,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
+    enabled: Boolean = true
 ) {
     val isIncome = operation.type == OperationType.Income
     val hasRefund = operation.type == OperationType.Expense && operation.refundedAmount.signum() > 0
@@ -52,7 +52,7 @@ internal fun OperationItem(
     val amountStyle = MaterialTheme.typography.titleMedium.copy(
         color = amountColor,
         fontWeight = FontWeight.Bold,
-        textDecoration = if (isFullyRefunded) TextDecoration.LineThrough else TextDecoration.None,
+        textDecoration = if (isFullyRefunded) TextDecoration.LineThrough else TextDecoration.None
     )
 
     BoxWithConstraints(modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick)) {
@@ -60,23 +60,23 @@ internal fun OperationItem(
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Surface(
                 shape = CircleShape,
-                color = if (isIncome) MaterialTheme.saldomiColors.incomeContainer else MaterialTheme.saldomiColors.expenseContainer,
+                color = MaterialTheme.colorScheme.onBackground
             ) {
                 CategoryIconImage(
                     iconCode = operation.categoryIconCode,
                     categoryName = operation.categoryName,
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(4.dp)
                 )
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = operation.categoryName,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.SemiBold
                 )
                 operation.description?.takeIf(String::isNotBlank)?.let { description ->
                     Text(
@@ -84,17 +84,20 @@ internal fun OperationItem(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 if (hasRefund) {
                     Text(
                         text = stringResource(
-                            if (isFullyRefunded) R.string.operation_history_fully_refunded
-                            else R.string.operation_history_partially_refunded,
+                            if (isFullyRefunded) {
+                                R.string.operation_history_fully_refunded
+                            } else {
+                                R.string.operation_history_partially_refunded
+                            }
                         ),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 if (compact) Text(amount, style = amountStyle)
@@ -139,7 +142,7 @@ private val previewOperation = Operation(
     occurredOn = LocalDate.of(2026, 10, 25),
     status = OperationStatus.Posted,
     version = 0,
-    categoryIconCode = "FOOD",
+    categoryIconCode = "FOOD"
 )
 
 @Preview(name = "Expense with long description")
@@ -163,9 +166,9 @@ private fun OperationItemIncomePreview() {
                     type = OperationType.Income,
                     categoryName = "Зарплата",
                     categoryIconCode = "",
-                    description = null,
+                    description = null
                 ),
-                onClick = {},
+                onClick = {}
             )
         }
     }

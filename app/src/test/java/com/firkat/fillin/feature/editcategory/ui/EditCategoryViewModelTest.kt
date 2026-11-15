@@ -29,6 +29,7 @@ class EditCategoryViewModelTest {
     private val category = Category("id", "Кафе", CategoryKind.Expense, CategoryIcon("FOOD"))
 
     @Before fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+
     @After fun tearDown() = Dispatchers.resetMain()
 
     @Test fun `valid creation is submitted once and closes after the local write`() = runTest {
@@ -52,7 +53,10 @@ class EditCategoryViewModelTest {
         runCurrent()
         assertTrue(model.form.isBusy)
         assertEquals("  Зарплата  ", model.form.name)
-        assertEquals(listOf(Category("new", "Зарплата", CategoryKind.Income, CategoryIcon(CATEGORY_INITIAL_ICON_CODE))), repository.created)
+        assertEquals(
+            listOf(Category("new", "Зарплата", CategoryKind.Income, CategoryIcon(CATEGORY_INITIAL_ICON_CODE))),
+            repository.created
+        )
         repository.finishCreate.complete(Unit)
         runCurrent()
         assertEquals(EditCategoryState.Closed, model.state.value)
@@ -123,7 +127,9 @@ class EditCategoryViewModelTest {
         assertEquals(EditCategoryState.Closed, model.state.value)
     }
 
-    private fun EditCategoryViewModel.send(event: EditCategoryEvent) = onEvent(event, canWrite = true)
+    private fun EditCategoryViewModel.send(
+        event: EditCategoryEvent
+    ) = onEvent(event, canWrite = true)
     private val EditCategoryViewModel.form get() = (state.value as EditCategoryState.Ready).form
 
     private class TestRepository(private val categories: List<Category> = emptyList()) : CategoriesRepository {
@@ -131,23 +137,38 @@ class EditCategoryViewModelTest {
         val deleted = mutableListOf<String>()
         val finishCreate = CompletableDeferred<Unit>()
 
-        fun editor(id: String? = null) = EditCategoryViewModel(
-            id, GetCategories(this), CreateCategory(this), UpdateCategory(this), DeleteCategory(this),
+        fun editor(
+            id: String? = null
+        ) = EditCategoryViewModel(
+            id,
+            GetCategories(this),
+            CreateCategory(this),
+            UpdateCategory(this),
+            DeleteCategory(this)
         )
 
         override suspend fun getCategories() = categories
 
-        override suspend fun createCategory(name: String, kind: CategoryKind, iconCode: String): Category {
+        override suspend fun createCategory(
+            name: String,
+            kind: CategoryKind,
+            iconCode: String
+        ): Category {
             val category = Category("new", name, kind, CategoryIcon(iconCode))
             created += category
             finishCreate.await()
             return category
         }
 
-        override suspend fun updateCategory(id: String, name: String?, iconCode: String?): Category =
-            throw CategoriesException.Conflict
+        override suspend fun updateCategory(
+            id: String,
+            name: String?,
+            iconCode: String?
+        ): Category = throw CategoriesException.Conflict
 
-        override suspend fun deleteCategory(id: String) {
+        override suspend fun deleteCategory(
+            id: String
+        ) {
             deleted += id
         }
     }

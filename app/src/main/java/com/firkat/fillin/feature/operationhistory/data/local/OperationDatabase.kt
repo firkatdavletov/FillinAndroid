@@ -39,7 +39,7 @@ data class LocalOperation(
     val syncStatus: String = "SYNCED",
     val syncError: String? = null,
     val occurredAt: String? = null,
-    val rubKztRate: String? = null,
+    val rubKztRate: String? = null
 ) {
     // Older databases and sync payloads use amountKzt for the accounting value.
     val accountingAmount: String get() = amountKzt
@@ -56,7 +56,7 @@ data class LocalCategory(
     val iconEmoji: String,
     val archived: Boolean,
     val revision: Long,
-    val dictionaryKey: String? = null,
+    val dictionaryKey: String? = null
 )
 
 @Entity(tableName = "operation_outbox", indices = [Index("scopeKey")])
@@ -65,7 +65,7 @@ data class OperationOutbox(
     val scopeKey: String,
     val operationId: String,
     val payload: String,
-    val errorCode: String? = null,
+    val errorCode: String? = null
 )
 
 @Entity(tableName = "operation_sync_state")
@@ -88,13 +88,13 @@ data class OperationSyncState(
     @ColumnInfo(defaultValue = "0") val cloudBound: Boolean = false,
     val bootstrapPayload: String? = null,
     @ColumnInfo(defaultValue = "'KZT'") val currency: String = "KZT",
-    @ColumnInfo(defaultValue = "0") val currencyVersion: Long = 0,
+    @ColumnInfo(defaultValue = "0") val currencyVersion: Long = 0
 )
 
 data class LocalHistoryContent(
     @Embedded val sync: OperationSyncState,
     @Relation(parentColumn = "scopeKey", entityColumn = "scopeKey") val operations: List<LocalOperation>,
-    @Relation(parentColumn = "scopeKey", entityColumn = "scopeKey") val categories: List<LocalCategory>,
+    @Relation(parentColumn = "scopeKey", entityColumn = "scopeKey") val categories: List<LocalCategory>
 )
 
 @Dao
@@ -110,62 +110,82 @@ interface OperationDao {
     fun observeState(): Flow<OperationSyncState?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun putState(state: OperationSyncState)
+    suspend fun putState(
+        state: OperationSyncState
+    )
 
     @Query("SELECT * FROM local_operations WHERE id = :id")
-    suspend fun operation(id: String): LocalOperation?
+    suspend fun operation(
+        id: String
+    ): LocalOperation?
 
     @Query("SELECT * FROM local_operations WHERE requestId = :requestId")
-    suspend fun byRequest(requestId: String): LocalOperation?
+    suspend fun byRequest(
+        requestId: String
+    ): LocalOperation?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun putOperation(operation: LocalOperation)
+    suspend fun putOperation(
+        operation: LocalOperation
+    )
 
     @Query("DELETE FROM local_operations WHERE id = :id")
-    suspend fun deleteOperation(id: String)
+    suspend fun deleteOperation(
+        id: String
+    )
 
     @Query("SELECT * FROM local_categories WHERE scopeKey = :scopeKey AND id = :id")
     suspend fun category(
         scopeKey: String,
-        id: String,
+        id: String
     ): LocalCategory?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun putCategory(category: LocalCategory)
+    suspend fun putCategory(
+        category: LocalCategory
+    )
 
     @Query("DELETE FROM local_categories WHERE scopeKey = :scopeKey AND id = :id")
     suspend fun deleteCategory(
         scopeKey: String,
-        id: String,
+        id: String
     )
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun enqueue(command: OperationOutbox)
+    suspend fun enqueue(
+        command: OperationOutbox
+    )
 
     @Query("SELECT * FROM operation_outbox WHERE scopeKey = :scopeKey AND errorCode IS NULL ORDER BY rowid")
-    suspend fun pending(scopeKey: String): List<OperationOutbox>
+    suspend fun pending(
+        scopeKey: String
+    ): List<OperationOutbox>
 
     @Query("SELECT * FROM operation_outbox WHERE operationId = :operationId LIMIT 1")
-    suspend fun outboxForOperation(operationId: String): OperationOutbox?
+    suspend fun outboxForOperation(
+        operationId: String
+    ): OperationOutbox?
 
     @Query("UPDATE operation_outbox SET errorCode = :error WHERE requestId = :requestId")
     suspend fun commandError(
         requestId: String,
-        error: String,
+        error: String
     )
 
     @Query("DELETE FROM operation_outbox WHERE requestId = :requestId")
-    suspend fun complete(requestId: String)
+    suspend fun complete(
+        requestId: String
+    )
 }
 
 @Database(
     entities = [
         LocalOperation::class, LocalCategory::class, OperationOutbox::class, OperationSyncState::class,
         LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class, OperationPlanProposal::class,
-        CategoryUsageEvent::class, CategoryUsageCursor::class,
+        CategoryUsageEvent::class, CategoryUsageCursor::class
     ],
     version = 7,
-    exportSchema = true,
+    exportSchema = true
 )
 abstract class OperationDatabase : RoomDatabase() {
     abstract fun operations(): OperationDao

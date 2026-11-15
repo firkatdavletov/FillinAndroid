@@ -4,14 +4,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
@@ -24,6 +22,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.R
@@ -52,7 +52,9 @@ class OperationHistoryScreenTest {
     @Test
     fun historyDistinguishesFullAndPartialRefundsAndKeepsDetailsAvailable() {
         val full = operation("full").copy(
-            originalAmount = BigDecimal("7.00"), originalCurrency = "RUB", refundedAmount = BigDecimal("7"),
+            originalAmount = BigDecimal("7.00"),
+            originalCurrency = "RUB",
+            refundedAmount = BigDecimal("7")
         )
         val partial = operation("partial").copy(refundedAmount = BigDecimal("7"))
         val expense = operation("expense")
@@ -67,7 +69,9 @@ class OperationHistoryScreenTest {
         composeRule.onNodeWithTag("operation-full").assert(hasText(fullLabel)).performClick()
         composeRule.onNodeWithTag("operation-partial").assert(hasText(partialLabel))
         for (operation in listOf(expense, income)) {
-            composeRule.onNodeWithTag("operation-${operation.id}").assert(!hasText(fullLabel) and !hasText(partialLabel))
+            composeRule.onNodeWithTag(
+                "operation-${operation.id}"
+            ).assert(!hasText(fullLabel) and !hasText(partialLabel))
         }
 
         for (operation in operations) {
@@ -75,11 +79,11 @@ class OperationHistoryScreenTest {
             val layouts = mutableListOf<TextLayoutResult>()
             composeRule.onNode(
                 hasText(amount) and hasAnyAncestor(hasTestTag("operation-${operation.id}")),
-                useUnmergedTree = true,
+                useUnmergedTree = true
             ).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
             assertEquals(
                 if (operation == full) TextDecoration.LineThrough else TextDecoration.None,
-                layouts.single().layoutInput.style.textDecoration,
+                layouts.single().layoutInput.style.textDecoration
             )
         }
         composeRule.runOnIdle { assertEquals(listOf(full.id), opened) }
@@ -94,7 +98,10 @@ class OperationHistoryScreenTest {
         val rowBounds = composeRule.onNodeWithTag("operation-old").fetchSemanticsNode().boundsInRoot
         listOf(true, false, true, false).forEach { syncing ->
             setState(initial.copy(isRefreshing = syncing))
-            assertEquals(totalsBounds, composeRule.onNodeWithTag("history-type-totals").fetchSemanticsNode().boundsInRoot)
+            assertEquals(
+                totalsBounds,
+                composeRule.onNodeWithTag("history-type-totals").fetchSemanticsNode().boundsInRoot
+            )
             assertEquals(rowBounds, composeRule.onNodeWithTag("operation-old").fetchSemanticsNode().boundsInRoot)
         }
     }
@@ -128,9 +135,9 @@ class OperationHistoryScreenTest {
             assertEquals(
                 listOf(
                     OperationHistoryEvent.TypeSelected(OperationType.Income),
-                    OperationHistoryEvent.PeriodFilterOpened,
+                    OperationHistoryEvent.PeriodFilterOpened
                 ),
-                events,
+                events
             )
         }
     }
@@ -141,9 +148,9 @@ class OperationHistoryScreenTest {
         show(
             OperationHistoryUiState(
                 filters = FILTER.copy(dateFrom = LocalDate.of(2026, 9, 16), dateTo = LocalDate.of(2026, 10, 25)),
-                isCustomPeriod = true,
+                isCustomPeriod = true
             ),
-            events,
+            events
         )
         composeRule.onNodeWithText("16 Снт - 25 Окт").assertIsDisplayed()
         composeRule.onNodeWithTag("history-period-filter").assertIsSelected()
@@ -154,7 +161,7 @@ class OperationHistoryScreenTest {
         composeRule.runOnIdle {
             assertEquals(
                 listOf(OperationHistoryEvent.PeriodFilterOpened, OperationHistoryEvent.PeriodFilterReset),
-                events,
+                events
             )
         }
     }
@@ -164,9 +171,9 @@ class OperationHistoryScreenTest {
         show(
             OperationHistoryUiState(
                 filters = FILTER.copy(dateFrom = LocalDate.of(2025, 12, 31), dateTo = LocalDate.of(2026, 1, 2)),
-                isCustomPeriod = true,
+                isCustomPeriod = true
             ),
-            mutableListOf(),
+            mutableListOf()
         )
         composeRule.onNodeWithText("31 Дек 2025 - 2 Янв 2026").assertIsDisplayed()
     }
@@ -178,9 +185,9 @@ class OperationHistoryScreenTest {
             OperationHistoryUiState(
                 filters = FILTER.copy(dateFrom = LocalDate.of(2026, 9, 16)),
                 periodTotals = TOTALS,
-                isCustomPeriod = true,
+                isCustomPeriod = true
             ),
-            events,
+            events
         )
         val rowBounds = composeRule.onNodeWithTag("history-type-totals").fetchSemanticsNode().boundsInRoot
         val initialBounds = composeRule.onNodeWithTag("history-type-EXPENSE").fetchSemanticsNode().boundsInRoot
@@ -202,7 +209,9 @@ class OperationHistoryScreenTest {
                 .assertTextEquals(formatMoney(amount, "KZT")).fetchSemanticsNode().boundsInRoot
             val labelNode = composeRule.onNodeWithText(label).fetchSemanticsNode().boundsInRoot
             assertTrue(amountNode.bottom <= labelNode.top)
-            val reset = composeRule.onNodeWithTag("history-type-reset").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            val reset = composeRule.onNodeWithTag(
+                "history-type-reset"
+            ).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             assertTrue(reset.center.x > summary.center.x)
             screenshot("history-selected-${type.apiValue}.png")
             composeRule.onNodeWithTag("history-type-reset").performClick()
@@ -219,9 +228,9 @@ class OperationHistoryScreenTest {
                     OperationHistoryEvent.TypeSelected(OperationType.Expense),
                     OperationHistoryEvent.TypeSelected(null),
                     OperationHistoryEvent.TypeSelected(OperationType.Income),
-                    OperationHistoryEvent.TypeSelected(null),
+                    OperationHistoryEvent.TypeSelected(null)
                 ),
-                events,
+                events
             )
         }
     }
@@ -267,13 +276,13 @@ class OperationHistoryScreenTest {
                         occurredOn = FILTER.dateTo,
                         status = OperationStatus.Posted,
                         version = 0,
-                        type = OperationType.Income,
-                    ),
+                        type = OperationType.Income
+                    )
                 ),
-                canLoadMore = false,
+                canLoadMore = false
             ),
             mutableListOf(),
-            opened::add,
+            opened::add
         )
         composeRule.onNodeWithText("Зарплата").assertIsDisplayed()
         composeRule.onAllNodes(hasText("+", substring = true)).assertCountEquals(2)
@@ -288,9 +297,13 @@ class OperationHistoryScreenTest {
         val events = mutableListOf<OperationHistoryEvent>()
         val operations = listOf(
             operation("rejected").copy(syncStatus = OperationSyncStatus.Rejected, syncError = "invalid_amount"),
-            operation("pending").copy(syncStatus = OperationSyncStatus.Pending),
+            operation("pending").copy(syncStatus = OperationSyncStatus.Pending)
         )
-        show(OperationHistoryUiState(filters = FILTER, operations = operations, canLoadMore = false), events, opened::add)
+        show(
+            OperationHistoryUiState(filters = FILTER, operations = operations, canLoadMore = false),
+            events,
+            opened::add
+        )
         composeRule.onNodeWithText("Ожидает отправки").assertDoesNotExist()
         composeRule.onNodeWithText("Исправить и отправить снова").assertDoesNotExist()
         composeRule.onNodeWithText("Ошибка отправки", substring = true).assertDoesNotExist()
@@ -376,7 +389,7 @@ class OperationHistoryScreenTest {
     }
 
     private fun showTransition(
-        initial: OperationHistoryUiState = transitionState(0, null, listOf(operation("old"))),
+        initial: OperationHistoryUiState = transitionState(0, null, listOf(operation("old")))
     ): (OperationHistoryUiState) -> Unit {
         var current by mutableStateOf(initial)
         composeRule.setContent {
@@ -390,7 +403,7 @@ class OperationHistoryScreenTest {
     private fun transitionState(
         requestId: Long,
         type: OperationType?,
-        operations: List<Operation>? = null,
+        operations: List<Operation>? = null
     ) = OperationHistoryUiState(
         filters = FILTER.copy(type = type),
         periodTotals = TOTALS,
@@ -398,17 +411,25 @@ class OperationHistoryScreenTest {
         isInitialLoading = operations == null,
         requestId = requestId,
         resultRequestId = requestId.takeIf { operations != null },
-        canLoadMore = false,
+        canLoadMore = false
     )
 
-    private fun operation(id: String, type: OperationType = OperationType.Expense) = Operation(
+    private fun operation(
+        id: String,
+        type: OperationType = OperationType.Expense
+    ) = Operation(
         id = id, categoryName = "Продукты", description = "Описание операции",
         amount = BigDecimal("42.00"), currency = "KZT", originalAmount = BigDecimal("42.00"),
         originalCurrency = "KZT", occurredOn = FILTER.dateTo, status = OperationStatus.Posted,
-        version = 0, type = type,
+        version = 0, type = type
     )
 
-    private fun show(state: OperationHistoryUiState, events: MutableList<OperationHistoryEvent>, onOperationClick: (String) -> Unit = {}) {
+    private fun show(
+        state: OperationHistoryUiState,
+        events: MutableList<OperationHistoryEvent>,
+        onOperationClick: (String) -> Unit = {
+        }
+    ) {
         var currentState by mutableStateOf(state)
         composeRule.setContent {
             FillinTheme(dynamicColor = false) {
@@ -420,13 +441,15 @@ class OperationHistoryScreenTest {
                         if (event is OperationHistoryEvent.TypeSelected) {
                             currentState = currentState.copy(filters = currentState.filters.copy(type = event.type))
                         }
-                    },
+                    }
                 )
             }
         }
     }
 
-    private fun screenshot(name: String) {
+    private fun screenshot(
+        name: String
+    ) {
         composeRule.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.uiAutomation.executeShellCommand("screencap -p /data/local/tmp/$name").use { descriptor ->

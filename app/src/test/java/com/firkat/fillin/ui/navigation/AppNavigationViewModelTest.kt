@@ -1,7 +1,7 @@
 package com.firkat.fillin.ui.navigation
 
-import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelStore
 import com.firkat.fillin.feature.appaccess.domain.AppAccess
 import com.firkat.fillin.feature.appaccess.domain.AppMode
 import com.firkat.fillin.feature.auth.domain.AuthRepository
@@ -17,15 +17,15 @@ import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -34,8 +34,13 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppNavigationViewModelTest {
     private val models = ViewModelStore()
+
     @Before fun setup() = Dispatchers.setMain(StandardTestDispatcher())
-    @After fun cleanup() { models.clear(); Dispatchers.resetMain() }
+
+    @After fun cleanup() {
+        models.clear()
+        Dispatchers.resetMain()
+    }
 
     @Test fun `forecast opens once from Main and Back restores Main`() = runTest {
         val model = model(FakeAuth(AuthSession.Anonymous)) { true }
@@ -51,7 +56,10 @@ class AppNavigationViewModelTest {
     @Test fun `local launch proceeds while Firebase restores its session`() = runTest {
         val auth = FakeAuth(AuthSession.Loading)
         var reads = 0
-        val model = model(auth) { reads++; false }
+        val model = model(auth) {
+            reads++
+            false
+        }
         assertEquals(listOf(AppRoute.Launch), model.backStack)
         model.onLaunchShown()
         runCurrent()
@@ -174,7 +182,10 @@ class AppNavigationViewModelTest {
         val model = model(FakeAuth(), ready) { true }
         model.onLaunchShown()
         runCurrent()
-        val stack = listOf(AppRoute.Main, AppRoute.BudgetSetup(BudgetSetupMode.Local))
+        model.openBudgetCreation()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        model.openProfile()
+        val stack = listOf(AppRoute.Main, AppRoute.Profile, AppRoute.BudgetSetup(BudgetSetupMode.Local))
         model.openBudgetCreation()
         model.openBudgetCreation()
         ready.value = false
@@ -183,8 +194,7 @@ class AppNavigationViewModelTest {
         runCurrent()
         assertEquals(stack, model.backStack)
         assertFalse(model.exitSetup())
-        assertEquals(listOf(AppRoute.Main), model.backStack)
-        assertEquals(AppDestination.Profile, model.mainDestination)
+        assertEquals(listOf(AppRoute.Main, AppRoute.Profile), model.backStack)
 
         model.openBudgetCreation()
         model.finishSetup()
@@ -196,16 +206,26 @@ class AppNavigationViewModelTest {
     @Test fun `profile setup keeps its origin after restored authentication`() = runTest {
         val auth = FakeAuth()
         val saved = SavedStateHandle()
-        fun newNavigation() =
-            AppNavigationViewModel(auth, LocalBudgetRestorer { true }, ActiveBudgetReadiness { MutableStateFlow(true) }, saved)
-                .also { models.put("setup-${models.keys().size}", it) }
+        fun newNavigation() = AppNavigationViewModel(
+            auth,
+            LocalBudgetRestorer {
+                true
+            },
+            ActiveBudgetReadiness { MutableStateFlow(true) },
+            saved
+        )
+            .also { models.put("setup-${models.keys().size}", it) }
 
         val original = newNavigation()
         original.onLaunchShown()
         runCurrent()
+        original.openProfile()
         original.openBudgetCreation()
         original.authenticateForSetup(SetupAuthTarget.Create)
-        assertEquals(AppRoute.Auth, original.backStack.last())
+        assertEquals(
+            listOf(AppRoute.Main, AppRoute.Profile, AppRoute.BudgetSetup(BudgetSetupMode.Local), AppRoute.Auth),
+            original.backStack
+        )
 
         models.clear()
         auth.signInWithGoogle("synthetic")
@@ -213,11 +233,12 @@ class AppNavigationViewModelTest {
         restored.onLaunchShown()
         runCurrent()
         assertTrue(restored.setupFromProfile)
-        assertEquals(AppRoute.Main, restored.backStack.first())
-        assertTrue(restored.backStack.last().isBudgetSetup())
+        assertEquals(
+            listOf(AppRoute.Main, AppRoute.Profile, AppRoute.BudgetSetup(BudgetSetupMode.Cloud)),
+            restored.backStack
+        )
         assertFalse(restored.exitSetup())
-        assertEquals(listOf(AppRoute.Main), restored.backStack)
-        assertEquals(AppDestination.Profile, restored.mainDestination)
+        assertEquals(listOf(AppRoute.Main, AppRoute.Profile), restored.backStack)
     }
 
     @Test fun `losing cloud access inside profile setup returns to the local form`() = runTest {
@@ -225,24 +246,29 @@ class AppNavigationViewModelTest {
             override val mode = MutableStateFlow(AppMode.InternalFull)
             override val checking = MutableStateFlow(false)
             override fun installationId() = "test"
-            override suspend fun refresh(manual: Boolean) = false
-            override fun revoke() { mode.value = AppMode.OfflineFree }
+            override suspend fun refresh(
+                manual: Boolean
+            ) = false
+            override fun revoke() {
+                mode.value = AppMode.OfflineFree
+            }
         }
         val model = AppNavigationViewModel(
             FakeAuth(AuthSession.Authenticated(USER)),
             LocalBudgetRestorer { true },
             ActiveBudgetReadiness { MutableStateFlow(true) },
-            access = access,
+            access = access
         ).also { models.put("access", it) }
         model.onLaunchShown()
         runCurrent()
+        model.openProfile()
         model.openBudgetCreation()
         model.showSetupPage(SetupPage.Join)
         assertEquals(AppRoute.BudgetSetupJoin, model.backStack.last())
 
         access.revoke()
         model.closeRestrictedRoutes()
-        assertEquals(listOf(AppRoute.Main, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
+        assertEquals(listOf(AppRoute.Main, AppRoute.Profile, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
         assertTrue(model.setupFromProfile)
         assertFalse(model.exitSetup())
         assertFalse(model.configuringBudget)
@@ -302,7 +328,10 @@ class AppNavigationViewModelTest {
     @Test fun `logout opens the local budget and clears account history`() = runTest {
         val auth = FakeAuth(AuthSession.Authenticated(USER))
         var reads = 0
-        val model = model(auth) { reads++; true }
+        val model = model(auth) {
+            reads++
+            true
+        }
         model.onLaunchShown()
         runCurrent()
         auth.signOut()
@@ -314,7 +343,10 @@ class AppNavigationViewModelTest {
 
     @Test fun `rotation does not restart session observation or local budget inspection`() = runTest {
         var reads = 0
-        val model = model(FakeAuth()) { reads++; true }
+        val model = model(FakeAuth()) {
+            reads++
+            true
+        }
         model.onLaunchShown()
         runCurrent()
         model.openAuthentication()
@@ -365,9 +397,12 @@ class AppNavigationViewModelTest {
 
     @Test fun `restored account waits for readiness before opening Main`() = runTest {
         val result = CompletableDeferred<Boolean>()
-        val model = model(FakeAuth(AuthSession.Authenticated(USER)), source = ActiveBudgetReadiness {
-            flow { emit(result.await()) }
-        }) { error("Unused") }
+        val model = model(
+            FakeAuth(AuthSession.Authenticated(USER)),
+            source = ActiveBudgetReadiness {
+                flow { emit(result.await()) }
+            }
+        ) { error("Unused") }
         model.onLaunchShown()
         runCurrent()
         assertEquals(listOf(AppRoute.Launch), model.backStack)
@@ -392,15 +427,42 @@ class AppNavigationViewModelTest {
         assertEquals(listOf(AppRoute.Main), model.backStack)
     }
 
+    @Test fun `deleting the last budget from Profile opens setup and creating a budget returns to Main`() = runTest {
+        val ready = MutableStateFlow(true)
+        val model = model(FakeAuth(), ready) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openProfile()
+        assertEquals(listOf(AppRoute.Main, AppRoute.Profile), model.backStack)
+
+        ready.value = false
+        runCurrent()
+        assertEquals(listOf(AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
+        assertTrue(model.configuringBudget)
+        assertFalse(model.setupFromProfile)
+
+        ready.value = true
+        runCurrent()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        assertFalse(model.configuringBudget)
+    }
+
     @Test fun `late budget result for a previous account cannot navigate after logout`() = runTest {
         val auth = FakeAuth(AuthSession.Authenticated(USER))
         val oldResult = CompletableDeferred<Boolean>()
-        val model = model(auth, source = ActiveBudgetReadiness {
-            if (auth.session.value is AuthSession.Authenticated) flow {
-                val result = withContext(NonCancellable) { oldResult.await() }
-                emit(result)
-            } else MutableStateFlow(false)
-        }) { false }
+        val model = model(
+            auth,
+            source = ActiveBudgetReadiness {
+                if (auth.session.value is AuthSession.Authenticated) {
+                    flow {
+                        val result = withContext(NonCancellable) { oldResult.await() }
+                        emit(result)
+                    }
+                } else {
+                    MutableStateFlow(false)
+                }
+            }
+        ) { false }
         model.onLaunchShown()
         runCurrent()
         auth.signOut()
@@ -412,9 +474,12 @@ class AppNavigationViewModelTest {
 
     @Test fun `readiness failure shows launch error and retry restores budget`() = runTest {
         var attempts = 0
-        val model = model(FakeAuth(AuthSession.Authenticated(USER)), source = ActiveBudgetReadiness {
-            flow { if (++attempts == 1) error("Room unavailable") else emit(true) }
-        }) { error("Unused") }
+        val model = model(
+            FakeAuth(AuthSession.Authenticated(USER)),
+            source = ActiveBudgetReadiness {
+                flow { if (++attempts == 1) error("Room unavailable") else emit(true) }
+            }
+        ) { error("Unused") }
         model.onLaunchShown()
         runCurrent()
         assertTrue(model.launchFailed.value)
@@ -427,12 +492,15 @@ class AppNavigationViewModelTest {
     @Test fun `failed account restoration cannot be bypassed with back and retry keeps Main`() = runTest {
         val auth = FakeAuth()
         var fail = true
-        val model = model(auth, source = ActiveBudgetReadiness {
-            flow {
-                if (auth.session.value is AuthSession.Authenticated && fail) error("Room unavailable")
-                emit(true)
+        val model = model(
+            auth,
+            source = ActiveBudgetReadiness {
+                flow {
+                    if (auth.session.value is AuthSession.Authenticated && fail) error("Room unavailable")
+                    emit(true)
+                }
             }
-        }) { true }
+        ) { true }
         model.onLaunchShown()
         runCurrent()
         model.openAuthentication()
@@ -533,44 +601,67 @@ class AppNavigationViewModelTest {
         assertEquals(listOf(AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
     }
 
-    @Test fun `saved operation replaces creation with a separate link sheet and ignores duplicate callbacks`() = runTest {
+    @Test fun `saving closes creation before an offer is ready and ignores duplicate callbacks`() = runTest {
         val model = model(FakeAuth()) { true }
         model.onLaunchShown()
         runCurrent()
         model.openOperationCreate()
-        val result = com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("operation",
-            com.firkat.fillin.feature.operationhistory.domain.repository.SuggestedPlan(
-                com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkTarget("INCOME", "plan", dueOn = "2026-10-30"),
-                "category", "Доход", "100.00", "100.00", 0))
+        val result = com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("operation")
         model.operationCreated(result, "budget")
+        val request = requireNotNull(model.pendingPlanOffer)
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        model.operationCreated(result, "budget")
+        assertSame(request, model.pendingPlanOffer)
+        model.finishPlanOffer(request, canShow = true)
         val sheet = model.backStack.last() as AppRoute.OperationPlanLinkBottomSheet
-        assertEquals(listOf(AppRoute.Main, sheet), model.backStack)
+        assertEquals("operation", sheet.operationId)
+        assertEquals("budget", sheet.budgetScopeId)
+        assertNull(model.pendingPlanOffer)
+        assertTrue(model.dismissOperationPlanLink(sheet))
+        model.finishPlanOffer(request, canShow = true)
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+    }
+
+    @Test fun `a new navigation action or a lookup without a result prevents an offer`() = runTest {
+        val model = model(FakeAuth()) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openOperationCreate()
+        val result = com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult("operation")
         model.operationCreated(result, "budget")
-        assertEquals(listOf(AppRoute.Main, sheet), model.backStack)
-        model.chooseAnotherPlan(sheet)
-        val editor = model.backStack.last() as AppRoute.OperationDetails
-        assertEquals(listOf(AppRoute.Main, editor), model.backStack)
-        model.openDetailsPlanLink(editor)
-        val next = model.backStack.last() as AppRoute.OperationPlanLinkBottomSheet
-        model.dismissOperationPlanLink(sheet)
-        assertEquals(listOf(AppRoute.Main, editor, next), model.backStack)
+        model.finishPlanOffer(requireNotNull(model.pendingPlanOffer), canShow = false)
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        model.openOperationCreate()
+        model.operationCreated(result, "budget")
+        val stale = requireNotNull(model.pendingPlanOffer)
+        model.openOperationCreate()
+        model.back()
+        model.finishPlanOffer(stale, canShow = true)
+        assertEquals(listOf(AppRoute.Main), model.backStack)
     }
 
     @Test fun `setup login returns to the draft even when the account has a ready budget`() = runTest {
         val auth = FakeAuth()
         val ready = MutableStateFlow(false)
         val model = model(auth, ready) { false }
-        model.onLaunchShown(); runCurrent(); model.continueAsGuest()
+        model.onLaunchShown()
+        runCurrent()
+        model.continueAsGuest()
         model.authenticateForSetup(com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget.Create)
-        auth.signInWithGoogle("token"); ready.value = true; runCurrent()
+        auth.signInWithGoogle("token")
+        ready.value = true
+        runCurrent()
         assertEquals(AppRoute.BudgetSetup(BudgetSetupMode.Cloud), model.backStack.last())
         assertFalse(model.backStack.contains(AppRoute.Main))
-        model.finishSetup(); assertEquals(listOf(AppRoute.Main), model.backStack)
+        model.finishSetup()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
     }
 
     @Test fun `canceling setup login returns to the same setup route`() = runTest {
         val model = model(FakeAuth(), MutableStateFlow(false)) { false }
-        model.onLaunchShown(); runCurrent(); model.continueAsGuest()
+        model.onLaunchShown()
+        runCurrent()
+        model.continueAsGuest()
         model.authenticateForSetup(com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget.Create)
         assertEquals(AppRoute.Auth, model.backStack.last())
         model.back()
@@ -578,20 +669,33 @@ class AppNavigationViewModelTest {
     }
 
     @Test fun `login to join resumes the invitation route`() = runTest {
-        val auth = FakeAuth(); val ready = MutableStateFlow(false)
+        val auth = FakeAuth()
+        val ready = MutableStateFlow(false)
         val model = model(auth, ready) { false }
-        model.onLaunchShown(); runCurrent(); model.continueAsGuest()
+        model.onLaunchShown()
+        runCurrent()
+        model.continueAsGuest()
         model.authenticateForSetup(com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget.Join)
-        auth.signInWithGoogle("token"); runCurrent()
+        auth.signInWithGoogle("token")
+        runCurrent()
         assertEquals(AppRoute.BudgetSetupJoin, model.backStack.last())
     }
 
     @Test fun `pending setup login is restored before normal launch navigation`() = runTest {
         val saved = androidx.lifecycle.SavedStateHandle(mapOf("setup_active" to true, "setup_auth" to "Join"))
         val auth = FakeAuth(AuthSession.Authenticated(USER))
-        val restored = AppNavigationViewModel(auth, LocalBudgetRestorer { false }, ActiveBudgetReadiness { MutableStateFlow(true) }, saved)
+        val restored =
+            AppNavigationViewModel(
+                auth,
+                LocalBudgetRestorer {
+                    false
+                },
+                ActiveBudgetReadiness { MutableStateFlow(true) },
+                saved
+            )
         models.put("restored", restored)
-        restored.onLaunchShown(); runCurrent()
+        restored.onLaunchShown()
+        runCurrent()
         assertEquals(AppRoute.BudgetSetupJoin, restored.backStack.last())
         assertFalse(restored.backStack.contains(AppRoute.Main))
     }
@@ -600,16 +704,24 @@ class AppNavigationViewModelTest {
         auth: AuthRepository,
         ready: MutableStateFlow<Boolean> = MutableStateFlow(true),
         source: ActiveBudgetReadiness = ActiveBudgetReadiness { ready },
-        restore: suspend () -> Boolean,
+        restore: suspend () -> Boolean
     ) = AppNavigationViewModel(auth, LocalBudgetRestorer { restore().also { ready.value = it } }, source).also {
-            models.put("navigation-${models.keys().size}", it)
-        }
+        models.put("navigation-${models.keys().size}", it)
+    }
 
     private class FakeAuth(initial: AuthSession = AuthSession.Anonymous) : AuthRepository {
         override val session = MutableStateFlow(initial)
-        override suspend fun signInWithGoogle(idToken: String) { session.value = AuthSession.Authenticated(USER) }
-        override suspend fun signOut() { session.value = AuthSession.Anonymous }
+        override suspend fun signInWithGoogle(
+            idToken: String
+        ) {
+            session.value = AuthSession.Authenticated(USER)
+        }
+        override suspend fun signOut() {
+            session.value = AuthSession.Anonymous
+        }
     }
 
-    private companion object { val USER = AuthUser("synthetic-uid", "User", null) }
+    private companion object {
+        val USER = AuthUser("synthetic-uid", "User", null)
+    }
 }

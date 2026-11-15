@@ -15,7 +15,7 @@ import java.time.LocalDate
 internal fun localHistory(
     content: LocalHistoryContent?,
     filter: OperationHistoryFilter,
-    limit: Int,
+    limit: Int
 ): OperationPage {
     require(limit > 0)
     val categories = content?.categories.orEmpty().associateBy { it.id }
@@ -43,7 +43,7 @@ internal fun localHistory(
                 compareByDescending<LocalOperation> { it.occurredOn }
                     .thenByDescending { Instant.parse(it.createdAt) }
                     .thenByDescending { it.sequence }
-                    .thenByDescending { it.id },
+                    .thenByDescending { it.id }
             )
     return OperationPage(
         rows.take(limit).map { operationToDomain(it, content, categories) },
@@ -55,20 +55,22 @@ internal fun localHistory(
             null
         },
         OperationPeriodTotals(expenses, incomes, content?.sync?.currency ?: "KZT"),
-        content?.sync?.let { it.localReady || it.initialSyncComplete } == true,
+        content?.sync?.let { it.localReady || it.initialSyncComplete } == true
     )
 }
 
 /** Resolves an operation independently of the history's date/type filters and page size. */
-internal fun localOperation(content: LocalHistoryContent?, id: String): Operation? =
-    content?.operations?.firstOrNull { it.id == id && it.type != "EXPENSE_REFUND" }?.let {
-        operationToDomain(it, content, content.categories.associateBy { category -> category.id })
-    }
+internal fun localOperation(
+    content: LocalHistoryContent?,
+    id: String
+): Operation? = content?.operations?.firstOrNull { it.id == id && it.type != "EXPENSE_REFUND" }?.let {
+    operationToDomain(it, content, content.categories.associateBy { category -> category.id })
+}
 
 private fun operationToDomain(
     record: LocalOperation,
     content: LocalHistoryContent?,
-    categories: Map<String, LocalCategory>,
+    categories: Map<String, LocalCategory>
 ): Operation = record.let {
     val budgetCurrency = content?.sync?.currency ?: "KZT"
     val historicalValuation = it.hasOriginalValuation
@@ -90,18 +92,21 @@ private fun operationToDomain(
         type = if (it.type == "INCOME") OperationType.Income else OperationType.Expense,
         categoryId = it.categoryId,
         syncStatus =
-            when (it.syncStatus) {
-                "PENDING" -> OperationSyncStatus.Pending
-                "REJECTED" -> OperationSyncStatus.Rejected
-                else -> OperationSyncStatus.Synced
-            },
+        when (it.syncStatus) {
+            "PENDING" -> OperationSyncStatus.Pending
+            "REJECTED" -> OperationSyncStatus.Rejected
+            else -> OperationSyncStatus.Synced
+        },
         syncError = it.syncError,
         refundedAmount =
-            content
-                ?.operations
-                .orEmpty()
-                .filter { refund -> refund.refundOf == it.id && refund.status == "POSTED" && refund.syncStatus != "REJECTED" }
-                .sumOf { refund -> refund.originalAmount.toBigDecimal() },
+        content
+            ?.operations
+            .orEmpty()
+            .filter { refund ->
+                refund.refundOf == it.id &&
+                    refund.status == "POSTED" &&
+                    refund.syncStatus != "REJECTED"
+            }
+            .sumOf { refund -> refund.originalAmount.toBigDecimal() }
     )
-
 }

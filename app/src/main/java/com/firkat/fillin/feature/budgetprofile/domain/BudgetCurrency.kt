@@ -4,5 +4,5 @@ enum class BudgetCurrency(val symbol: String) {
     RUB("₽"),
     KZT("₸"),
     USD("$"),
-    EUR("€"),
+    EUR("€")
 }

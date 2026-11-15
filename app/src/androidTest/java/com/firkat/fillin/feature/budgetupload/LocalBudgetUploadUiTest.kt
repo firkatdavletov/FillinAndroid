@@ -19,19 +19,30 @@ import org.junit.Assert.*
 class LocalBudgetUploadUiTest {
     @get:Rule val compose = createComposeRule()
     private val models = ViewModelStore()
-    @After fun cleanup() { models.clear() }
+
+    @After fun cleanup() {
+        models.clear()
+    }
 
     @Test fun localBudgetOffersGoogleLoginThenConnectsOnceWithEnteredName() {
         val auth = BudgetConnectionDeviceTest.TestAuth()
         val repository = Uploads()
         val model = LocalBudgetUploadViewModel(auth, repository).also { models.put("upload", it) }
         var signIns = 0
-        compose.setContent { FillinTheme { Column(Modifier.verticalScroll(rememberScrollState())) { LocalBudgetUploadSection({ signIns++ }, model) } } }
+        compose.setContent {
+            FillinTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    LocalBudgetUploadSection({ signIns++ }, model)
+                }
+            }
+        }
         compose.onNodeWithText("Подключить к аккаунту").performScrollTo().performClick()
         assertEquals(1, signIns)
         assertEquals(0, repository.calls.size)
         auth.login("owner")
-        compose.waitUntil(5000) { model.state.value.session is com.firkat.fillin.feature.auth.domain.AuthSession.Authenticated }
+        compose.waitUntil(5000) {
+            model.state.value.session is com.firkat.fillin.feature.auth.domain.AuthSession.Authenticated
+        }
         compose.onNodeWithText("Название бюджета").performTextReplacement("Офлайн-бюджет")
         compose.onNodeWithText("Подключить к аккаунту").performScrollTo().performClick()
         compose.waitUntil(5000) { repository.calls.isNotEmpty() }
@@ -43,12 +54,18 @@ class LocalBudgetUploadUiTest {
 
     @Test fun pendingUploadIsHiddenImmediatelyForAnotherAccountAndReturnsForItsOwner() {
         val auth = BudgetConnectionDeviceTest.TestAuth().apply { login("owner") }
-        val repository = Uploads().apply { candidates.value = listOf(LocalBudgetCandidate("local-profile", "Приватный", true, firebaseUid = "owner")) }
+        val repository = Uploads().apply {
+            candidates.value =
+                listOf(LocalBudgetCandidate("local-profile", "Приватный", true, firebaseUid = "owner"))
+        }
         val model = LocalBudgetUploadViewModel(auth, repository).also { models.put("upload", it) }
         compose.setContent { FillinTheme { LocalBudgetUploadSection({}, model) } }
         compose.onNodeWithText("Продолжить подключение").assertExists()
         auth.login("other")
-        compose.waitUntil(5000) { (model.state.value.session as? com.firkat.fillin.feature.auth.domain.AuthSession.Authenticated)?.user?.uid == "other" }
+        compose.waitUntil(5000) {
+            (model.state.value.session as? com.firkat.fillin.feature.auth.domain.AuthSession.Authenticated)?.user?.uid ==
+                "other"
+        }
         // Keep stale repository rows deliberately: the UI also enforces the captured UID.
         compose.onNodeWithText("Продолжить подключение").assertDoesNotExist()
         auth.login("owner")
@@ -60,6 +77,14 @@ class LocalBudgetUploadUiTest {
         override val candidates = MutableStateFlow(listOf(LocalBudgetCandidate("local-profile", "Мой бюджет", false)))
         val calls = mutableListOf<Triple<String, String, String>>()
         val finish = CompletableDeferred<Unit>()
-        override suspend fun connect(uid: String, profileId: String, name: String) { calls += Triple(uid, profileId, name); finish.await() }
+        override suspend fun connect(
+            uid: String,
+            profileId: String,
+            name: String
+        ) {
+            calls +=
+                Triple(uid, profileId, name)
+            finish.await()
+        }
     }
 }

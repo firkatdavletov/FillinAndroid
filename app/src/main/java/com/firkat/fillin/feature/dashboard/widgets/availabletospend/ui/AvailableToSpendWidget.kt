@@ -9,12 +9,23 @@ import com.firkat.fillin.feature.dashboard.widgets.common.ui.MetricWidget
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
-fun AvailableToSpendRoute(modifier: Modifier = Modifier, viewModel: AvailableToSpendViewModel = koinViewModel()) {
+fun AvailableToSpendRoute(
+    modifier: Modifier = Modifier,
+    viewModel: AvailableToSpendViewModel = koinViewModel()
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     AvailableToSpendWidget(state, modifier)
 }
 
 @Composable
-fun AvailableToSpendWidget(state: AvailableToSpendUiState, modifier: Modifier = Modifier) {
-    MetricWidget(R.string.dashboard_available_to_spend, R.drawable.ic_wallet, state.amount, modifier)
+fun AvailableToSpendWidget(
+    state: AvailableToSpendUiState,
+    modifier: Modifier = Modifier
+) {
+    MetricWidget(
+        title = R.string.dashboard_available_to_spend,
+        amount = state.amount,
+        modifier = modifier,
+        isLoading = state.amount == null && state.dataStatus.isLoading
+    )
 }

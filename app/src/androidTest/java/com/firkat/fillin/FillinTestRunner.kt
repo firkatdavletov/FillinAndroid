@@ -13,6 +13,6 @@ class FillinTestRunner : AndroidJUnitRunner() {
     override fun newApplication(
         cl: ClassLoader,
         className: String,
-        context: Context,
+        context: Context
     ): Application = super.newApplication(cl, FillinTestApplication::class.java.name, context)
 }

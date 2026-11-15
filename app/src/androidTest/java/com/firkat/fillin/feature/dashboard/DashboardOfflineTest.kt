@@ -7,7 +7,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.core.database.BUDGET_MIGRATION_2_3
-import com.firkat.fillin.core.database.LocalSyncRecord
 import com.firkat.fillin.feature.dashboard.data.repository.OfflineDashboardRepository
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.DailyLimitSummary
 import com.firkat.fillin.feature.operationhistory.data.OfflineTestEnvironment
@@ -33,8 +32,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import org.junit.After
@@ -75,8 +74,10 @@ class DashboardOfflineTest {
     @Test fun dailyLimitStaysStableThroughOfflineCreateEditAndRefund() = runBlocking {
         val api = SyntheticSyncApi()
         api.log += SyncChangeDto(
-            3, "BUDGET_SETTINGS", false,
-            budgetSettings = SyncBudgetSettings(api.scope.householdId, "140000.00", "0.00"),
+            3,
+            "BUDGET_SETTINGS",
+            false,
+            budgetSettings = SyncBudgetSettings(api.scope.householdId, "140000.00", "0.00")
         )
         val environment = OfflineTestEnvironment(database, api)
         assertEquals(SyncResult.Completed, environment.synchronizer.synchronize())
@@ -85,9 +86,15 @@ class DashboardOfflineTest {
         withTimeout(10000) {
             val changes = Channel<DailyLimitSummary>(Channel.UNLIMITED)
             val observer = launch(Dispatchers.Default) {
-                repository().observeDashboard().map(DailyLimitSummary::from).distinctUntilChanged().collect { changes.send(it) }
+                repository().observeDashboard().map(DailyLimitSummary::from).distinctUntilChanged().collect {
+                    changes.send(it)
+                }
             }
-            suspend fun expect(spent: String, remaining: String, percent: String) {
+            suspend fun expect(
+                spent: String,
+                remaining: String,
+                percent: String
+            ) {
                 val summary = changes.receive()
                 assertEquals("10000.00", summary.limit.amount.toPlainString())
                 assertEquals(spent, summary.spentToday.amount.toPlainString())
@@ -100,10 +107,15 @@ class DashboardOfflineTest {
             }
             try {
                 expect("0.00", "10000.00", "100.0")
-                environment.repository.create(NewOperation(
-                    OperationType.Expense, api.expenseCategory.id, "2500.00".toBigDecimal(),
-                    LocalDate.parse("2026-10-18"), null,
-                ))
+                environment.repository.create(
+                    NewOperation(
+                        OperationType.Expense,
+                        api.expenseCategory.id,
+                        "2500.00".toBigDecimal(),
+                        LocalDate.parse("2026-10-18"),
+                        null
+                    )
+                )
                 expect("2500.00", "7500.00", "75.0")
                 val expense = database.operations().pending(api.scope.key).single().operationId
                 store.enqueue("UPDATE_OPERATION", expense, 0) { it.copy(amount = "5000.00") }

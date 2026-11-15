@@ -13,7 +13,7 @@ internal data class CategoryEditorUiState(
     val iconCode: String = original?.icon?.code ?: CATEGORY_INITIAL_ICON_CODE,
     val operation: CategoryEditorOperation? = null,
     val error: CategoriesError? = null,
-    val overlay: CategoryEditorOverlay? = null,
+    val overlay: CategoryEditorOverlay? = null
 ) {
     val isCreating get() = original == null
     val isBusy get() = operation != null
@@ -26,7 +26,11 @@ internal data class CategoryEditorUiState(
             name.trim() != original.name || iconCode != original.icon.code
         }
     val hasInvalidName get() = name.isNotBlank() && name.trim() != original?.name && !isValidCategoryName(name.trim())
-    val canSave get() = !isBusy && hasChanges && name.isNotBlank() && !hasInvalidName && (iconCode.isNotBlank() || iconCode == original?.icon?.code)
+    val canSave get() = !isBusy &&
+        hasChanges &&
+        name.isNotBlank() &&
+        !hasInvalidName &&
+        (iconCode.isNotBlank() || iconCode == original?.icon?.code)
     val supportsDelete get() = original?.kind == CategoryKind.Expense && original.dictionaryKey != "OTHER"
 }
 

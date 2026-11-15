@@ -22,11 +22,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import retrofit2.HttpException
 
-class PlannedOperationsRepositoryImpl(
-    private val api: PlannedOperationsApi,
-    private val apiToken: String,
-) : PlannedOperationsRepository {
-    override suspend fun getPlannedOperations(filter: PlannedOperationsFilter): PlannedOperations {
+class PlannedOperationsRepositoryImpl(private val api: PlannedOperationsApi, private val apiToken: String) :
+    PlannedOperationsRepository {
+    override suspend fun getPlannedOperations(
+        filter: PlannedOperationsFilter
+    ): PlannedOperations {
         if (apiToken.isBlank()) throw PlannedOperationsException.MissingApiToken
         return try {
             val response = api.getPlannedOperations(
@@ -34,7 +34,7 @@ class PlannedOperationsRepositoryImpl(
                 type = filter.type?.apiValue,
                 period = filter.period.apiValue,
                 dateFrom = filter.dateFrom?.toString(),
-                dateTo = filter.dateTo?.toString(),
+                dateTo = filter.dateTo?.toString()
             )
             val from = LocalDate.parse(response.dateFrom)
             val to = LocalDate.parse(response.dateTo)
@@ -49,8 +49,8 @@ class PlannedOperationsRepositoryImpl(
                 items = items.sortedWith(compareBy({ it.dueOn }, { it.id })),
                 totals = PlannedOperationTotals(
                     expenses = response.totals.expenses.amountValue(),
-                    incomes = response.totals.incomes.amountValue(),
-                ),
+                    incomes = response.totals.incomes.amountValue()
+                )
             )
         } catch (exception: CancellationException) {
             throw exception
@@ -106,8 +106,8 @@ private fun PlannedOperationDto.toDomain(): PlannedOperation {
                     createdAt = created,
                     modifiedAt = modified,
                     ruleId = rule.id,
-                    ruleVersion = rule.version,
-                ),
+                    ruleVersion = rule.version
+                )
             )
         }
         "INCOME" -> {
@@ -124,8 +124,8 @@ private fun PlannedOperationDto.toDomain(): PlannedOperation {
                     status = PlannedIncomeStatus.Scheduled,
                     version = version,
                     createdAt = created,
-                    modifiedAt = modified,
-                ),
+                    modifiedAt = modified
+                )
             )
         }
         else -> throw PlannedOperationsException.InvalidResponse

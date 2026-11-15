@@ -13,27 +13,60 @@ class FirebaseBudgetRequests(
     private val api: FirebaseBudgetApi?,
     tokens: FirebaseIdTokenProvider,
     private val serverAuth: com.firkat.fillin.feature.auth.domain.ServerAuthRepository? = null,
-    categoryUsageApi: CategoryUsageApi? = null,
+    categoryUsageApi: CategoryUsageApi? = null
 ) {
     internal val categoryUsage = CategoryUsageRequests(categoryUsageApi, tokens)
 
-    suspend fun rename(uid: String, id: String, request: RenameBudgetDto) = execute(uid) { api, auth -> api.rename(auth, id, request) }
-    suspend fun delete(uid: String, id: String, requestId: String) = execute(uid) { api, auth -> api.delete(auth, id, requestId) }
-    suspend fun importLocal(uid: String, request: ImportFirebaseBudgetDto) = execute(uid) { api, auth -> api.importLocal(auth, request) }
-    suspend fun create(uid: String, request: CreateFirebaseBudgetDto) = execute(uid) { api, auth -> api.create(auth, request) }
-    suspend fun budgets(uid: String) = execute(uid) { api, auth ->
+    suspend fun rename(
+        uid: String,
+        id: String,
+        request: RenameBudgetDto
+    ) = execute(uid) { api, auth ->
+        api.rename(auth, id, request)
+    }
+    suspend fun delete(
+        uid: String,
+        id: String,
+        requestId: String
+    ) = execute(uid) { api, auth -> api.delete(auth, id, requestId) }
+    suspend fun importLocal(
+        uid: String,
+        request: ImportFirebaseBudgetDto
+    ) = execute(uid) { api, auth -> api.importLocal(auth, request) }
+    suspend fun create(
+        uid: String,
+        request: CreateFirebaseBudgetDto
+    ) = execute(uid) { api, auth -> api.create(auth, request) }
+    suspend fun budgets(
+        uid: String
+    ) = execute(uid) { api, auth ->
         serverAuth?.authenticate(uid)
         api.budgets(auth)
     }
-    suspend fun budget(uid: String, id: String) = execute(uid) { api, auth -> api.budget(auth, id) }
-    suspend fun changes(uid: String, id: String, cursor: String?) = execute(uid) { api, auth -> api.changes(auth, id, cursor) }
-    suspend fun command(uid: String, id: String, command: BudgetSyncCommand) = execute(uid) { api, auth -> api.command(auth, id, command) }
+    suspend fun budget(
+        uid: String,
+        id: String
+    ) = execute(uid) { api, auth -> api.budget(auth, id) }
+    suspend fun changes(
+        uid: String,
+        id: String,
+        cursor: String?
+    ) = execute(uid) { api, auth -> api.changes(auth, id, cursor) }
+    suspend fun command(
+        uid: String,
+        id: String,
+        command: BudgetSyncCommand
+    ) = execute(uid) { api, auth -> api.command(auth, id, command) }
 
-    fun ensureCurrent(uid: String) = authenticated.ensureCurrent(uid)
+    fun ensureCurrent(
+        uid: String
+    ) = authenticated.ensureCurrent(uid)
 
     private val authenticated = com.firkat.fillin.feature.auth.data.FirebaseAuthenticatedRequests(tokens)
-    private suspend fun <T> execute(uid: String, action: suspend (FirebaseBudgetApi, String) -> Response<T>): Response<T> =
-        authenticated.execute(uid, api, action)
+    private suspend fun <T> execute(
+        uid: String,
+        action: suspend (FirebaseBudgetApi, String) -> Response<T>
+    ): Response<T> = authenticated.execute(uid, api, action)
 }
 
 internal fun <T> Response<T>.budgetBody(): T {

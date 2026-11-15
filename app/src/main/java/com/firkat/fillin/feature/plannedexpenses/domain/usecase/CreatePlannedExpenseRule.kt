@@ -9,20 +9,23 @@ import java.time.LocalDate
 
 class CreatePlannedExpenseRule(
     private val repository: PlannedExpensesRepository,
-    private val clock: java.time.Clock = java.time.Clock.system(java.time.ZoneId.of("Asia/Almaty")),
+    private val clock: java.time.Clock = java.time.Clock.system(java.time.ZoneId.of("Asia/Almaty"))
 ) {
     suspend operator fun invoke(
         categoryId: String,
         amount: BigDecimal,
         frequency: PlannedExpenseFrequency,
         scheduleValue: Int?,
-        startsOn: LocalDate,
+        startsOn: LocalDate
     ): PlannedExpenseRule {
         if (
             categoryId.isBlank() ||
             !amount.isValidKztAmount() ||
             !frequency.isValidScheduleValue(scheduleValue) ||
-            (frequency == PlannedExpenseFrequency.Once && startsOn < LocalDate.now(clock.withZone(java.time.ZoneId.of("Asia/Almaty"))))
+            (
+                frequency == PlannedExpenseFrequency.Once &&
+                    startsOn < LocalDate.now(clock.withZone(java.time.ZoneId.of("Asia/Almaty")))
+                )
         ) {
             throw PlannedExpensesException.InvalidRequest
         }
@@ -32,19 +35,19 @@ class CreatePlannedExpenseRule(
             amount = amount,
             frequency = frequency,
             scheduleValue = scheduleValue,
-            startsOn = startsOn,
+            startsOn = startsOn
         )
     }
 }
 
-internal fun BigDecimal.isValidKztAmount(): Boolean =
-    this > BigDecimal.ZERO && scale() <= KZT_FRACTION_DIGITS
+internal fun BigDecimal.isValidKztAmount(): Boolean = this > BigDecimal.ZERO && scale() <= KZT_FRACTION_DIGITS
 
-internal fun PlannedExpenseFrequency.isValidScheduleValue(value: Int?): Boolean =
-    when (this) {
-        PlannedExpenseFrequency.Once -> value == null
-        PlannedExpenseFrequency.Monthly -> value in 1..31
-        PlannedExpenseFrequency.Weekly -> value in 1..7
-    }
+internal fun PlannedExpenseFrequency.isValidScheduleValue(
+    value: Int?
+): Boolean = when (this) {
+    PlannedExpenseFrequency.Once -> value == null
+    PlannedExpenseFrequency.Monthly -> value in 1..31
+    PlannedExpenseFrequency.Weekly -> value in 1..7
+}
 
 private const val KZT_FRACTION_DIGITS = 2

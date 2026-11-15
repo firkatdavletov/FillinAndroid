@@ -4,10 +4,9 @@ import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 
 interface CategoriesRepository {
-    fun observeCategories(): kotlinx.coroutines.flow.Flow<List<Category>> =
-        kotlinx.coroutines.flow.flow {
-            emit(getCategories())
-        }
+    fun observeCategories(): kotlinx.coroutines.flow.Flow<List<Category>> = kotlinx.coroutines.flow.flow {
+        emit(getCategories())
+    }
 
     fun requestSync() = Unit
 
@@ -16,21 +15,28 @@ interface CategoriesRepository {
     suspend fun createCategory(
         name: String,
         kind: CategoryKind,
-        iconCode: String,
+        iconCode: String
     ): Category
 
     suspend fun updateCategory(
         id: String,
         name: String?,
-        iconCode: String?,
+        iconCode: String?
     ): Category
 
-    suspend fun updateCategory(category: Category, name: String?, iconCode: String?): Category =
-        updateCategory(category.id, name, iconCode)
+    suspend fun updateCategory(
+        category: Category,
+        name: String?,
+        iconCode: String?
+    ): Category = updateCategory(category.id, name, iconCode)
 
-    suspend fun deleteCategory(category: Category) = deleteCategory(category.id)
+    suspend fun deleteCategory(
+        category: Category
+    ) = deleteCategory(category.id)
 
-    suspend fun deleteCategory(id: String)
+    suspend fun deleteCategory(
+        id: String
+    )
 }
 
 sealed class CategoriesException : Exception() {

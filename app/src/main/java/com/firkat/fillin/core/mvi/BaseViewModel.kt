@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 abstract class BaseViewModel<S : State, A : Action, C : Command, E : Event, F : Effect>(
     initialState: S,
     private val reducer: Reducer<S, A, E>,
-    private val interactor: Interactor<C, E>,
+    private val interactor: Interactor<C, E>
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(initialState)
     val state: StateFlow<S> = mutableState.asStateFlow()
@@ -47,25 +47,33 @@ abstract class BaseViewModel<S : State, A : Action, C : Command, E : Event, F : 
 
     /** Publishes the reduced state, then handles the action synchronously on Main. */
     @MainThread
-    fun onAction(action: A) {
+    fun onAction(
+        action: A
+    ) {
         mutableState.value = reducer.reduceAction(mutableState.value, action)
         handleAction(action)
     }
 
     /** Handles an action after reduction, for example by sending a command or effect. */
     @MainThread
-    protected abstract fun handleAction(action: A)
+    protected abstract fun handleAction(
+        action: A
+    )
 
     /** Handles an interactor event after reduction. Override to send commands or effects. */
     @MainThread
-    protected open fun handleEvent(event: E) = Unit
+    protected open fun handleEvent(
+        event: E
+    ) = Unit
 
     /**
      * Starts an independent command on Main and reduces every event before handling it.
      * Exceptions and cancellation propagate through the job without interception.
      */
     @MainThread
-    protected fun execute(command: C): Job = viewModelScope.launch {
+    protected fun execute(
+        command: C
+    ): Job = viewModelScope.launch {
         interactor.execute(command).collect { event ->
             mutableState.value = reducer.reduceEvent(mutableState.value, event)
             handleEvent(event)
@@ -74,7 +82,9 @@ abstract class BaseViewModel<S : State, A : Action, C : Command, E : Event, F : 
 
     /** Emits an effect in the ViewModel's scope, suspending until active subscribers receive it. */
     @MainThread
-    protected fun emitEffect(effect: F): Job = viewModelScope.launch {
+    protected fun emitEffect(
+        effect: F
+    ): Job = viewModelScope.launch {
         mutableEffects.emit(effect)
     }
 }

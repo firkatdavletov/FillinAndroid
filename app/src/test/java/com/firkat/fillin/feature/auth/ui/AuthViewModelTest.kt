@@ -15,17 +15,17 @@ import com.firkat.fillin.feature.auth.ui.interactor.AuthState
 import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.*
@@ -37,9 +37,15 @@ class AuthViewModelTest {
     private val models = ViewModelStore()
 
     @Before fun setup() = Dispatchers.setMain(StandardTestDispatcher())
-    @After fun cleanup() { models.clear(); Dispatchers.resetMain() }
 
-    private fun model(repository: FakeAuthRepository) = AuthViewModel(
+    @After fun cleanup() {
+        models.clear()
+        Dispatchers.resetMain()
+    }
+
+    private fun model(
+        repository: FakeAuthRepository
+    ) = AuthViewModel(
         AuthState(session = repository.session.value),
         AuthReducer(),
         AuthInteractor(repository, null, StandardTestDispatcher())
@@ -60,7 +66,14 @@ class AuthViewModelTest {
         val repository = FakeAuthRepository()
         val model = model(repository)
         val requests = mutableListOf<AuthEffect.LaunchGooglePicker>()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.effects.collect { if (it is AuthEffect.LaunchGooglePicker) requests += it } }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            model.effects.collect {
+                if (it is AuthEffect.LaunchGooglePicker) {
+                    requests +=
+                        it
+                }
+            }
+        }
         model.onAction(AuthAction.UiReady)
         model.onAction(AuthAction.GoogleClicked)
         model.onAction(AuthAction.GoogleClicked)
@@ -336,7 +349,13 @@ class AuthViewModelTest {
     @Test fun `clearing ViewModel cancels auth operation and long session observation`() = runTest {
         var cancelled = false
         val repository = FakeAuthRepository().apply {
-            signInAction = { try { awaitCancellation() } finally { cancelled = true } }
+            signInAction = {
+                try {
+                    awaitCancellation()
+                } finally {
+                    cancelled = true
+                }
+            }
         }
         val model = model(repository)
         model.onAction(AuthAction.GoogleClicked)
@@ -358,7 +377,9 @@ class AuthViewModelTest {
         var signOutAction: suspend () -> Unit = {}
         var signOutError: AuthFailure? = null
 
-        override suspend fun signInWithGoogle(idToken: String) {
+        override suspend fun signInWithGoogle(
+            idToken: String
+        ) {
             signIns++
             signInAction()
             session.value = AuthSession.Authenticated(USER)

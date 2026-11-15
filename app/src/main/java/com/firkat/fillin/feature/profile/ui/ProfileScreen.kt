@@ -3,12 +3,9 @@ package com.firkat.fillin.feature.profile.ui
 import android.content.res.Configuration
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -19,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,22 +34,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
@@ -64,26 +60,22 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
-import com.firkat.fillin.feature.appaccess.ui.AboutAppRoute
 import com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel
 import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
-import com.firkat.fillin.feature.budgetmanagement.ui.BudgetCurrencyConfirmation
-import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementSheet
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel
 import com.firkat.fillin.feature.budgetmanagement.ui.PendingBudgetDeletion
-import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyPicker
 import com.firkat.fillin.feature.budgetsetup.ui.accessErrorResource
-import com.firkat.fillin.feature.dashboard.ui.MainScreenHeader
 import com.firkat.fillin.feature.profile.domain.DeletionPhase
 import com.firkat.fillin.feature.profile.domain.ProfileBudget
 import com.firkat.fillin.feature.profile.domain.ProfileDeletionState
+import com.firkat.fillin.feature.profile.ui.bottomsheets.ProfileBottomSheetHost
 import com.firkat.fillin.ui.component.AccountIdentity
 import com.firkat.fillin.ui.component.PrimaryButton
 import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.icon.FillinIcons
 import com.firkat.fillin.ui.theme.FillinTheme
-import com.firkat.fillin.ui.theme.saldomiDesignColors
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -96,43 +88,21 @@ fun ProfileRoute(
     onFamilyAccessClick: () -> Unit,
     onCloudSyncClick: () -> Unit,
     onCreateBudgetClick: () -> Unit,
+    onBack: () -> Unit = {},
     viewModel: ProfileViewModel = koinViewModel(),
     onMethodsClick: () -> Unit = onAccountClick,
     deletionViewModel: ProfileDeletionViewModel = koinViewModel(),
     bottomBarOverlap: Dp = 0.dp,
-    budgetReadOnly: Boolean = false,
+    budgetReadOnly: Boolean = false
 ) {
     val about: AboutAppViewModel = koinViewModel()
-    AboutAppRoute(about)
+    val installationId by about.installationId.collectAsStateWithLifecycle()
+    val accessChecking by about.checking.collectAsStateWithLifecycle()
+    val accessRefreshResult by about.refreshResult.collectAsStateWithLifecycle()
     val management: BudgetManagementViewModel = koinViewModel()
     val managementState by management.state.collectAsStateWithLifecycle()
     val pendingDeletions by management.pending.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
-    managementState?.takeIf { state.fullAccess || !it.family }?.let {
-        if (it.pickerOpen) {
-            BudgetCurrencyPicker(
-                it.currency,
-                management::selectCurrency,
-                management::closeCurrencyPicker,
-            )
-        } else {
-            BudgetManagementSheet(
-                it,
-                management::change,
-                management::confirm,
-                management::close,
-                onCurrencyClick = management::openCurrencyPicker,
-            )
-        }
-        if (it.confirmCurrency) {
-            BudgetCurrencyConfirmation(
-                it.originalCurrency,
-                it.currency,
-                management::confirmCurrencyChange,
-                management::dismissCurrencyConfirmation,
-            )
-        }
-    }
     val deletionState by deletionViewModel.deletion.state.collectAsStateWithLifecycle()
     val confirmation by deletionViewModel.confirmation.collectAsStateWithLifecycle()
     val password by deletionViewModel.password.collectAsStateWithLifecycle()
@@ -143,25 +113,29 @@ fun ProfileRoute(
         deletionViewModel.deletion.setVisible(true)
         onDispose { deletionViewModel.deletion.setVisible(false) }
     }
-    confirmation?.takeIf { it.uid == user?.uid }?.let { current ->
-        when (current.kind) {
-            AccountConfirmationKind.SignOut -> {
-                SignOutAccountBottomSheet(
-                    onConfirm = { deletionViewModel.confirmSignOut(onAccountClick) },
-                    onDismiss = deletionViewModel::close,
-                )
-            }
-
-            AccountConfirmationKind.Delete -> {
-                DeleteAccountBottomSheet(
-                    value = current.value,
-                    onChange = deletionViewModel::changeConfirmation,
-                    onConfirm = deletionViewModel::submit,
-                    onDismiss = deletionViewModel::close,
-                )
-            }
-        }
-    }
+    ProfileBottomSheetHost(
+        installationId = installationId,
+        accessChecking = accessChecking,
+        accessRefreshResult = accessRefreshResult,
+        fullAccess = state.fullAccess,
+        management = managementState,
+        userId = user?.uid,
+        confirmation = confirmation,
+        onRefreshAccess = about::refresh,
+        onCloseAbout = about::close,
+        onBudgetNameChanged = management::change,
+        onConfirmBudget = management::confirm,
+        onCloseBudget = management::close,
+        onOpenCurrencyPicker = management::openCurrencyPicker,
+        onCurrencySelected = management::selectCurrency,
+        onCloseCurrencyPicker = management::closeCurrencyPicker,
+        onConfirmCurrencyChange = management::confirmCurrencyChange,
+        onDismissCurrencyChange = management::dismissCurrencyConfirmation,
+        onSignOut = { deletionViewModel.confirmSignOut(onAccountClick) },
+        onAccountConfirmationChanged = deletionViewModel::changeConfirmation,
+        onDeleteAccount = deletionViewModel::submit,
+        onDismissAccountConfirmation = deletionViewModel::close
+    )
     ProfileScreen(
         onManageBudget = { id, name, deleting ->
             viewModel.closeBudgetActions()
@@ -171,6 +145,7 @@ fun ProfileRoute(
         },
         onBudgetActionsClick = viewModel::toggleBudgetActions,
         onAboutClick = about::open,
+        onBack = onBack,
         managementContent = {
             pendingDeletions.filter { state.fullAccess || it.uid == null }.forEach {
                 PendingBudgetDeletion(
@@ -179,7 +154,7 @@ fun ProfileRoute(
                     management::retry,
                     sending =
                         it.error == "sending",
-                    denied = it.error == "access_denied",
+                    denied = it.error == "access_denied"
                 )
             }
         },
@@ -195,7 +170,7 @@ fun ProfileRoute(
                     user?.providers?.contains("google.com") == true,
                     googleBusy,
                     deletionViewModel::password,
-                    { deletionViewModel.google { google.launch(context) } },
+                    { deletionViewModel.google { google.launch(context) } }
                 )
             }
         },
@@ -211,7 +186,7 @@ fun ProfileRoute(
         onCloudSyncClick = onCloudSyncClick,
         onRetry = viewModel::refresh,
         bottomBarOverlap = bottomBarOverlap,
-        budgetReadOnly = budgetReadOnly,
+        budgetReadOnly = budgetReadOnly
     )
 }
 
@@ -228,6 +203,7 @@ fun ProfileScreen(
     onCloudSyncClick: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onBack: () -> Unit = {},
     onMethodsClick: () -> Unit = onAccountClick,
     deletionState: ProfileDeletionState = ProfileDeletionState(),
     onDeleteClick: () -> Unit = {},
@@ -237,204 +213,213 @@ fun ProfileScreen(
     onBudgetActionsClick: (String) -> Unit = {},
     onAboutClick: (() -> Unit)? = null,
     bottomBarOverlap: Dp = 0.dp,
-    budgetReadOnly: Boolean = false,
+    budgetReadOnly: Boolean = false
 ) {
-    Box(
-        modifier =
-            modifier
-                .fillMaxSize(),
+    Column(
+        modifier = modifier
+            .testTag("profile_screen")
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(top = 78.dp, bottom = 32.dp + bottomBarOverlap)
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .testTag("profile_screen")
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 78.dp, bottom = 32.dp + bottomBarOverlap),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Spacer(Modifier.height(32.dp))
-            if (user != null) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp),
-                ) {
-                    ProfileAccount(user.displayName, user.email, Modifier.padding(16.dp))
-                    if (state.fullAccess) {
-                        HorizontalDivider(
-                            Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
-                    }
-                    if (state.fullAccess) {
-                        Surface(
-                            onClick = onMethodsClick,
-                            enabled = !authBusy,
-                            color = MaterialTheme.colorScheme.surface,
-                        ) {
-                            Row(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 52.dp)
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text =
-                                        stringResource(
-                                            if (user.emailVerified) {
-                                                R.string.email_methods
-                                            } else {
-                                                R.string.email_verify
-                                            },
-                                        ),
-                                    modifier = Modifier.weight(1f),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                                    contentDescription = null,
-                                )
-                            }
-                        }
-                    }
-                }
-            } else if (state.fullAccess) {
-                SaldomiButton(
-                    onClick = onAccountClick,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !authBusy,
-                    isLoading = authBusy,
-                ) {
-                    Text(
-                        text = stringResource(R.string.profile_sign_in),
+            IconButton(
+                onClick = onBack
+            ) {
+                Icon(
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_arrow_back),
+                    contentDescription = null
+                )
+            }
+            Text(
+                text = stringResource(R.string.navigation_profile),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        if (user != null) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                ProfileAccount(user.displayName, user.email, Modifier.padding(16.dp))
+                if (state.fullAccess) {
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
                 }
-            }
-            Spacer(Modifier.height(20.dp))
-            Text(stringResource(R.string.profile_budgets), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text(stringResource(R.string.budget_manage_selection_hint), style = MaterialTheme.typography.bodyMedium)
-            if (budgetReadOnly) Text(stringResource(R.string.cloud_budget_read_only), style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(12.dp))
-            if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("profile_loading"))
-            state.budgets.forEachIndexed { index, budget ->
-                val displayName =
-                    budget.name
-                        ?: if (budget.family) {
-                            stringResource(R.string.profile_family_budget_name)
-                        } else {
-                            stringResource(
-                                R.string.profile_local_budget_name,
-                                state.budgets.take(index + 1).count { !it.family },
+                if (state.fullAccess) {
+                    Surface(
+                        onClick = onMethodsClick,
+                        enabled = !authBusy,
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 52.dp)
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text =
+                                    stringResource(
+                                        if (user.emailVerified) {
+                                            R.string.email_methods
+                                        } else {
+                                            R.string.email_verify
+                                        }
+                                    ),
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                                contentDescription = null
                             )
                         }
-                key(budget.id) {
-                    ProfileBudgetCard(
-                        name = displayName,
-                        expanded = state.expandedBudgetId == budget.id,
-                        onActionsClick = { onBudgetActionsClick(budget.id) },
-                        canManage = budget.canManage,
-                        pendingRename = budget.pendingRename,
-                        onRename = { onManageBudget(budget.id, displayName, false) },
-                        onRemove = { onManageBudget(budget.id, displayName, true) },
-                        family = budget.family,
-                        currency = budget.currency.name,
-                        selected = budget.selected,
-                        enabled = !state.busy,
-                        onClick = { onBudgetClick(budget.id) },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    )
+                    }
                 }
             }
-            managementContent()
-
-            PrimaryButton(
-                stringResource(R.string.profile_create_budget),
-                onCreateBudgetClick,
+        } else if (state.fullAccess) {
+            SaldomiButton(
+                onClick = onAccountClick,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !state.busy,
-            )
-
-            if (state.error != null) {
+                enabled = !authBusy,
+                isLoading = authBusy
+            ) {
                 Text(
-                    accessErrorResource(state.error)?.let {
-                        stringResource(it)
-                    } ?: state.error,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 12.dp),
-                )
-                TextButton(onClick = onRetry, enabled = !state.busy) { Text(stringResource(R.string.budget_profile_retry)) }
-            }
-            Spacer(Modifier.height(20.dp))
-            ProfileSettingRow(
-                title = stringResource(R.string.navigation_categories),
-                subtitle = stringResource(R.string.profile_categories_subtitle),
-                icon = FillinIcons.Categories,
-                onClick = onCategoriesClick,
-            )
-            if (state.fullAccess) {
-                Spacer(Modifier.height(8.dp))
-                ProfileSettingRow(
-                    title = stringResource(R.string.profile_family_access),
-                    subtitle = stringResource(R.string.profile_family_subtitle),
-                    icon = FillinIcons.FamilyAccess,
-                    onClick = onFamilyAccessClick,
-                )
-                Spacer(Modifier.height(8.dp))
-                ProfileSettingRow(
-                    title = stringResource(R.string.profile_cloud_sync),
-                    subtitle = stringResource(R.string.profile_cloud_subtitle),
-                    icon = FillinIcons.CloudUpload,
-                    onClick = onCloudSyncClick,
-                )
-            }
-            if (onAboutClick != null) {
-                TextButton(onClick = onAboutClick) { Text(stringResource(R.string.app_about)) }
-            }
-            Spacer(Modifier.height(32.dp))
-            if (deletionState.phase != DeletionPhase.Idle) deletionContent()
-            if (user != null && deletionState.phase in setOf(DeletionPhase.Idle, DeletionPhase.Completed)) {
-                Text(
-                    stringResource(R.string.profile_account_management),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(Modifier.height(12.dp))
-                ProfileAccountAction(
-                    stringResource(R.string.auth_sign_out),
-                    false,
-                    !authBusy && !state.busy,
-                    onAccountClick,
-                    Modifier.testTag("sign_out_profile"),
-                )
-                Spacer(Modifier.height(8.dp))
-                ProfileAccountAction(
-                    stringResource(R.string.profile_delete),
-                    true,
-                    !authBusy && !state.busy,
-                    onDeleteClick,
-                    Modifier.testTag("delete_profile"),
+                    text = stringResource(R.string.profile_sign_in)
                 )
             }
         }
-        MainScreenHeader(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        brush =
-                            Brush.verticalGradient(
-                                0f to MaterialTheme.saldomiDesignColors.background,
-                                0.7f to MaterialTheme.saldomiDesignColors.background,
-                                1f to MaterialTheme.saldomiDesignColors.background.copy(alpha = 0f),
-                            ),
-                    ).padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp)
-                    .statusBarsPadding(),
-            title = stringResource(R.string.navigation_profile),
+        Spacer(Modifier.height(20.dp))
+        Text(
+            stringResource(R.string.profile_budgets),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold
         )
+        Text(stringResource(R.string.budget_manage_selection_hint), style = MaterialTheme.typography.bodyMedium)
+        if (budgetReadOnly) {
+            Text(
+                stringResource(R.string.cloud_budget_read_only),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("profile_loading"))
+        state.budgets.forEachIndexed { index, budget ->
+            val displayName =
+                budget.name
+                    ?: if (budget.family) {
+                        stringResource(R.string.profile_family_budget_name)
+                    } else {
+                        stringResource(
+                            R.string.profile_local_budget_name,
+                            state.budgets.take(index + 1).count { !it.family }
+                        )
+                    }
+            key(budget.id) {
+                ProfileBudgetCard(
+                    name = displayName,
+                    expanded = state.expandedBudgetId == budget.id,
+                    onActionsClick = { onBudgetActionsClick(budget.id) },
+                    canManage = budget.canManage,
+                    pendingRename = budget.pendingRename,
+                    onRename = { onManageBudget(budget.id, displayName, false) },
+                    onRemove = { onManageBudget(budget.id, displayName, true) },
+                    family = budget.family,
+                    currency = budget.currency.name,
+                    selected = budget.selected,
+                    enabled = !state.busy,
+                    onClick = { onBudgetClick(budget.id) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                )
+            }
+        }
+        managementContent()
+
+        SaldomiOutlinedButton(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onCreateBudgetClick,
+            large = true
+        ) {
+            Text(
+                text = stringResource(R.string.profile_create_budget)
+            )
+        }
+
+        if (state.error != null) {
+            Text(
+                accessErrorResource(state.error)?.let {
+                    stringResource(it)
+                } ?: state.error,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 12.dp)
+            )
+            TextButton(onClick = onRetry, enabled = !state.busy) {
+                Text(stringResource(R.string.budget_profile_retry))
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+        ProfileSettingRow(
+            title = stringResource(R.string.navigation_categories),
+            subtitle = stringResource(R.string.profile_categories_subtitle),
+            icon = FillinIcons.Categories,
+            onClick = onCategoriesClick
+        )
+        if (state.fullAccess) {
+            Spacer(Modifier.height(8.dp))
+            ProfileSettingRow(
+                title = stringResource(R.string.profile_family_access),
+                subtitle = stringResource(R.string.profile_family_subtitle),
+                icon = FillinIcons.FamilyAccess,
+                onClick = onFamilyAccessClick
+            )
+            Spacer(Modifier.height(8.dp))
+            ProfileSettingRow(
+                title = stringResource(R.string.profile_cloud_sync),
+                subtitle = stringResource(R.string.profile_cloud_subtitle),
+                icon = FillinIcons.CloudUpload,
+                onClick = onCloudSyncClick
+            )
+        }
+        if (onAboutClick != null) {
+            TextButton(onClick = onAboutClick) { Text(stringResource(R.string.app_about)) }
+        }
+        Spacer(Modifier.height(32.dp))
+        if (deletionState.phase != DeletionPhase.Idle) deletionContent()
+        if (user != null && deletionState.phase in setOf(DeletionPhase.Idle, DeletionPhase.Completed)) {
+            Text(
+                stringResource(R.string.profile_account_management),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(12.dp))
+            ProfileAccountAction(
+                stringResource(R.string.auth_sign_out),
+                false,
+                !authBusy && !state.busy,
+                onAccountClick,
+                Modifier.testTag("sign_out_profile")
+            )
+            Spacer(Modifier.height(8.dp))
+            ProfileAccountAction(
+                stringResource(R.string.profile_delete),
+                true,
+                !authBusy && !state.busy,
+                onDeleteClick,
+                Modifier.testTag("delete_profile")
+            )
+        }
     }
 }
 
@@ -442,7 +427,7 @@ fun ProfileScreen(
 private fun ProfileAccount(
     name: String?,
     email: String?,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     AccountIdentity(name, email, modifier)
 }
@@ -461,29 +446,25 @@ private fun ProfileBudgetCard(
     onRemove: () -> Unit = {},
     expanded: Boolean = false,
     onActionsClick: () -> Unit = {},
-    currency: String = "KZT",
+    currency: String = "KZT"
 ) {
     val colors = MaterialTheme.colorScheme
     val container by animateColorAsState(
         if (selected) colors.surfaceVariant else colors.surface,
         tween(200),
-        label = "Budget background",
+        label = "Budget background"
     )
     val outline by animateColorAsState(
         if (selected) colors.primary else colors.outlineVariant,
         tween(200),
-        label = "Budget outline",
+        label = "Budget outline"
     )
     val outlineWidth by animateDpAsState(
         if (selected) 1.5.dp else 1.dp,
         tween(200),
-        label = "Budget outline width",
+        label = "Budget outline width"
     )
-    val checkAlpha by animateFloatAsState(
-        if (selected) 1f else 0f,
-        tween(200),
-        label = "Budget checkmark",
-    )
+
     OutlinedCard(
         onClick = onClick,
         enabled = enabled,
@@ -497,21 +478,33 @@ private fun ProfileBudgetCard(
         colors =
             CardDefaults.outlinedCardColors(
                 containerColor = container,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
+                contentColor = MaterialTheme.colorScheme.onSurface
+            )
     ) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 20.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(if (family) FillinIcons.FamilyAccess else FillinIcons.Wallet, null, tint = MaterialTheme.colorScheme.primary)
+            Icon(
+                if (family) FillinIcons.FamilyAccess else FillinIcons.Wallet,
+                null,
+                tint = MaterialTheme.colorScheme.primary
+            )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
-                if (pendingRename) Text(stringResource(R.string.budget_manage_pending_rename), style = MaterialTheme.typography.bodySmall)
+                if (pendingRename) {
+                    Text(
+                        stringResource(R.string.budget_manage_pending_rename),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Text(
-                    stringResource(if (family) R.string.profile_family_budget else R.string.profile_personal_budget, currency),
-                    style = MaterialTheme.typography.bodySmall,
+                    stringResource(
+                        if (family) R.string.profile_family_budget else R.string.profile_personal_budget,
+                        currency
+                    ),
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
@@ -525,7 +518,7 @@ private fun ProfileBudgetCard(
             HorizontalDivider(Modifier.padding(horizontal = 16.dp))
             FlowRow(
                 Modifier.fillMaxWidth().padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton(onClick = onRename, enabled = enabled) {
                     Icon(Icons.Outlined.Edit, null)
@@ -535,7 +528,7 @@ private fun ProfileBudgetCard(
                 TextButton(
                     onClick = onRemove,
                     enabled = enabled,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
                     Icon(Icons.Outlined.DeleteOutline, null)
                     Spacer(Modifier.width(8.dp))
@@ -552,18 +545,18 @@ private fun ProfileSettingRow(
     subtitle: String,
     icon: Painter,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
             Modifier.heightIn(min = 72.dp).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -581,7 +574,7 @@ private fun ProfileAccountAction(
     destructive: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
@@ -589,12 +582,16 @@ private fun ProfileAccountAction(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = if (destructive) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surface,
-        contentColor = if (destructive) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
+        contentColor = if (destructive) {
+            MaterialTheme.colorScheme.onErrorContainer
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        }
     ) {
         Row(
             Modifier.heightIn(min = 64.dp).padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Icon(if (destructive) Icons.Outlined.DeleteOutline else Icons.AutoMirrored.Outlined.Logout, null)
             Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
@@ -668,12 +665,12 @@ private fun ProfileFamilySettingPreview() {
     FillinTheme {
         ProfileSettingRow(
             stringResource(
-                R.string.profile_family_access,
+                R.string.profile_family_access
             ),
             stringResource(R.string.profile_family_subtitle),
             FillinIcons.FamilyAccess,
             {
-            },
+            }
         )
     }
 }
@@ -686,12 +683,12 @@ private fun ProfileCategoriesSettingPreview() {
     FillinTheme {
         ProfileSettingRow(
             stringResource(
-                R.string.navigation_categories,
+                R.string.navigation_categories
             ),
             stringResource(R.string.profile_categories_subtitle),
             FillinIcons.Categories,
             {
-            },
+            }
         )
     }
 }
@@ -703,12 +700,12 @@ private fun ProfileCloudSettingPreview() {
     FillinTheme {
         ProfileSettingRow(
             stringResource(
-                R.string.profile_cloud_sync,
+                R.string.profile_cloud_sync
             ),
             stringResource(R.string.profile_cloud_subtitle),
             FillinIcons.CloudUpload,
             {
-            },
+            }
         )
     }
 }
@@ -726,7 +723,8 @@ private fun ProfileGuestPreview() {
 @Composable
 private fun ProfileAuthenticatedPreview() {
     FillinTheme {
-        ProfileScreen(previewProfileState(), AuthUser("preview", "Анна Иванова", "anna@example.com"), false, {}, {}, {}, {}, {}, {}, {})
+        ProfileScreen(previewProfileState(), AuthUser("preview", "Анна Иванова", "anna@example.com"), false, {
+        }, {}, {}, {}, {}, {}, {})
     }
 }
 
@@ -748,15 +746,14 @@ private fun ProfileBudgetExpandedPreview() {
     FillinTheme { ProfileBudgetCard("Накопления", false, true, true, {}) }
 }
 
-private fun previewProfileState() =
-    ProfileUiState(
-        loading = false,
-        budgets =
-            listOf(
-                ProfileBudget("family", "Основной бюджет", true, true),
-                ProfileBudget("local", "Накопления", false, false),
-            ),
-    )
+private fun previewProfileState() = ProfileUiState(
+    loading = false,
+    budgets =
+        listOf(
+            ProfileBudget("family", "Основной бюджет", true, true),
+            ProfileBudget("local", "Накопления", false, false)
+        )
+)
 
 @Preview
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
@@ -784,60 +781,13 @@ private fun DisabledAccountActionsPreview() {
     }
 }
 
-@Composable
-internal fun BudgetPickerRoute(
-    onSignIn: () -> Unit = {},
-    onCreateBudgetClick: () -> Unit,
-    viewModel: ProfileViewModel = koinViewModel(),
-    management: BudgetManagementViewModel = koinViewModel(),
-) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val pending by management.pending.collectAsStateWithLifecycle()
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(stringResource(R.string.budget_manage_pick), style = MaterialTheme.typography.headlineSmall)
-        state.budgets.forEach { budget ->
-            OutlinedButton(onClick = { viewModel.selectBudget(budget.id) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
-                Text(budget.name ?: stringResource(R.string.profile_personal_budget, budget.currency.name))
-            }
-        }
-        pending.forEach {
-            PendingBudgetDeletion(
-                it.name,
-                it.error != null && it.error != "sending",
-                management::retry,
-                sending =
-                    it.error == "sending",
-                denied = it.error == "access_denied",
-            )
-        }
-        PrimaryButton(
-            stringResource(R.string.profile_create_budget),
-            onCreateBudgetClick,
-            Modifier.fillMaxWidth(),
-            enabled = !state.busy,
-        )
-        if (state.cloudAllowed) {
-            com.firkat.fillin.feature.budgetsharing.ui
-                .FamilyBudgetJoinSection()
-        } else {
-            TextButton(onClick = onSignIn) { Text(stringResource(R.string.profile_sign_in)) }
-        }
-        state.error?.let {
-            Text(
-                accessErrorResource(it)?.let { res ->
-                    stringResource(res)
-                } ?: it,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-    }
-}
-
 @Preview(name = "Budget actions")
 @Preview(name = "Budget actions dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "Budget actions compact", widthDp = 320, fontScale = 2f)
 @Preview(name = "Budget actions wide", widthDp = 840)
 @Composable
 private fun ProfileBudgetActionsPreview() {
-    FillinTheme { ProfileBudgetCard("Большой семейный бюджет", true, true, true, {}, canManage = true, expanded = true) }
+    FillinTheme {
+        ProfileBudgetCard("Большой семейный бюджет", true, true, true, {}, canManage = true, expanded = true)
+    }
 }

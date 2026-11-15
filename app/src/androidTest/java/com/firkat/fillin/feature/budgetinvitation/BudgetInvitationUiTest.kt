@@ -21,17 +21,33 @@ class BudgetInvitationUiTest {
     private val api = BudgetInvitationDeviceTest.Api()
     private val models = ViewModelStore()
     private var copied: String? = null
-    @After fun cleanup() { models.clear(); env.close() }
 
-    private fun show(role: String = "OWNER"): BudgetInvitationViewModel {
+    @After fun cleanup() {
+        models.clear()
+        env.close()
+    }
+
+    private fun show(
+        role: String = "OWNER"
+    ): BudgetInvitationViewModel {
         runBlocking {
-            env.auth.login("owner"); env.manager.restore()
+            env.auth.login("owner")
+            env.manager.restore()
             env.server.scope = env.server.scope.copy(role = role)
             env.connection.connect("owner", env.connection.budgets("owner").single())
         }
         val model = BudgetInvitationViewModel(BudgetInvitationDeviceTest.repository(env, api))
         models.put("invitation", model)
-        compose.setContent { FillinTheme { Column(Modifier.verticalScroll(rememberScrollState())) { BudgetInvitationSection(model) { copied = it } } } }
+        compose.setContent {
+            FillinTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    BudgetInvitationSection(model) {
+                        copied =
+                            it
+                    }
+                }
+            }
+        }
         compose.waitUntil(5000) { model.state.value.target != null && !model.state.value.busy }
         return model
     }
@@ -47,7 +63,11 @@ class BudgetInvitationUiTest {
         assertEquals(code, copied)
         compose.onNodeWithText("Код скопирован").assertExists()
         compose.onNodeWithText("Создать новый код").performScrollTo().performClick()
-        compose.waitUntil(5000) { model.state.value.current != null && model.state.value.current!!.id != original.id && !model.state.value.busy }
+        compose.waitUntil(5000) {
+            model.state.value.current != null &&
+                model.state.value.current!!.id != original.id &&
+                !model.state.value.busy
+        }
         compose.onNodeWithText(code).assertDoesNotExist()
         compose.onNodeWithText("Отозвать приглашение").performScrollTo().performClick()
         compose.waitUntil(5000) { model.state.value.current == null && !model.state.value.busy }

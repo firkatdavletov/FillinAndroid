@@ -21,7 +21,7 @@ data class OperationHistoryUiState(
     val error: OperationHistoryError? = null,
     val offline: OfflineHistoryContext = OfflineHistoryContext(),
     val requestId: Long = 0,
-    val resultRequestId: Long? = null,
+    val resultRequestId: Long? = null
 )
 
 enum class OperationHistoryError {
@@ -34,13 +34,11 @@ enum class OperationHistoryError {
     Network,
     InvalidResponse,
     UnlinkBeforeCategoryChange,
-    Unknown,
+    Unknown
 }
 
 sealed interface OperationHistoryEvent {
-    data class TypeSelected(
-        val type: OperationType?,
-    ) : OperationHistoryEvent
+    data class TypeSelected(val type: OperationType?) : OperationHistoryEvent
 
     data object PeriodFilterOpened : OperationHistoryEvent
 
@@ -48,15 +46,11 @@ sealed interface OperationHistoryEvent {
 
     data object PeriodFilterReset : OperationHistoryEvent
 
-    data class PeriodSelected(
-        val dateFrom: LocalDate,
-        val dateTo: LocalDate,
-    ) : OperationHistoryEvent
+    data class PeriodSelected(val dateFrom: LocalDate, val dateTo: LocalDate) : OperationHistoryEvent
 
     data object Refresh : OperationHistoryEvent
 
     data object LoadNextPage : OperationHistoryEvent
 
     data object Retry : OperationHistoryEvent
-
 }

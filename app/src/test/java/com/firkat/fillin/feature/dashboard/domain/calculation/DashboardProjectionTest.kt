@@ -11,9 +11,14 @@ import org.junit.Test
 
 class DashboardProjectionTest {
     private val json = Json
-    private fun record(kind: String, record: SyncPlanRecord) =
-        LocalSyncRecord("scope", kind, record.id, json.encodeToString(record), 1)
-    private fun operation(id: String, amount: String) = LocalOperation(
+    private fun record(
+        kind: String,
+        record: SyncPlanRecord
+    ) = LocalSyncRecord("scope", kind, record.id, json.encodeToString(record), 1)
+    private fun operation(
+        id: String,
+        amount: String
+    ) = LocalOperation(
         id, "scope", EXPENSE, "EXPENSE", amount, "KZT",
         amount, "2026-10-18", AT, "POSTED", 0, 1, null, null, null, occurredAt = AT
     )
@@ -75,7 +80,9 @@ class DashboardProjectionTest {
         ),
         emptyList()
     )
-    private fun calculate(content: BudgetContent) = CalculateDashboard.calculate(
+    private fun calculate(
+        content: BudgetContent
+    ) = CalculateDashboard.calculate(
         BudgetProjection(
             content,
             json,
@@ -89,10 +96,13 @@ class DashboardProjectionTest {
         for (currency in listOf("RUB", "USD", "EUR")) {
             val dashboard = calculate(content.copy(sync = content.sync.copy(currency = currency)))
             assertEquals(tenge.availableMoney.copy(currency = currency), dashboard.availableMoney)
-            assertEquals(tenge.freeMoney.remainingObligations.copy(currency = currency), dashboard.freeMoney.remainingObligations)
+            assertEquals(
+                tenge.freeMoney.remainingObligations.copy(currency = currency),
+                dashboard.freeMoney.remainingObligations
+            )
             assertEquals(
                 tenge.balanceForecast.currentPacePoints.orEmpty().map { it.balance.copy(currency = currency) },
-                dashboard.balanceForecast.currentPacePoints.orEmpty().map { it.balance },
+                dashboard.balanceForecast.currentPacePoints.orEmpty().map { it.balance }
             )
         }
     }
@@ -151,9 +161,13 @@ class DashboardProjectionTest {
 
     @Test fun `queued incomes do not fulfill plans without explicit confirmation`() {
         val content = input()
-        fun incomePlan(id: String, date: String) =
-            record("EXPECTED_INCOME", SyncPlanRecord(id, INCOME, amount = "50.00", dueOn = date, status = "SCHEDULED"))
-        fun income(id: String) = operation(id, "1.00").copy(
+        fun incomePlan(
+            id: String,
+            date: String
+        ) = record("EXPECTED_INCOME", SyncPlanRecord(id, INCOME, amount = "50.00", dueOn = date, status = "SCHEDULED"))
+        fun income(
+            id: String
+        ) = operation(id, "1.00").copy(
             type = "INCOME",
             categoryId = INCOME,
             occurredOn = "2026-10-19",
@@ -169,7 +183,7 @@ class DashboardProjectionTest {
             content.copy(
                 records = plans,
                 operations =
-                    content.operations + income("income-1") + income("income-2")
+                content.operations + income("income-1") + income("income-2")
             )
         )
         assertEquals("50.00", second.forecast.base.expectedIncome.amount.toPlainString())
@@ -181,18 +195,44 @@ class DashboardProjectionTest {
         val content = input()
         val cancelled = content.records.map { record ->
             if (record.kind == "RECURRING_OCCURRENCE" && record.id == "current") {
-                record.copy(payload = json.encodeToString(json.decodeFromString<SyncPlanRecord>(record.payload).copy(status = "CANCELLED")))
-            } else record
+                record.copy(
+                    payload = json.encodeToString(
+                        json.decodeFromString<SyncPlanRecord>(record.payload).copy(status = "CANCELLED")
+                    )
+                )
+            } else {
+                record
+            }
         }
-        val nextMonthRule = record("RECURRING_RULE", SyncPlanRecord(
-            "next-month-rule", EXPENSE, amount = "50.00", frequency = "MONTHLY", scheduleValue = 5,
-            startsOn = "2026-11-01", active = true,
-        ))
+        val nextMonthRule = record(
+            "RECURRING_RULE",
+            SyncPlanRecord(
+                "next-month-rule",
+                EXPENSE,
+                amount = "50.00",
+                frequency = "MONTHLY",
+                scheduleValue = 5,
+                startsOn = "2026-11-01",
+                active = true
+            )
+        )
         val fulfilledIncome = operation("income", "500.00").copy(type = "INCOME", categoryId = INCOME)
         val records = cancelled + nextMonthRule + listOf(
-            record("EXPECTED_INCOME", SyncPlanRecord("fulfilled", INCOME, amount = "500.00", dueOn = "2026-10-20", status = "SCHEDULED")),
+            record(
+                "EXPECTED_INCOME",
+                SyncPlanRecord("fulfilled", INCOME, amount = "500.00", dueOn = "2026-10-20", status = "SCHEDULED")
+            ),
             record("INCOME_MATCH", SyncPlanRecord("fulfilled", ledgerId = "income")),
-            record("EXPECTED_INCOME", SyncPlanRecord("cancelled-income", INCOME, amount = "1000.00", dueOn = "2026-10-20", status = "CANCELLED")),
+            record(
+                "EXPECTED_INCOME",
+                SyncPlanRecord(
+                    "cancelled-income",
+                    INCOME,
+                    amount = "1000.00",
+                    dueOn = "2026-10-20",
+                    status = "CANCELLED"
+                )
+            )
         )
         val result = calculate(content.copy(records = records, operations = content.operations + fulfilledIncome))
         assertEquals("700.00", result.balanceForecast.currentPacePoints!!.first().balance.amount.toPlainString())

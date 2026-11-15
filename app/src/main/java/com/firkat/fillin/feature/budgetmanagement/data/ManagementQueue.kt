@@ -15,15 +15,19 @@ data class BudgetManagementEntry(
     val createdAt: Long,
     val error: String? = null,
     val currency: String? = null,
-    @ColumnInfo(defaultValue = "1") val rename: Boolean = true,
+    @ColumnInfo(defaultValue = "1") val rename: Boolean = true
 )
+
 @Dao
 interface BudgetManagementDao {
     @Query("SELECT * FROM budget_management ORDER BY createdAt, requestId")
     suspend fun all(): List<BudgetManagementEntry>
+
     @Query("SELECT * FROM budget_management ORDER BY createdAt, requestId")
     fun observe(): Flow<List<BudgetManagementEntry>>
-    @Query("""
+
+    @Query(
+        """
         SELECT (
             SELECT currency FROM budget_management
             WHERE uid = :uid AND budgetId = :budgetId AND currency IS NOT NULL AND deleting = 0
@@ -34,11 +38,28 @@ interface BudgetManagementDao {
         ) AS confirmed, COALESCE((
             SELECT currencyVersion FROM cloud_budget_catalog WHERE firebaseUid = :uid AND budgetId = :budgetId
         ), 0) AS version
-    """)
-    fun observeCurrency(uid: String, budgetId: String): Flow<BudgetCurrencyOverride>
+    """
+    )
+    fun observeCurrency(
+        uid: String,
+        budgetId: String
+    ): Flow<BudgetCurrencyOverride>
 
-    @Insert suspend fun insert(entry: BudgetManagementEntry)
-    @Update suspend fun update(entry: BudgetManagementEntry)
-    @Query("DELETE FROM budget_management WHERE requestId=:id") suspend fun remove(id: String)
-    @Query("DELETE FROM budget_management WHERE profileId=:id") suspend fun removeProfile(id: String)
+    @Insert suspend fun insert(
+        entry: BudgetManagementEntry
+    )
+
+    @Update suspend fun update(
+        entry: BudgetManagementEntry
+    )
+
+    @Query("DELETE FROM budget_management WHERE requestId=:id")
+    suspend fun remove(
+        id: String
+    )
+
+    @Query("DELETE FROM budget_management WHERE profileId=:id")
+    suspend fun removeProfile(
+        id: String
+    )
 }

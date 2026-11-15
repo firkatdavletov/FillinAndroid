@@ -4,13 +4,13 @@ import com.firkat.fillin.core.mvi.Interactor
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetconnection.domain.*
-import com.firkat.fillin.feature.budgetsharing.domain.*
-import com.firkat.fillin.feature.budgetsharing.ui.familyError
 import com.firkat.fillin.feature.budgetsetup.domain.LocalBudgetCreator
 import com.firkat.fillin.feature.budgetsetup.ui.setupError
+import com.firkat.fillin.feature.budgetsharing.domain.*
+import com.firkat.fillin.feature.budgetsharing.ui.familyError
+import java.time.LocalDate
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import java.time.LocalDate
 
 class BudgetSetupInteractor(
     private val auth: AuthRepository,
@@ -19,15 +19,24 @@ class BudgetSetupInteractor(
     private val local: LocalBudgetCreator,
     private val family: FamilyBudgetRepository,
     private val dispatcher: CoroutineDispatcher,
-    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null
 ) : Interactor<BudgetSetupCommand, BudgetSetupEvent> {
-    override fun execute(command: BudgetSetupCommand): Flow<BudgetSetupEvent> = flow {
+    override fun execute(
+        command: BudgetSetupCommand
+    ): Flow<BudgetSetupEvent> = flow {
         when (command) {
             BudgetSetupCommand.ObserveSession -> {
-                if (access == null) auth.session.collect { emit(BudgetSetupEvent.Session(it)) }
-                else combine(auth.session, access.mode) { session, mode ->
-                    BudgetSetupEvent.Session(session, mode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull, localFirst = true)
-                }.collect { emit(it) }
+                if (access == null) {
+                    auth.session.collect { emit(BudgetSetupEvent.Session(it)) }
+                } else {
+                    combine(auth.session, access.mode) { session, mode ->
+                        BudgetSetupEvent.Session(
+                            session,
+                            mode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull,
+                            localFirst = true
+                        )
+                    }.collect { emit(it) }
+                }
             }
             is BudgetSetupCommand.Load -> {
                 access?.requireCloud()
@@ -44,8 +53,11 @@ class BudgetSetupInteractor(
                     checkUid(command.uid)
                     emit(BudgetSetupEvent.Catalog(command.generation, budgets, pending, false))
                     null
-                } catch (e: CancellationException) { throw e }
-                catch (e: Exception) { setupError(e) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    setupError(e)
+                }
                 access?.requireCloud()
                 checkUid(command.uid)
                 emit(BudgetSetupEvent.LoadFinished(command.generation, error))
@@ -59,22 +71,42 @@ class BudgetSetupInteractor(
                     when (command.kind) {
                         SubmitKind.Local -> {
                             val draft = command.creationDraft()
-                            local.createLocal(draft.name, draft.openingBalance.toBigDecimal(), LocalDate.parse(draft.accountingStartedOn), draft.currency)
+                            local.createLocal(
+                                draft.name,
+                                draft.openingBalance.toBigDecimal(),
+                                LocalDate.parse(draft.accountingStartedOn),
+                                draft.currency
+                            )
                         }
-                        SubmitKind.Cloud -> if (pending != null) creation.resume(requireNotNull(state.uid)) else {
+                        SubmitKind.Cloud -> if (pending != null) {
+                            creation.resume(requireNotNull(state.uid))
+                        } else {
                             creation.create(requireNotNull(state.uid), command.creationDraft())
                         }
-                        SubmitKind.Connect -> connection.connect(requireNotNull(state.uid), requireNotNull(command.budget))
-                        SubmitKind.Join -> family.join(requireNotNull(state.uid), FamilyInvitationCode.normalize(state.code))
+                        SubmitKind.Connect -> connection.connect(
+                            requireNotNull(state.uid),
+                            requireNotNull(command.budget)
+                        )
+                        SubmitKind.Join -> family.join(
+                            requireNotNull(state.uid),
+                            FamilyInvitationCode.normalize(state.code)
+                        )
                     }
                     pending = null
                     null
-                } catch (e: CancellationException) { throw e }
-                catch (e: Exception) {
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
                     if (command.kind == SubmitKind.Cloud) {
-                        pending = try { creation.pending(requireNotNull(state.uid)) }
-                        catch (cancelled: CancellationException) { throw cancelled }
-                        catch (_: Exception) { pending }
+                        pending = try {
+                            creation.pending(requireNotNull(state.uid))
+                        } catch (
+                            cancelled: CancellationException
+                        ) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            pending
+                        }
                     }
                     if (command.kind == SubmitKind.Join) familyError(e) else setupError(e)
                 }
@@ -89,8 +121,14 @@ class BudgetSetupInteractor(
         return BudgetCreationDraft(state.name, state.balance, date.toString(), state.currency).validated(date)
     }
 
-    private suspend fun checkUid(uid: String?) {
+    private suspend fun checkUid(
+        uid: String?
+    ) {
         currentCoroutineContext().ensureActive()
-        if ((auth.session.value as? AuthSession.Authenticated)?.user?.uid != uid) throw CancellationException("Account changed")
+        if ((auth.session.value as? AuthSession.Authenticated)?.user?.uid !=
+            uid
+        ) {
+            throw CancellationException("Account changed")
+        }
     }
 }

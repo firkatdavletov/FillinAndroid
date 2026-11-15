@@ -23,15 +23,12 @@ data class PlannedIncome(
     val scheduledOn: LocalDate = dueOn,
     val remainderConfirmed: Boolean = false,
     val receivedAmount: BigDecimal = BigDecimal.ZERO,
-    val remainingAmount: BigDecimal = (plannedAmount - receivedAmount).max(BigDecimal.ZERO),
+    val remainingAmount: BigDecimal = (plannedAmount - receivedAmount).max(BigDecimal.ZERO)
 )
 
 enum class PlannedIncomeStatus {
     Scheduled,
-    Unknown,
+    Unknown
 }
 
-data class PlannedIncomes(
-    val asOf: LocalDate,
-    val items: List<PlannedIncome>,
-)
+data class PlannedIncomes(val asOf: LocalDate, val items: List<PlannedIncome>)

@@ -1,0 +1,204 @@
+package com.firkat.fillin.feature.plannedoperationswidget.ui
+
+import android.content.res.Configuration
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.firkat.fillin.R
+import com.firkat.fillin.feature.dashboard.domain.model.Money
+import com.firkat.fillin.feature.dashboard.ui.DASHBOARD_PLANNED_EXPENSE_LIMIT
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.MoneyAmount
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetCard
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetHeading
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetSkeleton
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetSkeletonBlock
+import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
+import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
+import com.firkat.fillin.ui.theme.FillinTheme
+import com.firkat.fillin.ui.theme.saldomiDesignColors
+import com.firkat.fillin.utils.DateUtils
+import com.firkat.fillin.utils.toRelativeDateString
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
+
+@Composable
+fun PlannedOperationsWidget(
+    expenses: List<PlannedExpense>,
+    income: PlannedIncome?,
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false
+) {
+    WidgetCard(
+        modifier = modifier
+    ) {
+        WidgetHeading(
+            title = R.string.closest_payments
+        )
+        Spacer(Modifier.height(16.dp))
+        if (isLoading) {
+            PlannedOperationsSkeleton()
+            return@WidgetCard
+        }
+        expenses.forEach {
+            ExpenseRow(
+                modifier = Modifier
+                    .padding(vertical = 4.dp)
+                    .fillMaxWidth(),
+                expense = it
+            )
+        }
+        income?.let {
+            Spacer(Modifier.height(8.dp))
+            IncomeCard(it)
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionNaming", "MagicNumber")
+private fun PlannedOperationsSkeleton(
+    modifier: Modifier = Modifier
+) {
+    WidgetSkeleton(modifier) {
+        repeat(DASHBOARD_PLANNED_EXPENSE_LIMIT) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WidgetSkeletonBlock(Modifier.width(44.dp).height(50.dp))
+                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    WidgetSkeletonBlock(Modifier.fillMaxWidth(0.85f).height(16.dp))
+                    Spacer(Modifier.height(6.dp))
+                    WidgetSkeletonBlock(Modifier.fillMaxWidth(0.55f).height(12.dp))
+                }
+                WidgetSkeletonBlock(Modifier.fillMaxWidth(0.24f).height(20.dp))
+            }
+        }
+        WidgetSkeletonBlock(Modifier.fillMaxWidth().height(64.dp))
+    }
+}
+
+@Preview(name = "Loading", widthDp = 320)
+@Preview(name = "Loading dark", widthDp = 320, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Loading large text", widthDp = 320, fontScale = 2f)
+@Composable
+@Suppress("FunctionNaming", "UnusedPrivateMember")
+private fun PlannedOperationsLoadingPreview() {
+    FillinTheme { PlannedOperationsWidget(expenses = emptyList(), income = null, isLoading = true) }
+}
+
+@Composable
+private fun ExpenseRow(
+    expense: PlannedExpense,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DateColumn(
+            modifier = Modifier.padding(end = 8.dp),
+            date = expense.dueOn
+        )
+        Column(
+            modifier = Modifier
+        ) {
+            Text(
+                text = expense.categoryName,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = expense.dueOn.toRelativeDateString(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        MoneyAmount(
+            money = Money(
+                amount = expense.plannedAmount,
+                currency = expense.currency
+            )
+        )
+    }
+}
+
+@Composable
+private fun DateColumn(
+    date: LocalDate,
+    modifier: Modifier = Modifier
+) {
+    val locale = Locale.forLanguageTag("ru-RU")
+    val month = date.month
+        .getDisplayName(TextStyle.FULL_STANDALONE, locale)
+        .take(3)
+        .lowercase(locale)
+
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.saldomiDesignColors.primaryContainer)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = date.dayOfMonth.toString(),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+
+        Text(
+            text = month,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun IncomeCard(
+    income: PlannedIncome,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(12.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Text(
+            text = "Ожидаемый доход ${DateUtils.getShortDate(income.dueOn)}",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Row {
+            Text(
+                text = income.categoryName,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(Modifier.weight(1f))
+            MoneyAmount(
+                money = Money(
+                    amount = income.plannedAmount,
+                    currency = income.currency
+                )
+            )
+        }
+    }
+}

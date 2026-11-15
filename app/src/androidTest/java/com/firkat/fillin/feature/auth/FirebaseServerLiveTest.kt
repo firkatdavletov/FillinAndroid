@@ -7,18 +7,18 @@ import com.firkat.fillin.feature.auth.data.FirebaseServerAuthRepository
 import com.firkat.fillin.feature.auth.data.ServerUserDto
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
-import com.firkat.fillin.feature.auth.domain.ServerAuthRepository
 import com.firkat.fillin.feature.auth.domain.FirebaseIdTokenProvider
+import com.firkat.fillin.feature.auth.domain.ServerAuthRepository
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okhttp3.OkHttpClient
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.koin.core.context.GlobalContext
-import okhttp3.OkHttpClient
-import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Response
 import retrofit2.Retrofit
 
@@ -45,14 +45,21 @@ class FirebaseServerLiveTest {
             .build().create(FirebaseAuthApi::class.java)
         var calls = 0
         val controlledApi = object : FirebaseAuthApi {
-            override suspend fun authenticate(authorization: String): Response<ServerUserDto> =
+            override suspend fun authenticate(
+                authorization: String
+            ): Response<ServerUserDto> =
                 if (++calls == 1) Response.error(401, "{}".toResponseBody()) else realApi.authenticate(authorization)
         }
         val actualTokens = koin.get<FirebaseIdTokenProvider>()
         val refreshes = mutableListOf<Boolean>()
         val tokens = object : FirebaseIdTokenProvider {
-            override fun isCurrentUser(uid: String) = actualTokens.isCurrentUser(uid)
-            override suspend fun idToken(uid: String, forceRefresh: Boolean): String {
+            override fun isCurrentUser(
+                uid: String
+            ) = actualTokens.isCurrentUser(uid)
+            override suspend fun idToken(
+                uid: String,
+                forceRefresh: Boolean
+            ): String {
                 refreshes += forceRefresh
                 return actualTokens.idToken(uid, forceRefresh)
             }
@@ -66,7 +73,7 @@ class FirebaseServerLiveTest {
     private suspend fun authenticatedUid(): String {
         assumeTrue(
             "Run explicitly with -e liveFirebaseAuth true after Google sign-in",
-            InstrumentationRegistry.getArguments().getString("liveFirebaseAuth") == "true",
+            InstrumentationRegistry.getArguments().getString("liveFirebaseAuth") == "true"
         )
         return withTimeout(10_000) {
             GlobalContext.get().get<AuthRepository>().session

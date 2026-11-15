@@ -1,7 +1,6 @@
 package com.firkat.fillin.feature.auth.ui.interactor
 
 import com.firkat.fillin.core.mvi.Interactor
-import com.firkat.fillin.feature.auth.domain.userOrNull
 import com.firkat.fillin.feature.auth.domain.AuthError
 import com.firkat.fillin.feature.auth.domain.AuthFailure
 import com.firkat.fillin.feature.auth.domain.AuthRepository
@@ -9,6 +8,7 @@ import com.firkat.fillin.feature.auth.domain.ServerAuthError
 import com.firkat.fillin.feature.auth.domain.ServerAuthFailure
 import com.firkat.fillin.feature.auth.domain.ServerAuthRepository
 import com.firkat.fillin.feature.auth.domain.ServerProfileState
+import com.firkat.fillin.feature.auth.domain.userOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
@@ -22,16 +22,25 @@ class AuthInteractor(
     private val repository: AuthRepository,
     private val serverAuth: ServerAuthRepository?,
     private val dispatcher: CoroutineDispatcher,
-    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null
 ) : Interactor<AuthCommand, AuthEvent> {
-    override fun execute(command: AuthCommand): Flow<AuthEvent> = flow {
+    override fun execute(
+        command: AuthCommand
+    ): Flow<AuthEvent> = flow {
         when (command) {
             is AuthCommand.Email -> {
                 val error = authError(AuthError.SignInFailed) {
-                    if (command.expectedUid != null && repository.session.value.userOrNull?.uid != command.expectedUid) throw AuthFailure(AuthError.InvalidCredential)
+                    if (command.expectedUid != null &&
+                        repository.session.value.userOrNull?.uid != command.expectedUid
+                    ) {
+                        throw AuthFailure(AuthError.InvalidCredential)
+                    }
                     when (command.task) {
                         EmailTask.Login -> repository.signInWithEmail(command.email, command.password)
-                        EmailTask.Register -> { repository.register(command.email, command.password); repository.sendVerification() }
+                        EmailTask.Register -> {
+                            repository.register(command.email, command.password)
+                            repository.sendVerification()
+                        }
                         EmailTask.Reset -> repository.resetPassword(command.email)
                         EmailTask.Verify -> repository.reloadUser()
                         EmailTask.Resend -> repository.sendVerification()
@@ -45,11 +54,19 @@ class AuthInteractor(
             }
 
             AuthCommand.ObserveSession -> {
-                if (access == null) repository.session.collect {
-                    emit(AuthEvent.SessionChanged(it, serverAuth != null))
-                } else combine(repository.session, access.mode) { session, mode ->
-                    AuthEvent.SessionChanged(session, serverAuth != null && mode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull)
-                }.collect { emit(it) }
+                if (access == null) {
+                    repository.session.collect {
+                        emit(AuthEvent.SessionChanged(it, serverAuth != null))
+                    }
+                } else {
+                    combine(repository.session, access.mode) { session, mode ->
+                        AuthEvent.SessionChanged(
+                            session,
+                            serverAuth != null &&
+                                mode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull
+                        )
+                    }.collect { emit(it) }
+                }
             }
             is AuthCommand.SignInWithGoogle -> {
                 val error = authError(AuthError.SignInFailed) { repository.signInWithGoogle(command.idToken) }
@@ -81,7 +98,10 @@ class AuthInteractor(
         }
     }.flowOn(dispatcher)
 
-    private suspend fun authError(fallback: AuthError, operation: suspend () -> Unit): AuthError? = try {
+    private suspend fun authError(
+        fallback: AuthError,
+        operation: suspend () -> Unit
+    ): AuthError? = try {
         operation()
         null
     } catch (cancelled: CancellationException) {

@@ -4,14 +4,17 @@ import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperation
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationsFilter
 
 interface PlannedOperationsRepository {
-    fun observePlans(filter: PlannedOperationsFilter): kotlinx.coroutines.flow.Flow<PlannedOperations> =
-        kotlinx.coroutines.flow.flow {
-            emit(getPlannedOperations(filter))
-        }
+    fun observePlans(
+        filter: PlannedOperationsFilter
+    ): kotlinx.coroutines.flow.Flow<PlannedOperations> = kotlinx.coroutines.flow.flow {
+        emit(getPlannedOperations(filter))
+    }
 
     fun requestSync() = Unit
 
-    suspend fun getPlannedOperations(filter: PlannedOperationsFilter): PlannedOperations
+    suspend fun getPlannedOperations(
+        filter: PlannedOperationsFilter
+    ): PlannedOperations
 }
 
 sealed class PlannedOperationsException : Exception() {

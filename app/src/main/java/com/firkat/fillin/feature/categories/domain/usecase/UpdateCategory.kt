@@ -4,13 +4,11 @@ import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesException
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository
 
-class UpdateCategory(
-    private val repository: CategoriesRepository,
-) {
+class UpdateCategory(private val repository: CategoriesRepository) {
     suspend operator fun invoke(
         category: Category,
         name: String,
-        iconCode: String,
+        iconCode: String
     ): Category {
         val normalizedName = name.trim()
         if (normalizedName.isEmpty() || (iconCode.isBlank() && iconCode != category.icon.code)) {
@@ -24,7 +22,7 @@ class UpdateCategory(
         return repository.updateCategory(
             category = category,
             name = changedName,
-            iconCode = changedIcon,
+            iconCode = changedIcon
         )
     }
 }

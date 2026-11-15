@@ -5,10 +5,10 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.feature.auth.domain.AuthRepository
 import com.firkat.fillin.feature.auth.domain.AuthSession
+import com.firkat.fillin.feature.auth.domain.ServerAuthRepository
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileKind
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
-import com.firkat.fillin.feature.auth.domain.ServerAuthRepository
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -24,7 +24,10 @@ class FirebaseLegacyBindingLiveTest {
         assumeTrue(InstrumentationRegistry.getArguments().getString("prepareLegacyBinding") == "true")
         val context = ApplicationProvider.getApplicationContext<com.firkat.fillin.FillinApplication>()
         val koin = context.getKoin()
-        val session = withTimeout(5000) { koin.get<AuthRepository>().session.filterIsInstance<AuthSession.Authenticated>().first() }
+        val session =
+            withTimeout(5000) {
+                koin.get<AuthRepository>().session.filterIsInstance<AuthSession.Authenticated>().first()
+            }
         val manager = koin.get<ActiveBudgetManager>()
         manager.restore()
         val runtime = requireNotNull(manager.active.value)
@@ -38,7 +41,9 @@ class FirebaseLegacyBindingLiveTest {
             assertTrue(verified.firebaseUid == session.user.uid)
             java.util.UUID.fromString(state.householdId)
             java.util.UUID.fromString(state.memberId)
-            assertTrue((koin.get<AuthRepository>().session.value as? AuthSession.Authenticated)?.user?.uid == session.user.uid)
+            assertTrue(
+                (koin.get<AuthRepository>().session.value as? AuthSession.Authenticated)?.user?.uid == session.user.uid
+            )
             context.openFileOutput("t05-legacy-binding.env", Context.MODE_PRIVATE).bufferedWriter().use {
                 it.write("FIREBASE_LEGACY_UID=${session.user.uid}\nFIREBASE_LEGACY_MEMBER_ID=${state.memberId}\n")
             }

@@ -47,24 +47,26 @@ internal fun PlanningTypeFilters(
     selectedType: PlannedOperationType?,
     isLoading: Boolean,
     onTypeSelected: (PlannedOperationType?) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     AnimatedContent(
         targetState = selectedType,
         modifier = modifier.fillMaxWidth().heightIn(min = FilterMinHeight),
         contentAlignment = Alignment.CenterStart,
         transitionSpec = {
-            (fadeIn(tween(FadeInMillis, delayMillis = FadeOutMillis)) togetherWith
-                fadeOut(tween(FadeOutMillis))).using(
-                SizeTransform { _, _ -> tween(FadeOutMillis + FadeInMillis) },
+            (
+                fadeIn(tween(FadeInMillis, delayMillis = FadeOutMillis)) togetherWith
+                    fadeOut(tween(FadeOutMillis))
+                ).using(
+                SizeTransform { _, _ -> tween(FadeOutMillis + FadeInMillis) }
             )
         },
-        label = "Planning type filter",
+        label = "Planning type filter"
     ) { type ->
         if (type == null) {
             Row(
                 modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 PlannedOperationType.entries.forEach { cardType ->
                     val colors = MaterialTheme.colorScheme
@@ -77,18 +79,18 @@ internal fun PlanningTypeFilters(
                             containerColor = colors.surfaceContainer,
                             contentColor = colors.onSurfaceVariant,
                             disabledContainerColor = colors.surfaceContainer,
-                            disabledContentColor = colors.onSurfaceVariant,
-                        ),
+                            disabledContentColor = colors.onSurfaceVariant
+                        )
                     ) {
                         Column(
                             modifier = Modifier.heightIn(min = FilterMinHeight).padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(stringResource(cardType.filterLabel), style = MaterialTheme.typography.labelLarge)
                             PlanningTypeCount(
                                 count = if (cardType == PlannedOperationType.Expense) expenseCount else incomeCount,
                                 isLoading = isLoading,
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleMedium
                             )
                         }
                     }
@@ -97,28 +99,28 @@ internal fun PlanningTypeFilters(
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth().heightIn(min = FilterMinHeight).testTag("planning-filter-selected"),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f).padding(vertical = 12.dp)) {
                     PlanningTypeCount(
                         count = if (type == PlannedOperationType.Expense) expenseCount else incomeCount,
                         isLoading = isLoading,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleLarge
                     )
                     Text(
                         text = stringResource(type.filterLabel),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 IconButton(
                     onClick = { onTypeSelected(null) },
                     enabled = selectedType == type,
-                    modifier = Modifier.testTag("planning-filter-reset"),
+                    modifier = Modifier.testTag("planning-filter-reset")
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_close),
-                        contentDescription = stringResource(R.string.operation_totals_reset_type),
+                        contentDescription = stringResource(R.string.operation_totals_reset_type)
                     )
                 }
             }
@@ -131,7 +133,7 @@ private fun PlanningTypeCount(
     count: Int,
     isLoading: Boolean,
     style: TextStyle,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     if (isLoading) {
         CircularProgressIndicator(modifier = modifier.size(24.dp), strokeWidth = 2.dp)
@@ -140,7 +142,7 @@ private fun PlanningTypeCount(
             text = pluralStringResource(R.plurals.planning_plan_count, count, count),
             modifier = modifier,
             style = style,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }

@@ -37,11 +37,11 @@ class MainBudgetViewModelStore :
     private var lease by mutableStateOf<BudgetRuntimeLease?>(null)
 
     fun isBoundTo(
-        runtime: BudgetRuntime,
+        runtime: BudgetRuntime
     ): Boolean = lease?.runtime === runtime
 
     fun bind(
-        runtime: BudgetRuntime?,
+        runtime: BudgetRuntime?
     ) {
         if (lease?.runtime === runtime) return
         viewModelStore.clear()
@@ -63,7 +63,7 @@ fun ActiveBudgetContent(
     manager: ActiveBudgetManager = koinInject(),
     auth: AuthRepository = koinInject(),
     viewModelStoreOwner: MainBudgetViewModelStore? = null,
-    content: @Composable () -> Unit,
+    content: @Composable () -> Unit
 ) {
     val parentOwner = LocalViewModelStoreOwner.current as? HasDefaultViewModelProviderFactory
     val runtime by manager.active.collectAsStateWithLifecycle()
@@ -78,11 +78,13 @@ fun ActiveBudgetContent(
                 .fillMaxSize()
                 .padding(24.dp),
             verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (failed) {
                 Text(stringResource(R.string.budget_profile_open_failed))
-                Button(onClick = { coroutineScope.launch { manager.restore() } }) { Text(stringResource(R.string.budget_profile_retry)) }
+                Button(onClick = {
+                    coroutineScope.launch { manager.restore() }
+                }) { Text(stringResource(R.string.budget_profile_retry)) }
             } else {
                 CircularProgressIndicator()
             }
@@ -123,7 +125,7 @@ fun ActiveBudgetContent(
                 CompositionLocalProvider(
                     LocalViewModelStoreOwner provides stateOwner,
                     LocalBudgetCurrency provides currency,
-                    content = content,
+                    content = content
                 )
             }
         }

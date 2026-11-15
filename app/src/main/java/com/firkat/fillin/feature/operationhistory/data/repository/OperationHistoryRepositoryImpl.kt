@@ -21,11 +21,13 @@ import kotlinx.serialization.SerializationException
 import retrofit2.HttpException
 import retrofit2.Response
 
-class OperationHistoryRepositoryImpl(
-    private val api: OperationHistoryApi,
-    private val apiToken: String,
-) : OperationHistoryRepository {
-    override suspend fun getOperations(limit: Int, cursor: Long?, filter: OperationHistoryFilter): OperationPage {
+class OperationHistoryRepositoryImpl(private val api: OperationHistoryApi, private val apiToken: String) :
+    OperationHistoryRepository {
+    override suspend fun getOperations(
+        limit: Int,
+        cursor: Long?,
+        filter: OperationHistoryFilter
+    ): OperationPage {
         require(limit in 1..50) { "Limit must be between 1 and 50" }
         return execute {
             val response = api.getOperations(
@@ -35,12 +37,12 @@ class OperationHistoryRepositoryImpl(
                 type = filter.type?.apiValue,
                 categoryId = filter.categoryId,
                 dateFrom = filter.dateFrom.toString(),
-                dateTo = filter.dateTo.toString(),
+                dateTo = filter.dateTo.toString()
             )
             OperationPage(
                 items = response.items.map(OperationDto::toDomain),
                 nextCursor = response.nextCursor,
-                totals = response.totals.toDomain(),
+                totals = response.totals.toDomain()
             )
         }
     }
@@ -48,15 +50,15 @@ class OperationHistoryRepositoryImpl(
     override suspend fun updateOperationAmount(
         id: String,
         version: Long,
-        amount: BigDecimal,
+        amount: BigDecimal
     ): Operation = execute {
         val updated = api.updatePurchase(
             authorization = authorization,
             purchaseId = id,
             request = UpdatePurchaseRequestDto(
                 version = version,
-                amount = amount.toPlainString(),
-            ),
+                amount = amount.toPlainString()
+            )
         ).requireBody(expectedCode = 200).toDomain()
 
         if (updated.id != id || updated.version != version + 1) {
@@ -65,15 +67,20 @@ class OperationHistoryRepositoryImpl(
         updated
     }
 
-    override suspend fun refundPurchase(id: String, version: Long): Unit = execute {
+    override suspend fun refundPurchase(
+        id: String,
+        version: Long
+    ): Unit = execute {
         api.refundPurchase(
             authorization = authorization,
             purchaseId = id,
-            version = version,
+            version = version
         ).requireStatus(expectedCode = 204)
     }
 
-    private suspend fun <T> execute(block: suspend RequestContext.() -> T): T {
+    private suspend fun <T> execute(
+        block: suspend RequestContext.() -> T
+    ): T {
         if (apiToken.isBlank()) throw OperationHistoryException.MissingApiToken
 
         return try {
@@ -109,16 +116,20 @@ private fun OperationTotalsDto.toDomain(): OperationPeriodTotals {
     }
     return OperationPeriodTotals(
         expenses = expenses.amount.toBigDecimal(),
-        incomes = incomes.amount.toBigDecimal(),
+        incomes = incomes.amount.toBigDecimal()
     )
 }
 
-private fun <T> Response<T>.requireBody(expectedCode: Int): T {
+private fun <T> Response<T>.requireBody(
+    expectedCode: Int
+): T {
     requireStatus(expectedCode)
     return body() ?: throw OperationHistoryException.InvalidResponse
 }
 
-private fun Response<*>.requireStatus(expectedCode: Int) {
+private fun Response<*>.requireStatus(
+    expectedCode: Int
+) {
     if (!isSuccessful) throw HttpException(this)
     if (code() != expectedCode) throw OperationHistoryException.InvalidResponse
 }
@@ -143,5 +154,5 @@ private fun OperationDto.toDomain(): Operation = Operation(
         "VOIDED" -> OperationStatus.Voided
         else -> OperationStatus.Unknown
     },
-    version = version,
+    version = version
 )

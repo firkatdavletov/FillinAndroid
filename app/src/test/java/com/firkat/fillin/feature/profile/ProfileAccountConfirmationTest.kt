@@ -18,8 +18,13 @@ import org.junit.Test
 class ProfileAccountConfirmationTest {
     private val store = ViewModelStore()
     private val auth = Auth()
+
     @Before fun setup() = Dispatchers.setMain(StandardTestDispatcher())
-    @After fun cleanup() { store.clear(); Dispatchers.resetMain() }
+
+    @After fun cleanup() {
+        store.clear()
+        Dispatchers.resetMain()
+    }
 
     @Test fun `sign out only dispatches once after explicit confirmation`() = runTest {
         val model = model()
@@ -94,18 +99,35 @@ class ProfileAccountConfirmationTest {
     private fun model(): ProfileDeletionViewModel {
         val deletionStore = object : DeletionStore {
             override fun operations() = emptyList<DeletionOperation>()
-            override fun blocked(uid: String) = false
-            override fun save(operation: DeletionOperation) { error("Unexpected deletion") }
-            override fun block(uid: String) = Unit
-            override fun finish(uid: String) = Unit
+            override fun blocked(
+                uid: String
+            ) = false
+            override fun save(
+                operation: DeletionOperation
+            ) {
+                error("Unexpected deletion")
+            }
+            override fun block(
+                uid: String
+            ) = Unit
+            override fun finish(
+                uid: String
+            ) = Unit
         }
-        return ProfileDeletionViewModel(ProfileDeletionCoordinator(deletionStore, null, auth, { "token" }, {}, {}), auth)
+        return ProfileDeletionViewModel(
+            ProfileDeletionCoordinator(deletionStore, null, auth, {
+                "token"
+            }, {}, {}),
+            auth
+        )
             .also { store.put("confirmation", it) }
     }
 
     private class Auth : AuthRepository {
         override val session = MutableStateFlow<AuthSession>(AuthSession.Authenticated(AuthUser("uid", null, null)))
-        override suspend fun signInWithGoogle(idToken: String) = Unit
+        override suspend fun signInWithGoogle(
+            idToken: String
+        ) = Unit
         override suspend fun signOut() = Unit
     }
 }

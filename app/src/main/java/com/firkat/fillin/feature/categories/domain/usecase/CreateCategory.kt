@@ -5,13 +5,11 @@ import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesException
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository
 
-class CreateCategory(
-    private val repository: CategoriesRepository,
-) {
+class CreateCategory(private val repository: CategoriesRepository) {
     suspend operator fun invoke(
         name: String,
         kind: CategoryKind,
-        iconCode: String,
+        iconCode: String
     ): Category {
         val normalizedName = name.trim()
         if (normalizedName.isEmpty() || iconCode.isBlank()) {
@@ -20,7 +18,7 @@ class CreateCategory(
         return repository.createCategory(
             name = normalizedName,
             kind = kind,
-            iconCode = iconCode,
+            iconCode = iconCode
         )
     }
 }

@@ -5,9 +5,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,7 +19,10 @@ import com.firkat.fillin.ui.component.*
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
-fun BudgetConnectionSection(viewModel: BudgetConnectionViewModel = koinViewModel(), showCreateCancel: Boolean = true) {
+fun BudgetConnectionSection(
+    viewModel: BudgetConnectionViewModel = koinViewModel(),
+    showCreateCancel: Boolean = true
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     BudgetConnectionContent(
         session = state.session, budgets = state.budgets, busy = state.busy, loaded = state.loaded,
@@ -30,7 +33,7 @@ fun BudgetConnectionSection(viewModel: BudgetConnectionViewModel = koinViewModel
         onCancelCreateClick = { viewModel.onAction(BudgetConnectionAction.CancelCreate) },
         onChooseCreateClick = { viewModel.onAction(BudgetConnectionAction.ChooseCreate()) },
         onRefreshClick = { viewModel.onAction(BudgetConnectionAction.Refresh) },
-        onBudgetClick = { viewModel.onAction(BudgetConnectionAction.Connect(it)) },
+        onBudgetClick = { viewModel.onAction(BudgetConnectionAction.Connect(it)) }
     )
 }
 
@@ -52,7 +55,7 @@ internal fun BudgetConnectionContent(
     onChooseCreateClick: () -> Unit,
     onRefreshClick: () -> Unit,
     onBudgetClick: (AvailableBudget) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.cloud_budgets_title), style = MaterialTheme.typography.titleMedium)
@@ -61,29 +64,136 @@ internal fun BudgetConnectionContent(
                 if (busy) SaldomiProgressIndicator()
                 if (draft != null) {
                     val editable = !busy && pending == null
-                    Text(stringResource(R.string.cloud_budget_create_title), style = MaterialTheme.typography.titleSmall)
-                    SaldomiTextField(draft.name, { onDraftChange(draft.copy(name = it)) }, label = stringResource(R.string.cloud_budget_name), enabled = editable, modifier = Modifier.fillMaxWidth())
-                    SaldomiTextField(draft.openingBalance, { onDraftChange(draft.copy(openingBalance = it)) }, label = stringResource(R.string.cloud_budget_opening_balance), enabled = editable, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
-                    SaldomiTextField(draft.accountingStartedOn, { onDraftChange(draft.copy(accountingStartedOn = it)) }, label = stringResource(R.string.cloud_budget_start_date), enabled = editable, modifier = Modifier.fillMaxWidth())
-                    Text(stringResource(if (pending == null) R.string.cloud_budget_create_explanation else R.string.cloud_budget_create_pending))
-                    SaldomiButton(onClick = onCreateClick, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(if (pending == null) R.string.cloud_budget_create else R.string.cloud_budget_create_resume)) }
-                    if (pending == null && showCreateCancel) SaldomiTextButton(onClick = onCancelCreateClick, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budget_create_cancel)) }
+                    Text(
+                        stringResource(R.string.cloud_budget_create_title),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    SaldomiTextField(
+                        draft.name,
+                        {
+                            onDraftChange(draft.copy(name = it))
+                        },
+                        label = stringResource(
+                            R.string.cloud_budget_name
+                        ),
+                        enabled = editable,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SaldomiTextField(
+                        draft.openingBalance,
+                        {
+                            onDraftChange(draft.copy(openingBalance = it))
+                        },
+                        label = stringResource(
+                            R.string.cloud_budget_opening_balance
+                        ),
+                        enabled = editable,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SaldomiTextField(
+                        draft.accountingStartedOn,
+                        {
+                            onDraftChange(draft.copy(accountingStartedOn = it))
+                        },
+                        label = stringResource(
+                            R.string.cloud_budget_start_date
+                        ),
+                        enabled = editable,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        stringResource(
+                            if (pending ==
+                                null
+                            ) {
+                                R.string.cloud_budget_create_explanation
+                            } else {
+                                R.string.cloud_budget_create_pending
+                            }
+                        )
+                    )
+                    SaldomiButton(onClick = onCreateClick, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            stringResource(
+                                if (pending ==
+                                    null
+                                ) {
+                                    R.string.cloud_budget_create
+                                } else {
+                                    R.string.cloud_budget_create_resume
+                                }
+                            )
+                        )
+                    }
+                    if (pending == null &&
+                        showCreateCancel
+                    ) {
+                        SaldomiTextButton(
+                            onClick = onCancelCreateClick,
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.cloud_budget_create_cancel))
+                        }
+                    }
                 } else {
                     if (loaded && budgets.isEmpty()) {
                         Text(stringResource(R.string.cloud_budgets_empty))
                     }
                     budgets.forEach { budget ->
-                        SaldomiOutlinedButton(onClick = { onBudgetClick(budget) }, enabled = !busy, modifier = Modifier.fillMaxWidth().semantics { selected = activeBudgetId == budget.id }) {
-                            Text(budget.name + " · " + stringResource(if (budget.role == "OWNER") R.string.cloud_budget_owner else R.string.cloud_budget_member))
+                        SaldomiOutlinedButton(
+                            onClick = {
+                                onBudgetClick(budget)
+                            },
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth().semantics {
+                                selected =
+                                    activeBudgetId == budget.id
+                            }
+                        ) {
+                            Text(
+                                budget.name + " · " +
+                                    stringResource(
+                                        if (budget.role ==
+                                            "OWNER"
+                                        ) {
+                                            R.string.cloud_budget_owner
+                                        } else {
+                                            R.string.cloud_budget_member
+                                        }
+                                    )
+                            )
                         }
-                        if (activeBudgetId == budget.id) Text(stringResource(R.string.cloud_budget_selected), style = MaterialTheme.typography.labelMedium)
+                        if (activeBudgetId ==
+                            budget.id
+                        ) {
+                            Text(
+                                stringResource(R.string.cloud_budget_selected),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
                     }
-                    if (loaded) SaldomiButton(onClick = onChooseCreateClick, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(if (budgets.isEmpty()) R.string.cloud_budget_create else R.string.cloud_budget_create_another))
+                    if (loaded) {
+                        SaldomiButton(
+                            onClick = onChooseCreateClick,
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (budgets.isEmpty()) R.string.cloud_budget_create else R.string.cloud_budget_create_another
+                                )
+                            )
+                        }
                     }
                 }
                 if (showingSaved) Text(stringResource(R.string.cloud_budgets_saved))
-                SaldomiTextButton(onClick = onRefreshClick, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cloud_budgets_refresh)) }
+                SaldomiTextButton(onClick = onRefreshClick, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.cloud_budgets_refresh))
+                }
             }
             AuthSession.Loading -> SaldomiProgressIndicator()
             else -> Text(stringResource(R.string.cloud_budgets_sign_in))

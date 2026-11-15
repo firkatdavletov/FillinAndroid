@@ -29,12 +29,12 @@ fun RefreshableContent(
     onRefresh: () -> Unit,
     hasScrollableContent: Boolean,
     modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit,
+    content: @Composable BoxScope.() -> Unit
 ) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize()
     ) {
         if (hasScrollableContent) {
             content()
@@ -47,7 +47,7 @@ fun RefreshableContent(
                         .heightIn(min = maxHeight)
                         .fillMaxWidth(),
                     propagateMinConstraints = true,
-                    content = content,
+                    content = content
                 )
             }
         }
@@ -58,24 +58,24 @@ fun RefreshableContent(
 fun RefreshErrorContent(
     @StringRes messageResource: Int,
     @StringRes retryResource: Int,
-    onRetry: () -> Unit,
+    onRetry: () -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.medium
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = stringResource(messageResource),
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium
             )
             TextButton(onClick = onRetry) {
                 Text(stringResource(retryResource))

@@ -16,23 +16,32 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.plannedoperations.domain.model.*
 import com.firkat.fillin.ui.theme.FillinTheme
+import java.math.BigDecimal
+import java.time.LocalDate
 import org.junit.*
 import org.junit.Assert.*
 import org.junit.runner.RunWith
-import java.math.BigDecimal
-import java.time.LocalDate
 
 @RunWith(AndroidJUnit4::class)
 class PlannedOperationsScreenTest {
     @get:Rule val compose = createComposeRule()
 
     private val day = LocalDate.of(2026, 11, 4)
-    private val expense = PlanningRule("rent", 3, PlannedOperationType.Expense, "cat", "Жильё", "HOME", "Жильё", BigDecimal("20000"), frequency = PlanningFrequency.Monthly, startsOn = day, scheduleValue = 5)
+    private val expense =
+        PlanningRule(
+            "rent", 3, PlannedOperationType.Expense, "cat", "Жильё", "HOME", "Жильё",
+            BigDecimal(
+                "20000"
+            ),
+            frequency = PlanningFrequency.Monthly, startsOn = day, scheduleValue = 5
+        )
     private val income = expense.copy(id = "salary", type = PlannedOperationType.Income, name = "Зарплата")
     private val once = expense.copy(id = "repair", name = "Ремонт", frequency = PlanningFrequency.Once)
 
     @Test fun filtersAndResetsOpenGroupsAndKeepsCounts() {
-        var state by mutableStateOf(PlannedOperationsUiState(rules = listOf(expense, income, once), isLoading = false, today = day))
+        var state by mutableStateOf(
+            PlannedOperationsUiState(rules = listOf(expense, income, once), isLoading = false, today = day)
+        )
         var edited: PlanningRule? = null
         compose.setContent {
             FillinTheme {
@@ -43,7 +52,7 @@ class PlannedOperationsScreenTest {
                     },
                     onCreateExpense = {},
                     onCreateIncome = {},
-                    onEditRule = { edited = it },
+                    onEditRule = { edited = it }
                 )
             }
         }
@@ -60,7 +69,9 @@ class PlannedOperationsScreenTest {
         compose.onNodeWithTag("planning-rule-${expense.key}").assertDoesNotExist()
         compose.onNodeWithTag("planning-rule-${once.key}").assertDoesNotExist()
         compose.onNodeWithTag("planning-rule-${income.key}").assertIsDisplayed()
-        compose.onNode(hasText(planCount(1)) and hasAnyAncestor(hasTestTag("planning-filter-selected"))).assertIsDisplayed()
+        compose.onNode(
+            hasText(planCount(1)) and hasAnyAncestor(hasTestTag("planning-filter-selected"))
+        ).assertIsDisplayed()
         compose.onNodeWithTag("planning-filter-Expense").assertDoesNotExist()
 
         compose.onNodeWithTag("planning-filter-reset").performClick()
@@ -76,8 +87,11 @@ class PlannedOperationsScreenTest {
             FillinTheme {
                 PlannedOperationsScreen(
                     PlannedOperationsUiState(rules = listOf(expense), isLoading = false),
-                    {}, {}, {}, { edits++ },
-                    canWrite = false,
+                    {},
+                    {},
+                    {},
+                    { edits++ },
+                    canWrite = false
                 )
             }
         }
@@ -98,14 +112,13 @@ class PlannedOperationsScreenTest {
                     },
                     onCreateExpense = { created.add(PlannedOperationType.Expense) },
                     onCreateIncome = { created.add(PlannedOperationType.Income) },
-                    onEditRule = {},
+                    onEditRule = {}
                 )
             }
         }
 
         val add = compose.onNodeWithTag("planned-create").assertIsDisplayed()
-        add.assertContentDescriptionEquals("Добавить план")
-        compose.onNodeWithText("Добавить план").assertDoesNotExist()
+        add.assertTextEquals("Добавить")
         compose.onNodeWithTag("planning-filter-Expense").assertTextContains(planCount(0))
         compose.onNodeWithTag("planning-filter-Income").assertTextContains(planCount(0))
         add.performClick()
@@ -116,7 +129,10 @@ class PlannedOperationsScreenTest {
         add.performClick()
 
         compose.runOnIdle {
-            assertEquals(listOf(PlannedOperationType.Expense, PlannedOperationType.Income, PlannedOperationType.Expense), created)
+            assertEquals(
+                listOf(PlannedOperationType.Expense, PlannedOperationType.Income, PlannedOperationType.Expense),
+                created
+            )
         }
     }
 
@@ -130,8 +146,11 @@ class PlannedOperationsScreenTest {
                 Box(Modifier.fillMaxSize()) {
                     PlannedOperationsScreen(
                         PlannedOperationsUiState(rules = rules, isLoading = false, today = day),
-                        {}, {}, {}, {},
-                        bottomBarOverlap = overlap,
+                        {},
+                        {},
+                        {},
+                        {},
+                        bottomBarOverlap = overlap
                     )
                     Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(overlap).testTag("bottom-bar"))
                 }
@@ -144,7 +163,8 @@ class PlannedOperationsScreenTest {
         assertTrue(lastPlan.getUnclippedBoundsInRoot().bottom <= bottomBar.getUnclippedBoundsInRoot().top)
     }
 
-    private fun planCount(count: Int): String =
-        InstrumentationRegistry.getInstrumentation().targetContext.resources
-            .getQuantityString(R.plurals.planning_plan_count, count, count)
+    private fun planCount(
+        count: Int
+    ): String = InstrumentationRegistry.getInstrumentation().targetContext.resources
+        .getQuantityString(R.plurals.planning_plan_count, count, count)
 }

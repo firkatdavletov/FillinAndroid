@@ -8,10 +8,10 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.firkat.fillin.feature.dailylimit.domain.*
 import com.firkat.fillin.feature.dashboard.domain.model.Money
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.DailyLimitSummary
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui.*
-import com.firkat.fillin.feature.dailylimit.domain.*
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -23,6 +23,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class DailyLimitWidgetTest {
     @get:Rule val compose = createAndroidComposeRule<androidx.activity.ComponentActivity>()
+
     @org.junit.Before fun keepTestActivityVisible() {
         compose.activity.runOnUiThread {
             compose.activity.setShowWhenLocked(true)
@@ -30,57 +31,98 @@ class DailyLimitWidgetTest {
             compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
-    private fun money(value: String) = Money(BigDecimal(value), "KZT")
-    private fun state(balance: String, spent: String): DailyLimitUiState {
-        val result = DailyLimitCalculator().calculate(DailyLimitInput(money(balance),money(spent),emptyList(),LocalDate.of(2026,11,1)))
-        return DailyLimitUiState.from(DailyLimitSummary(result.dailyTarget,result.spentToday,result.remainingToday,null,null,result))
+    private fun money(
+        value: String
+    ) = Money(BigDecimal(value), "KZT")
+    private fun state(
+        balance: String,
+        spent: String
+    ): DailyLimitUiState {
+        val result = DailyLimitCalculator().calculate(
+            DailyLimitInput(money(balance), money(spent), emptyList(), LocalDate.of(2026, 11, 1))
+        )
+        return DailyLimitUiState.from(
+            DailyLimitSummary(result.dailyTarget, result.spentToday, result.remainingToday, null, null, result)
+        )
     }
-    private fun show(state: DailyLimitUiState, onClick: () -> Unit = {}) {
-        compose.setContent { FillinTheme(dynamicColor=false) { DailyLimitWidget(state,Modifier.width(360.dp),onClick) } }
+    private fun show(
+        state: DailyLimitUiState,
+        onClick: () -> Unit = {}
+    ) {
+        compose.setContent {
+            FillinTheme(dynamicColor = false) { DailyLimitWidget(state, Modifier.width(360.dp), onClick) }
+        }
     }
+
     @Test fun showsSpendingRemainingAndProgress() {
-        show(state("59000","1000"))
-        compose.onNodeWithTag("daily-limit-spent",useUnmergedTree=true).assertTextContains("Потрачено",substring=true)
-        compose.onNodeWithTag("daily-limit-remaining",useUnmergedTree=true).assertTextContains("Осталось",substring=true)
-        compose.onNodeWithText("Прогноз на",substring=true,useUnmergedTree=true).assertDoesNotExist()
-        compose.onNodeWithTag("daily-limit-progress",useUnmergedTree=true).assert(
-            SemanticsMatcher.expectValue(SemanticsProperties.ProgressBarRangeInfo,ProgressBarRangeInfo(1f,0f..1f)))
+        show(state("59000", "1000"))
+        compose.onNodeWithTag(
+            "daily-limit-spent",
+            useUnmergedTree = true
+        ).assertTextContains("Потрачено", substring = true)
+        compose.onNodeWithTag(
+            "daily-limit-remaining",
+            useUnmergedTree = true
+        ).assertTextContains("Осталось", substring = true)
+        compose.onNodeWithText("Прогноз на", substring = true, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("daily-limit-progress", useUnmergedTree = true).assert(
+            SemanticsMatcher.expectValue(SemanticsProperties.ProgressBarRangeInfo, ProgressBarRangeInfo(1f, 0f..1f))
+        )
     }
+
     @Test fun overspendingIsSeparateFromZeroRemaining() {
-        show(state("57000","3000"))
-        compose.onNodeWithText("Превышение",substring=true,useUnmergedTree=true).assertIsDisplayed()
-        compose.onNodeWithText("На следующие дни",substring=true,useUnmergedTree=true).assertDoesNotExist()
+        show(state("57000", "3000"))
+        compose.onNodeWithText("Превышение", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("На следующие дни", substring = true, useUnmergedTree = true).assertDoesNotExist()
     }
+
     @Test fun deficitShowsWarning() {
-        show(state("-100","3000"))
-        compose.onNodeWithText("Не хватит",substring=true,useUnmergedTree=true).assertIsDisplayed()
+        show(state("-100", "3000"))
+        compose.onNodeWithText("Не хватит", substring = true, useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("daily-limit-progress").assertDoesNotExist()
         compose.onNodeWithTag("daily-limit-remaining").assertDoesNotExist()
-        compose.onNodeWithText("Превышение",substring=true).assertDoesNotExist()
+        compose.onNodeWithText("Превышение", substring = true).assertDoesNotExist()
     }
+
     @Test fun infoOpensDetails() {
-        var opened=false
-        show(state("60000","0")) { opened=true }
+        var opened = false
+        show(state("60000", "0")) { opened = true }
         compose.onNodeWithContentDescription("Расчёт дневного лимита").performClick()
         compose.runOnIdle { assertTrue(opened) }
     }
+
     @Test fun paymentsAndInfoAreIndependent() {
         var details = 0
         var payments = 0
-        compose.setContent { FillinTheme { DailyLimitWidget(state("-100", "3000"),
-            onDetailsClick = { details++ }, onPaymentsClick = { payments++ }) } }
+        compose.setContent {
+            FillinTheme {
+                DailyLimitWidget(
+                    state("-100", "3000"),
+                    onDetailsClick = { details++ },
+                    onPaymentsClick = { payments++ }
+                )
+            }
+        }
         compose.onNodeWithTag("daily-limit-payments").performClick()
-        compose.runOnIdle { org.junit.Assert.assertEquals(1, payments); org.junit.Assert.assertEquals(0, details) }
+        compose.runOnIdle {
+            org.junit.Assert.assertEquals(1, payments)
+            org.junit.Assert.assertEquals(0, details)
+        }
         compose.onNodeWithContentDescription("Расчёт дневного лимита").performClick()
-        compose.runOnIdle { org.junit.Assert.assertEquals(1, details); org.junit.Assert.assertEquals(1, payments) }
+        compose.runOnIdle {
+            org.junit.Assert.assertEquals(1, details)
+            org.junit.Assert.assertEquals(1, payments)
+        }
     }
+
     @Test fun zeroLimitHasNoProgressOrRemaining() {
         show(state("0", "0"))
         compose.onNodeWithTag("daily-limit-progress").assertDoesNotExist()
         compose.onNodeWithTag("daily-limit-remaining").assertDoesNotExist()
     }
+
     @Test fun missingSnapshotShowsPlaceholder() {
         show(DailyLimitUiState())
-        compose.onNodeWithTag("daily-limit-amount",useUnmergedTree=true).assertTextEquals("—")
+        compose.onNodeWithTag("daily-limit-amount", useUnmergedTree = true).assertTextEquals("—")
     }
 }

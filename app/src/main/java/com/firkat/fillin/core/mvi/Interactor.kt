@@ -12,5 +12,7 @@ import kotlinx.coroutines.flow.Flow
  * Unexpected exceptions are not intercepted by [BaseViewModel].
  */
 fun interface Interactor<C : Command, E : Event> {
-    fun execute(command: C): Flow<E>
+    fun execute(
+        command: C
+    ): Flow<E>
 }

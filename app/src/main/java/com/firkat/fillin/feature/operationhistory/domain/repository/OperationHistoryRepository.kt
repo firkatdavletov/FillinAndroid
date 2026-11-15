@@ -9,27 +9,29 @@ interface OperationHistoryRepository {
     suspend fun getOperations(
         limit: Int,
         cursor: Long?,
-        filter: OperationHistoryFilter,
+        filter: OperationHistoryFilter
     ): OperationPage
 
     /** Full operation editing is supported by the local v4 command store. */
-    suspend fun updateOperation(id: String, version: Long, update: OperationUpdate): Operation =
-        throw OperationHistoryException.InvalidRequest
+    suspend fun updateOperation(
+        id: String,
+        version: Long,
+        update: OperationUpdate
+    ): Operation = throw OperationHistoryException.InvalidRequest
 
     suspend fun updateOperationAmount(
         id: String,
         version: Long,
-        amount: BigDecimal,
+        amount: BigDecimal
     ): Operation
 
-    suspend fun refundPurchase(id: String, version: Long)
+    suspend fun refundPurchase(
+        id: String,
+        version: Long
+    )
 }
 
-data class OperationUpdate(
-    val amount: BigDecimal,
-    val categoryId: String,
-    val description: String?,
-)
+data class OperationUpdate(val amount: BigDecimal, val categoryId: String, val description: String?)
 
 sealed class OperationHistoryException : Exception() {
     data object MissingApiToken : OperationHistoryException()

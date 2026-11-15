@@ -13,14 +13,14 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.*
 import com.firkat.fillin.feature.sync.data.*
 import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
+import java.io.IOException
+import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.*
 import org.junit.Test
 import retrofit2.Response
-import java.io.IOException
-import java.time.LocalDate
 
 class MultipleBudgetsDeviceTest {
     @Test fun twoCloudBudgetsKeepOfflineQueuesAndOnlyTheSelectedBudgetSynchronizesAfterRestart() = runBlocking {
@@ -28,7 +28,8 @@ class MultipleBudgetsDeviceTest {
         val first = BudgetConnectionDeviceTest.Environment(apiOverride = server, deleteOnClose = false)
         val registryName = first.registryName
         val backend = first.backend
-        first.auth.login("owner"); first.manager.restore()
+        first.auth.login("owner")
+        first.manager.restore()
         first.creation.create("owner", draft("Личный", "100.00"))
         val personal = first.manager.active.value!!.profile
         addExpense(first, "11.25")
@@ -49,12 +50,19 @@ class MultipleBudgetsDeviceTest {
         assertEquals("100.00", opening(first, personal))
         assertEquals("900.00", opening(first, family))
         val staleWorker = TestListenableWorkerBuilder<OperationSyncWorker>(first.context)
-            .setWorkerFactory(OperationWorkerFactory(first.manager)).setInputData(BudgetWorkIdentity.data(personal.syncIdentity)).build()
+            .setWorkerFactory(
+                OperationWorkerFactory(first.manager)
+            ).setInputData(BudgetWorkIdentity.data(personal.syncIdentity)).build()
         assertEquals(ListenableWorker.Result.success(), staleWorker.doWork())
         assertEquals(calls, server.calls)
         first.close()
-        BudgetConnectionDeviceTest.Environment(registryName = registryName, backend = backend, apiOverride = server).use { reopened ->
-            reopened.auth.login("owner"); reopened.manager.restore()
+        BudgetConnectionDeviceTest.Environment(
+            registryName = registryName,
+            backend = backend,
+            apiOverride = server
+        ).use { reopened ->
+            reopened.auth.login("owner")
+            reopened.manager.restore()
             assertEquals(family, reopened.manager.active.value!!.profile)
             assertEquals(catalog.toSet(), reopened.connection.cachedBudgets("owner").toSet())
             assertEquals(originalQueue, reopened.database(personal) { it.budget().content()!!.commands })
@@ -70,13 +78,19 @@ class MultipleBudgetsDeviceTest {
             assertEquals(1, server.budgets.getValue(personal.budgetId!!).receipts.size)
             assertEquals(1, server.budgets.getValue(family.budgetId!!).receipts.size)
             BudgetConnectionDeviceTest.Environment(apiOverride = server).use { otherDevice ->
-                otherDevice.auth.login("owner"); otherDevice.manager.restore()
+                otherDevice.auth.login("owner")
+                otherDevice.manager.restore()
                 for (budget in otherDevice.connection.budgets("owner")) {
                     otherDevice.connection.connect("owner", budget)
                     val selected = otherDevice.manager.active.value!!.profile
                     assertEquals(budget.id, selected.budgetId)
                     val amount = if (budget.id == personal.budgetId) "11.25" else "22.50"
-                    assertEquals(amount, otherDevice.database(selected) { it.budget().content()!!.operations.single().amountKzt })
+                    assertEquals(
+                        amount,
+                        otherDevice.database(selected) {
+                            it.budget().content()!!.operations.single().amountKzt
+                        }
+                    )
                 }
             }
         }
@@ -85,10 +99,15 @@ class MultipleBudgetsDeviceTest {
     @Test fun cachedNamesAndRolesArePrivateAndAnUndownloadedBudgetCannotReplaceTheActiveOneOffline() = runBlocking {
         val server = MultiServer()
         BudgetConnectionDeviceTest.Environment(apiOverride = server).use { env ->
-            env.auth.login("owner"); env.manager.restore()
+            env.auth.login("owner")
+            env.manager.restore()
             env.creation.create("owner", draft("Доступный", "100.00"))
             val original = env.manager.active.value!!.profile
-            val extra = BudgetConnectionDeviceTest.Server().apply { budgetName = "Участник"; scope = scope.copy(role = "MEMBER") }
+            val extra = BudgetConnectionDeviceTest.Server().apply {
+                budgetName = "Участник"
+                scope =
+                    scope.copy(role = "MEMBER")
+            }
             server.budgets[extra.scope.householdId] = extra
             val budgets = env.connection.budgets("owner")
             val member = budgets.single { it.id == extra.scope.householdId }
@@ -97,12 +116,21 @@ class MultipleBudgetsDeviceTest {
             assertTrue(runCatching { env.connection.connect("owner", member) }.isFailure)
             assertEquals(original, env.manager.active.value!!.profile)
             assertEquals(budgets.toSet(), env.connection.cachedBudgets("owner").toSet())
-            env.auth.login("other"); env.manager.restore()
+            env.auth.login("other")
+            env.manager.restore()
             assertTrue(env.connection.cachedBudgets("other").isEmpty())
-            assertEquals("account_changed", (runCatching { env.connection.cachedBudgets("owner") }.exceptionOrNull() as BudgetConnectionFailure).code)
+            assertEquals(
+                "account_changed",
+                (
+                    runCatching {
+                        env.connection.cachedBudgets("owner")
+                    }.exceptionOrNull() as BudgetConnectionFailure
+                    ).code
+            )
             assertTrue(runCatching { env.connection.connect("other", budgets.first()) }.isFailure)
             assertNotEquals(original, env.manager.active.value!!.profile)
-            env.auth.login("owner"); env.manager.restore()
+            env.auth.login("owner")
+            env.manager.restore()
             assertEquals(original, env.manager.active.value!!.profile)
             server.offline = false
             env.connection.connect("owner", member)
@@ -120,7 +148,8 @@ class MultipleBudgetsDeviceTest {
     @Test fun lostAdditionalCreationResponseResumesTheSameBudgetWithoutChangingTheFirstBudget() = runBlocking {
         val server = MultiServer()
         BudgetConnectionDeviceTest.Environment(apiOverride = server).use { env ->
-            env.auth.login("owner"); env.manager.restore()
+            env.auth.login("owner")
+            env.manager.restore()
             env.creation.create("owner", draft("Первый", "100.00"))
             val original = env.manager.active.value!!.profile
             addExpense(env, "10.00")
@@ -133,62 +162,138 @@ class MultipleBudgetsDeviceTest {
             assertNull(env.creation.pending("owner"))
             assertEquals(2, server.budgets.size)
             assertEquals(2, server.creations.size)
-            assertEquals(server.creations.getValue(pending.requestId).second.id, env.manager.active.value!!.profile.budgetId)
+            assertEquals(
+                server.creations.getValue(pending.requestId).second.id,
+                env.manager.active.value!!.profile.budgetId
+            )
             assertEquals(before, env.database(original) { it.budget().content()!! })
         }
     }
 
-    private fun draft(name: String, balance: String) = BudgetCreationDraft(name, balance, LocalDate.now().minusDays(1).toString())
-    private suspend fun opening(env: BudgetConnectionDeviceTest.Environment, profile: BudgetProfile) = env.database(profile) { db ->
-        Json.decodeFromString<SyncBudgetSettings>(db.budget().content()!!.records.single { it.kind == "BUDGET_SETTINGS" }.payload).openingBalance
+    private fun draft(
+        name: String,
+        balance: String
+    ) = BudgetCreationDraft(name, balance, LocalDate.now().minusDays(1).toString())
+    private suspend fun opening(
+        env: BudgetConnectionDeviceTest.Environment,
+        profile: BudgetProfile
+    ) = env.database(profile) { db ->
+        Json.decodeFromString<SyncBudgetSettings>(
+            db.budget().content()!!.records.single {
+                it.kind == "BUDGET_SETTINGS"
+            }.payload
+        ).openingBalance
     }
-    private suspend fun addExpense(env: BudgetConnectionDeviceTest.Environment, amount: String) {
+    private suspend fun addExpense(
+        env: BudgetConnectionDeviceTest.Environment,
+        amount: String
+    ) {
         val profile = env.manager.active.value!!.profile
         env.manager.acquire(profile.syncIdentity)!!.use { lease ->
             val content = lease.scope.get<OperationDatabase>().budget().content()!!
-            lease.scope.get<OperationHistoryStore>().create(NewOperation(OperationType.Expense,
-                content.categories.first { it.kind == "EXPENSE" }.id, amount.toBigDecimal(), lease.scope.get<CloudBudgetSession>().today, null), null)
+            lease.scope.get<OperationHistoryStore>().create(
+                NewOperation(
+                    OperationType.Expense,
+                    content.categories.first {
+                        it.kind == "EXPENSE"
+                    }.id,
+                    amount.toBigDecimal(),
+                    lease.scope.get<CloudBudgetSession>().today,
+                    null
+                ),
+                null
+            )
         }
     }
-    private suspend fun sync(env: BudgetConnectionDeviceTest.Environment) = env.manager.acquire(env.manager.active.value!!.profile.syncIdentity)!!.use {
+    private suspend fun sync(
+        env: BudgetConnectionDeviceTest.Environment
+    ) = env.manager.acquire(env.manager.active.value!!.profile.syncIdentity)!!.use {
         it.scope.get<OperationsSynchronizer>().synchronize()
     }
 
     internal class MultiServer : FirebaseBudgetApi {
-        override suspend fun rename(authorization: String, id: String, request: com.firkat.fillin.feature.budgetconnection.data.RenameBudgetDto): retrofit2.Response<com.firkat.fillin.feature.budgetconnection.data.AvailableBudgetDto> = error("Not used in this fixture")
-        override suspend fun delete(authorization: String, id: String, requestId: String): retrofit2.Response<Unit> = error("Not used in this fixture")
+        override suspend fun rename(
+            authorization: String,
+            id: String,
+            request: com.firkat.fillin.feature.budgetconnection.data.RenameBudgetDto
+        ): retrofit2.Response<com.firkat.fillin.feature.budgetconnection.data.AvailableBudgetDto> =
+            error("Not used in this fixture")
+        override suspend fun delete(
+            authorization: String,
+            id: String,
+            requestId: String
+        ): retrofit2.Response<Unit> = error("Not used in this fixture")
         val budgets = linkedMapOf<String, BudgetConnectionDeviceTest.Server>()
         val creations = linkedMapOf<String, Pair<CreateFirebaseBudgetDto, AvailableBudgetDto>>()
         var offline = false
         var calls = 0
         var loseCreationResponse = false
-        private fun checkOnline() { if (offline) throw IOException("Synthetic offline"); calls++ }
-        override suspend fun budgets(authorization: String): Response<List<AvailableBudgetDto>> {
-            checkOnline()
-            return Response.success(if (authorization == "Bearer synthetic-owner") budgets.values.map {
-                AvailableBudgetDto(it.scope.householdId, it.budgetName, it.scope.memberId, it.scope.role)
-            } else emptyList())
+        private fun checkOnline() {
+            if (offline) throw IOException("Synthetic offline")
+            calls++
         }
-        override suspend fun create(authorization: String, request: CreateFirebaseBudgetDto): Response<AvailableBudgetDto> {
+        override suspend fun budgets(
+            authorization: String
+        ): Response<List<AvailableBudgetDto>> {
+            checkOnline()
+            return Response.success(
+                if (authorization == "Bearer synthetic-owner") {
+                    budgets.values.map {
+                        AvailableBudgetDto(it.scope.householdId, it.budgetName, it.scope.memberId, it.scope.role)
+                    }
+                } else {
+                    emptyList()
+                }
+            )
+        }
+        override suspend fun create(
+            authorization: String,
+            request: CreateFirebaseBudgetDto
+        ): Response<AvailableBudgetDto> {
             checkOnline()
             check(authorization == "Bearer synthetic-owner")
             val previous = creations[request.requestId]
             if (previous != null && previous.first != request) return Response.error(409, "{}".toResponseBody())
-            val summary = previous?.second ?: BudgetConnectionDeviceTest.Server().apply { budgetExists = false }.let { server ->
-                server.create(authorization, request).body()!!.also { budgets[it.id] = server; creations[request.requestId] = request to it }
+            val summary =
+                previous?.second ?: BudgetConnectionDeviceTest.Server().apply { budgetExists = false }.let { server ->
+                    server.create(authorization, request).body()!!.also {
+                        budgets[it.id] = server
+                        creations[request.requestId] =
+                            request to it
+                    }
+                }
+            if (loseCreationResponse) {
+                loseCreationResponse = false
+                throw IOException("Synthetic lost additional creation response")
             }
-            if (loseCreationResponse) { loseCreationResponse = false; throw IOException("Synthetic lost additional creation response") }
             return Response.success(summary)
         }
-        override suspend fun budget(authorization: String, budgetId: String): Response<CloudBudget> {
-            checkOnline(); return budgets.getValue(budgetId).budget(authorization, budgetId)
+        override suspend fun budget(
+            authorization: String,
+            budgetId: String
+        ): Response<CloudBudget> {
+            checkOnline()
+            return budgets.getValue(budgetId).budget(authorization, budgetId)
         }
-        override suspend fun changes(authorization: String, budgetId: String, cursor: String?): Response<SyncPageDto> {
-            checkOnline(); return budgets.getValue(budgetId).changes(authorization, budgetId, cursor)
+        override suspend fun changes(
+            authorization: String,
+            budgetId: String,
+            cursor: String?
+        ): Response<SyncPageDto> {
+            checkOnline()
+            return budgets.getValue(budgetId).changes(authorization, budgetId, cursor)
         }
-        override suspend fun command(authorization: String, budgetId: String, command: BudgetSyncCommand): Response<BudgetCommandReceipt> {
-            checkOnline(); return budgets.getValue(budgetId).command(authorization, budgetId, command)
+        override suspend fun command(
+            authorization: String,
+            budgetId: String,
+            command: BudgetSyncCommand
+        ): Response<BudgetCommandReceipt> {
+            checkOnline()
+            return budgets.getValue(budgetId).command(authorization, budgetId, command)
         }
-        override suspend fun importLocal(authorization: String, request: ImportFirebaseBudgetDto): Response<AvailableBudgetDto> = error("Unused in T08")
+        override suspend fun importLocal(
+            authorization: String,
+            request: ImportFirebaseBudgetDto
+        ): Response<AvailableBudgetDto> = error("Unused in T08")
     }
 }

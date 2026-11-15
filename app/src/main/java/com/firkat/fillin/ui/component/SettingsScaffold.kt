@@ -19,7 +19,7 @@ internal fun SettingsScaffold(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    content: @Composable (PaddingValues) -> Unit,
+    content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -44,18 +44,22 @@ internal fun SettingsScaffold(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
-                expandedHeight = 64.dp * LocalDensity.current.fontScale.coerceAtLeast(1f),
+                expandedHeight = 64.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
             )
         },
-        content = content,
+        content = content
     )
 }
 
 @Preview(name = "Settings toolbar")
 @Preview(name = "Settings toolbar dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun SettingsScaffoldPreview() { FillinTheme { SettingsScaffold(stringResource(R.string.profile_family_access), {}) {} } }
+private fun SettingsScaffoldPreview() {
+    FillinTheme { SettingsScaffold(stringResource(R.string.profile_family_access), {}) {} }
+}
 
 @Preview(name = "Long settings title", widthDp = 320, fontScale = 2f)
 @Composable
-private fun SettingsScaffoldLongPreview() { FillinTheme { SettingsScaffold(stringResource(R.string.profile_cloud_sync), {}) {} } }
+private fun SettingsScaffoldLongPreview() {
+    FillinTheme { SettingsScaffold(stringResource(R.string.profile_cloud_sync), {}) {} }
+}

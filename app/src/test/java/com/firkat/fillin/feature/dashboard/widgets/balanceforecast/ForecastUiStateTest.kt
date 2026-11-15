@@ -1,18 +1,23 @@
 package com.firkat.fillin.feature.dashboard.widgets.balanceforecast
 
-import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastUiState
 import com.firkat.fillin.feature.dailylimit.domain.*
 import com.firkat.fillin.feature.dashboard.domain.model.*
+import com.firkat.fillin.feature.dashboard.widgets.balanceforecast.ui.ForecastUiState
 import java.time.LocalDate
 import org.junit.Assert.*
 import org.junit.Test
 
 class ForecastUiStateTest {
     private val today = LocalDate.of(2026, 11, 3)
-    private fun money(value: String) = Money(value.toBigDecimal().setScale(2), "KZT")
+    private fun money(
+        value: String
+    ) = Money(value.toBigDecimal().setScale(2), "KZT")
 
     @Test fun `coincident scenarios map to identical coordinates and exact totals`() {
-        val forecast = CashFlowForecaster().forecast(DailyLimitInput(money("6000"), money("0"), emptyList(), today), money("100"))
+        val forecast = CashFlowForecaster().forecast(
+            DailyLimitInput(money("6000"), money("0"), emptyList(), today),
+            money("100")
+        )
         val state = ForecastUiState.from(forecast.projection)
         assertEquals(state.points, state.currentPacePoints)
         assertEquals(money("0"), state.byLimit.endingBalance)
@@ -22,8 +27,13 @@ class ForecastUiStateTest {
     }
 
     @Test fun `different scenarios share scale and warnings do not mask deficit`() {
-        val input = DailyLimitInput(money("6000"), money("0"), emptyList(), today,
-            warnings = setOf(ForecastWarning.OVERDUE_INCOME))
+        val input = DailyLimitInput(
+            money("6000"),
+            money("0"),
+            emptyList(),
+            today,
+            warnings = setOf(ForecastWarning.OVERDUE_INCOME)
+        )
         val state = ForecastUiState.from(CashFlowForecaster().forecast(input, money("200")).projection)
         assertEquals(money("-6000").amount, state.scaleMinimum)
         assertEquals(money("5900").amount, state.scaleMaximum)
@@ -36,8 +46,12 @@ class ForecastUiStateTest {
 
     @Test fun `loading and missing history are explicit without a synthetic pace`() {
         assertEquals(ForecastRisk.Unavailable, ForecastUiState().byLimit.risk)
-        val state = ForecastUiState.from(CashFlowForecaster().forecast(
-            DailyLimitInput(money("-50"), money("0"), emptyList(), today), null).projection)
+        val state = ForecastUiState.from(
+            CashFlowForecaster().forecast(
+                DailyLimitInput(money("-50"), money("0"), emptyList(), today),
+                null
+            ).projection
+        )
         assertNull(state.currentPace)
         assertTrue(state.insufficientHistory)
         assertEquals(ForecastRisk.Deficit, state.byLimit.risk)

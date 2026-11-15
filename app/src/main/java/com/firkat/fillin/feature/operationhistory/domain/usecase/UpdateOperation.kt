@@ -9,15 +9,28 @@ import com.firkat.fillin.feature.operationhistory.domain.repository.OperationUpd
 import java.math.BigDecimal
 
 class UpdateOperation(private val repository: OperationHistoryRepository) {
-    suspend operator fun invoke(operation: Operation, update: OperationUpdate): Operation {
+    suspend operator fun invoke(
+        operation: Operation,
+        update: OperationUpdate
+    ): Operation {
         val normalized = update.copy(description = update.description?.trim()?.takeIf(String::isNotEmpty))
-        if (operation.status != OperationStatus.Posted || operation.hasOriginalValuation ||
-            operation.syncStatus == OperationSyncStatus.Rejected || operation.refundedAmount.signum() != 0 ||
-            normalized.amount <= BigDecimal.ZERO || normalized.amount > MAX_AMOUNT || normalized.amount.scale() > 2 ||
-            normalized.categoryId.isBlank() || normalized.description.orEmpty().length > 160 ||
-            (normalized.amount.compareTo(operation.originalAmount) == 0 && normalized.categoryId == operation.categoryId &&
-                normalized.description == operation.description?.trim()?.takeIf(String::isNotEmpty))
-        ) throw OperationHistoryException.InvalidRequest
+        if (operation.status != OperationStatus.Posted ||
+            operation.hasOriginalValuation ||
+            operation.syncStatus == OperationSyncStatus.Rejected ||
+            operation.refundedAmount.signum() != 0 ||
+            normalized.amount <= BigDecimal.ZERO ||
+            normalized.amount > MAX_AMOUNT ||
+            normalized.amount.scale() > 2 ||
+            normalized.categoryId.isBlank() ||
+            normalized.description.orEmpty().length > 160 ||
+            (
+                normalized.amount.compareTo(operation.originalAmount) == 0 &&
+                    normalized.categoryId == operation.categoryId &&
+                    normalized.description == operation.description?.trim()?.takeIf(String::isNotEmpty)
+                )
+        ) {
+            throw OperationHistoryException.InvalidRequest
+        }
         return repository.updateOperation(operation.id, operation.version, normalized)
     }
 }

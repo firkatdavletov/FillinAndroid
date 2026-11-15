@@ -38,7 +38,10 @@ class AuthReducerTest {
         assertEquals(AuthOperation.SigningIn, signingIn.operation)
         assertEquals(signingIn, reducer.reduceAction(signingIn, AuthAction.CredentialCancelled(picking.operationId)))
         assertEquals(signingIn, reducer.reduceAction(signingIn, AuthAction.UiDetached))
-        assertEquals(anonymous.copy(operationId = waiting.operationId), reducer.reduceAction(picking, AuthAction.UiDetached))
+        assertEquals(
+            anonymous.copy(operationId = waiting.operationId),
+            reducer.reduceAction(picking, AuthAction.UiDetached)
+        )
     }
 
     @Test fun `stale operation results and old acknowledgements cannot change current operation or error`() {
@@ -46,8 +49,14 @@ class AuthReducerTest {
         val failed = reducer.reduceAction(waiting, AuthAction.CredentialFailed(waiting.operationId, AuthError.Network))
         val retry = reducer.reduceAction(failed, AuthAction.GoogleClicked)
         val signingIn = reducer.reduceAction(retry, AuthAction.CredentialReceived(retry.operationId, "synthetic"))
-        assertEquals(signingIn, reducer.reduceEvent(signingIn, AuthEvent.OperationFinished(waiting.operationId, AuthError.SignInFailed)))
-        val failedAgain = reducer.reduceEvent(signingIn, AuthEvent.OperationFinished(signingIn.operationId, AuthError.Network))
+        assertEquals(
+            signingIn,
+            reducer.reduceEvent(signingIn, AuthEvent.OperationFinished(waiting.operationId, AuthError.SignInFailed))
+        )
+        val failedAgain = reducer.reduceEvent(
+            signingIn,
+            AuthEvent.OperationFinished(signingIn.operationId, AuthError.Network)
+        )
         assertEquals(failedAgain, reducer.reduceAction(failedAgain, AuthAction.ErrorShown(failed.errorId)))
         assertNull(reducer.reduceAction(failedAgain, AuthAction.ErrorShown(failedAgain.errorId)).error)
         assertFalse(failedAgain.busy)
@@ -56,13 +65,32 @@ class AuthReducerTest {
     @Test fun `session changes invalidate profile results including A to B to A`() {
         val first = reducer.reduceEvent(anonymous, AuthEvent.SessionChanged(account, true))
         assertEquals(ServerProfileState.Loading, first.serverProfile)
-        val sameUid = reducer.reduceEvent(first, AuthEvent.SessionChanged(account.copy(user = account.user.copy(displayName = "Updated")), true))
+        val sameUid = reducer.reduceEvent(
+            first,
+            AuthEvent.SessionChanged(account.copy(user = account.user.copy(displayName = "Updated")), true)
+        )
         assertEquals(first.profileRequestId, sameUid.profileRequestId)
-        val second = reducer.reduceEvent(first, AuthEvent.SessionChanged(account.copy(user = account.user.copy(uid = "b")), true))
+        val second = reducer.reduceEvent(
+            first,
+            AuthEvent.SessionChanged(account.copy(user = account.user.copy(uid = "b")), true)
+        )
         val third = reducer.reduceEvent(second, AuthEvent.SessionChanged(account, true))
         val oldProfile = ServerProfileState.Ready(ServerUser("server-a", "a", null, null))
-        assertEquals(third, reducer.reduceEvent(third, AuthEvent.ProfileLoaded(first.profileRequestId, "a", oldProfile)))
-        assertEquals(third, reducer.reduceEvent(third, AuthEvent.ProfileLoaded(second.profileRequestId, "b", ServerProfileState.Failed(ServerAuthError.Network))))
+        assertEquals(
+            third,
+            reducer.reduceEvent(third, AuthEvent.ProfileLoaded(first.profileRequestId, "a", oldProfile))
+        )
+        assertEquals(
+            third,
+            reducer.reduceEvent(
+                third,
+                AuthEvent.ProfileLoaded(
+                    second.profileRequestId,
+                    "b",
+                    ServerProfileState.Failed(ServerAuthError.Network)
+                )
+            )
+        )
         val ready = reducer.reduceEvent(third, AuthEvent.ProfileLoaded(third.profileRequestId, "a", oldProfile))
         assertEquals(oldProfile, ready.serverProfile)
         val signedOut = reducer.reduceEvent(ready, AuthEvent.SessionChanged(AuthSession.Anonymous, true))
@@ -87,7 +115,11 @@ class AuthReducerTest {
     @Test fun `retry locks synchronously and rejects old profile results`() {
         val loading = reducer.reduceEvent(anonymous, AuthEvent.SessionChanged(account, true))
         assertEquals(loading, reducer.reduceAction(loading, AuthAction.RetryServerAuthentication))
-        val failure = AuthEvent.ProfileLoaded(loading.profileRequestId, "a", ServerProfileState.Failed(ServerAuthError.Network))
+        val failure = AuthEvent.ProfileLoaded(
+            loading.profileRequestId,
+            "a",
+            ServerProfileState.Failed(ServerAuthError.Network)
+        )
         val failed = reducer.reduceEvent(loading, failure)
         val retry = reducer.reduceAction(failed, AuthAction.RetryServerAuthentication)
         assertEquals(ServerProfileState.Loading, retry.serverProfile)
@@ -98,7 +130,10 @@ class AuthReducerTest {
     @Test fun `local selections and unavailable Firebase do not start business operations`() {
         assertEquals(AuthButton.Email, reducer.reduceAction(anonymous, AuthAction.EmailClicked).selectedButton)
         assertEquals(AuthButton.Guest, reducer.reduceAction(anonymous, AuthAction.GuestClicked).selectedButton)
-        val unavailable = reducer.reduceAction(anonymous.copy(session = AuthSession.Unavailable), AuthAction.GoogleClicked)
+        val unavailable = reducer.reduceAction(
+            anonymous.copy(session = AuthSession.Unavailable),
+            AuthAction.GoogleClicked
+        )
         assertEquals(AuthError.NotConfigured, unavailable.error)
         assertFalse(unavailable.busy)
         assertFalse(reducer.reduceAction(anonymous.copy(session = account), AuthAction.GoogleClicked).busy)

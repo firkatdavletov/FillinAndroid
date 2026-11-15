@@ -14,6 +14,9 @@ import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.NewOperation
+import java.math.BigDecimal
+import java.time.LocalDate
+import java.util.UUID
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -22,19 +25,19 @@ import org.junit.Rule
 import org.junit.Test
 import retrofit2.HttpException
 import retrofit2.Response
-import java.math.BigDecimal
-import java.time.LocalDate
-import java.util.UUID
 
 class CategoryUsagePersistenceTest {
-    @get:Rule val migration = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), OperationDatabase::class.java)
+    @get:Rule val migration =
+        MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), OperationDatabase::class.java)
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
     @Test fun migrationKeepsExistingScopeWithoutBackfill() {
         val name = "usage-migration-${UUID.randomUUID()}"
         try {
             migration.createDatabase(name, 6).use {
-                it.execSQL("INSERT INTO local_categories (scopeKey, id, name, kind, iconCode, iconEmoji, archived, revision) VALUES ('budget:member', 'category', 'Продукты', 'EXPENSE', 'FOOD', '', 0, 1)")
+                it.execSQL(
+                    "INSERT INTO local_categories (scopeKey, id, name, kind, iconCode, iconEmoji, archived, revision) VALUES ('budget:member', 'category', 'Продукты', 'EXPENSE', 'FOOD', '', 0, 1)"
+                )
             }
             migration.runMigrationsAndValidate(name, 7, true, BUDGET_MIGRATION_6_7).use {
                 it.query("SELECT name FROM local_categories").use { rows ->
@@ -56,13 +59,27 @@ class CategoryUsagePersistenceTest {
             val api = SyntheticSyncApi()
             val env = OfflineTestEnvironment(db, api)
             env.synchronizer.synchronize()
-            db.openHelper.writableDatabase.execSQL("""
+            db.openHelper.writableDatabase.execSQL(
+                """
                 CREATE TRIGGER fail_usage BEFORE INSERT ON category_usage_events
                 BEGIN SELECT RAISE(ABORT, 'forced usage write failure'); END
-            """.trimIndent())
-            val draft = NewOperation(OperationType.Expense, api.expenseCategory.id, BigDecimal("12.00"), LocalDate.now(OfflineTestEnvironment.CLOCK), null)
+                """.trimIndent()
+            )
+            val draft =
+                NewOperation(
+                    OperationType.Expense,
+                    api.expenseCategory.id,
+                    BigDecimal("12.00"),
+                    LocalDate.now(OfflineTestEnvironment.CLOCK),
+                    null
+                )
             assertTrue(runCatching { env.repository.create(draft) }.exceptionOrNull() is SQLiteConstraintException)
-            assertTrue(env.repository.observeHistory(OperationHistoryFilter.currentMonth(LocalDate.now(OfflineTestEnvironment.CLOCK)), 10).first().items.isEmpty())
+            assertTrue(
+                env.repository.observeHistory(
+                    OperationHistoryFilter.currentMonth(LocalDate.now(OfflineTestEnvironment.CLOCK)),
+                    10
+                ).first().items.isEmpty()
+            )
             assertTrue(env.storage.pending().isEmpty())
             assertTrue(db.categoryUsage().pending(api.scope.key).isEmpty())
         }
@@ -83,7 +100,11 @@ class CategoryUsagePersistenceTest {
             var loseReceipt = true
             val cursors = mutableListOf<String?>()
             val api = object : CategoryUsageApi {
-                override suspend fun push(authorization: String, budgetId: String, batch: CategoryUsageBatch): Response<CategoryUsageReceipt> {
+                override suspend fun push(
+                    authorization: String,
+                    budgetId: String,
+                    batch: CategoryUsageBatch
+                ): Response<CategoryUsageReceipt> {
                     assertEquals("Bearer test-token", authorization)
                     assertEquals(scope.householdId, budgetId)
                     batch.events.forEach { stored.putIfAbsent(it.id, it) }
@@ -94,18 +115,29 @@ class CategoryUsagePersistenceTest {
                     return Response.success(CategoryUsageReceipt(scope.key, batch.events.map { it.id }))
                 }
 
-                override suspend fun pull(authorization: String, budgetId: String, cursor: String?): Response<CategoryUsagePage> {
+                override suspend fun pull(
+                    authorization: String,
+                    budgetId: String,
+                    cursor: String?
+                ): Response<CategoryUsagePage> {
                     cursors += cursor
-                    return Response.success(when (cursor) {
-                        null -> CategoryUsagePage(scope.key, listOf(stored.getValue(remoteId)), "1", true)
-                        "1" -> CategoryUsagePage(scope.key, listOf(stored.getValue(localId)), "2", false)
-                        else -> CategoryUsagePage(scope.key, emptyList(), "2", false)
-                    })
+                    return Response.success(
+                        when (cursor) {
+                            null -> CategoryUsagePage(scope.key, listOf(stored.getValue(remoteId)), "1", true)
+                            "1" -> CategoryUsagePage(scope.key, listOf(stored.getValue(localId)), "2", false)
+                            else -> CategoryUsagePage(scope.key, emptyList(), "2", false)
+                        }
+                    )
                 }
             }
             val tokens = object : FirebaseIdTokenProvider {
-                override fun isCurrentUser(uid: String) = uid == "uid"
-                override suspend fun idToken(uid: String, forceRefresh: Boolean) = "test-token"
+                override fun isCurrentUser(
+                    uid: String
+                ) = uid == "uid"
+                override suspend fun idToken(
+                    uid: String,
+                    forceRefresh: Boolean
+                ) = "test-token"
             }
             val sync = CategoryUsageSync(db, "uid", scope.householdId, CategoryUsageRequests(api, tokens))
             assertTrue(runCatching { sync.exchange(scope.key) {} }.exceptionOrNull() is HttpException)
@@ -121,7 +153,9 @@ class CategoryUsagePersistenceTest {
         }
     }
 
-    private suspend fun withDatabase(block: suspend (OperationDatabase) -> Unit) {
+    private suspend fun withDatabase(
+        block: suspend (OperationDatabase) -> Unit
+    ) {
         val db = Room.inMemoryDatabaseBuilder(context, OperationDatabase::class.java).build()
         try {
             block(db)

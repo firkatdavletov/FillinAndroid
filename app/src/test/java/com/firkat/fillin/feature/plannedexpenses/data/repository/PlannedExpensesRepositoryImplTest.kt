@@ -26,7 +26,13 @@ class PlannedExpensesRepositoryImplTest {
     @Test fun `once request maps frequency and omits schedule in JSON`() = runBlocking {
         val api = RecordingPlannedExpensesApi(response(emptyList()))
         val repository = PlannedExpensesRepositoryImpl(api, "test-token")
-        repository.createRule("category-id", BigDecimal("100.00"), PlannedExpenseFrequency.Once, null, LocalDate.parse("2026-11-04"))
+        repository.createRule(
+            "category-id",
+            BigDecimal("100.00"),
+            PlannedExpenseFrequency.Once,
+            null,
+            LocalDate.parse("2026-11-04")
+        )
         val dto = requireNotNull(api.createRequest)
         assertEquals("ONCE", dto.frequency)
         val json = kotlinx.serialization.json.Json { explicitNulls = false }
@@ -44,19 +50,19 @@ class PlannedExpensesRepositoryImplTest {
                         id = "future",
                         dueOn = "2026-10-10",
                         overdue = false,
-                        rule = PlannedExpenseRuleDto(id = "future-rule", version = 3),
+                        rule = PlannedExpenseRuleDto(id = "future-rule", version = 3)
                     ),
                     expense(
                         id = "overdue",
                         dueOn = "2026-10-01",
-                        overdue = true,
-                    ),
-                ),
-            ),
+                        overdue = true
+                    )
+                )
+            )
         )
         val repository = PlannedExpensesRepositoryImpl(
             api = api,
-            apiToken = "test-token",
+            apiToken = "test-token"
         )
 
         val result = repository.getPlannedExpenses()
@@ -93,11 +99,11 @@ class PlannedExpensesRepositoryImplTest {
     @Test
     fun `rejects response with mismatched currencies`() {
         val item = expense(id = "expense", dueOn = "2026-10-10", overdue = false).copy(
-            remainingAmount = PlannedExpenseMoneyDto("100000.00", "USD"),
+            remainingAmount = PlannedExpenseMoneyDto("100000.00", "USD")
         )
         val repository = PlannedExpensesRepositoryImpl(
             api = RecordingPlannedExpensesApi(response(listOf(item))),
-            apiToken = "test-token",
+            apiToken = "test-token"
         )
 
         val exception = assertThrows(PlannedExpensesException.InvalidResponse::class.java) {
@@ -117,7 +123,7 @@ class PlannedExpensesRepositoryImplTest {
             amount = BigDecimal("120000.00"),
             frequency = PlannedExpenseFrequency.Monthly,
             scheduleValue = 10,
-            startsOn = LocalDate.of(2026, 10, 10),
+            startsOn = LocalDate.of(2026, 10, 10)
         )
 
         assertEquals("Bearer owner-token", api.authorization)
@@ -127,9 +133,9 @@ class PlannedExpensesRepositoryImplTest {
                 amount = "120000.00",
                 frequency = "MONTHLY",
                 scheduleValue = 10,
-                startsOn = "2026-10-10",
+                startsOn = "2026-10-10"
             ),
-            api.createRequest,
+            api.createRequest
         )
         assertEquals("rule-id", rule.id)
         assertEquals(0L, rule.version)
@@ -143,16 +149,16 @@ class PlannedExpensesRepositoryImplTest {
         val rule = repository.updateRule(
             id = "rule-id",
             version = 4,
-            amount = BigDecimal("125000.00"),
+            amount = BigDecimal("125000.00")
         )
 
         assertEquals("rule-id", api.ruleId)
         assertEquals(
             UpdatePlannedExpenseRuleRequestDto(
                 version = 4,
-                amount = "125000.00",
+                amount = "125000.00"
             ),
-            api.updateRequest,
+            api.updateRequest
         )
         assertEquals(1L, rule.version)
     }
@@ -174,12 +180,12 @@ class PlannedExpensesRepositoryImplTest {
             closeResponse = expense(
                 id = "occurrence-id",
                 dueOn = "2026-10-10",
-                overdue = false,
+                overdue = false
             ).copy(
                 paidAmount = PlannedExpenseMoneyDto("39000.00", "KZT"),
                 remainingAmount = PlannedExpenseMoneyDto("0.00", "KZT"),
                 status = "PAID",
-                version = 2,
+                version = 2
             )
         }
         val repository = PlannedExpensesRepositoryImpl(api = api, apiToken = "owner-token")
@@ -197,7 +203,7 @@ class PlannedExpensesRepositoryImplTest {
             closeResponse = expense(
                 id = "occurrence-id",
                 dueOn = "2026-10-10",
-                overdue = false,
+                overdue = false
             ).copy(status = "PAID")
         }
         val repository = PlannedExpensesRepositoryImpl(api = api, apiToken = "owner-token")
@@ -209,17 +215,19 @@ class PlannedExpensesRepositoryImplTest {
         assertSame(PlannedExpensesException.InvalidResponse, exception)
     }
 
-    private fun response(items: List<PlannedExpenseDto>) = PlannedExpensesResponseDto(
+    private fun response(
+        items: List<PlannedExpenseDto>
+    ) = PlannedExpensesResponseDto(
         asOf = "2026-10-07",
         throughInclusive = "2026-12-31",
-        items = items,
+        items = items
     )
 
     private fun expense(
         id: String,
         dueOn: String,
         overdue: Boolean,
-        rule: PlannedExpenseRuleDto? = null,
+        rule: PlannedExpenseRuleDto? = null
     ) = PlannedExpenseDto(
         id = id,
         rule = rule,
@@ -232,13 +240,11 @@ class PlannedExpensesRepositoryImplTest {
         status = "SCHEDULED",
         version = 1,
         createdAt = "2026-10-01T04:00:00Z",
-        modifiedAt = "2026-10-07T03:00:00Z",
+        modifiedAt = "2026-10-07T03:00:00Z"
     )
 }
 
-private class RecordingPlannedExpensesApi(
-    private val response: PlannedExpensesResponseDto,
-) : PlannedExpensesApi {
+private class RecordingPlannedExpensesApi(private val response: PlannedExpensesResponseDto) : PlannedExpensesApi {
     var authorization: String? = null
     var callCount: Int = 0
     var createRequest: CreatePlannedExpenseRuleRequestDto? = null
@@ -250,7 +256,7 @@ private class RecordingPlannedExpensesApi(
     var closeRequest: ClosePlannedExpenseRequestDto? = null
 
     override suspend fun getPlannedExpenses(
-        authorization: String,
+        authorization: String
     ): PlannedExpensesResponseDto {
         callCount += 1
         this.authorization = authorization
@@ -259,34 +265,34 @@ private class RecordingPlannedExpensesApi(
 
     override suspend fun createRule(
         authorization: String,
-        request: CreatePlannedExpenseRuleRequestDto,
+        request: CreatePlannedExpenseRuleRequestDto
     ): Response<PlannedExpenseRuleDto> {
         this.authorization = authorization
         createRequest = request
         return Response.success(
             201,
-            PlannedExpenseRuleDto(id = "rule-id", version = 0),
+            PlannedExpenseRuleDto(id = "rule-id", version = 0)
         )
     }
 
     override suspend fun updateRule(
         authorization: String,
         ruleId: String,
-        request: UpdatePlannedExpenseRuleRequestDto,
+        request: UpdatePlannedExpenseRuleRequestDto
     ): Response<PlannedExpenseRuleDto> {
         this.authorization = authorization
         this.ruleId = ruleId
         updateRequest = request
         return Response.success(
             200,
-            PlannedExpenseRuleDto(id = ruleId, version = 1),
+            PlannedExpenseRuleDto(id = ruleId, version = 1)
         )
     }
 
     override suspend fun deleteRule(
         authorization: String,
         ruleId: String,
-        version: Long,
+        version: Long
     ): Response<Unit> {
         this.authorization = authorization
         this.ruleId = ruleId
@@ -297,7 +303,7 @@ private class RecordingPlannedExpensesApi(
     override suspend fun closeExpense(
         authorization: String,
         expenseId: String,
-        request: ClosePlannedExpenseRequestDto,
+        request: ClosePlannedExpenseRequestDto
     ): Response<PlannedExpenseDto> {
         this.authorization = authorization
         closedExpenseId = expenseId

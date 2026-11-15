@@ -8,8 +8,17 @@ data class CreatedInvitation(val invitation: BudgetInvitation, val code: String)
 
 interface BudgetInvitationRepository {
     val target: Flow<InvitationTarget?>
-    fun isCurrent(target: InvitationTarget): Boolean
-    suspend fun current(target: InvitationTarget): BudgetInvitation?
-    suspend fun create(target: InvitationTarget): CreatedInvitation
-    suspend fun revoke(target: InvitationTarget, invitation: BudgetInvitation)
+    fun isCurrent(
+        target: InvitationTarget
+    ): Boolean
+    suspend fun current(
+        target: InvitationTarget
+    ): BudgetInvitation?
+    suspend fun create(
+        target: InvitationTarget
+    ): CreatedInvitation
+    suspend fun revoke(
+        target: InvitationTarget,
+        invitation: BudgetInvitation
+    )
 }

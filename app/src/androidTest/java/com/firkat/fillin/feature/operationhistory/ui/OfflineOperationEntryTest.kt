@@ -1,23 +1,18 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import com.firkat.fillin.feature.categories.data.repository.OfflineCategoryUsageRepository
-import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
-import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
 import android.content.Context
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -25,12 +20,17 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.categories.data.repository.OfflineCategoryUsageRepository
+import com.firkat.fillin.feature.categories.domain.usecase.GetFrequentlyUsedCategories
+import com.firkat.fillin.feature.categories.domain.usecase.GetRecentlyUsedCategories
 import com.firkat.fillin.feature.operationhistory.data.OfflineTestEnvironment
 import com.firkat.fillin.feature.operationhistory.data.SyntheticSyncApi
 import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationSyncStatus
 import com.firkat.fillin.ui.component.FeatureScaffold
 import com.firkat.fillin.ui.theme.FillinTheme
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -42,7 +42,10 @@ class OfflineOperationEntryTest {
     @get:Rule val compose = createComposeRule()
 
     @Test fun createIncomeAndExpenseOfflineThenSynchronizeWithoutDuplicateRows() {
-        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), OperationDatabase::class.java).build()
+        val db = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext<Context>(),
+            OperationDatabase::class.java
+        ).build()
         val api = SyntheticSyncApi()
         val env = OfflineTestEnvironment(db, api)
         runBlocking { env.synchronizer.synchronize() }
@@ -50,7 +53,7 @@ class OfflineOperationEntryTest {
         val model =
             OperationHistoryViewModel(
                 env.repository,
-                OfflineTestEnvironment.CLOCK,
+                OfflineTestEnvironment.CLOCK
             )
         val store = ViewModelStore().apply { put("history", model) }
         var creator by mutableStateOf<OperationCreateViewModel?>(null)
@@ -59,21 +62,32 @@ class OfflineOperationEntryTest {
                 val state by model.uiState.collectAsStateWithLifecycle()
                 val createState = creator?.uiState?.collectAsStateWithLifecycle()?.value
                 FillinTheme {
-                    if (createState?.createEditor != null) OperationCreateScreen(createState.createEditor, createState.offline, creator!!::onEvent)
-                    else FeatureScaffold(R.string.operation_history_title) { OperationHistoryScreen(state, model::onEvent) }
+                    if (createState?.createEditor !=
+                        null
+                    ) {
+                        OperationCreateScreen(createState.createEditor, createState.offline, creator!!::onEvent)
+                    } else {
+                        FeatureScaffold(R.string.operation_history_title) {
+                            OperationHistoryScreen(state, model::onEvent)
+                        }
+                    }
                 }
             }
             compose.waitUntil { model.uiState.value.offline.initialSyncComplete }
             compose.runOnIdle { creator = creatorViewModel(env).also { store.put("creator", it) } }
             compose.onNodeWithTag("operation-create-input").performTextInput("10.01")
             compose.onNodeWithTag("operation-create-category-" + api.expenseCategory.id).performClick()
-            compose.waitUntil { creator!!.uiState.value.createEditor == null && model.uiState.value.operations.size == 1 }
+            compose.waitUntil {
+                creator!!.uiState.value.createEditor == null && model.uiState.value.operations.size == 1
+            }
             compose.onNodeWithText("Ожидает отправки").assertIsDisplayed()
             compose.runOnIdle { creator = creatorViewModel(env).also { store.put("creator", it) } }
             compose.onNodeWithTag("operation-create-type-INCOME").performScrollTo().performClick().assertIsSelected()
             compose.onNodeWithTag("operation-create-input").performTextInput("100.02")
             compose.onNodeWithTag("operation-create-category-" + api.incomeCategory.id).performClick()
-            compose.waitUntil { creator!!.uiState.value.createEditor == null && model.uiState.value.operations.size == 2 }
+            compose.waitUntil {
+                creator!!.uiState.value.createEditor == null && model.uiState.value.operations.size == 2
+            }
             assertEquals(0, api.postCount)
             compose.onAllNodesWithText("Ожидает отправки").assertCountEquals(2)
             env.connectivity.online.value = true
@@ -92,14 +106,31 @@ class OfflineOperationEntryTest {
     }
 }
 
-private fun creatorViewModel(env: OfflineTestEnvironment): OperationCreateViewModel {
+private fun creatorViewModel(
+    env: OfflineTestEnvironment
+): OperationCreateViewModel {
     val categories = object : com.firkat.fillin.feature.categories.domain.repository.CategoriesRepository {
         override fun observeCategories() = env.repository.context.map { it.categories }
         override suspend fun getCategories() = observeCategories().first()
-        override suspend fun createCategory(name: String, kind: com.firkat.fillin.feature.categories.domain.model.CategoryKind, iconCode: String) = error("Unused")
-        override suspend fun updateCategory(id: String, name: String?, iconCode: String?) = error("Unused")
-        override suspend fun deleteCategory(id: String) = error("Unused")
+        override suspend fun createCategory(
+            name: String,
+            kind: com.firkat.fillin.feature.categories.domain.model.CategoryKind,
+            iconCode: String
+        ) = error("Unused")
+        override suspend fun updateCategory(
+            id: String,
+            name: String?,
+            iconCode: String?
+        ) = error("Unused")
+        override suspend fun deleteCategory(
+            id: String
+        ) = error("Unused")
     }
     val usage = OfflineCategoryUsageRepository(env.database.categoryUsage(), categories)
-    return OperationCreateViewModel(env.repository, GetFrequentlyUsedCategories(usage), GetRecentlyUsedCategories(usage), OfflineTestEnvironment.CLOCK)
+    return OperationCreateViewModel(
+        env.repository,
+        GetFrequentlyUsedCategories(usage),
+        GetRecentlyUsedCategories(usage),
+        OfflineTestEnvironment.CLOCK
+    )
 }

@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationHistoryFilter
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationHistoryStore
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,27 +14,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Clock
-import java.time.LocalDate
-import java.time.ZoneId
 
 class OperationHistoryViewModel(
     private val history: OperationHistoryStore,
-    private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty")),
+    private val clock: Clock = Clock.system(ZoneId.of("Asia/Almaty"))
 ) : ViewModel() {
-    private data class Query(
-        val filter: OperationHistoryFilter,
-        val limit: Int = 20,
-        val id: Long = 0,
-    )
+    private data class Query(val filter: OperationHistoryFilter, val limit: Int = 20, val id: Long = 0)
 
     private val initialFilter = OperationHistoryFilter.currentMonth(LocalDate.now(clock))
     private val query = MutableStateFlow(Query(initialFilter))
     private val _uiState = MutableStateFlow(
         OperationHistoryUiState(
             filters = initialFilter,
-            isInitialLoading = true,
-        ),
+            isInitialLoading = true
+        )
     )
     val uiState: StateFlow<OperationHistoryUiState> = _uiState.asStateFlow()
 
@@ -41,7 +37,7 @@ class OperationHistoryViewModel(
                 _uiState.update {
                     it.copy(
                         offline = context,
-                        isRefreshing = context.isSyncing,
+                        isRefreshing = context.isSyncing
                     )
                 }
             }
@@ -58,7 +54,7 @@ class OperationHistoryViewModel(
                                 isInitialLoading = false,
                                 isLoadingNextPage = false,
                                 error = null,
-                                resultRequestId = requested.id,
+                                resultRequestId = requested.id
                             )
                         }
                     }
@@ -70,7 +66,7 @@ class OperationHistoryViewModel(
                             isInitialLoading = false,
                             isLoadingNextPage = false,
                             error = OperationHistoryError.Unknown,
-                            resultRequestId = requested.id,
+                            resultRequestId = requested.id
                         )
                     }
                 }
@@ -78,13 +74,18 @@ class OperationHistoryViewModel(
         }
     }
 
-    private fun updateForQuery(requested: Query, update: (OperationHistoryUiState) -> OperationHistoryUiState) {
+    private fun updateForQuery(
+        requested: Query,
+        update: (OperationHistoryUiState) -> OperationHistoryUiState
+    ) {
         _uiState.update { state ->
             if (state.requestId == requested.id && query.value == requested) update(state) else state
         }
     }
 
-    fun onEvent(event: OperationHistoryEvent) {
+    fun onEvent(
+        event: OperationHistoryEvent
+    ) {
         when (event) {
             is OperationHistoryEvent.TypeSelected -> {
                 selectFilter(_uiState.value.filters.copy(type = event.type))
@@ -118,21 +119,28 @@ class OperationHistoryViewModel(
             OperationHistoryEvent.Refresh, OperationHistoryEvent.Retry -> {
                 history.requestSync()
             }
-
         }
     }
 
     private fun selectPeriod(
         from: LocalDate,
-        to: LocalDate,
+        to: LocalDate
     ) {
         if (from > to) return
         val period = OperationHistoryFilter.currentMonth(LocalDate.now(clock))
-        _uiState.update { it.copy(isPeriodFilterVisible = false, isCustomPeriod = from != period.dateFrom || to != period.dateTo) }
+        _uiState.update {
+            it.copy(
+                isPeriodFilterVisible = false,
+                isCustomPeriod =
+                from != period.dateFrom || to != period.dateTo
+            )
+        }
         selectFilter(_uiState.value.filters.copy(dateFrom = from, dateTo = to))
     }
 
-    private fun selectFilter(filter: OperationHistoryFilter) {
+    private fun selectFilter(
+        filter: OperationHistoryFilter
+    ) {
         val state = _uiState.value
         if (state.filters == filter) return
         val changedPeriod = state.filters.dateFrom != filter.dateFrom || state.filters.dateTo != filter.dateTo
@@ -147,10 +155,9 @@ class OperationHistoryViewModel(
                 periodTotals = if (changedPeriod) null else it.periodTotals,
                 error = null,
                 requestId = request.id,
-                resultRequestId = null,
+                resultRequestId = null
             )
         }
         query.value = request
     }
-
 }

@@ -3,6 +3,7 @@ package com.firkat.fillin.feature.appaccess.data
 import android.util.AtomicFile
 import com.firkat.fillin.feature.appaccess.domain.AppAccess
 import com.firkat.fillin.feature.appaccess.domain.AppMode
+import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,7 +12,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import retrofit2.Response
 import retrofit2.http.GET
-import java.io.File
 
 @Serializable
 internal data class AccessResponse(val mode: String)
@@ -26,15 +26,19 @@ internal class BackendAppAccess(
     private val backend: String,
     private val id: () -> String,
     cacheFile: File,
-    private val elapsedMillis: () -> Long,
+    private val elapsedMillis: () -> Long
 ) : AppAccess {
     private val cache = AtomicFile(cacheFile)
     private val stateLock = Any()
     private var revision = 0L
     private val current = MutableStateFlow(
-        if (backend.isNotBlank() && runCatching { cache.readFully().decodeToString() == cacheKey() }.getOrDefault(false)) {
+        if (backend.isNotBlank() &&
+            runCatching { cache.readFully().decodeToString() == cacheKey() }.getOrDefault(false)
+        ) {
             AppMode.InternalFull
-        } else AppMode.OfflineFree,
+        } else {
+            AppMode.OfflineFree
+        }
     )
     override val mode = current.asStateFlow()
     private val inProgress = MutableStateFlow(false)
@@ -44,7 +48,9 @@ internal class BackendAppAccess(
 
     override fun installationId() = id()
 
-    override suspend fun refresh(manual: Boolean): Boolean = refreshLock.withLock {
+    override suspend fun refresh(
+        manual: Boolean
+    ): Boolean = refreshLock.withLock {
         val endpoint = api ?: return false
         val now = elapsedMillis()
         if (!manual && lastAutomaticCheck?.let { now - it < 15 * 60 * 1000L } == true) return false
@@ -78,7 +84,9 @@ internal class BackendAppAccess(
         applyMode(AppMode.OfflineFree)
     }
 
-    private fun applyMode(mode: AppMode) {
+    private fun applyMode(
+        mode: AppMode
+    ) {
         if (mode == AppMode.OfflineFree) {
             current.value = mode
             cache.delete()

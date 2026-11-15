@@ -1,8 +1,8 @@
 package com.firkat.fillin.feature.plannedincomes.domain.usecase
 
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
-import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomes
 import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomeStatus
+import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomes
 import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesException
 import com.firkat.fillin.feature.plannedincomes.domain.repository.PlannedIncomesRepository
 import java.math.BigDecimal
@@ -25,7 +25,7 @@ class PlannedIncomeCommandsTest {
         CreatePlannedIncome(repository) { today }(
             categoryId = "category-id",
             amount = BigDecimal("1300000.00"),
-            dueOn = today,
+            dueOn = today
         )
 
         assertEquals(BigDecimal("1300000.00"), repository.amount)
@@ -39,7 +39,7 @@ class PlannedIncomeCommandsTest {
                 CreatePlannedIncome(RecordingPlannedIncomesRepository()) { today }(
                     categoryId = "category-id",
                     amount = BigDecimal("100.00"),
-                    dueOn = today.minusDays(1),
+                    dueOn = today.minusDays(1)
                 )
             }
         }
@@ -54,7 +54,7 @@ class PlannedIncomeCommandsTest {
 
         UpdatePlannedIncome(repository) { today }(
             income = income,
-            amount = BigDecimal("1350000.00"),
+            amount = BigDecimal("1350000.00")
         )
 
         assertEquals("income-id", repository.id)
@@ -69,7 +69,7 @@ class PlannedIncomeCommandsTest {
             runBlocking {
                 UpdatePlannedIncome(RecordingPlannedIncomesRepository()) { today }(
                     income = income(dueOn = today.plusDays(1)),
-                    dueOn = today.minusDays(1),
+                    dueOn = today.minusDays(1)
                 )
             }
         }
@@ -82,7 +82,7 @@ class PlannedIncomeCommandsTest {
         val exception = assertThrows(PlannedIncomesException.InvalidRequest::class.java) {
             runBlocking {
                 UpdatePlannedIncome(RecordingPlannedIncomesRepository()) { today }(
-                    income = income(dueOn = today.plusDays(1)),
+                    income = income(dueOn = today.plusDays(1))
                 )
             }
         }
@@ -100,7 +100,9 @@ class PlannedIncomeCommandsTest {
         assertEquals(2L, repository.version)
     }
 
-    private fun income(dueOn: LocalDate) = PlannedIncome(
+    private fun income(
+        dueOn: LocalDate
+    ) = PlannedIncome(
         id = "income-id",
         categoryId = "category-id",
         categoryName = "Зарплата",
@@ -111,7 +113,7 @@ class PlannedIncomeCommandsTest {
         status = PlannedIncomeStatus.Scheduled,
         version = 2,
         createdAt = Instant.parse("2026-10-01T00:00:00Z"),
-        modifiedAt = Instant.parse("2026-10-01T00:00:00Z"),
+        modifiedAt = Instant.parse("2026-10-01T00:00:00Z")
     )
 }
 
@@ -124,13 +126,13 @@ private class RecordingPlannedIncomesRepository : PlannedIncomesRepository {
 
     override suspend fun getPlannedIncomes(): PlannedIncomes = PlannedIncomes(
         asOf = LocalDate.of(2026, 10, 9),
-        items = emptyList(),
+        items = emptyList()
     )
 
     override suspend fun createPlannedIncome(
         categoryId: String,
         amount: BigDecimal,
-        dueOn: LocalDate,
+        dueOn: LocalDate
     ): PlannedIncome {
         this.categoryId = categoryId
         this.amount = amount
@@ -143,7 +145,7 @@ private class RecordingPlannedIncomesRepository : PlannedIncomesRepository {
         version: Long,
         categoryId: String?,
         amount: BigDecimal?,
-        dueOn: LocalDate?,
+        dueOn: LocalDate?
     ): PlannedIncome {
         this.id = id
         this.version = version
@@ -153,12 +155,17 @@ private class RecordingPlannedIncomesRepository : PlannedIncomesRepository {
         return resultIncome(version = version + 1)
     }
 
-    override suspend fun deletePlannedIncome(id: String, version: Long) {
+    override suspend fun deletePlannedIncome(
+        id: String,
+        version: Long
+    ) {
         this.id = id
         this.version = version
     }
 
-    private fun resultIncome(version: Long) = PlannedIncome(
+    private fun resultIncome(
+        version: Long
+    ) = PlannedIncome(
         id = "income-id",
         categoryId = "category-id",
         categoryName = "Зарплата",
@@ -169,6 +176,6 @@ private class RecordingPlannedIncomesRepository : PlannedIncomesRepository {
         status = PlannedIncomeStatus.Scheduled,
         version = version,
         createdAt = Instant.parse("2026-10-01T00:00:00Z"),
-        modifiedAt = Instant.parse("2026-10-01T00:00:00Z"),
+        modifiedAt = Instant.parse("2026-10-01T00:00:00Z")
     )
 }

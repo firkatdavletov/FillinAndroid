@@ -15,10 +15,7 @@ object BudgetCapabilities {
 }
 
 @Serializable
-data class CloudBudget(
-    val scope: SyncScopeDto,
-    val capabilities: Set<String> = emptySet(),
-)
+data class CloudBudget(val scope: SyncScopeDto, val capabilities: Set<String> = emptySet())
 
 @Serializable
 data class CloudSeedCategory(
@@ -26,7 +23,7 @@ data class CloudSeedCategory(
     val name: String,
     val kind: String,
     val icon: String,
-    val dictionaryKey: String,
+    val dictionaryKey: String
 )
 
 @Serializable
@@ -37,34 +34,34 @@ data class CreateCloudBudget(
     val openingBalance: String,
     val accountingStartedOn: String,
     val categories: List<CloudSeedCategory>,
-    val currency: String? = null,
+    val currency: String? = null
 )
 
 interface CloudBudgetApi {
     @Headers(BudgetCapabilities.CLIENT_HEADER)
     @GET("api/v4/budget")
     suspend fun budget(
-        @Header("Authorization") authorization: String,
+        @Header("Authorization") authorization: String
     ): Response<CloudBudget>
 
     @Headers(BudgetCapabilities.CLIENT_HEADER)
     @POST("api/v4/legacy/budgets")
     suspend fun create(
         @Header("Authorization") authorization: String,
-        @Body request: CreateCloudBudget,
+        @Body request: CreateCloudBudget
     ): Response<CloudBudget>
 
     @Headers(BudgetCapabilities.CLIENT_HEADER)
     @GET("api/v4/sync/changes")
     suspend fun changes(
         @Header("Authorization") authorization: String,
-        @Query("cursor") cursor: String?,
+        @Query("cursor") cursor: String?
     ): SyncPageDto
 
     @Headers(BudgetCapabilities.CLIENT_HEADER)
     @POST("api/v4/sync/commands")
     suspend fun command(
         @Header("Authorization") authorization: String,
-        @Body command: BudgetSyncCommand,
+        @Body command: BudgetSyncCommand
     ): Response<BudgetCommandReceipt>
 }

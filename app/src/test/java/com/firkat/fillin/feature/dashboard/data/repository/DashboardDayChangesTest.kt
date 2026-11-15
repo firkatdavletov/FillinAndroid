@@ -1,11 +1,11 @@
 package com.firkat.fillin.feature.dashboard.data.repository
 
+import com.firkat.fillin.feature.dashboard.domain.calculation.CalculateDashboard
+import com.firkat.fillin.feature.dashboard.domain.calculation.DashboardCalculationInput
+import java.math.BigDecimal
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
-import java.math.BigDecimal
-import com.firkat.fillin.feature.dashboard.domain.calculation.CalculateDashboard
-import com.firkat.fillin.feature.dashboard.domain.calculation.DashboardCalculationInput
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -22,7 +22,9 @@ class DashboardDayChangesTest {
         var time = Instant.parse("2026-10-31T18:59:59Z")
         val clock = object : Clock() {
             override fun getZone(): ZoneId = ZoneId.of("UTC")
-            override fun withZone(zone: ZoneId): Clock = this
+            override fun withZone(
+                zone: ZoneId
+            ): Clock = this
             override fun instant(): Instant = time
         }
         val signals = mutableListOf<Unit>()
@@ -40,12 +42,14 @@ class DashboardDayChangesTest {
         var time = Instant.parse("2026-12-31T18:59:59Z")
         val clock = object : Clock() {
             override fun getZone(): ZoneId = ZoneId.of("UTC")
-            override fun withZone(zone: ZoneId): Clock = this
+            override fun withZone(
+                zone: ZoneId
+            ): Clock = this
             override fun instant(): Instant = time
         }
         val input = DashboardCalculationInput(
             time, Instant.parse("2026-11-01T00:00:00Z"), BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.ZERO,
-            emptyList(), emptyList(), emptyList(), emptyList(), emptySet(),
+            emptyList(), emptyList(), emptyList(), emptyList(), emptySet()
         )
         val forecasts = mutableListOf<com.firkat.fillin.feature.dashboard.domain.model.BalanceForecastProjection>()
         val job = launch {

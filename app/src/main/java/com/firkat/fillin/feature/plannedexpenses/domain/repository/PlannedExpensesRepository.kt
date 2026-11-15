@@ -1,16 +1,22 @@
 package com.firkat.fillin.feature.plannedexpenses.domain.repository
 
-import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenses
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseFrequency
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseRule
+import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenses
 import java.math.BigDecimal
 import java.time.LocalDate
 
 interface PlannedExpensesRepository {
     suspend fun accountingStart(): LocalDate = LocalDate.MIN
-    suspend fun saveDetails(rule: com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule?,
-        name: String, categoryId: String, amount: BigDecimal, frequency: PlannedExpenseFrequency,
-        scheduleValue: Int?, startsOn: LocalDate) { throw UnsupportedOperationException("Full rule editing requires offline storage") }
+    suspend fun saveDetails(
+        rule: com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule?,
+        name: String,
+        categoryId: String,
+        amount: BigDecimal,
+        frequency: PlannedExpenseFrequency,
+        scheduleValue: Int?,
+        startsOn: LocalDate
+    ): Unit = throw UnsupportedOperationException("Full rule editing requires offline storage")
 
     suspend fun getPlannedExpenses(): PlannedExpenses
 
@@ -19,18 +25,24 @@ interface PlannedExpensesRepository {
         amount: BigDecimal,
         frequency: PlannedExpenseFrequency,
         scheduleValue: Int?,
-        startsOn: LocalDate,
+        startsOn: LocalDate
     ): PlannedExpenseRule
 
     suspend fun updateRule(
         id: String,
         version: Long,
-        amount: BigDecimal,
+        amount: BigDecimal
     ): PlannedExpenseRule
 
-    suspend fun deleteRule(id: String, version: Long)
+    suspend fun deleteRule(
+        id: String,
+        version: Long
+    )
 
-    suspend fun closeExpense(id: String, version: Long)
+    suspend fun closeExpense(
+        id: String,
+        version: Long
+    )
 }
 
 sealed class PlannedExpensesException : Exception() {

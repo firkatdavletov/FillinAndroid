@@ -23,13 +23,13 @@ data class ProfileUiState(
     val busy: Boolean = false,
     val error: String? = null,
     val cloudAllowed: Boolean = false,
-    val fullAccess: Boolean = true,
+    val fullAccess: Boolean = true
 )
 
 class ProfileViewModel(
     private val budgets: ProfileBudgetsRepository,
     private val auth: AuthRepository,
-    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(ProfileUiState(fullAccess = access?.cloudAllowed != false))
     val state = mutableState.asStateFlow()
@@ -42,12 +42,35 @@ class ProfileViewModel(
         viewModelScope.launch {
             reload.collectLatest {
                 budgets.observe().catch { failure ->
-                    mutableState.update { it.copy(loading = false, error = setupError(failure as? Exception ?: Exception(failure))) }
-                }.collect { rows -> mutableState.update { it.copy(budgets = rows, loading = false, expandedBudgetId = it.expandedBudgetId?.takeIf { id -> rows.any { row -> row.id == id && row.canManage } }) } }
+                    mutableState.update {
+                        it.copy(
+                            loading = false,
+                            error = setupError(
+                                failure as? Exception ?: Exception(failure)
+                            )
+                        )
+                    }
+                }.collect { rows ->
+                    mutableState.update {
+                        it.copy(
+                            budgets = rows,
+                            loading = false,
+                            expandedBudgetId = it.expandedBudgetId?.takeIf { id ->
+                                rows.any { row ->
+                                    row.id ==
+                                        id &&
+                                        row.canManage
+                                }
+                            }
+                        )
+                    }
+                }
             }
         }
         viewModelScope.launch {
-            val mode = access?.mode ?: kotlinx.coroutines.flow.flowOf(com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull)
+            val mode =
+                access?.mode
+                    ?: kotlinx.coroutines.flow.flowOf(com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull)
             var previousSession: AuthSession? = null
             kotlinx.coroutines.flow.combine(auth.session, mode, ::Pair).collectLatest { (session, currentMode) ->
                 val full = currentMode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull
@@ -71,35 +94,61 @@ class ProfileViewModel(
             try {
                 budgets.refresh()
                 mutableState.update { it.copy(error = null) }
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { mutableState.update { it.copy(error = setupError(failure)) } }
+            } catch (
+                cancelled: CancellationException
+            ) {
+                throw cancelled
+            } catch (
+                failure: Exception
+            ) {
+                mutableState.update { it.copy(error = setupError(failure)) }
+            }
         }
     }
 
-    fun closeBudgetActions() { mutableState.update { it.copy(expandedBudgetId = null) } }
+    fun closeBudgetActions() {
+        mutableState.update { it.copy(expandedBudgetId = null) }
+    }
 
-    fun toggleBudgetActions(id: String) {
+    fun toggleBudgetActions(
+        id: String
+    ) {
         mutableState.update { state ->
-            if (state.busy || state.budgets.none { it.id == id && it.canManage }) state
-            else state.copy(expandedBudgetId = id.takeUnless { state.expandedBudgetId == id })
+            if (state.busy || state.budgets.none { it.id == id && it.canManage }) {
+                state
+            } else {
+                state.copy(expandedBudgetId = id.takeUnless { state.expandedBudgetId == id })
+            }
         }
     }
 
-    fun selectBudget(id: String) {
+    fun selectBudget(
+        id: String
+    ) {
         closeBudgetActions()
         if (state.value.budgets.none { it.id == id && !it.selected }) return
         perform(requiresCloud = id.startsWith("cloud:")) { budgets.select(id) }
     }
 
-    private fun perform(requiresCloud: Boolean = false, block: suspend () -> Unit) {
+    private fun perform(
+        requiresCloud: Boolean = false,
+        block: suspend () -> Unit
+    ) {
         if (state.value.busy) return
         cloudAction = requiresCloud
         mutableState.update { it.copy(busy = true, error = null) }
         action = viewModelScope.launch {
-            try { block() }
-            catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { mutableState.update { it.copy(error = setupError(failure)) } }
-            finally {
+            try {
+                block()
+            } catch (
+                cancelled: CancellationException
+            ) {
+                throw cancelled
+            } catch (
+                failure: Exception
+            ) {
+                mutableState.update { it.copy(error = setupError(failure)) }
+            } finally {
                 cloudAction = false
                 mutableState.update { it.copy(busy = false) }
             }

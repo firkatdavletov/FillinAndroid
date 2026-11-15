@@ -15,13 +15,10 @@ data class Dashboard(
     val upcomingPayments: List<UpcomingPayment>,
     val todayVariableNetExpenses: Money,
     val balanceForecast: BalanceForecastProjection,
-    val dailyLimit: com.firkat.fillin.feature.dailylimit.domain.DailyLimitResult? = null,
+    val dailyLimit: com.firkat.fillin.feature.dailylimit.domain.DailyLimitResult? = null
 )
 
-data class Money(
-    val amount: BigDecimal,
-    val currency: String,
-)
+data class Money(val amount: BigDecimal, val currency: String)
 
 data class FreeMoney(
     val amount: Money,
@@ -31,43 +28,32 @@ data class FreeMoney(
     val goalReserve: Money,
     val reservedTotal: Money,
     val daysRemaining: Int,
-    val safeDailyLimit: Money,
+    val safeDailyLimit: Money
 )
 
 enum class FreeMoneyState {
     Available,
     NoFreeFunds,
     Deficit,
-    Unknown,
+    Unknown
 }
 
-data class MonthActuals(
-    val income: Money,
-    val expenses: Money,
-    val refunds: Money,
-    val netExpenses: Money,
-)
+data class MonthActuals(val income: Money, val expenses: Money, val refunds: Money, val netExpenses: Money)
 
-data class CashFlow(
-    val net: Money,
-)
+data class CashFlow(val net: Money)
 
-data class BudgetExecution(
-    val basis: BudgetBasis,
-    val total: BudgetProgress,
-    val variable: BudgetProgress,
-)
+data class BudgetExecution(val basis: BudgetBasis, val total: BudgetProgress, val variable: BudgetProgress)
 
 enum class BudgetBasis {
     Forecast,
-    Unknown,
+    Unknown
 }
 
 data class BudgetProgress(
     val spent: Money?,
     val plannedAmount: Money?,
     val usedPercent: BigDecimal?,
-    val paceStatus: PaceStatus,
+    val paceStatus: PaceStatus
 )
 
 enum class PaceStatus {
@@ -75,30 +61,18 @@ enum class PaceStatus {
     OnPlan,
     BelowPlan,
     InsufficientData,
-    Unknown,
+    Unknown
 }
 
 data class Forecast(
     val throughInclusive: LocalDate,
     val estimateSource: String,
     val base: ForecastScenario,
-    val cautious: ForecastScenario?,
+    val cautious: ForecastScenario?
 )
 
-data class ForecastScenario(
-    val expectedIncome: Money,
-    val expectedExpenses: Money,
-    val endingBalance: Money,
-)
+data class ForecastScenario(val expectedIncome: Money, val expectedExpenses: Money, val endingBalance: Money)
 
-data class ExpenseCategory(
-    val name: String,
-    val amount: Money,
-    val sharePercent: BigDecimal,
-)
+data class ExpenseCategory(val name: String, val amount: Money, val sharePercent: BigDecimal)
 
-data class UpcomingPayment(
-    val categoryName: String,
-    val dueOn: LocalDate,
-    val remainingAmount: Money,
-)
+data class UpcomingPayment(val categoryName: String, val dueOn: LocalDate, val remainingAmount: Money)

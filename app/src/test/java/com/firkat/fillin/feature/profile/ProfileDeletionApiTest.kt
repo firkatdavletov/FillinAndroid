@@ -17,7 +17,9 @@ class ProfileDeletionApiTest {
             server.enqueue(MockResponse().setResponseCode(202).setBody("""{"status":"PENDING"}"""))
             server.enqueue(MockResponse().setBody("""{"status":"COMPLETED"}"""))
             val api = Retrofit.Builder().baseUrl(server.url("/"))
-                .addConverterFactory(Json.asConverterFactory("application/json".toMediaType())).build().create(ProfileDeletionApi::class.java)
+                .addConverterFactory(
+                    Json.asConverterFactory("application/json".toMediaType())
+                ).build().create(ProfileDeletionApi::class.java)
             val secret = newDeletionSecret()
             assertEquals(DeletionStatus.PENDING, api.delete("Bearer synthetic", secret).body()!!.status)
             assertEquals(DeletionStatus.COMPLETED, api.status(secret).body()!!.status)

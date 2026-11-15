@@ -6,9 +6,14 @@ import com.firkat.fillin.feature.dashboard.domain.model.Money
 import java.math.BigDecimal
 
 class CashFlowForecaster {
-    fun forecast(input: DailyLimitInput, averageDailySpending: Money?): CashFlowForecast {
-        require(averageDailySpending == null ||
-            (averageDailySpending.currency == input.balance.currency && averageDailySpending.amount.signum() >= 0))
+    fun forecast(
+        input: DailyLimitInput,
+        averageDailySpending: Money?
+    ): CashFlowForecast {
+        require(
+            averageDailySpending == null ||
+                (averageDailySpending.currency == input.balance.currency && averageDailySpending.amount.signum() >= 0)
+        )
         val days = calendar(input, horizonEnd(input))
         val limit = DailyLimitCalculator().calculate(input, days)
         val limitPoints = limit.projectedDailyBalances.map {
@@ -17,23 +22,27 @@ class CashFlowForecaster {
         val pacePoints = averageDailySpending?.let { average ->
             val remaining = (average.amount - input.todayVariableNet.amount.max(BigDecimal.ZERO)).max(BigDecimal.ZERO)
             days.mapIndexed { index, day ->
-                ForecastPoint(day.date,
-                    Money((day.withoutDailySpending.amount - remaining - average.amount * BigDecimal(index)).setScale(2), input.balance.currency))
+                ForecastPoint(
+                    day.date,
+                    Money(
+                        (day.withoutDailySpending.amount - remaining - average.amount * BigDecimal(index)).setScale(2),
+                        input.balance.currency
+                    )
+                )
             }
         }
-        return CashFlowForecast(limit, BalanceForecastProjection(
-            input.today, days.last().date, limitPoints, pacePoints == null, pacePoints,
-            input.reserve, limit.warnings, limit.dependsOnPlannedIncome,
-            currentBalance = input.balance, averageDailyExpenses = averageDailySpending,
-            dailyLimit = limit.dailyTarget, remainingToday = limit.remainingToday,
-            nextDaysLimit = limit.nextDaysLimit, events = days.flatMap { it.events },
-            structuralDeficitDate = days.firstOrNull { it.withoutDailySpending.amount.signum() < 0 }?.date,
-        ))
+        return CashFlowForecast(
+            limit,
+            BalanceForecastProjection(
+                input.today, days.last().date, limitPoints, pacePoints == null, pacePoints,
+                input.reserve, limit.warnings, limit.dependsOnPlannedIncome,
+                currentBalance = input.balance, averageDailyExpenses = averageDailySpending,
+                dailyLimit = limit.dailyTarget, remainingToday = limit.remainingToday,
+                nextDaysLimit = limit.nextDaysLimit, events = days.flatMap { it.events },
+                structuralDeficitDate = days.firstOrNull { it.withoutDailySpending.amount.signum() < 0 }?.date
+            )
+        )
     }
 }
 
-data class CashFlowForecast(
-    val dailyLimit: DailyLimitResult,
-    val projection: BalanceForecastProjection,
-)
-
+data class CashFlowForecast(val dailyLimit: DailyLimitResult, val projection: BalanceForecastProjection)

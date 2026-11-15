@@ -25,21 +25,21 @@ class AddOperationRepositoryImplTest {
                         name = "Продукты",
                         kind = "EXPENSE",
                         iconCode = "FOOD",
-                        emoji = "🍔",
+                        emoji = "🍔"
                     ),
                     category(
                         id = "salary",
                         name = "Зарплата",
                         kind = "INCOME",
                         iconCode = "SALARY",
-                        emoji = "💰",
-                    ),
-                ),
-            ),
+                        emoji = "💰"
+                    )
+                )
+            )
         )
         val repository = CategoriesRepositoryImpl(
             api = api,
-            apiToken = "test-token",
+            apiToken = "test-token"
         )
 
         val result = repository.getCategories()
@@ -76,12 +76,12 @@ class AddOperationRepositoryImplTest {
                             name = "Категория",
                             kind = "TRANSFER",
                             iconCode = "OTHER",
-                            emoji = "📦",
-                        ),
-                    ),
-                ),
+                            emoji = "📦"
+                        )
+                    )
+                )
             ),
-            apiToken = "test-token",
+            apiToken = "test-token"
         )
 
         val exception = assertThrows(CategoriesException.InvalidResponse::class.java) {
@@ -99,7 +99,7 @@ class AddOperationRepositoryImplTest {
         val result = repository.createCategory(
             name = "Кафе",
             kind = CategoryKind.Expense,
-            iconCode = "FOOD",
+            iconCode = "FOOD"
         )
 
         assertEquals("Bearer test-token", api.authorization)
@@ -107,9 +107,9 @@ class AddOperationRepositoryImplTest {
             CreateCategoryRequestDto(
                 name = "Кафе",
                 kind = "EXPENSE",
-                icon = "FOOD",
+                icon = "FOOD"
             ),
-            api.createRequest,
+            api.createRequest
         )
         assertEquals("Кафе", result.name)
     }
@@ -122,13 +122,13 @@ class AddOperationRepositoryImplTest {
         repository.updateCategory(
             id = "category-id",
             name = "Рестораны",
-            iconCode = null,
+            iconCode = null
         )
 
         assertEquals("category-id", api.categoryId)
         assertEquals(
             UpdateCategoryRequestDto(name = "Рестораны"),
-            api.updateRequest,
+            api.updateRequest
         )
     }
 
@@ -149,18 +149,16 @@ class AddOperationRepositoryImplTest {
         name: String,
         kind: String,
         iconCode: String,
-        emoji: String,
+        emoji: String
     ) = CategoryDto(
         id = id,
         name = name,
         kind = kind,
-        icon = CategoryIconDto(code = iconCode, emoji = emoji),
+        icon = CategoryIconDto(code = iconCode, emoji = emoji)
     )
 }
 
-private class RecordingCategoriesApi(
-    private val response: CategoriesResponseDto,
-) : CategoriesApi {
+private class RecordingCategoriesApi(private val response: CategoriesResponseDto) : CategoriesApi {
     var authorization: String? = null
     var callCount: Int = 0
     var createRequest: CreateCategoryRequestDto? = null
@@ -169,7 +167,7 @@ private class RecordingCategoriesApi(
     var deleteCallCount: Int = 0
 
     override suspend fun getCategories(
-        authorization: String,
+        authorization: String
     ): CategoriesResponseDto {
         callCount += 1
         this.authorization = authorization
@@ -178,7 +176,7 @@ private class RecordingCategoriesApi(
 
     override suspend fun createCategory(
         authorization: String,
-        request: CreateCategoryRequestDto,
+        request: CreateCategoryRequestDto
     ): CategoryDto {
         this.authorization = authorization
         createRequest = request
@@ -187,14 +185,14 @@ private class RecordingCategoriesApi(
             name = request.name,
             kind = request.kind,
             iconCode = request.icon,
-            emoji = "🍔",
+            emoji = "🍔"
         )
     }
 
     override suspend fun updateCategory(
         authorization: String,
         categoryId: String,
-        request: UpdateCategoryRequestDto,
+        request: UpdateCategoryRequestDto
     ): CategoryDto {
         this.authorization = authorization
         this.categoryId = categoryId
@@ -204,13 +202,13 @@ private class RecordingCategoriesApi(
             name = request.name ?: "Категория",
             kind = "EXPENSE",
             iconCode = request.icon ?: "FOOD",
-            emoji = "🍔",
+            emoji = "🍔"
         )
     }
 
     override suspend fun deleteCategory(
         authorization: String,
-        categoryId: String,
+        categoryId: String
     ) {
         this.authorization = authorization
         this.categoryId = categoryId
@@ -222,11 +220,11 @@ private class RecordingCategoriesApi(
         name: String,
         kind: String,
         iconCode: String,
-        emoji: String,
+        emoji: String
     ) = CategoryDto(
         id = id,
         name = name,
         kind = kind,
-        icon = CategoryIconDto(code = iconCode, emoji = emoji),
+        icon = CategoryIconDto(code = iconCode, emoji = emoji)
     )
 }

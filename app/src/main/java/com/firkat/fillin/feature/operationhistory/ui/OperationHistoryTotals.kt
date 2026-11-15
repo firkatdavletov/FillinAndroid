@@ -53,7 +53,7 @@ internal fun OperationHistoryTotals(
     selectedType: OperationType?,
     isLoading: Boolean,
     onTypeSelected: (OperationType?) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val currency = totals?.currency ?: "KZT"
     AnimatedContent(
@@ -61,17 +61,19 @@ internal fun OperationHistoryTotals(
         modifier = modifier.fillMaxWidth().heightIn(min = TotalsMinHeight).testTag("history-type-totals"),
         contentAlignment = Alignment.CenterStart,
         transitionSpec = {
-            (fadeIn(tween(HistoryFadeInMillis, delayMillis = HistoryFadeOutMillis)) togetherWith
-                fadeOut(tween(HistoryFadeOutMillis))).using(
-                SizeTransform { _, _ -> tween(HistoryFadeOutMillis + HistoryFadeInMillis) },
+            (
+                fadeIn(tween(HistoryFadeInMillis, delayMillis = HistoryFadeOutMillis)) togetherWith
+                    fadeOut(tween(HistoryFadeOutMillis))
+                ).using(
+                SizeTransform { _, _ -> tween(HistoryFadeOutMillis + HistoryFadeInMillis) }
             )
         },
-        label = "History type totals",
+        label = "History type totals"
     ) { type ->
         if (type == null) {
             Row(
                 modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OperationType.entries.forEach { cardType ->
                     OperationTotalCard(
@@ -81,7 +83,7 @@ internal fun OperationHistoryTotals(
                         isLoading = isLoading,
                         enabled = selectedType == null,
                         onClick = { onTypeSelected(cardType) },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
@@ -92,7 +94,7 @@ internal fun OperationHistoryTotals(
                 currency = currency,
                 isLoading = isLoading,
                 enabled = selectedType == type,
-                onReset = { onTypeSelected(null) },
+                onReset = { onTypeSelected(null) }
             )
         }
     }
@@ -106,7 +108,7 @@ private fun OperationTotalCard(
     isLoading: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
     val shape = MaterialTheme.shapes.medium
@@ -118,17 +120,23 @@ private fun OperationTotalCard(
             .selectable(selected = false, enabled = enabled, role = Role.Button, onClick = onClick),
         shape = shape,
         color = colors.surfaceContainer,
-        contentColor = colors.onSurfaceVariant,
+        contentColor = colors.onBackground
     ) {
         Column(
             modifier = Modifier.heightIn(min = TotalsMinHeight).padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
                 text = stringResource(
-                    if (type == OperationType.Expense) R.string.operation_totals_expenses else R.string.operation_totals_incomes,
+                    if (type ==
+                        OperationType.Expense
+                    ) {
+                        R.string.operation_totals_expenses
+                    } else {
+                        R.string.operation_totals_incomes
+                    }
                 ),
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelLarge
             )
             TotalAmount(type, amount, currency, isLoading, MaterialTheme.typography.titleMedium)
         }
@@ -143,33 +151,39 @@ private fun SelectedOperationTotal(
     isLoading: Boolean,
     enabled: Boolean,
     onReset: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier.fillMaxWidth().heightIn(min = TotalsMinHeight).testTag("history-selected-total"),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
             modifier = Modifier.weight(1f).padding(vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             TotalAmount(type, amount, currency, isLoading, MaterialTheme.typography.titleLarge)
             Text(
                 text = stringResource(
-                    if (type == OperationType.Expense) R.string.categories_kind_expense else R.string.categories_kind_income,
+                    if (type ==
+                        OperationType.Expense
+                    ) {
+                        R.string.categories_kind_expense
+                    } else {
+                        R.string.categories_kind_income
+                    }
                 ),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         IconButton(
             onClick = onReset,
             enabled = enabled,
-            modifier = Modifier.testTag("history-type-reset"),
+            modifier = Modifier.testTag("history-type-reset")
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_close),
-                contentDescription = stringResource(R.string.operation_totals_reset_type),
+                contentDescription = stringResource(R.string.operation_totals_reset_type)
             )
         }
     }
@@ -182,19 +196,19 @@ private fun TotalAmount(
     currency: String,
     isLoading: Boolean,
     style: TextStyle,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     if (isLoading && amount == null) {
         CircularProgressIndicator(
             modifier = modifier.size(24.dp).testTag("history-totals-loading-${type.apiValue}"),
-            strokeWidth = 2.dp,
+            strokeWidth = 2.dp
         )
     } else {
         Text(
             text = amount?.let { formatMoney(it, currency) } ?: "—",
             modifier = modifier.testTag("history-total-${type.apiValue}"),
             style = style,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }

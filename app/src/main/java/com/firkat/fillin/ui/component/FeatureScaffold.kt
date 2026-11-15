@@ -12,7 +12,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -27,7 +26,7 @@ fun FeatureScaffold(
     @StringRes titleResource: Int,
     onNavigateBack: (() -> Unit)? = null,
     navigateBackEnabled: Boolean = true,
-    content: @Composable () -> Unit,
+    content: @Composable () -> Unit
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -38,11 +37,11 @@ fun FeatureScaffold(
                     onNavigateBack?.let { navigateBack ->
                         IconButton(
                             onClick = navigateBack,
-                            enabled = navigateBackEnabled,
+                            enabled = navigateBackEnabled
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_arrow_back),
-                                contentDescription = stringResource(R.string.navigation_back),
+                                contentDescription = stringResource(R.string.navigation_back)
                             )
                         }
                     }
@@ -51,13 +50,13 @@ fun FeatureScaffold(
                     containerColor = MaterialTheme.saldomiDesignColors.background
                 )
             )
-        },
+        }
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .consumeWindowInsets(innerPadding),
+                .consumeWindowInsets(innerPadding)
         ) {
             content()
         }

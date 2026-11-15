@@ -14,7 +14,7 @@ class PlannedIncomeSummaryTest {
         val items = listOf(
             income("1", "1300000.00", "KZT"),
             income("2", "150000.50", "KZT"),
-            income("3", "20.00", "USD"),
+            income("3", "20.00", "USD")
         )
 
         val totals = plannedIncomeTotals(items)
@@ -22,16 +22,16 @@ class PlannedIncomeSummaryTest {
         assertEquals(
             listOf(
                 PlannedIncomeTotal(BigDecimal("1450000.50"), "KZT"),
-                PlannedIncomeTotal(BigDecimal("20.00"), "USD"),
+                PlannedIncomeTotal(BigDecimal("20.00"), "USD")
             ),
-            totals,
+            totals
         )
     }
 
     private fun income(
         id: String,
         plannedAmount: String,
-        currency: String,
+        currency: String
     ) = PlannedIncome(
         id = id,
         categoryId = "category",
@@ -43,6 +43,6 @@ class PlannedIncomeSummaryTest {
         status = PlannedIncomeStatus.Scheduled,
         version = 0,
         createdAt = Instant.EPOCH,
-        modifiedAt = Instant.EPOCH,
+        modifiedAt = Instant.EPOCH
     )
 }

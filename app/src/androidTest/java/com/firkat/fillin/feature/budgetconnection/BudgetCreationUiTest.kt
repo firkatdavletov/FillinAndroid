@@ -21,14 +21,23 @@ class BudgetCreationUiTest {
     private val env = BudgetConnectionDeviceTest.Environment(server)
     private val models = ViewModelStore()
     private fun show(): BudgetConnectionViewModel {
-        runBlocking { env.auth.login("owner"); env.manager.restore() }
+        runBlocking {
+            env.auth.login("owner")
+            env.manager.restore()
+        }
         val model = BudgetConnectionViewModel(env.auth, env.connection, env.creation)
         models.put("creation", model)
-        compose.setContent { FillinTheme { Column(Modifier.verticalScroll(rememberScrollState())) { BudgetConnectionSection(model) } } }
+        compose.setContent {
+            FillinTheme { Column(Modifier.verticalScroll(rememberScrollState())) { BudgetConnectionSection(model) } }
+        }
         compose.waitUntil(5000) { model.state.value.loaded }
         return model
     }
-    @After fun cleanup() { models.clear(); env.close() }
+
+    @After fun cleanup() {
+        models.clear()
+        env.close()
+    }
 
     @Test fun firstBudgetFormValidatesInputAndCreatesOwnerBudget() {
         val model = show()
@@ -40,7 +49,10 @@ class BudgetCreationUiTest {
         assertTrue(server.creations.isEmpty())
         compose.onNodeWithText("Начальный баланс, ₸").performScrollTo().performTextReplacement("125,50")
         compose.onNodeWithText("Создать облачный бюджет").performScrollTo().performClick()
-        compose.waitUntil(5000) { env.manager.active.value?.profile?.kind == BudgetProfileKind.CLOUD && !model.state.value.creating }
+        compose.waitUntil(5000) {
+            env.manager.active.value?.profile?.kind == BudgetProfileKind.CLOUD &&
+                !model.state.value.creating
+        }
         assertEquals("125.50", server.openingBalance)
         assertEquals("Новый бюджет", server.budgetName)
         assertNull(model.state.value.draft)
@@ -56,7 +68,10 @@ class BudgetCreationUiTest {
         compose.waitUntil(5000) { model.state.value.pending != null && !model.state.value.creating }
         compose.onNodeWithText("Название бюджета").assertIsNotEnabled()
         compose.onNodeWithText("Продолжить создание").performScrollTo().performClick()
-        compose.waitUntil(5000) { env.manager.active.value?.profile?.kind == BudgetProfileKind.CLOUD && !model.state.value.creating }
+        compose.waitUntil(5000) {
+            env.manager.active.value?.profile?.kind == BudgetProfileKind.CLOUD &&
+                !model.state.value.creating
+        }
         assertEquals(1, server.creations.size)
         runBlocking { assertNull(env.creation.pending("owner")) }
     }

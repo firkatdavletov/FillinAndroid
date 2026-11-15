@@ -24,7 +24,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
 import com.firkat.fillin.ui.theme.FillinTheme
-import com.firkat.fillin.ui.theme.saldomiDesignColors
 
 /** Shared modal container. The caller owns its presence and supplies feature content. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,7 +33,7 @@ internal fun SaldomiBottomSheet(
     modifier: Modifier = Modifier,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     properties: ModalBottomSheetProperties = ModalBottomSheetProperties(),
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -42,8 +41,8 @@ internal fun SaldomiBottomSheet(
         sheetState = sheetState,
         properties = properties,
         content = content,
-        containerColor = MaterialTheme.colorScheme.background,
-        tonalElevation = 8.dp,
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        tonalElevation = 64.dp,
         dragHandle = {
             Box(
                 modifier = Modifier
@@ -51,7 +50,7 @@ internal fun SaldomiBottomSheet(
                     .height(4.dp)
                     .width(32.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.surfaceTint)
+                    .background(MaterialTheme.colorScheme.onSecondaryContainer)
             ) { }
         }
     )
@@ -68,7 +67,7 @@ private fun SaldomiBottomSheetPreview() {
         SaldomiBottomSheet(onDismissRequest = {}) {
             Text(
                 text = stringResource(R.string.edit_operation_title),
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                modifier = Modifier.fillMaxWidth().padding(24.dp)
             )
         }
     }

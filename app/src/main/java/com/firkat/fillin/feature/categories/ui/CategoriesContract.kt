@@ -6,7 +6,7 @@ data class CategoriesUiState(
     val items: List<Category> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
-    val error: CategoriesError? = null,
+    val error: CategoriesError? = null
 )
 
 sealed interface CategoriesEvent {

@@ -4,24 +4,20 @@ import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import com.firkat.fillin.feature.categories.domain.model.Category
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,50 +29,68 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
+import com.firkat.fillin.ui.component.OperationTypeTabs
 import com.firkat.fillin.ui.component.SaldomiSnackbarHost
 import com.firkat.fillin.ui.component.SnackbarType
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
 import com.firkat.fillin.ui.theme.FillinTheme
 import com.firkat.fillin.ui.theme.saldomiDesignColors
+import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import org.koin.compose.viewmodel.koinViewModel
-import java.time.LocalDate
 
 @Composable
 internal fun OperationCreateRoute(
     onBack: () -> Unit,
-    onCreated: (com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult) -> Unit = { onBack() },
-    viewModel: OperationCreateViewModel = koinViewModel(),
+    onCreated: (
+        com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult
+    ) -> Unit = { onBack() },
+    viewModel: OperationCreateViewModel = koinViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val lastEditor = remember { mutableStateOf(state.createEditor) }
+    SideEffect {
+        // Keep the form visible until NavDisplay finishes the exit transition.
+        state.createEditor?.let { lastEditor.value = it }
+    }
     LaunchedEffect(state.createEditor == null) {
-        if (state.createEditor == null) state.created?.let(onCreated) ?: onBack()
+        if (state.createEditor == null) {
+            keyboard?.hide()
+            state.created?.let(onCreated) ?: onBack()
+        }
     }
     OperationCreateScreen(
-        editor = state.createEditor,
+        editor = state.createEditor ?: lastEditor.value,
         context = state.offline,
-        onEvent = viewModel::onEvent,
+        onEvent = viewModel::onEvent
     )
 }
 
@@ -86,7 +100,7 @@ internal fun OperationCreateScreen(
     editor: OperationCreateUiState?,
     context: OfflineHistoryContext,
     onEvent: (OperationCreateEvent) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     BackHandler { onEvent(OperationCreateEvent.CreateClosed) }
     Scaffold(
@@ -98,21 +112,23 @@ internal fun OperationCreateScreen(
                 navigationIcon = {
                     IconButton(
                         onClick = { onEvent(OperationCreateEvent.CreateClosed) },
-                        enabled = editor?.isSaving != true,
+                        enabled = editor?.isSaving != true
                     ) {
                         Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.navigation_back))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.saldomiDesignColors.background),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.saldomiDesignColors.background
+                )
             )
-        },
+        }
     ) { padding ->
         editor?.let {
             OperationCreateForm(
                 editor = it,
                 context = context,
                 onEvent = onEvent,
-                modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+                modifier = Modifier.padding(padding).consumeWindowInsets(padding)
             )
         }
     }
@@ -126,7 +142,7 @@ private fun OperationCreateScreenPreview() {
         OperationCreateScreen(
             editor = OperationCreateUiState(occurredOn = LocalDate.of(2026, 10, 24)),
             context = OfflineHistoryContext(categories = previewOperationCategories()),
-            onEvent = {},
+            onEvent = {}
         )
     }
 }
@@ -138,7 +154,7 @@ private fun OperationCreateCompactPreview() {
         OperationCreateScreen(
             OperationCreateUiState(input = "1200", occurredOn = LocalDate.of(2026, 10, 24)),
             OfflineHistoryContext(categories = previewOperationCategories()),
-            {},
+            {}
         )
     }
 }
@@ -148,7 +164,7 @@ private fun OperationCreateForm(
     editor: OperationCreateUiState,
     context: OfflineHistoryContext,
     onEvent: (OperationCreateEvent) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val categories =
         context.categories.filter {
@@ -168,7 +184,7 @@ private fun OperationCreateForm(
                     OperationCreateFeedback.InvalidCategory -> R.string.operation_create_invalid_category
                     OperationCreateFeedback.Unavailable -> R.string.operation_create_unavailable
                     OperationCreateFeedback.SaveFailed -> R.string.operation_create_save_failed
-                },
+                }
             )
         }
     LaunchedEffect(Unit) {
@@ -202,10 +218,15 @@ private fun OperationCreateForm(
                 modifier = Modifier.fillMaxSize().testTag("operation-create-category-list"),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    OperationTypeTabs(editor.type, !editor.isSaving, { onEvent(OperationCreateEvent.CreateTypeChanged(it)) })
+                    OperationTypeTabs(
+                        type = editor.type,
+                        enabled = !editor.isSaving,
+                        onTypeClick = { onEvent(OperationCreateEvent.CreateTypeChanged(it)) },
+                        testTagPrefix = "operation-create-type"
+                    )
                 }
                 item(key = AMOUNT_ITEM_KEY, span = { GridItemSpan(maxLineSpan) }) {
                     OperationAmountInput(
@@ -213,17 +234,30 @@ private fun OperationCreateForm(
                         !editor.isSaving,
                         editor.inputError != null,
                         { onEvent(OperationCreateEvent.CreateInputChanged(it)) },
-                        Modifier.fillMaxWidth().focusRequester(focus).testTag("operation-create-input"),
+                        Modifier.fillMaxWidth().focusRequester(focus).testTag("operation-create-input")
                     )
                 }
-                categorySection(R.string.operation_create_frequent, "frequent",
-                    editor.frequentlyUsed.filter { it.id in available }, !editor.isSaving, onCategoryClick)
-                categorySection(R.string.operation_create_recent, "recent",
-                    editor.recentlyUsed.filter { it.id in available }, !editor.isSaving, onCategoryClick)
+                categorySection(
+                    R.string.operation_create_frequent,
+                    "frequent",
+                    editor.frequentlyUsed.filter { it.id in available },
+                    !editor.isSaving,
+                    onCategoryClick
+                )
+                categorySection(
+                    R.string.operation_create_recent,
+                    "recent",
+                    editor.recentlyUsed.filter { it.id in available },
+                    !editor.isSaving,
+                    onCategoryClick
+                )
                 categorySection(R.string.operation_create_all, "all", categories, !editor.isSaving, onCategoryClick)
                 if (categories.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        Text(stringResource(R.string.operation_create_no_categories), Modifier.testTag("operation-create-no-categories"))
+                        Text(
+                            stringResource(R.string.operation_create_no_categories),
+                            Modifier.testTag("operation-create-no-categories")
+                        )
                     }
                 }
             }
@@ -239,7 +273,7 @@ private fun LazyGridScope.categorySection(
     section: String,
     categories: List<Category>,
     enabled: Boolean,
-    onClick: (String) -> Unit,
+    onClick: (String) -> Unit
 ) {
     if (categories.isEmpty() && section != "all") return
     item(key = "section-$section", span = { GridItemSpan(maxLineSpan) }) {
@@ -247,12 +281,15 @@ private fun LazyGridScope.categorySection(
             stringResource(title),
             modifier = Modifier.padding(top = 12.dp).semantics { heading() },
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold
         )
     }
     items(categories, key = { "$section-${it.id}" }) { category ->
-        val tag = if (section == "all") "operation-create-category-${category.id}"
-            else "operation-create-$section-${category.id}"
+        val tag = if (section == "all") {
+            "operation-create-category-${category.id}"
+        } else {
+            "operation-create-$section-${category.id}"
+        }
         OperationCategoryTile(category, enabled, { onClick(category.id) }, Modifier.testTag(tag))
     }
 }
@@ -265,7 +302,7 @@ private fun OperationCreateFormPreview() {
         OperationCreateForm(
             OperationCreateUiState(occurredOn = LocalDate.of(2026, 10, 24)),
             OfflineHistoryContext(categories = previewOperationCategories()),
-            {},
+            {}
         )
     }
 }
@@ -276,9 +313,13 @@ private fun OperationCreateFormPreview() {
 private fun OperationCreateIncomeEditorPreview() {
     FillinTheme {
         OperationCreateForm(
-            OperationCreateUiState(type = OperationType.Income, input = "120000", occurredOn = LocalDate.of(2026, 10, 24)),
+            OperationCreateUiState(
+                type = OperationType.Income,
+                input = "120000",
+                occurredOn = LocalDate.of(2026, 10, 24)
+            ),
             OfflineHistoryContext(categories = previewOperationCategories()),
-            {},
+            {}
         )
     }
 }
@@ -289,9 +330,13 @@ private fun OperationCreateIncomeEditorPreview() {
 private fun OperationCreateErrorEditorPreview() {
     FillinTheme {
         OperationCreateForm(
-            OperationCreateUiState(input = "0", inputError = OperationInputError.InvalidAmount, occurredOn = LocalDate.of(2026, 10, 24)),
+            OperationCreateUiState(
+                input = "0",
+                inputError = OperationInputError.InvalidAmount,
+                occurredOn = LocalDate.of(2026, 10, 24)
+            ),
             OfflineHistoryContext(categories = previewOperationCategories()),
-            {},
+            {}
         )
     }
 }
@@ -304,7 +349,7 @@ private fun OperationCreateSavingEditorPreview() {
         OperationCreateForm(
             OperationCreateUiState(input = "1200", isSaving = true, occurredOn = LocalDate.of(2026, 10, 24)),
             OfflineHistoryContext(categories = previewOperationCategories()),
-            {},
+            {}
         )
     }
 }
@@ -314,7 +359,8 @@ private fun OperationCreateSavingEditorPreview() {
 @Composable
 private fun OperationCreateEmptyEditorPreview() {
     FillinTheme {
-        OperationCreateForm(OperationCreateUiState(occurredOn = LocalDate.of(2026, 10, 24)), OfflineHistoryContext(), {})
+        OperationCreateForm(OperationCreateUiState(occurredOn = LocalDate.of(2026, 10, 24)), OfflineHistoryContext(), {
+        })
     }
 }
 
@@ -329,10 +375,10 @@ private fun OperationCreateUsedCategoriesPreview() {
             OperationCreateUiState(
                 occurredOn = LocalDate.of(2026, 10, 24),
                 frequentlyUsed = categories.take(4),
-                recentlyUsed = categories.takeLast(4).reversed(),
+                recentlyUsed = categories.takeLast(4).reversed()
             ),
             OfflineHistoryContext(categories = categories),
-            {},
+            {}
         )
     }
 }
@@ -349,10 +395,10 @@ private fun OperationCreateOneUsedCategoryPreview() {
                 occurredOn = LocalDate.of(2026, 10, 24),
                 frequentlyUsed = used,
                 recentlyUsed = used,
-                isSaving = true,
+                isSaving = true
             ),
             OfflineHistoryContext(categories = categories),
-            {},
+            {}
         )
     }
 }

@@ -1,8 +1,8 @@
 package com.firkat.fillin.feature.sync.data
 
-import kotlinx.serialization.Serializable
 import com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkTarget
 import com.firkat.fillin.feature.operationhistory.domain.repository.SuggestedPlan
+import kotlinx.serialization.Serializable
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.Header
@@ -31,7 +31,7 @@ data class SyncPlanRecord(
     val scheduledOn: String? = null,
     val remainderAmount: String? = null,
     val remainderDueOn: String? = null,
-    val remainderReceived: String? = null,
+    val remainderReceived: String? = null
 
 )
 
@@ -68,7 +68,7 @@ data class BudgetSyncCommand(
     val scheduledOn: String? = null,
     val remainderAmount: String? = null,
     val remainderDueOn: String? = null,
-    val remainderReceived: String? = null,
+    val remainderReceived: String? = null
 
 )
 
@@ -77,42 +77,39 @@ data class BudgetCommandReceipt(
     val requestId: String,
     val revision: Long,
     val entityToken: Long? = null,
-    val suggestedPlan: SuggestedPlan? = null,
+    val suggestedPlan: SuggestedPlan? = null
 )
 
 interface BudgetSyncApi {
     @POST("api/v2/sync/commands")
     suspend fun command(
         @Header("Authorization") authorization: String,
-        @Body command: BudgetSyncCommand,
+        @Body command: BudgetSyncCommand
     ): Response<BudgetCommandReceipt>
 }
 
-internal fun BudgetSyncCommand.entityKind(): String =
-    when {
-        type in setOf("CREATE_OPERATION", "UPDATE_OPERATION", "REFUND_OPERATION", "SET_OPERATION_PLAN_LINK", "REMOVE_OPERATION_PLAN_LINK") -> "LEDGER"
-        type.endsWith("INCOME_RULE") -> "INCOME_RULE"
-        type.endsWith("CATEGORY") -> "CATEGORY"
-        type.endsWith("RULE") -> "RECURRING_RULE"
-        type.endsWith("INCOME") -> "EXPECTED_INCOME"
-        type == "CLOSE_EXPENSE" -> "RECURRING_OCCURRENCE"
-        else -> error("Unknown command")
-    }
+internal fun BudgetSyncCommand.entityKind(): String = when {
+    type in
+        setOf(
+            "CREATE_OPERATION",
+            "UPDATE_OPERATION",
+            "REFUND_OPERATION",
+            "SET_OPERATION_PLAN_LINK",
+            "REMOVE_OPERATION_PLAN_LINK"
+        ) -> "LEDGER"
+    type.endsWith("INCOME_RULE") -> "INCOME_RULE"
+    type.endsWith("CATEGORY") -> "CATEGORY"
+    type.endsWith("RULE") -> "RECURRING_RULE"
+    type.endsWith("INCOME") -> "EXPECTED_INCOME"
+    type == "CLOSE_EXPENSE" -> "RECURRING_OCCURRENCE"
+    else -> error("Unknown command")
+}
 
 @Serializable
-data class SyncBudgetSettings(
-    val id: String,
-    val openingBalance: String,
-    val protectedReserve: String,
-)
+data class SyncBudgetSettings(val id: String, val openingBalance: String, val protectedReserve: String)
 
 @Serializable
-data class SyncSavingsGoal(
-    val id: String,
-    val allocatedAmount: String,
-)
+data class SyncSavingsGoal(val id: String, val allocatedAmount: String)
 
 @Serializable
-data class SyncVariableSpendingExclusion(
-    val id: String,
-)
+data class SyncVariableSpendingExclusion(val id: String)

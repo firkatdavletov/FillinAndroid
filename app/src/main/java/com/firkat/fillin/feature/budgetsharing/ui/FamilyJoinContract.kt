@@ -12,7 +12,7 @@ data class FamilyJoinState(
     val error: String? = null,
     val joinedName: String? = null,
     val generation: Long = 0,
-    val operationId: Long = 0,
+    val operationId: Long = 0
 ) : State
 
 data class JoinRequest(val uid: String, val generation: Long, val id: Long)

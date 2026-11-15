@@ -23,7 +23,7 @@ interface OperationHistoryApi {
         @Query("type") type: String?,
         @Query("categoryId") categoryId: String?,
         @Query("dateFrom") dateFrom: String,
-        @Query("dateTo") dateTo: String,
+        @Query("dateTo") dateTo: String
     ): OperationPageDto
 
     @Headers("Accept: application/json")
@@ -31,13 +31,13 @@ interface OperationHistoryApi {
     suspend fun updatePurchase(
         @Header("Authorization") authorization: String,
         @Path("purchaseId") purchaseId: String,
-        @Body request: UpdatePurchaseRequestDto,
+        @Body request: UpdatePurchaseRequestDto
     ): Response<OperationDto>
 
     @DELETE("api/v1/purchases/{purchaseId}")
     suspend fun refundPurchase(
         @Header("Authorization") authorization: String,
         @Path("purchaseId") purchaseId: String,
-        @Query("version") version: Long,
+        @Query("version") version: Long
     ): Response<Unit>
 }

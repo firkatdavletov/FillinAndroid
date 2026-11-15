@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModelStore
 import com.firkat.fillin.feature.auth.domain.*
 import com.firkat.fillin.feature.profile.domain.*
 import com.firkat.fillin.feature.profile.ui.ProfileViewModel
+import java.math.BigDecimal
+import java.time.LocalDate
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -13,14 +15,17 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
-import java.math.BigDecimal
-import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileViewModelTest {
     private val store = ViewModelStore()
+
     @Before fun setup() = Dispatchers.setMain(StandardTestDispatcher())
-    @After fun cleanup() { store.clear(); Dispatchers.resetMain() }
+
+    @After fun cleanup() {
+        store.clear()
+        Dispatchers.resetMain()
+    }
 
     @Test fun `cached budgets remain usable while the remote catalog loads`() = runTest {
         val budgets = Budgets().apply { refreshResult = CompletableDeferred() }
@@ -93,25 +98,56 @@ class ProfileViewModelTest {
         assertNull(model.state.value.expandedBudgetId)
     }
 
-    private fun model(budgets: Budgets = Budgets(), auth: Auth = Auth()) =
-        ProfileViewModel(budgets, auth).also { store.put("profile", it) }
+    private fun model(
+        budgets: Budgets = Budgets(),
+        auth: Auth = Auth()
+    ) = ProfileViewModel(budgets, auth).also { store.put("profile", it) }
 
     private class Auth(initial: AuthSession = AuthSession.Anonymous) : AuthRepository {
         override val session = MutableStateFlow(initial)
-        override suspend fun signInWithGoogle(idToken: String) = Unit
-        override suspend fun signOut() { session.value = AuthSession.Anonymous }
+        override suspend fun signInWithGoogle(
+            idToken: String
+        ) = Unit
+        override suspend fun signOut() {
+            session.value = AuthSession.Anonymous
+        }
     }
 
     private class Budgets : ProfileBudgetsRepository {
-        val rows = MutableStateFlow(listOf(ProfileBudget("active", "Мой бюджет", false, true), ProfileBudget("other", "Другой", true, false)))
+        val rows =
+            MutableStateFlow(
+                listOf(
+                    ProfileBudget("active", "Мой бюджет", false, true),
+                    ProfileBudget("other", "Другой", true, false)
+                )
+            )
         val selections = mutableListOf<String>()
         var refreshResult: CompletableDeferred<Unit>? = null
         var selectionResult: CompletableDeferred<Unit>? = null
         override fun observe() = rows
-        override suspend fun refresh() { refreshResult?.await() }
-        override suspend fun select(id: String) { selections += id; selectionResult?.await() }
-        override suspend fun createLocal(balance: BigDecimal, startedOn: LocalDate) = error("Unused")
-        override suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate) = error("Unused")
-        override suspend fun createLocal(name: String, balance: BigDecimal, startedOn: LocalDate, currency: com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency) = error("Unused")
+        override suspend fun refresh() {
+            refreshResult?.await()
+        }
+        override suspend fun select(
+            id: String
+        ) {
+            selections += id
+            selectionResult?.await()
+        }
+        override suspend fun createLocal(
+            balance: BigDecimal,
+            startedOn: LocalDate
+        ) = error("Unused")
+        override suspend fun createLocal(
+            name: String,
+            balance: BigDecimal,
+            startedOn: LocalDate
+        ) = error("Unused")
+        override suspend fun createLocal(
+            name: String,
+            balance: BigDecimal,
+            startedOn: LocalDate,
+            currency: com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
+        ) = error("Unused")
     }
 }

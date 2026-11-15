@@ -1,8 +1,8 @@
 package com.firkat.fillin.feature.budgetsetup.domain
 
-import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 interface BudgetSetupRepository {
     val ready: Flow<Boolean>
@@ -10,18 +10,16 @@ interface BudgetSetupRepository {
 
     suspend fun createLocal(
         openingBalance: BigDecimal,
-        startedOn: LocalDate,
+        startedOn: LocalDate
     )
 
     suspend fun connectExisting()
 }
 
-class CreateLocalBudget(
-    private val repository: BudgetSetupRepository,
-) {
+class CreateLocalBudget(private val repository: BudgetSetupRepository) {
     suspend operator fun invoke(
         balance: BigDecimal,
-        date: LocalDate,
+        date: LocalDate
     ) {
         require(balance.scale() <= 2 && balance.abs() <= BigDecimal("99999999999999999.99"))
         require(date.year >= 1 && date <= repository.today)

@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 data class PlannedExpensesResponseDto(
     val asOf: String,
     val throughInclusive: String,
-    val items: List<PlannedExpenseDto>,
+    val items: List<PlannedExpenseDto>
 )
 
 @Serializable
@@ -22,20 +22,14 @@ data class PlannedExpenseDto(
     val status: String,
     val version: Long,
     val createdAt: String,
-    val modifiedAt: String,
+    val modifiedAt: String
 )
 
 @Serializable
-data class PlannedExpenseCategoryDto(
-    val id: String,
-    val name: String,
-)
+data class PlannedExpenseCategoryDto(val id: String, val name: String)
 
 @Serializable
-data class PlannedExpenseMoneyDto(
-    val amount: String,
-    val currency: String,
-)
+data class PlannedExpenseMoneyDto(val amount: String, val currency: String)
 
 @Serializable
 data class CreatePlannedExpenseRuleRequestDto(
@@ -43,22 +37,14 @@ data class CreatePlannedExpenseRuleRequestDto(
     val amount: String,
     val frequency: String,
     val scheduleValue: Int? = null,
-    val startsOn: String,
+    val startsOn: String
 )
 
 @Serializable
-data class UpdatePlannedExpenseRuleRequestDto(
-    val version: Long,
-    val amount: String,
-)
+data class UpdatePlannedExpenseRuleRequestDto(val version: Long, val amount: String)
 
 @Serializable
-data class ClosePlannedExpenseRequestDto(
-    val version: Long,
-)
+data class ClosePlannedExpenseRequestDto(val version: Long)
 
 @Serializable
-data class PlannedExpenseRuleDto(
-    val id: String,
-    val version: Long,
-)
+data class PlannedExpenseRuleDto(val id: String, val version: Long)

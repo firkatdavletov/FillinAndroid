@@ -21,14 +21,14 @@ interface PlannedExpensesApi {
     @Headers("Accept: application/json")
     @GET("api/v1/planned-expenses")
     suspend fun getPlannedExpenses(
-        @Header("Authorization") authorization: String,
+        @Header("Authorization") authorization: String
     ): PlannedExpensesResponseDto
 
     @Headers("Accept: application/json")
     @POST("api/v1/planned-expenses")
     suspend fun createRule(
         @Header("Authorization") authorization: String,
-        @Body request: CreatePlannedExpenseRuleRequestDto,
+        @Body request: CreatePlannedExpenseRuleRequestDto
     ): Response<PlannedExpenseRuleDto>
 
     @Headers("Accept: application/json")
@@ -36,14 +36,14 @@ interface PlannedExpensesApi {
     suspend fun updateRule(
         @Header("Authorization") authorization: String,
         @Path("ruleId") ruleId: String,
-        @Body request: UpdatePlannedExpenseRuleRequestDto,
+        @Body request: UpdatePlannedExpenseRuleRequestDto
     ): Response<PlannedExpenseRuleDto>
 
     @DELETE("api/v1/planned-expenses/{ruleId}")
     suspend fun deleteRule(
         @Header("Authorization") authorization: String,
         @Path("ruleId") ruleId: String,
-        @Query("version") version: Long,
+        @Query("version") version: Long
     ): Response<Unit>
 
     @Headers("Accept: application/json")
@@ -51,6 +51,6 @@ interface PlannedExpensesApi {
     suspend fun closeExpense(
         @Header("Authorization") authorization: String,
         @Path("expenseId") expenseId: String,
-        @Body request: ClosePlannedExpenseRequestDto,
+        @Body request: ClosePlannedExpenseRequestDto
     ): Response<PlannedExpenseDto>
 }

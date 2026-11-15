@@ -1,25 +1,25 @@
 package com.firkat.fillin
 
 import android.app.Application
-import androidx.work.WorkManager
-import com.firkat.fillin.feature.appaccess.domain.AppAccess
-import com.firkat.fillin.feature.appaccess.domain.AppMode
-import com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement
-import kotlinx.coroutines.flow.filter
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.work.Configuration
+import androidx.work.WorkManager
 import com.firkat.fillin.core.di.appModule
+import com.firkat.fillin.feature.appaccess.domain.AppAccess
+import com.firkat.fillin.feature.appaccess.domain.AppMode
+import com.firkat.fillin.feature.budgetmanagement.data.BudgetManagement
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.operationhistory.data.sync.AndroidOperationConnectivity
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationSyncScheduler
 import com.firkat.fillin.feature.operationhistory.data.sync.OperationWorkerFactory
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.launch
 
 open class FillinApplication :
     Application(),
@@ -60,7 +60,9 @@ open class FillinApplication :
                         scheduler.schedule()
                         management.schedule()
                     } else {
-                        getKoin().get<okhttp3.OkHttpClient>(org.koin.core.qualifier.named("cloud")).dispatcher.cancelAll()
+                        getKoin().get<okhttp3.OkHttpClient>(
+                            org.koin.core.qualifier.named("cloud")
+                        ).dispatcher.cancelAll()
                         work.cancelUniqueWork("budget-management")
                         budgets.stopCloudSync()
                     }
@@ -68,14 +70,16 @@ open class FillinApplication :
             }
             ProcessLifecycleOwner.get().lifecycle.addObserver(
                 object : DefaultLifecycleObserver {
-                    override fun onStart(owner: LifecycleOwner) {
+                    override fun onStart(
+                        owner: LifecycleOwner
+                    ) {
                         budgets.applicationScope.launch {
                             if (connectivity.online.value) access.refresh()
                         }
                         scheduler.schedule()
                         management.schedule()
                     }
-                },
+                }
             )
         }
     }

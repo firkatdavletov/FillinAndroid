@@ -21,7 +21,7 @@ import com.firkat.fillin.R
 fun LaunchScreen(
     failed: Boolean,
     onShown: () -> Unit,
-    onRetry: () -> Unit,
+    onRetry: () -> Unit
 ) {
     LaunchedEffect(Unit) { onShown() }
     Box(Modifier.fillMaxSize().testTag("launch_screen")) {
@@ -33,7 +33,7 @@ fun LaunchScreen(
                     .systemBarsPadding()
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(stringResource(R.string.budget_profile_open_failed))
                 Button(onClick = onRetry) { Text(stringResource(R.string.budget_profile_retry)) }

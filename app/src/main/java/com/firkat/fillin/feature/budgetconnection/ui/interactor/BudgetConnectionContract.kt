@@ -22,16 +22,15 @@ data class BudgetConnectionState(
     val showingSaved: Boolean = false,
     val generation: Long = 0,
     val operationId: Long = 0,
-    val joiningFamily: Boolean = false,
+    val joiningFamily: Boolean = false
 ) : State {
     val busy get() = loading || connecting != null || creating
 }
 
 sealed interface BudgetConnectionAction : Action {
     data object Refresh : BudgetConnectionAction
-    data class ChooseCreate(
-        val date: String = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).toString(),
-    ) : BudgetConnectionAction
+    data class ChooseCreate(val date: String = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).toString()) :
+        BudgetConnectionAction
     data class EditDraft(val draft: BudgetCreationDraft) : BudgetConnectionAction
     data object CancelCreate : BudgetConnectionAction
     data object Create : BudgetConnectionAction
@@ -46,7 +45,11 @@ sealed interface BudgetConnectionCommand : Command {
     data object ObserveSession : BudgetConnectionCommand
     data object ObserveActiveBudget : BudgetConnectionCommand
     data class Load(val request: ConnectionRequest) : BudgetConnectionCommand
-    data class Create(val request: ConnectionRequest, val draft: BudgetCreationDraft, val pending: PendingBudgetCreation?) : BudgetConnectionCommand
+    data class Create(
+        val request: ConnectionRequest,
+        val draft: BudgetCreationDraft,
+        val pending: PendingBudgetCreation?
+    ) : BudgetConnectionCommand
     data class Connect(val request: ConnectionRequest, val budget: AvailableBudget) : BudgetConnectionCommand
 }
 sealed interface BudgetConnectionEvent : Event {
@@ -54,13 +57,21 @@ sealed interface BudgetConnectionEvent : Event {
     data class ActiveBudgetChanged(val id: String?) : BudgetConnectionEvent
     data class Cached(val request: ConnectionRequest, val budgets: List<AvailableBudget>) : BudgetConnectionEvent
     data class Pending(val request: ConnectionRequest, val pending: PendingBudgetCreation?) : BudgetConnectionEvent
-    data class Loaded(val request: ConnectionRequest, val budgets: List<AvailableBudget>, val defaultDate: String) : BudgetConnectionEvent
+    data class Loaded(val request: ConnectionRequest, val budgets: List<AvailableBudget>, val defaultDate: String) :
+        BudgetConnectionEvent
     data class Created(val request: ConnectionRequest) : BudgetConnectionEvent
-    data class CreationFailed(val request: ConnectionRequest, val draft: BudgetCreationDraft, val pending: PendingBudgetCreation?, val error: String) : BudgetConnectionEvent
+    data class CreationFailed(
+        val request: ConnectionRequest,
+        val draft: BudgetCreationDraft,
+        val pending: PendingBudgetCreation?,
+        val error: String
+    ) : BudgetConnectionEvent
     data class Finished(val request: ConnectionRequest, val error: String? = null) : BudgetConnectionEvent
 }
 sealed interface BudgetConnectionEffect : Effect {
     data object Back : BudgetConnectionEffect
 }
 internal fun BudgetConnectionState.request() = session.uid?.let { ConnectionRequest(it, generation, operationId) }
-internal fun BudgetConnectionState.accepts(request: ConnectionRequest) = busy && request() == request
+internal fun BudgetConnectionState.accepts(
+    request: ConnectionRequest
+) = busy && request() == request

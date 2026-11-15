@@ -21,8 +21,14 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @Composable
-internal fun OperationSyncStatusBanner(context: OfflineHistoryContext, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+internal fun OperationSyncStatusBanner(
+    context: OfflineHistoryContext,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
         val status =
             when {
                 context.syncError != null -> {
@@ -50,7 +56,13 @@ internal fun OperationSyncStatusBanner(context: OfflineHistoryContext, modifier:
             Text(
                 stringResource(it),
                 style = MaterialTheme.typography.bodySmall,
-                color = if (context.syncError == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                color = if (context.syncError ==
+                    null
+                ) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.error
+                }
             )
         }
         val syncStatus =
@@ -62,7 +74,7 @@ internal fun OperationSyncStatusBanner(context: OfflineHistoryContext, modifier:
                         R.string.operation_sync_last,
                         time
                             .atZone(ZoneId.of("Asia/Almaty"))
-                            .format(DateTimeFormatter.ofPattern("dd.MM HH:mm")),
+                            .format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))
                     )
                 }.orEmpty()
             }
@@ -72,20 +84,20 @@ internal fun OperationSyncStatusBanner(context: OfflineHistoryContext, modifier:
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             minLines = 1,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            overflow = TextOverflow.Ellipsis
         )
         if (context.pendingCount > 0) {
             Text(
                 stringResource(R.string.operation_sync_pending_count, context.pendingCount),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         if (context.rejectedCount > 0) {
             Text(
                 stringResource(R.string.operation_sync_rejected_count, context.rejectedCount),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.error
             )
         }
     }
@@ -109,26 +121,42 @@ private fun OperationSyncOfflinePreview() {
 @Preview(name = "Syncing dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun OperationSyncSyncingPreview() {
-    FillinTheme { OperationSyncStatusBanner(OfflineHistoryContext(initialSyncComplete = true, isOnline = true, isSyncing = true)) }
+    FillinTheme {
+        OperationSyncStatusBanner(OfflineHistoryContext(initialSyncComplete = true, isOnline = true, isSyncing = true))
+    }
 }
 
 @Preview(name = "Synced")
 @Preview(name = "Synced dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun OperationSyncSyncedPreview() {
-    FillinTheme { OperationSyncStatusBanner(OfflineHistoryContext(initialSyncComplete = true, isOnline = true, lastSyncedAt = Instant.parse("2026-10-25T05:00:00Z"))) }
+    FillinTheme {
+        OperationSyncStatusBanner(
+            OfflineHistoryContext(
+                initialSyncComplete = true,
+                isOnline = true,
+                lastSyncedAt = Instant.parse("2026-10-25T05:00:00Z")
+            )
+        )
+    }
 }
 
 @Preview(name = "Error")
 @Preview(name = "Error dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun OperationSyncErrorPreview() {
-    FillinTheme { OperationSyncStatusBanner(OfflineHistoryContext(initialSyncComplete = true, syncError = "scope_changed")) }
+    FillinTheme {
+        OperationSyncStatusBanner(OfflineHistoryContext(initialSyncComplete = true, syncError = "scope_changed"))
+    }
 }
 
 @Preview(name = "PendingAndRejected")
 @Preview(name = "PendingAndRejected dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun OperationSyncPendingAndRejectedPreview() {
-    FillinTheme { OperationSyncStatusBanner(OfflineHistoryContext(initialSyncComplete = true, pendingCount = 2, rejectedCount = 1)) }
+    FillinTheme {
+        OperationSyncStatusBanner(
+            OfflineHistoryContext(initialSyncComplete = true, pendingCount = 2, rejectedCount = 1)
+        )
+    }
 }
