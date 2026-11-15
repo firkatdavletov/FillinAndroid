@@ -426,7 +426,13 @@ fun FillinNavHost(
                     )
                 }
             }
-            entry<AppRoute.OperationCreate> {
+            entry<AppRoute.OperationCreate>(
+                metadata = metadata {
+                    put(NavDisplay.TransitionKey) { slideNavigation(SlideDirection.Up) }
+                    put(NavDisplay.PopTransitionKey) { slideNavigation(SlideDirection.Down) }
+                    put(NavDisplay.PredictivePopTransitionKey) { slideNavigation(SlideDirection.Down) }
+                }
+            ) {
                 val models: MainBudgetViewModelStore = viewModel()
                 models.bind(runtime)
                 ActiveBudgetContent(viewModelStoreOwner = models) {
