@@ -37,7 +37,7 @@ fun PrimaryButton(
     leadingIcon: Painter? = null,
     iconTint: Color = textColor,
     border: BorderStroke? = null,
-    cornerRadius: Dp = 28.dp
+    cornerRadius: Dp = 14.dp
 ) {
     Button(
         onClick = onClick,

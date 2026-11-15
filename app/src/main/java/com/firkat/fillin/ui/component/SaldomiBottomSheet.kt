@@ -41,7 +41,7 @@ internal fun SaldomiBottomSheet(
         sheetState = sheetState,
         properties = properties,
         content = content,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
         tonalElevation = 64.dp,
         dragHandle = {
             Box(
@@ -50,7 +50,7 @@ internal fun SaldomiBottomSheet(
                     .height(4.dp)
                     .width(32.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.surfaceTint)
+                    .background(MaterialTheme.colorScheme.onSecondaryContainer)
             ) { }
         }
     )

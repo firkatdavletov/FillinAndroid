@@ -465,6 +465,7 @@ fun FillinNavHost(
                                 navigation.openAuthentication()
                             }
                         },
+                        onBack = navigation::back,
                         onMethodsClick = navigation::openAccountMethods,
                         onCategoriesClick = navigation::openCategories,
                         budgetReadOnly = readOnly,

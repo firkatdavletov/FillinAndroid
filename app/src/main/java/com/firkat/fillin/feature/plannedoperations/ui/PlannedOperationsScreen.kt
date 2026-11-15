@@ -216,22 +216,33 @@ internal fun PlanningRuleRow(
     )
 
     BoxWithConstraints(
-        modifier.fillMaxWidth().testTag("planning-rule-${rule.key}").clickable(enabled = enabled, onClick = onClick)
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("planning-rule-${rule.key}")
+            .clickable(
+                enabled = enabled,
+                onClick = onClick
+            )
     ) {
         val compact = maxWidth < 340.dp || LocalDensity.current.fontScale >= 1.5f
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 12.dp
+                ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Surface(
                 shape = CircleShape,
-                color = if (income) MaterialTheme.saldomiColors.incomeContainer else MaterialTheme.saldomiColors.expenseContainer
+                color = MaterialTheme.colorScheme.onBackground
             ) {
                 CategoryIconImage(
                     iconCode = rule.iconCode,
                     categoryName = rule.categoryName,
-                    modifier = Modifier.padding(12.dp)
+                    modifier = Modifier.padding(4.dp)
                 )
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {

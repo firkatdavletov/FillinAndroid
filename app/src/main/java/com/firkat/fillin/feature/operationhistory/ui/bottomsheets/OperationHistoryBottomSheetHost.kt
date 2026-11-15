@@ -96,8 +96,8 @@ private fun OperationPeriodFilterBottomSheet(
                     )
                 },
                 colors = DatePickerDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             )
         }
