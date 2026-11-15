@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,6 +48,7 @@ import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.component.RefreshErrorContent
 import com.firkat.fillin.ui.component.SaldomiOutlinedButton
+import com.firkat.fillin.ui.component.SaldomiPrimaryButton
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.icon.FillinIcons
 import com.firkat.fillin.ui.theme.saldomiColors
@@ -118,25 +120,38 @@ fun PlannedOperationsScreen(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
         val groups = state.groups
+        val onCreate = if (state.selectedType == PlannedOperationType.Income) onCreateIncome else onCreateExpense
 
         if (state.isLoading && state.rules.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         } else if (groups.isEmpty()) {
             Column(
-                Modifier.fillMaxSize().padding(24.dp),
-                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(bottom = bottomBarOverlap)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    stringResource(
+                    text = stringResource(
                         state.error?.messageResource
                             ?: if (state.rules.isEmpty()) R.string.planning_empty else R.string.planning_filtered_empty
-                    )
+                    ),
+                    textAlign = TextAlign.Center
                 )
                 if (state.error != null) {
                     TextButton(
                         { onEvent(PlannedOperationsEvent.Retry) }
                     ) { Text(stringResource(R.string.planned_operations_retry)) }
+                } else if (canWrite) {
+                    SaldomiPrimaryButton(
+                        onClick = onCreate,
+                        modifier = Modifier.fillMaxWidth().testTag("planned-create")
+                    ) {
+                        Text(stringResource(R.string.planned_operations_add))
+                    }
                 }
             }
         } else {
@@ -184,13 +199,7 @@ fun PlannedOperationsScreen(
             }
             if (canWrite) {
                 SaldomiOutlinedButton(
-                    onClick = if (state.selectedType ==
-                        PlannedOperationType.Income
-                    ) {
-                        onCreateIncome
-                    } else {
-                        onCreateExpense
-                    },
+                    onClick = onCreate,
                     modifier = Modifier
                         .padding(start = 16.dp, end = 16.dp, bottom = bottomBarOverlap)
                         .fillMaxWidth()

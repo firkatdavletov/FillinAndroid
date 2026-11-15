@@ -7,7 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +30,8 @@ import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.dashboard.domain.model.Money
 import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetCard
 import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetHeading
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetSkeleton
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetSkeletonBlock
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.navigation.AppNavigationViewModel
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -76,6 +80,10 @@ internal fun DailyLimitWidget(
     onDetailsClick: () -> Unit = {},
     onPaymentsClick: () -> Unit = {}
 ) {
+    if (state.amount == null && state.dataStatus.isLoading) {
+        DailyLimitSkeleton(modifier)
+        return
+    }
     val deficit = state.status == DailyLimitCardStatus.Deficit
     val color = if (state.status !=
         DailyLimitCardStatus.Normal
@@ -182,6 +190,36 @@ internal fun DailyLimitWidget(
     }
 }
 
+@Composable
+@Suppress("FunctionNaming", "MagicNumber")
+private fun DailyLimitSkeleton(
+    modifier: Modifier = Modifier
+) {
+    WidgetCard(
+        modifier = modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.saldomiDesignColors.primaryContainer,
+        contentColor = MaterialTheme.saldomiDesignColors.onPrimaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            WidgetHeading(title = R.string.daily_remaining_today)
+            WidgetSkeleton {
+                WidgetSkeletonBlock(Modifier.fillMaxWidth(0.6f).height(36.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    repeat(2) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            WidgetSkeletonBlock(Modifier.fillMaxWidth(0.9f).height(14.dp))
+                            WidgetSkeletonBlock(Modifier.fillMaxWidth(0.65f).height(18.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 private val previewState =
     DailyLimitUiState(
         amount = Money("10000.00".toBigDecimal(), "KZT"),
@@ -280,8 +318,9 @@ private fun DailyLimitZeroOverspentPreview() {
     }
 }
 
-@Preview(name = "No data", widthDp = 288)
-@Preview(name = "No data dark", widthDp = 288, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Loading", widthDp = 288)
+@Preview(name = "Loading dark", widthDp = 288, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Loading large text", widthDp = 288, fontScale = 2f)
 @Composable
 private fun DailyLimitUnavailablePreview() {
     FillinTheme { DailyLimitWidget(DailyLimitUiState()) }

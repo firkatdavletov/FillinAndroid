@@ -85,6 +85,8 @@ internal fun MainContent(
                         OperationHistoryRoute(
                             snackbarHostState = snackbarHostState,
                             onOperationClick = onOperationClick,
+                            onCreateOperationClick = { onSelectDestination(AppDestination.AddOperation) },
+                            readOnly = readOnly,
                             bottomBarOverlap = bottomBarOverlap,
                             onBack = onBack
                         )

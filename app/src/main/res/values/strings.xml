@@ -8,6 +8,7 @@
     <string name="navigation_back">Назад</string>
     <string name="dashboard_initial_sync">Для расчёта Главной нужна первая полная синхронизация</string>
     <string name="dashboard_error_local_data">Не удалось рассчитать показатели из локальных данных</string>
+    <string name="dashboard_widget_loading">Загрузка данных…</string>
     <string name="dashboard_total_balance">Общий баланс</string>
     <string name="dashboard_available_to_spend">Доступно для трат</string>
     <string name="dashboard_daily_limit">Дневной лимит</string>

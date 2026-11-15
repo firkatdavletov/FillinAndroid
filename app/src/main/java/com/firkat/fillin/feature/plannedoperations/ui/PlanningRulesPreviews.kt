@@ -3,6 +3,7 @@ package com.firkat.fillin.feature.plannedoperations.ui
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.firkat.fillin.feature.plannedoperations.domain.model.*
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
@@ -69,6 +70,50 @@ private fun LongCatalogPreview() {
 @Composable
 private fun EmptyPreview() {
     FillinTheme { PlannedOperationsScreen(PlannedOperationsUiState(isLoading = false), {}, {}, {}, {}) }
+}
+
+@Preview(widthDp = 320, heightDp = 640, fontScale = 2f)
+@Composable
+private fun EmptyLargeFontPreview() {
+    FillinTheme {
+        PlannedOperationsScreen(
+            PlannedOperationsUiState(isLoading = false), {}, {}, {}, {}, bottomBarOverlap = 96.dp
+        )
+    }
+}
+
+@Preview(widthDp = 840, heightDp = 900)
+@Composable
+private fun EmptyWidePreview() {
+    FillinTheme { PlannedOperationsScreen(PlannedOperationsUiState(isLoading = false), {}, {}, {}, {}) }
+}
+
+@Preview
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun FilteredEmptyPreview() {
+    FillinTheme {
+        PlannedOperationsScreen(
+            PlannedOperationsUiState(
+                rules = listOf(previewExpense),
+                selectedType = PlannedOperationType.Income,
+                isLoading = false
+            ),
+            {},
+            {},
+            {},
+            {}
+        )
+    }
+}
+
+@Preview
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ReadOnlyEmptyPreview() {
+    FillinTheme {
+        PlannedOperationsScreen(PlannedOperationsUiState(isLoading = false), {}, {}, {}, {}, canWrite = false)
+    }
 }
 
 @Preview

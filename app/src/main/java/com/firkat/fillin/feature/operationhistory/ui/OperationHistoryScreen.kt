@@ -1,5 +1,6 @@
 package com.firkat.fillin.feature.operationhistory.ui
 
+import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -60,7 +61,9 @@ import com.firkat.fillin.feature.operationhistory.domain.model.OperationPeriodTo
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationStatus
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.OperationHistoryBottomSheetHost
+import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.RefreshableContent
+import com.firkat.fillin.ui.component.SaldomiPrimaryButton
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.theme.FillinTheme
@@ -79,10 +82,14 @@ fun OperationHistoryRoute(
     viewModel: OperationHistoryViewModel = koinViewModel(),
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
     onOperationClick: (String, String) -> Unit,
+    onCreateOperationClick: () -> Unit,
     onBack: () -> Unit = {},
-    bottomBarOverlap: Dp = 0.dp
+    bottomBarOverlap: Dp = 0.dp,
+    readOnly: Boolean = false,
+    syncViewModel: BudgetSyncViewModel = koinViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val sync by syncViewModel.context.collectAsStateWithLifecycle()
     val resultKey = rememberSaveable { "operation-history-${UUID.randomUUID()}" }
     val resultBus = LocalResultEventBus.current
     val resources = androidx.compose.ui.platform.LocalResources.current
@@ -109,6 +116,8 @@ fun OperationHistoryRoute(
         state = state,
         onEvent = viewModel::onEvent,
         onOperationClick = { id -> onOperationClick(id, resultKey) },
+        onCreateOperationClick = onCreateOperationClick,
+        canWrite = sync.canWrite && !readOnly,
         bottomBarOverlap = bottomBarOverlap,
         onBack = onBack
     )
@@ -120,7 +129,9 @@ fun OperationHistoryScreen(
     onEvent: (OperationHistoryEvent) -> Unit,
     onOperationClick: (String) -> Unit = {},
     onBack: () -> Unit = {},
-    bottomBarOverlap: Dp = 0.dp
+    bottomBarOverlap: Dp = 0.dp,
+    onCreateOperationClick: () -> Unit = {},
+    canWrite: Boolean = true
 ) {
     Column(Modifier.fillMaxSize()) {
         MainScreenHeader(
@@ -143,6 +154,8 @@ fun OperationHistoryScreen(
             OperationHistoryContent(
                 state = state,
                 onOperationClick = onOperationClick,
+                onCreateOperationClick = onCreateOperationClick,
+                canWrite = canWrite,
                 onRefresh = { onEvent(OperationHistoryEvent.Refresh) },
                 onRetry = { onEvent(OperationHistoryEvent.Retry) },
                 onLoadNextPage = { onEvent(OperationHistoryEvent.LoadNextPage) },
@@ -167,6 +180,8 @@ private const val HistoryLoadingDelayMillis = 300L
 private fun OperationHistoryContent(
     state: OperationHistoryUiState,
     onOperationClick: (String) -> Unit,
+    onCreateOperationClick: () -> Unit,
+    canWrite: Boolean,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onLoadNextPage: () -> Unit,
@@ -226,7 +241,11 @@ private fun OperationHistoryContent(
                             enabled = !switching
                         )
 
-                        displayed.operations.isEmpty() -> EmptyContent()
+                        displayed.operations.isEmpty() -> EmptyContent(
+                            onCreateOperationClick = onCreateOperationClick,
+                            canWrite = canWrite,
+                            enabled = !switching
+                        )
 
                         else -> OperationList(
                             operations = displayed.operations,
@@ -395,17 +414,66 @@ private fun LoadingContent(
 
 @Composable
 private fun EmptyContent(
-    modifier: Modifier = Modifier
+    onCreateOperationClick: () -> Unit,
+    canWrite: Boolean,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = stringResource(R.string.operation_history_empty),
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
+        if (canWrite) {
+            SaldomiPrimaryButton(
+                onClick = onCreateOperationClick,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth().testTag("history-create")
+            ) {
+                Text(stringResource(R.string.notice))
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 640)
+@Preview(showBackground = true, widthDp = 360, heightDp = 640, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun EmptyHistoryPreview() {
+    FillinTheme(dynamicColor = false) { EmptyContent(onCreateOperationClick = {}, canWrite = true) }
+}
+
+@Preview(showBackground = true, widthDp = 320, heightDp = 480, fontScale = 2f)
+@Composable
+private fun EmptyHistoryLargeFontPreview() {
+    FillinTheme(dynamicColor = false) { EmptyContent(onCreateOperationClick = {}, canWrite = true) }
+}
+
+@Preview(showBackground = true, widthDp = 840, heightDp = 900)
+@Composable
+private fun EmptyHistoryWidePreview() {
+    FillinTheme(dynamicColor = false) { EmptyContent(onCreateOperationClick = {}, canWrite = true) }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 640)
+@Preview(showBackground = true, widthDp = 360, heightDp = 640, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun ReadOnlyEmptyHistoryPreview() {
+    FillinTheme(dynamicColor = false) { EmptyContent(onCreateOperationClick = {}, canWrite = false) }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 640)
+@Preview(showBackground = true, widthDp = 360, heightDp = 640, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun DisabledEmptyHistoryPreview() {
+    FillinTheme(dynamicColor = false) {
+        EmptyContent(onCreateOperationClick = {}, canWrite = true, enabled = false)
     }
 }
 

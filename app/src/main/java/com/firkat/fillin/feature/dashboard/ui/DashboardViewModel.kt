@@ -3,17 +3,19 @@ package com.firkat.fillin.feature.dashboard.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.feature.dashboard.domain.DashboardDataSource
-import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpense
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.GetPlannedExpenses
-import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncome
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.GetPlannedIncomes
 import com.firkat.fillin.feature.profile.domain.ProfileBudgetsRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -21,7 +23,8 @@ class DashboardViewModel(
     budgets: ProfileBudgetsRepository,
     private val source: DashboardDataSource,
     private val getPlannedExpenses: GetPlannedExpenses,
-    private val getPlannedIncomes: GetPlannedIncomes
+    private val getPlannedIncomes: GetPlannedIncomes,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
     val budgetState =
         budgets
@@ -49,11 +52,9 @@ class DashboardViewModel(
                 initialValue = DashboardUiState()
             )
 
-    private val mutablePlannedExpenses = MutableStateFlow<List<PlannedExpense>>(emptyList())
-    val plannedExpenses: StateFlow<List<PlannedExpense>> = mutablePlannedExpenses
-
-    private val mutablePlannedIncome = MutableStateFlow<PlannedIncome?>(null)
-    val plannedIncome: StateFlow<PlannedIncome?> = mutablePlannedIncome
+    private val mutablePlannedOperations = MutableStateFlow(PlannedOperationsUiState())
+    internal val plannedOperations = mutablePlannedOperations.asStateFlow()
+    private var plannedOperationsLoad: Job? = null
 
     fun onEvent(
         event: DashboardEvent
@@ -63,29 +64,39 @@ class DashboardViewModel(
 
             DashboardEvent.Resume -> {
                 source.resume()
-                getPlannedExpenses()
-                getPlannedIncomes()
+                loadPlannedOperations()
             }
         }
     }
 
-    private fun getPlannedExpenses() {
-        viewModelScope.launch {
-            val plannedExpenses = withContext(Dispatchers.IO) {
-                getPlannedExpenses.invoke().items.take(3)
-            }
+    private fun loadPlannedOperations() {
+        if (plannedOperationsLoad?.isActive == true) return
 
-            mutablePlannedExpenses.tryEmit(plannedExpenses)
+        plannedOperationsLoad = viewModelScope.launch {
+            launch {
+                val expenses = loadOrNull { getPlannedExpenses().items.take(DASHBOARD_PLANNED_EXPENSE_LIMIT) }
+                mutablePlannedOperations.update {
+                    it.copy(expenses = expenses ?: it.expenses, expensesPending = false)
+                }
+            }
+            launch {
+                val result = loadOrNull { getPlannedIncomes() }
+                mutablePlannedOperations.update {
+                    val income = if (result == null) it.income else result.items.firstOrNull()
+                    it.copy(income = income, incomePending = false)
+                }
+            }
         }
     }
 
-    private fun getPlannedIncomes() {
-        viewModelScope.launch {
-            val income = withContext(Dispatchers.IO) {
-                getPlannedIncomes.invoke().items.firstOrNull()
-            }
-
-            mutablePlannedIncome.tryEmit(income)
-        }
+    private suspend fun <T> loadOrNull(
+        load: suspend () -> T
+    ): T? = try {
+        withContext(ioDispatcher) { load() }
+    } catch (exception: CancellationException) {
+        throw exception
+    } catch (_: Exception) {
+        // A failed read must not discard the last successful result or cancel the other read.
+        null
     }
 }

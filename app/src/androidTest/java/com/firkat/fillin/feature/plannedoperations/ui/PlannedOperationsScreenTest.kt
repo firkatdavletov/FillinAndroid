@@ -118,8 +118,7 @@ class PlannedOperationsScreenTest {
         }
 
         val add = compose.onNodeWithTag("planned-create").assertIsDisplayed()
-        add.assertContentDescriptionEquals("Добавить план")
-        compose.onNodeWithText("Добавить план").assertDoesNotExist()
+        add.assertTextEquals("Добавить")
         compose.onNodeWithTag("planning-filter-Expense").assertTextContains(planCount(0))
         compose.onNodeWithTag("planning-filter-Income").assertTextContains(planCount(0))
         add.performClick()

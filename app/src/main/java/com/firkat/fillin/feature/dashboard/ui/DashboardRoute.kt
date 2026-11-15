@@ -30,8 +30,7 @@ fun DashboardRoute(
     }
 
     val title by viewModel.budgetState.collectAsStateWithLifecycle()
-    val expenses by viewModel.plannedExpenses.collectAsStateWithLifecycle()
-    val income by viewModel.plannedIncome.collectAsStateWithLifecycle()
+    val plannedOperations by viewModel.plannedOperations.collectAsStateWithLifecycle()
 
     DashboardScreen(
         modifier = modifier,
@@ -48,10 +47,11 @@ fun DashboardRoute(
 
             DashboardWidgetKind.BalanceForecast -> BalanceForecastRoute(onDetailsClick = onForecastClick)
 
-            DashboardWidgetKind.PlannedOperations -> if (expenses.isNotEmpty() || income != null) {
+            DashboardWidgetKind.PlannedOperations -> if (plannedOperations.isVisible) {
                 PlannedOperationsWidget(
-                    expenses = expenses,
-                    income = income
+                    expenses = plannedOperations.expenses,
+                    income = plannedOperations.income,
+                    isLoading = plannedOperations.isLoading
                 )
             }
         }

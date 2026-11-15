@@ -24,7 +24,8 @@ fun TotalBalanceWidget(
 ) {
     MetricWidget(
         title = R.string.dashboard_total_balance,
-        state.amount,
-        modifier
+        amount = state.amount,
+        modifier = modifier,
+        isLoading = state.amount == null && state.dataStatus.isLoading
     )
 }

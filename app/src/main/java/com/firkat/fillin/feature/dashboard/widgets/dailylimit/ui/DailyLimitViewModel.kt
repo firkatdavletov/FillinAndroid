@@ -2,12 +2,15 @@ package com.firkat.fillin.feature.dashboard.widgets.dailylimit.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.firkat.fillin.feature.dashboard.domain.model.DashboardStatus
 import com.firkat.fillin.feature.dashboard.domain.model.Money
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.DailyLimitSummary
 import com.firkat.fillin.feature.dashboard.widgets.dailylimit.domain.ObserveDailyLimit
 import java.math.BigDecimal
 import java.math.RoundingMode
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 enum class DailyLimitCardStatus { Normal, Overspent, Deficit }
 
@@ -19,7 +22,8 @@ data class DailyLimitUiState(
     val spentPercent: BigDecimal? = null,
     val remainingPercent: BigDecimal? = null,
     val progress: Float = 0f,
-    val isOverspent: Boolean = false
+    val isOverspent: Boolean = false,
+    val dataStatus: DashboardStatus = DashboardStatus.WaitingForBudget
 ) {
     val displayedRemainingToday = remainingToday?.copy(amount = remainingToday.amount.max(BigDecimal.ZERO))
     val overspentAmount = if (spentToday != null && amount != null) {
@@ -50,12 +54,15 @@ data class DailyLimitUiState(
                     .divide(summary.limit.amount, 6, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
                 else -> 0f
             },
-            isOverspent = summary.spentToday.amount > summary.limit.amount
+            isOverspent = summary.spentToday.amount > summary.limit.amount,
+            dataStatus = DashboardStatus.Ready
         )
     }
 }
 
 class DailyLimitViewModel(observe: ObserveDailyLimit) : ViewModel() {
-    val uiState = observe().map { it?.let(DailyLimitUiState::from) ?: DailyLimitUiState() }
+    val uiState = observe.states().map { data ->
+        data.value?.let(DailyLimitUiState::from) ?: DailyLimitUiState(dataStatus = data.status)
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0, 0), DailyLimitUiState())
 }

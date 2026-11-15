@@ -22,5 +22,10 @@ fun AvailableToSpendWidget(
     state: AvailableToSpendUiState,
     modifier: Modifier = Modifier
 ) {
-    MetricWidget(R.string.dashboard_available_to_spend, state.amount, modifier)
+    MetricWidget(
+        title = R.string.dashboard_available_to_spend,
+        amount = state.amount,
+        modifier = modifier,
+        isLoading = state.amount == null && state.dataStatus.isLoading
+    )
 }

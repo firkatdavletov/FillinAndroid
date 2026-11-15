@@ -48,6 +48,8 @@ import com.firkat.fillin.R
 import com.firkat.fillin.feature.dashboard.domain.model.*
 import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetCard
 import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetHeading
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetSkeleton
+import com.firkat.fillin.feature.dashboard.widgets.common.ui.WidgetSkeletonBlock
 import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.component.SaldomiTextButton
 import com.firkat.fillin.ui.format.formatMoney
@@ -58,6 +60,8 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import org.koin.compose.viewmodel.koinViewModel
+
+private val forecastPlotHeight = 170.dp
 
 @Composable
 fun BalanceForecastRoute(
@@ -83,7 +87,9 @@ internal fun BalanceForecastWidget(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ForecastHeading(state)
-            if (state.points.isEmpty()) {
+            if (state.projection == null && state.points.isEmpty() && state.dataStatus.isLoading) {
+                ForecastSkeleton()
+            } else if (state.points.isEmpty()) {
                 ForecastUnavailable(state.dataStatus)
             } else {
                 ForecastStatusMessage(state, showHistoryHints = false)
@@ -100,6 +106,23 @@ internal fun BalanceForecastWidget(
                 }
             }
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionNaming", "MagicNumber")
+private fun ForecastSkeleton(
+    modifier: Modifier = Modifier
+) {
+    WidgetSkeleton(modifier) {
+        WidgetSkeletonBlock(Modifier.fillMaxWidth(0.55f).height(14.dp))
+        WidgetSkeletonBlock(Modifier.fillMaxWidth(0.85f).height(22.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            WidgetSkeletonBlock(Modifier.weight(1f).height(14.dp))
+            WidgetSkeletonBlock(Modifier.weight(1f).height(14.dp))
+        }
+        WidgetSkeletonBlock(Modifier.fillMaxWidth().height(forecastPlotHeight))
+        WidgetSkeletonBlock(Modifier.align(Alignment.CenterHorizontally).fillMaxWidth(0.5f).height(40.dp))
     }
 }
 
@@ -399,7 +422,7 @@ internal fun ForecastChart(
         Canvas(
             Modifier
                 .fillMaxWidth()
-                .height(170.dp)
+                .height(forecastPlotHeight)
                 .testTag("forecast-chart")
                 .semantics {
                     contentDescription = chartLabel
@@ -650,6 +673,7 @@ private fun StructuralPreview() {
 
 @Preview(name = "Loading", widthDp = 390)
 @Preview(name = "Loading dark", widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Loading large text", widthDp = 288, fontScale = 2f)
 @Composable
 private fun LoadingPreview() {
     FillinTheme { BalanceForecastWidget(ForecastUiState()) }
