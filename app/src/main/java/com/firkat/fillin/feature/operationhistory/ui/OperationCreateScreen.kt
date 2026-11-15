@@ -56,6 +56,7 @@ import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
+import com.firkat.fillin.ui.component.OperationTypeTabs
 import com.firkat.fillin.ui.component.SaldomiSnackbarHost
 import com.firkat.fillin.ui.component.SnackbarType
 import com.firkat.fillin.ui.component.showSaldomiSnackbar
@@ -220,9 +221,12 @@ private fun OperationCreateForm(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    OperationTypeTabs(editor.type, !editor.isSaving, {
-                        onEvent(OperationCreateEvent.CreateTypeChanged(it))
-                    })
+                    OperationTypeTabs(
+                        type = editor.type,
+                        enabled = !editor.isSaving,
+                        onTypeClick = { onEvent(OperationCreateEvent.CreateTypeChanged(it)) },
+                        testTagPrefix = "operation-create-type"
+                    )
                 }
                 item(key = AMOUNT_ITEM_KEY, span = { GridItemSpan(maxLineSpan) }) {
                     OperationAmountInput(

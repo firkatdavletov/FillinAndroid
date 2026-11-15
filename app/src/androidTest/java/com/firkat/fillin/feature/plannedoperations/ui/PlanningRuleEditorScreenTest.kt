@@ -42,6 +42,8 @@ class PlanningRuleEditorScreenTest {
         compose.onNodeWithText("Расход").assertIsSelected()
         compose.onNodeWithText("Создание правила").assertIsDisplayed()
         compose.onNodeWithTag("planned-editor-save").assertIsNotEnabled()
+        compose.onNodeWithText("Доход").performClick().assertIsSelected()
+        compose.onNodeWithText("Расход").performClick().assertIsSelected()
         compose.onNodeWithTag("rule-name").performTextInput("Покупки")
         compose.onNodeWithTag("rule-name").assertTextContains("Покупки")
     }

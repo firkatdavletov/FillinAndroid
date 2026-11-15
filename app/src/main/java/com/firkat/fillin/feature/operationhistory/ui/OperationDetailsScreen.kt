@@ -59,6 +59,7 @@ import com.firkat.fillin.feature.operationhistory.domain.repository.SuggestedPla
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
 import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.OperationDetailsBottomSheetHost
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
+import com.firkat.fillin.ui.component.OperationTypeTabs
 import com.firkat.fillin.ui.component.PrimaryButton
 import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.component.SaldomiTextField
@@ -219,7 +220,12 @@ internal fun EditOperationContent(
                     }
                 }
                 if (mode == EditOperationMode.Correct) {
-                    OperationTypeTabs(type = type, enabled = !isSaving, onTypeClick = onTypeClick)
+                    OperationTypeTabs(
+                        type = type,
+                        enabled = !isSaving,
+                        onTypeClick = onTypeClick,
+                        testTagPrefix = "operation-create-type"
+                    )
                 } else {
                     Text(
                         stringResource(

@@ -25,10 +25,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -45,10 +43,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
+import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningFrequency
 import com.firkat.fillin.feature.plannedoperations.ui.bottomsheets.PlanningRuleEditorBottomSheetHost
 import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
+import com.firkat.fillin.ui.component.OperationTypeTabs
 import com.firkat.fillin.ui.component.SaldomiTextField
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.time.format.DateTimeFormatter
@@ -148,30 +148,21 @@ internal fun PlanningRuleEditorScreen(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                PrimaryTabRow(
-                    selectedTabIndex = if (draft.type == PlannedOperationType.Expense) 0 else 1
-                ) {
-                    PlannedOperationType.entries.forEach { type ->
-                        Tab(
-                            selected = type == draft.type,
-                            enabled = enabled && state.original == null,
-                            onClick = { onType(type) },
-                            text = {
-                                Text(
-                                    stringResource(
-                                        if (type ==
-                                            PlannedOperationType.Expense
-                                        ) {
-                                            R.string.planned_operations_expense
-                                        } else {
-                                            R.string.planned_operations_income
-                                        }
-                                    )
-                                )
+                OperationTypeTabs(
+                    type = when (draft.type) {
+                        PlannedOperationType.Expense -> OperationType.Expense
+                        PlannedOperationType.Income -> OperationType.Income
+                    },
+                    enabled = enabled && state.original == null,
+                    onTypeClick = { type ->
+                        onType(
+                            when (type) {
+                                OperationType.Expense -> PlannedOperationType.Expense
+                                OperationType.Income -> PlannedOperationType.Income
                             }
                         )
                     }
-                }
+                )
                 if (state.loading) CircularProgressIndicator()
                 SaldomiTextField(
                     draft.name,
