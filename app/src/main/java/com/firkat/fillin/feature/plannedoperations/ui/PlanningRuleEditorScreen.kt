@@ -70,7 +70,7 @@ internal fun PlanningRuleEditorRoute(
     LaunchedEffect(state.closed) { if (state.closed) onClose() }
     BackHandler { model.back() }
     PlanningRuleEditorScreen(
-        state, context.canWrite, model::change, model::type, model::window, model::category,
+        state, context.canWrite, ruleId != null, model::change, model::type, model::window, model::category,
         model::back, model::close, model::save, model::delete, model::categories, model::load
     )
 }
@@ -80,6 +80,7 @@ internal fun PlanningRuleEditorRoute(
 internal fun PlanningRuleEditorScreen(
     state: RuleEditorState,
     canWrite: Boolean,
+    isEditing: Boolean,
     onChange: ((RuleDraft) -> RuleDraft) -> Unit,
     onType: (PlannedOperationType) -> Unit,
     onWindow: (RuleWindow?) -> Unit,
@@ -104,12 +105,10 @@ internal fun PlanningRuleEditorScreen(
                 title = {
                     Text(
                         stringResource(
-                            if (state.original ==
-                                null
-                            ) {
-                                R.string.rule_create_title
-                            } else {
+                            if (isEditing) {
                                 R.string.rule_edit_title
+                            } else {
+                                R.string.rule_create_title
                             }
                         )
                     )
@@ -148,21 +147,23 @@ internal fun PlanningRuleEditorScreen(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                OperationTypeTabs(
-                    type = when (draft.type) {
-                        PlannedOperationType.Expense -> OperationType.Expense
-                        PlannedOperationType.Income -> OperationType.Income
-                    },
-                    enabled = enabled && state.original == null,
-                    onTypeClick = { type ->
-                        onType(
-                            when (type) {
-                                OperationType.Expense -> PlannedOperationType.Expense
-                                OperationType.Income -> PlannedOperationType.Income
-                            }
-                        )
-                    }
-                )
+                if (!isEditing) {
+                    OperationTypeTabs(
+                        type = when (draft.type) {
+                            PlannedOperationType.Expense -> OperationType.Expense
+                            PlannedOperationType.Income -> OperationType.Income
+                        },
+                        enabled = enabled,
+                        onTypeClick = { type ->
+                            onType(
+                                when (type) {
+                                    OperationType.Expense -> PlannedOperationType.Expense
+                                    OperationType.Income -> PlannedOperationType.Income
+                                }
+                            )
+                        }
+                    )
+                }
                 if (state.loading) CircularProgressIndicator()
                 SaldomiTextField(
                     draft.name,
@@ -393,7 +394,7 @@ private fun RuleValueLongPreview() {
 @Composable
 private fun RuleEditorPreview() {
     FillinTheme {
-        PlanningRuleEditorScreen(RuleEditorState(loading = false), true, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        PlanningRuleEditorScreen(RuleEditorState(loading = false), true, false, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
     }
 }
 
@@ -401,7 +402,7 @@ private fun RuleEditorPreview() {
 private fun EditorPreviewState(
     state: RuleEditorState
 ) {
-    FillinTheme { PlanningRuleEditorScreen(state, true, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) }
+    FillinTheme { PlanningRuleEditorScreen(state, true, false, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) }
 }
 
 @Preview

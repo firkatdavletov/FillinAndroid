@@ -20,12 +20,13 @@ class PlanningRuleEditorScreenTest {
     private var state by mutableStateOf(RuleEditorState(loading = false, categories = listOf(category)))
     private var saves = 0
     private fun show(
-        canWrite: Boolean = true
+        canWrite: Boolean = true,
+        isEditing: Boolean = false
     ) {
         compose.setContent {
             FillinTheme {
                 PlanningRuleEditorScreen(
-                    state, canWrite,
+                    state, canWrite, isEditing,
                     onChange = { transform -> state = state.copy(draft = transform(state.draft)) },
                     onType = { state = state.copy(draft = state.draft.copy(type = it)) },
                     onWindow = { state = state.copy(window = it) },
@@ -69,16 +70,25 @@ class PlanningRuleEditorScreenTest {
         compose.runOnIdle { assertNull(state.window) }
     }
 
-    @Test fun editLocksTypeAndReadOnlyDisablesSave() {
+    @Test fun editingHidesTypeTabsAndReadOnlyDisablesSave() {
         val draft = state.draft.copy(name = "Еда", categoryId = "food", amount = "100")
         state =
             state.copy(
                 draft = draft,
                 original = PlanningRule("r", 1, PlannedOperationType.Expense, "food", "Продукты", "HOME", "Еда", BigDecimal.TEN, frequency = PlanningFrequency.Once, startsOn = draft.date)
             )
-        show(canWrite = false)
+        show(canWrite = false, isEditing = true)
         compose.onNodeWithText("Редактирование правила").assertIsDisplayed()
-        compose.onNodeWithText("Доход").assertIsNotEnabled()
+        compose.onNodeWithText("Доход").assertDoesNotExist()
+        compose.onNodeWithText("Расход").assertDoesNotExist()
         compose.onNodeWithTag("planned-editor-save").assertIsNotEnabled()
+    }
+
+    @Test fun editingHidesTypeTabsWhileLoading() {
+        state = state.copy(loading = true)
+        show(isEditing = true)
+        compose.onNodeWithText("Редактирование правила").assertIsDisplayed()
+        compose.onNodeWithText("Доход").assertDoesNotExist()
+        compose.onNodeWithText("Расход").assertDoesNotExist()
     }
 }
