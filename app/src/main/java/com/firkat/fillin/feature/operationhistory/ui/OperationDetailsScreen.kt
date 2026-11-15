@@ -243,7 +243,10 @@ internal fun EditOperationContent(
 
                 operation?.let { op ->
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.rule_category), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = stringResource(R.string.rule_category),
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         OutlinedCard(
                             onClick = onCategoryOpen,
                             enabled = editable,
@@ -304,8 +307,8 @@ internal fun EditOperationContent(
                             style = MaterialTheme.typography.titleMedium
                         )
                         SaldomiTextField(
-                            input,
-                            onInputChange,
+                            value = input,
+                            onValueChange = onInputChange,
                             enabled = editable,
                             isError = inputError != null,
                             keyboardOptions = KeyboardOptions(
@@ -317,7 +320,9 @@ internal fun EditOperationContent(
                                     KeyboardType.Decimal
                                 }
                             ),
-                            modifier = Modifier.fillMaxWidth().testTag("edit_operation_input")
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("edit_operation_input")
                         )
                         inputError?.let { reason ->
                             Text(
@@ -341,12 +346,14 @@ internal fun EditOperationContent(
                                 style = MaterialTheme.typography.titleMedium
                             )
                             SaldomiTextField(
-                                description,
-                                onDescriptionChange,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("edit_operation_description"),
+                                value = description,
+                                onValueChange = onDescriptionChange,
                                 enabled = editable,
                                 isError = descriptionError,
-                                placeholder = stringResource(R.string.operation_details_description_hint),
-                                modifier = Modifier.fillMaxWidth().testTag("edit_operation_description")
+                                placeholder = stringResource(R.string.operation_details_description_hint)
                             )
                             if (descriptionError) {
                                 Text(

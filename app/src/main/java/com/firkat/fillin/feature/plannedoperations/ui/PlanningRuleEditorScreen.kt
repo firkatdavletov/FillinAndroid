@@ -2,6 +2,7 @@ package com.firkat.fillin.feature.plannedoperations.ui
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -163,6 +165,17 @@ internal fun PlanningRuleEditorScreen(
                             )
                         }
                     )
+                } else {
+                    Text(
+                        text = stringResource(
+                            if (draft.type == PlannedOperationType.Expense) {
+                                R.string.planned_operations_expense
+                            } else {
+                                R.string.planned_operations_income
+                            }
+                        ),
+                        style = MaterialTheme.typography.headlineSmall
+                    )
                 }
                 if (state.loading) CircularProgressIndicator()
                 SaldomiTextField(
@@ -170,7 +183,7 @@ internal fun PlanningRuleEditorScreen(
                     { value ->
                         onChange { it.copy(name = value) }
                     },
-                    label = stringResource(R.string.rule_name),
+                    placeholder = stringResource(R.string.rule_name),
                     enabled = enabled,
                     isError =
                         draft.name.length > 160,
@@ -178,20 +191,43 @@ internal fun PlanningRuleEditorScreen(
                         .fillMaxWidth()
                         .testTag("rule-name")
                 )
-                RuleValue(
-                    stringResource(R.string.rule_category),
-                    state.categories.firstOrNull { it.id == draft.categoryId }?.name
-                        ?: state.original?.takeIf { it.categoryId == draft.categoryId }?.categoryName
-                        ?: stringResource(R.string.rule_select),
-                    enabled,
-                    { onWindow(RuleWindow.Category) }
-                )
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.rule_category),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            onWindow(RuleWindow.Category)
+                        },
+                        enabled = enabled
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = state.categories.firstOrNull { it.id == draft.categoryId }?.name
+                                    ?: state.original?.takeIf { it.categoryId == draft.categoryId }?.categoryName
+                                    ?: stringResource(R.string.rule_select),
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text("›")
+                        }
+                    }
+                }
                 SaldomiTextField(
                     draft.amount,
                     { value ->
                         onChange { it.copy(amount = value) }
                     },
-                    label = stringResource(
+                    placeholder = stringResource(
                         R.string.rule_amount,
                         com.firkat.fillin.feature.budgetprofile.ui.LocalBudgetCurrency.current.symbol
                     ),
@@ -201,45 +237,53 @@ internal fun PlanningRuleEditorScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth().testTag("planned-editor-amount")
                 )
-                Box {
-                    RuleValue(
-                        stringResource(
-                            R.string.rule_frequency
-                        ),
-                        stringResource(draft.frequency.editorTitleResource),
-                        enabled,
-                        {
-                            onWindow(RuleWindow.Frequency)
-                        }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.rule_frequency),
+                        style = MaterialTheme.typography.titleMedium
                     )
-                    DropdownMenu(
-                        expanded = state.window == RuleWindow.Frequency,
-                        onDismissRequest = { onWindow(null) }
+                    OutlinedCard(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        onClick = {
+                            // TODO select frequency bottom sheet
+                        },
+                        enabled = enabled
                     ) {
-                        PlanningFrequency.entries.filter {
-                            draft.type == PlannedOperationType.Income ||
-                                it != PlanningFrequency.Biweekly
-                        }.forEach { frequency ->
-                            DropdownMenuItem(
-                                text = { Text(stringResource(frequency.editorTitleResource)) },
-                                onClick = {
-                                    onChange { it.copy(frequency = frequency) }
-                                    onWindow(null)
-                                }
+                        Row(
+                            Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(draft.frequency.editorTitleResource),
+                                modifier = Modifier.weight(1f)
                             )
+                            Text("›")
                         }
                     }
                 }
-                RuleValue(
-                    label = stringResource(
-                        R.string.rule_date
-                    ),
-                    value = draft.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)),
-                    enabled,
-                    onClick = {
-                        onWindow(RuleWindow.Date)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        stringResource(R.string.rule_date),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    OutlinedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                onClick = { onWindow(RuleWindow.Date) }
+                            )
+                    ) {
+                        Text(
+                            draft.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)),
+                            Modifier.padding(16.dp)
+                        )
                     }
-                )
+                }
                 if (state.original != null &&
                     draft.type == PlannedOperationType.Income
                 ) {
@@ -336,55 +380,6 @@ internal fun PlanningRuleEditorScreen(
         onDelete = onDelete,
         onDismiss = { onWindow(null) }
     )
-}
-
-@Composable
-private fun RuleValue(
-    label: String,
-    value: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedCard(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(value, style = MaterialTheme.typography.titleMedium)
-        }
-    }
-}
-
-@Preview
-@Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun RuleValuePreview() {
-    FillinTheme { RuleValue("Категория", "Продукты", true, {}) }
-}
-
-@Preview
-@Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun RuleValueDisabledPreview() {
-    FillinTheme { RuleValue("Категория", "Выберите", false, {}) }
-}
-
-@Preview(widthDp = 320, fontScale = 2f)
-@Preview(widthDp = 840)
-@Composable
-private fun RuleValueLongPreview() {
-    FillinTheme { RuleValue("Дата первого выполнения", "30 сентября 2026", true, {}) }
 }
 
 @Preview

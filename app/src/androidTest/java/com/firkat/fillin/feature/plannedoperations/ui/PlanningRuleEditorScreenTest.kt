@@ -51,7 +51,7 @@ class PlanningRuleEditorScreenTest {
 
     @Test fun categorySheetSelectsAndCloses() {
         show()
-        compose.onNodeWithText("Выбрать").performClick()
+        compose.onNodeWithText("Выбрать").assert(!hasSetTextAction()).performTouchInput { click() }
         compose.onNodeWithText("Продукты").performClick()
         compose.runOnIdle {
             assertEquals("food", state.draft.categoryId)
@@ -59,9 +59,19 @@ class PlanningRuleEditorScreenTest {
         }
     }
 
-    @Test fun calendarAndDiscardAreIndependentWindows() {
-        state = state.copy(window = RuleWindow.Date)
+    @Test fun frequencyFieldSelectsFromDropdown() {
         show()
+        compose.onNodeWithText("Периодичность").performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("Еженедельно").performClick()
+        compose.runOnIdle {
+            assertEquals(PlanningFrequency.Weekly, state.draft.frequency)
+            assertNull(state.window)
+        }
+    }
+
+    @Test fun calendarAndDiscardAreIndependentWindows() {
+        show()
+        compose.onNodeWithText("Дата первого выполнения").performScrollTo().performTouchInput { click() }
         compose.onNodeWithText("Отмена").performClick()
         compose.onNodeWithTag("planning-rule-editor").assertExists()
         compose.runOnIdle { state = state.copy(window = RuleWindow.Discard) }
@@ -81,6 +91,7 @@ class PlanningRuleEditorScreenTest {
         compose.onNodeWithText("Редактирование правила").assertIsDisplayed()
         compose.onNodeWithText("Доход").assertDoesNotExist()
         compose.onNodeWithText("Расход").assertDoesNotExist()
+        compose.onNodeWithText("Категория").assertIsNotEnabled()
         compose.onNodeWithTag("planned-editor-save").assertIsNotEnabled()
     }
 

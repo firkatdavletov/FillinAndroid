@@ -1,22 +1,32 @@
 package com.firkat.fillin.ui.component
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.VisualTransformation
@@ -26,7 +36,6 @@ import com.firkat.fillin.R
 import com.firkat.fillin.ui.theme.FillinTheme
 
 /** Compact, single-line outlined input. Its caller owns the text and validation state. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SaldomiTextField(
     value: String,
@@ -40,7 +49,7 @@ fun SaldomiTextField(
     label: String? = null
 ) {
     if (label != null) {
-        androidx.compose.material3.OutlinedTextField(
+        OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = modifier,
@@ -108,6 +117,51 @@ fun SaldomiTextField(
     )
 }
 
+/** A selection field that opens a picker without accepting keyboard input. */
+@Composable
+internal fun SaldomiTextField(
+    value: String,
+    label: String,
+    onClick: () -> Unit,
+    trailingIcon: Painter,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    val interactions = remember { MutableInteractionSource() }
+    val colors = OutlinedTextFieldDefaults.colors()
+    val labelLineHeight = MaterialTheme.typography.bodySmall.lineHeight
+    val labelPadding = with(LocalDensity.current) { labelLineHeight.toDp() / 2 }
+
+    Box(
+        modifier = modifier
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(top = labelPadding)
+            .defaultMinSize(
+                minWidth = OutlinedTextFieldDefaults.MinWidth,
+                minHeight = OutlinedTextFieldDefaults.MinHeight
+            ),
+        propagateMinConstraints = true
+    ) {
+        OutlinedTextFieldDefaults.DecorationBox(
+            value = value,
+            innerTextField = {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (enabled) colors.unfocusedTextColor else colors.disabledTextColor
+                )
+            },
+            enabled = enabled,
+            singleLine = false,
+            visualTransformation = VisualTransformation.None,
+            interactionSource = interactions,
+            label = { Text(label) },
+            trailingIcon = { Icon(trailingIcon, contentDescription = null) },
+            colors = colors
+        )
+    }
+}
+
 @Preview(name = "Empty")
 @Preview(name = "Empty dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
@@ -172,4 +226,34 @@ private fun LabelErrorPreview() {
 @Composable
 private fun LabelLargePreview() {
     FillinTheme { SaldomiTextField("Большой семейный бюджет", {}, label = "Название бюджета") }
+}
+
+@Preview(name = "Selection field")
+@Preview(name = "Selection field dark", uiMode = UI_MODE_NIGHT_YES)
+@Preview(name = "Selection field large font", widthDp = 320, fontScale = 2f)
+@Composable
+private fun SelectionFieldPreview() {
+    FillinTheme {
+        SaldomiTextField(
+            value = stringResource(R.string.rule_select),
+            label = stringResource(R.string.rule_category),
+            onClick = {},
+            trailingIcon = painterResource(R.drawable.ic_arrow_drop_down)
+        )
+    }
+}
+
+@Preview(name = "Disabled selection field")
+@Preview(name = "Disabled selection field dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun DisabledSelectionFieldPreview() {
+    FillinTheme {
+        SaldomiTextField(
+            value = stringResource(R.string.income_frequency_weekly),
+            label = stringResource(R.string.rule_frequency),
+            onClick = {},
+            trailingIcon = painterResource(R.drawable.ic_arrow_drop_down),
+            enabled = false
+        )
+    }
 }
