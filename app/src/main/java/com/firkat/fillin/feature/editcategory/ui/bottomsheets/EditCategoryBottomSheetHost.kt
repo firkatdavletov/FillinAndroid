@@ -4,6 +4,7 @@ package com.firkat.fillin.feature.editcategory.ui.bottomsheets
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -135,7 +138,6 @@ private fun CategoryIconPickerBottomSheet(
                         label = stringResource(R.string.category_icon_initial),
                         isSelected = selectedIconCode == CATEGORY_INITIAL_ICON_CODE,
                         onClick = { onIconSelected(CATEGORY_INITIAL_ICON_CODE) },
-                        showLabel = true
                     )
                 }
                 gridItems(
@@ -168,14 +170,13 @@ private fun CategoryIconPickerItem(
     Surface(
         onClick = onClick,
         modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp)
+            .height(64.dp)
             .semantics { selected = isSelected },
-        shape = MaterialTheme.shapes.large,
+        shape = CircleShape,
         color = if (isSelected) {
-            MaterialTheme.saldomiDesignColors.primaryContainer
+            MaterialTheme.colorScheme.secondaryContainer
         } else {
-            MaterialTheme.saldomiDesignColors.surfaceContainerHighest
+            MaterialTheme.colorScheme.secondaryContainer
         },
         contentColor = if (isSelected) {
             MaterialTheme.saldomiDesignColors.onPrimaryContainer
@@ -189,14 +190,16 @@ private fun CategoryIconPickerItem(
         }
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             CategoryIconImage(
                 iconCode = iconCode,
                 categoryName = categoryName,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onBackground),
                 contentDescription = if (showLabel) null else label
             )
             if (showLabel) {

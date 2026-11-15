@@ -152,9 +152,14 @@ class AppNavigationUiTest {
         assertTrue(env.server.creations.isEmpty())
     }
 
-    @Test fun categoryEditorIsAFullScreenAndSavesToTheOfflineList() {
+    @Test fun categoriesOpenFromProfileAndTheEditorSavesToTheOfflineList() {
         show(createdBudget = true)
-        compose.runOnIdle { navigation.openCategories() }
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithTag("profile_screen").assertIsDisplayed()
+        compose.onNodeWithText("Категории").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(AppRoute.Main, AppRoute.Profile, AppRoute.Categories), navigation.backStack)
+        }
         compose.waitUntil(5000) {
             compose.onAllNodesWithText("Новая категория", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
@@ -169,10 +174,8 @@ class AppNavigationUiTest {
         closeSoftKeyboard()
         compose.onNodeWithText("Сохранить").assertIsEnabled().performClick()
         compose.waitUntil(5000) { navigation.backStack.lastOrNull() == AppRoute.Categories }
-        compose.waitUntil(5000) {
-            compose.onAllNodesWithText("Возврат за товар").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithText("Возврат за товар").performScrollTo().performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Возврат за товар"))
+        compose.onNodeWithText("Возврат за товар").performClick()
         compose.onNodeWithText("Редактирование").assertIsDisplayed()
         compose.onNodeWithText("Доход").assertIsSelected().assertIsNotEnabled()
         compose.onNodeWithText("Сохранить").assertIsNotEnabled()
@@ -184,7 +187,11 @@ class AppNavigationUiTest {
         compose.onNodeWithText("Возврат за билет").assertExists()
         compose.onNodeWithContentDescription("Назад").performClick()
         compose.onNodeWithText("Выйти без сохранения").performClick()
-        compose.onNodeWithText("Возврат за товар").assertExists()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Возврат за товар"))
+        compose.onNodeWithText("Возврат за товар").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.onNodeWithTag("profile_screen").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(listOf(AppRoute.Main, AppRoute.Profile), navigation.backStack) }
     }
 
     @Test fun categoryDraftSurvivesRecreationAndClosesOnBudgetSwitch() {

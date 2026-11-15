@@ -351,7 +351,7 @@ class AppNavigationViewModel(
     }
 
     fun openCategories() {
-        openMainDestination(AppRoute.Categories)
+        openMainDestination(AppRoute.Categories, additionalSource = AppRoute.Profile)
     }
 
     fun openCategoryEditor(
@@ -472,7 +472,8 @@ class AppNavigationViewModel(
     }
 
     private fun openMainDestination(
-        route: AppRoute
+        route: AppRoute,
+        additionalSource: AppRoute? = null
     ) {
         cancelPlanOffer()
         if (readOnly &&
@@ -483,7 +484,10 @@ class AppNavigationViewModel(
         ) {
             return
         }
-        if (entries.last() == AppRoute.Main && budgetReady && !resolving.value) entries.add(route)
+        val source = entries.last()
+        if ((source == AppRoute.Main || source == additionalSource) && budgetReady && !resolving.value) {
+            entries.add(route)
+        }
     }
 
     fun continueAsGuest() {

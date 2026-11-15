@@ -73,6 +73,7 @@ import com.firkat.fillin.feature.profile.ui.bottomsheets.ProfileBottomSheetHost
 import com.firkat.fillin.ui.component.AccountIdentity
 import com.firkat.fillin.ui.component.PrimaryButton
 import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.icon.FillinIcons
 import com.firkat.fillin.ui.theme.FillinTheme
 import org.koin.compose.koinInject
@@ -346,12 +347,15 @@ fun ProfileScreen(
         }
         managementContent()
 
-        PrimaryButton(
-            stringResource(R.string.profile_create_budget),
-            onCreateBudgetClick,
+        SaldomiOutlinedButton(
             modifier = Modifier.fillMaxWidth(),
-            enabled = !state.busy
-        )
+            onClick = onCreateBudgetClick,
+            large = true
+        ) {
+            Text(
+                text = stringResource(R.string.profile_create_budget)
+            )
+        }
 
         if (state.error != null) {
             Text(

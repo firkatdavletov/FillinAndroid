@@ -35,20 +35,28 @@ internal fun CategoryIconImage(
     val icon = CategoryIcons.find(iconCode)
     val iconModifier = modifier.size(32.dp)
     if (icon != null) {
-        Image(painterResource(icon.drawableResource), contentDescription, iconModifier)
+        Image(
+            painter = painterResource(icon.drawableResource),
+            contentDescription = contentDescription,
+            modifier = modifier.size(32.dp)
+        )
     } else {
         val name = categoryInitialName(categoryName, stringResource(R.string.categories_editor_create_title))
         val colors = MaterialTheme.saldomiColors
         val palette = colors.categoryInitialColors
         Surface(
-            modifier = iconModifier.clearAndSetSemantics {
-                if (contentDescription != null) this.contentDescription = contentDescription
-            },
+            modifier = modifier
+                .size(48.dp)
+                .clearAndSetSemantics {
+                    if (contentDescription != null) this.contentDescription = contentDescription
+                },
             shape = CircleShape,
             color = palette[categoryInitialColorIndex(name, palette.size)],
             contentColor = colors.onCategoryInitial
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Box(
+                contentAlignment = Alignment.Center
+            ) {
                 BasicText(
                     text = categoryInitialLetter(name),
                     style = MaterialTheme.typography.labelSmall.copy(

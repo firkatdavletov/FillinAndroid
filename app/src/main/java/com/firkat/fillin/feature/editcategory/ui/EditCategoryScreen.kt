@@ -206,7 +206,10 @@ private fun CategoryIconButton(
         onClick = onClick,
         modifier = modifier.size(48.dp),
         enabled = enabled,
-        shape = CircleShape
+        shape = CircleShape,
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = MaterialTheme.colorScheme.onBackground
+        )
     ) {
         CategoryIconImage(
             iconCode = iconCode,
