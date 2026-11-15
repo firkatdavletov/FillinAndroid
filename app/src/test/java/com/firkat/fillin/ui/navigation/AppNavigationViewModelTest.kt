@@ -182,7 +182,10 @@ class AppNavigationViewModelTest {
         val model = model(FakeAuth(), ready) { true }
         model.onLaunchShown()
         runCurrent()
-        val stack = listOf(AppRoute.Main, AppRoute.BudgetSetup(BudgetSetupMode.Local))
+        model.openBudgetCreation()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        model.openProfile()
+        val stack = listOf(AppRoute.Main, AppRoute.Profile, AppRoute.BudgetSetup(BudgetSetupMode.Local))
         model.openBudgetCreation()
         model.openBudgetCreation()
         ready.value = false
@@ -191,8 +194,7 @@ class AppNavigationViewModelTest {
         runCurrent()
         assertEquals(stack, model.backStack)
         assertFalse(model.exitSetup())
-        assertEquals(listOf(AppRoute.Main), model.backStack)
-        assertEquals(AppDestination.Dashboard, model.mainDestination)
+        assertEquals(listOf(AppRoute.Main, AppRoute.Profile), model.backStack)
 
         model.openBudgetCreation()
         model.finishSetup()
@@ -217,9 +219,13 @@ class AppNavigationViewModelTest {
         val original = newNavigation()
         original.onLaunchShown()
         runCurrent()
+        original.openProfile()
         original.openBudgetCreation()
         original.authenticateForSetup(SetupAuthTarget.Create)
-        assertEquals(AppRoute.Auth, original.backStack.last())
+        assertEquals(
+            listOf(AppRoute.Main, AppRoute.Profile, AppRoute.BudgetSetup(BudgetSetupMode.Local), AppRoute.Auth),
+            original.backStack
+        )
 
         models.clear()
         auth.signInWithGoogle("synthetic")
@@ -227,11 +233,12 @@ class AppNavigationViewModelTest {
         restored.onLaunchShown()
         runCurrent()
         assertTrue(restored.setupFromProfile)
-        assertEquals(AppRoute.Main, restored.backStack.first())
-        assertTrue(restored.backStack.last().isBudgetSetup())
+        assertEquals(
+            listOf(AppRoute.Main, AppRoute.Profile, AppRoute.BudgetSetup(BudgetSetupMode.Cloud)),
+            restored.backStack
+        )
         assertFalse(restored.exitSetup())
-        assertEquals(listOf(AppRoute.Main), restored.backStack)
-        assertEquals(AppDestination.Dashboard, restored.mainDestination)
+        assertEquals(listOf(AppRoute.Main, AppRoute.Profile), restored.backStack)
     }
 
     @Test fun `losing cloud access inside profile setup returns to the local form`() = runTest {
@@ -254,13 +261,14 @@ class AppNavigationViewModelTest {
         ).also { models.put("access", it) }
         model.onLaunchShown()
         runCurrent()
+        model.openProfile()
         model.openBudgetCreation()
         model.showSetupPage(SetupPage.Join)
         assertEquals(AppRoute.BudgetSetupJoin, model.backStack.last())
 
         access.revoke()
         model.closeRestrictedRoutes()
-        assertEquals(listOf(AppRoute.Main, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
+        assertEquals(listOf(AppRoute.Main, AppRoute.Profile, AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
         assertTrue(model.setupFromProfile)
         assertFalse(model.exitSetup())
         assertFalse(model.configuringBudget)

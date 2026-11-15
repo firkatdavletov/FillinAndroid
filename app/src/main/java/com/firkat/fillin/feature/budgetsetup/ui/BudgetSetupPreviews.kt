@@ -88,6 +88,7 @@ private fun JoinPreview() {
 }
 
 @Preview(widthDp = 320, heightDp = 640, fontScale = 2f)
+@Preview(widthDp = 320, heightDp = 640, fontScale = 2f, uiMode = UI_MODE_NIGHT_YES)
 @Preview(widthDp = 840, heightDp = 900)
 @Composable
 private fun LongPreview() {
@@ -134,4 +135,11 @@ private fun OfflineSetupLimitPreview() {
 @Composable
 private fun OfflineSetupFromProfilePreview() {
     SetupPreview(BudgetSetupState(cloudAllowed = false), fromProfile = true)
+}
+
+@Preview
+@Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun OfflineSetupFromProfileSavingPreview() {
+    SetupPreview(BudgetSetupState(cloudAllowed = false, busy = true), fromProfile = true)
 }

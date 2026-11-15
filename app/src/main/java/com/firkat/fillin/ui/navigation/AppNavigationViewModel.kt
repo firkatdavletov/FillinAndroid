@@ -130,8 +130,8 @@ class AppNavigationViewModel(
     }
 
     fun openBudgetCreation() {
-        if (entries.lastOrNull() != AppRoute.Main || !budgetReady || resolving.value) return
-        selectMainDestination(AppDestination.Dashboard)
+        if (entries.lastOrNull() != AppRoute.Profile || !budgetReady || resolving.value) return
+        cancelPlanOffer()
         setupFromProfile = true
         setupAuth = null
         setupActive = true
@@ -175,7 +175,7 @@ class AppNavigationViewModel(
         val returnToProfile = setupFromProfile
         clearSetup()
         if (returnToProfile) {
-            if (budgetReady) openMain() else openSetup(BudgetSetupMode.Local)
+            if (budgetReady) entries.removeAt(entries.lastIndex) else openSetup(BudgetSetupMode.Local)
         }
         return !returnToProfile
     }
@@ -208,7 +208,12 @@ class AppNavigationViewModel(
         route: AppRoute
     ) {
         if (setupFromProfile) {
-            openMain()
+            if (AppRoute.Profile in entries) {
+                while (entries.last() != AppRoute.Profile) entries.removeAt(entries.lastIndex)
+            } else {
+                openMain()
+                entries.add(AppRoute.Profile)
+            }
             entries.add(route)
         } else {
             replaceWith(route)

@@ -53,23 +53,12 @@ internal fun BudgetSetupContent(
                 .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (state.cloudAllowed ||
-                    fromProfile
-                ) {
-                    IconButton(onClick = {
-                        onAction(BudgetSetupAction.Back)
-                    }, enabled = !state.busy, modifier = Modifier.testTag("setup_back")) {
-                        Icon(FillinIcons.Back, stringResource(R.string.navigation_back))
-                    }
-                }
-                Image(
-                    painterResource(R.drawable.saldomi_logo),
-                    stringResource(R.string.app_name),
-                    Modifier.widthIn(max = 180.dp).heightIn(max = 56.dp),
-                    contentScale = ContentScale.Fit
-                )
-            }
+            Image(
+                painterResource(R.drawable.saldomi_logo),
+                stringResource(R.string.app_name),
+                Modifier.widthIn(max = 180.dp).heightIn(max = 56.dp),
+                contentScale = ContentScale.Fit
+            )
             Spacer(Modifier.height(8.dp))
             Text(
                 stringResource(
@@ -162,6 +151,16 @@ internal fun BudgetSetupContent(
                 SaldomiTextButton(onClick = {
                     onAction(BudgetSetupAction.Refresh)
                 }, enabled = !state.busy) { Text(stringResource(R.string.cloud_budgets_refresh)) }
+            }
+            if (state.cloudAllowed || fromProfile) {
+                SaldomiOutlinedButton(
+                    onClick = { onAction(BudgetSetupAction.Back) },
+                    modifier = Modifier.fillMaxWidth().testTag("setup_back"),
+                    enabled = !state.busy,
+                    large = true
+                ) {
+                    Text(stringResource(R.string.navigation_back))
+                }
             }
             Spacer(Modifier.height(16.dp))
         }

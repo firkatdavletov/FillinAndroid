@@ -666,12 +666,15 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("setup_cloud").assertDoesNotExist()
         compose.onNodeWithTag("budget_setup_name").performScrollTo().performTextReplacement("Черновик")
         closeSoftKeyboard()
-        compose.onNodeWithTag("setup_back").performScrollTo().performClick()
-        compose.onNodeWithTag("tab_Profile").assertIsSelected()
+        compose.onNodeWithContentDescription("Назад").assertDoesNotExist()
+        compose.onNodeWithTag("setup_back").performScrollTo().assertTextEquals("Назад").performClick()
+        compose.onNodeWithTag("profile_screen").assertIsDisplayed()
         compose.onNodeWithTag("budget_setup_screen").assertDoesNotExist()
         assertEquals(original, env.manager.active.value!!.profile.id)
         compose.onNodeWithText("Создать новый").performScrollTo().performClick()
         compose.onNodeWithTag("budget_setup_name").assertTextContains("Личный бюджет")
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("profile_screen").assertIsDisplayed()
     }
 
     @Test fun creatingFromProfileSelectsTheNewBudgetAndOpensDashboard() {
@@ -712,7 +715,7 @@ class AppNavigationUiTest {
     }
 
     private fun openProfileBudgetCreation() {
-        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithContentDescription("Profile").performClick()
         compose.onNodeWithText("Создать новый").performScrollTo().performClick()
         compose.onNodeWithTag("budget_setup_screen").assertIsDisplayed()
         compose.onNodeWithTag("budget_setup_date").assertDoesNotExist()
