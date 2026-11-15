@@ -67,6 +67,7 @@ import com.firkat.fillin.feature.main.ui.MainScreen
 import com.firkat.fillin.feature.operationhistory.ui.OperationCreateRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationDetailsRoute
 import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.OperationPlanLinkBottomSheet
+import com.firkat.fillin.feature.plannedoperations.ui.PlanningRuleEditorRoute
 import com.firkat.fillin.feature.plannedoperations.ui.bottomsheets.PlannedOperationBottomSheet
 import com.firkat.fillin.feature.profile.ui.ProfileRoute
 import com.firkat.fillin.feature.sync.ui.CloudSyncRoute
@@ -340,10 +341,14 @@ fun FillinNavHost(
                 editorModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
                 ActiveBudgetContent(viewModelStoreOwner = editorModels) {
                     if (route.budgetScopeId == runtime?.scope?.id) {
-                        com.firkat.fillin.feature.plannedoperations.ui
-                            .PlanningRuleEditorRoute(route.type, route.ruleId, route.requestId, onClose = {
+                        PlanningRuleEditorRoute(
+                            type = route.type,
+                            ruleId = route.ruleId,
+                            requestId = route.requestId,
+                            onClose = {
                                 navigation.dismissPlanningRuleEditor(route)
-                            })
+                            },
+                        )
                     }
                 }
             }

@@ -46,6 +46,7 @@ import com.firkat.fillin.feature.plannedoperations.domain.repository.PlannedOper
 import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.CategoryIconImage
 import com.firkat.fillin.ui.component.RefreshErrorContent
+import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.format.formatMoney
 import com.firkat.fillin.ui.icon.FillinIcons
 import com.firkat.fillin.ui.theme.saldomiColors
@@ -106,23 +107,6 @@ fun PlannedOperationsScreen(
                 modifier = Modifier.weight(1f),
                 title = stringResource(R.string.planning_title)
             )
-            if (canWrite) {
-                IconButton(
-                    onClick = if (state.selectedType ==
-                        PlannedOperationType.Income
-                    ) {
-                        onCreateIncome
-                    } else {
-                        onCreateExpense
-                    },
-                    modifier = Modifier.testTag("planned-create")
-                ) {
-                    Icon(
-                        painter = FillinIcons.Add,
-                        contentDescription = stringResource(R.string.app_add_plan)
-                    )
-                }
-            }
         }
         val expenseCount = state.rules.count { it.type == PlannedOperationType.Expense }
         PlanningTypeFilters(
@@ -157,7 +141,9 @@ fun PlannedOperationsScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().testTag("planned-operations-list"),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("planned-operations-list"),
                 state = listState,
                 contentPadding = PaddingValues(top = 4.dp, bottom = 12.dp + bottomBarOverlap)
             ) {
@@ -194,6 +180,26 @@ fun PlannedOperationsScreen(
                             enabled = canWrite
                         )
                     }
+                }
+            }
+            if (canWrite) {
+                SaldomiOutlinedButton(
+                    onClick = if (state.selectedType ==
+                        PlannedOperationType.Income
+                    ) {
+                        onCreateIncome
+                    } else {
+                        onCreateExpense
+                    },
+                    modifier = Modifier
+                        .padding(start = 16.dp, end = 16.dp, bottom = bottomBarOverlap)
+                        .fillMaxWidth()
+                        .testTag("planned-create"),
+                    large = true
+                ) {
+                    Text(
+                        text = stringResource(R.string.app_add_plan)
+                    )
                 }
             }
         }

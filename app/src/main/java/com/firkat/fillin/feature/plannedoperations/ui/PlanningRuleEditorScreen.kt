@@ -2,27 +2,55 @@ package com.firkat.fillin.feature.plannedoperations.ui
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.*
-import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
-import com.firkat.fillin.feature.plannedoperations.domain.model.*
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningFrequency
 import com.firkat.fillin.feature.plannedoperations.ui.bottomsheets.PlanningRuleEditorBottomSheetHost
 import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
-import com.firkat.fillin.ui.component.*
+import com.firkat.fillin.ui.component.SaldomiTextField
 import com.firkat.fillin.ui.theme.FillinTheme
-import java.time.*
 import java.time.format.DateTimeFormatter
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -67,34 +95,62 @@ internal fun PlanningRuleEditorScreen(
     val enabled = canWrite && !state.saving && !state.loading
     val draft = state.draft
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-    Scaffold(modifier.fillMaxSize().testTag("planning-rule-editor"), topBar = {
-        TopAppBar(
-            title = {
-                Text(
-                    stringResource(
-                        if (state.original ==
-                            null
-                        ) {
-                            R.string.rule_create_title
-                        } else {
-                            R.string.rule_edit_title
-                        }
+    Scaffold(
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("planning-rule-editor"),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        stringResource(
+                            if (state.original ==
+                                null
+                            ) {
+                                R.string.rule_create_title
+                            } else {
+                                R.string.rule_edit_title
+                            }
+                        )
                     )
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .testTag("planned-editor-close"),
+                        enabled = !state.saving
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_arrow_back),
+                            contentDescription = stringResource(R.string.navigation_back)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
-            },
-            navigationIcon = {
-                IconButton(onBack, modifier = Modifier.testTag("planned-editor-close"), enabled = !state.saving) {
-                    Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.navigation_back))
-                }
-            }
-        )
-    }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) {
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .consumeWindowInsets(padding)
+                .imePadding()
+        ) {
             Column(
-                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                PrimaryTabRow(selectedTabIndex = if (draft.type == PlannedOperationType.Expense) 0 else 1) {
+                PrimaryTabRow(
+                    selectedTabIndex = if (draft.type == PlannedOperationType.Expense) 0 else 1
+                ) {
                     PlannedOperationType.entries.forEach { type ->
                         Tab(
                             selected = type == draft.type,
@@ -125,8 +181,10 @@ internal fun PlanningRuleEditorScreen(
                     label = stringResource(R.string.rule_name),
                     enabled = enabled,
                     isError =
-                    draft.name.length > 160,
-                    modifier = Modifier.fillMaxWidth().testTag("rule-name")
+                        draft.name.length > 160,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("rule-name")
                 )
                 RuleValue(
                     stringResource(R.string.rule_category),
@@ -147,7 +205,7 @@ internal fun PlanningRuleEditorScreen(
                     ),
                     enabled = enabled,
                     isError =
-                    draft.amount.isNotEmpty() && state.amount == null,
+                        draft.amount.isNotEmpty() && state.amount == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth().testTag("planned-editor-amount")
                 )
@@ -162,25 +220,31 @@ internal fun PlanningRuleEditorScreen(
                             onWindow(RuleWindow.Frequency)
                         }
                     )
-                    DropdownMenu(state.window == RuleWindow.Frequency, { onWindow(null) }) {
+                    DropdownMenu(
+                        expanded = state.window == RuleWindow.Frequency,
+                        onDismissRequest = { onWindow(null) }
+                    ) {
                         PlanningFrequency.entries.filter {
                             draft.type == PlannedOperationType.Income ||
                                 it != PlanningFrequency.Biweekly
                         }.forEach { frequency ->
-                            DropdownMenuItem(text = { Text(stringResource(frequency.editorTitleResource)) }, onClick = {
-                                onChange { it.copy(frequency = frequency) }
-                                onWindow(null)
-                            })
+                            DropdownMenuItem(
+                                text = { Text(stringResource(frequency.editorTitleResource)) },
+                                onClick = {
+                                    onChange { it.copy(frequency = frequency) }
+                                    onWindow(null)
+                                }
+                            )
                         }
                     }
                 }
                 RuleValue(
-                    stringResource(
+                    label = stringResource(
                         R.string.rule_date
                     ),
-                    draft.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)),
+                    value = draft.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)),
                     enabled,
-                    {
+                    onClick = {
                         onWindow(RuleWindow.Date)
                     }
                 )
@@ -188,8 +252,15 @@ internal fun PlanningRuleEditorScreen(
                     draft.type == PlannedOperationType.Income
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Text(stringResource(R.string.income_active_label), Modifier.weight(1f))
-                        Switch(draft.active, { value -> onChange { it.copy(active = value) } }, enabled = enabled)
+                        Text(
+                            text = stringResource(R.string.income_active_label),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = draft.active,
+                            onCheckedChange = { value -> onChange { it.copy(active = value) } },
+                            enabled = enabled
+                        )
                     }
                 }
                 if (state.error) {
@@ -197,28 +268,46 @@ internal fun PlanningRuleEditorScreen(
                     if (state.original == null &&
                         !state.dirty
                     ) {
-                        TextButton(onRetry) { Text(stringResource(R.string.planned_operations_retry)) }
+                        TextButton(
+                            onClick = onRetry
+                        ) {
+                            Text(stringResource(R.string.planned_operations_retry))
+                        }
                     }
                 }
                 if (state.original !=
                     null
                 ) {
-                    TextButton(onClick = {
-                        onWindow(RuleWindow.Delete)
-                    }, enabled = enabled) {
-                        Text(stringResource(R.string.rule_delete), color = MaterialTheme.colorScheme.error)
+                    TextButton(
+                        onClick = {
+                            onWindow(RuleWindow.Delete)
+                        },
+                        enabled = enabled
+                    ) {
+                        Text(
+                            text = stringResource(R.string.rule_delete),
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             }
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Button(
-                    onSave,
+                    onClick = onSave,
                     enabled = canWrite && state.canSave,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("planned-editor-save")
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .testTag("planned-editor-save")
                 ) {
                     if (state.saving) {
                         CircularProgressIndicator(
-                            Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     } else {
                         Text(stringResource(R.string.rule_save))
@@ -227,7 +316,10 @@ internal fun PlanningRuleEditorScreen(
                 if (draft.frequency ==
                     PlanningFrequency.Once
                 ) {
-                    Text(stringResource(R.string.rule_once_hint), style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = stringResource(R.string.rule_once_hint),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
@@ -262,8 +354,16 @@ private fun RuleValue(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    OutlinedCard(onClick = onClick, enabled = enabled, modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    OutlinedCard(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Text(
                 label,
                 style = MaterialTheme.typography.labelMedium,
