@@ -1,6 +1,7 @@
 package com.firkat.fillin.feature.categories.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
@@ -154,8 +156,7 @@ private fun CategoriesList(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding =
-        PaddingValues(
+        contentPadding = PaddingValues(
             start = 16.dp,
             top = 8.dp,
             end = 16.dp,
@@ -185,7 +186,7 @@ private fun CategoriesList(
     }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.categorySection(
+private fun LazyListScope.categorySection(
     @StringRes title: Int,
     categories: List<Category>,
     onCategoryClick: (Category) -> Unit
@@ -223,8 +224,7 @@ internal fun CategoryItem(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier =
-        modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
@@ -234,13 +234,16 @@ internal fun CategoryItem(
         Surface(
             modifier = Modifier.size(40.dp),
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHighest
+            color = MaterialTheme.colorScheme.onBackground
         ) {
             Box(contentAlignment = Alignment.Center) {
                 CategoryIconImage(category.icon.code, category.name)
             }
         }
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+        ) {
             Text(
                 text = category.name,
                 style = MaterialTheme.typography.bodyLarge,

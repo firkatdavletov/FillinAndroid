@@ -58,9 +58,9 @@ internal fun CategorySelectionSheet(
                             color = if (category.id ==
                                 selectedId
                             ) {
-                                MaterialTheme.colorScheme.secondaryContainer
+                                MaterialTheme.colorScheme.primary
                             } else {
-                                MaterialTheme.colorScheme.background
+                                MaterialTheme.colorScheme.secondaryContainer
                             },
                             shape = MaterialTheme.shapes.medium
                         ) {

@@ -3,11 +3,13 @@ package com.firkat.fillin.feature.plannedoperations.ui
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.firkat.fillin.feature.categories.domain.model.*
 import com.firkat.fillin.feature.plannedoperations.domain.model.*
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.math.BigDecimal
+import java.time.LocalDate
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -59,19 +61,41 @@ class PlanningRuleEditorScreenTest {
         }
     }
 
-    @Test fun frequencyFieldSelectsFromDropdown() {
+    @Test fun frequencySheetShowsSelectionAndUpdatesExpenseRule() {
         show()
-        compose.onNodeWithText("Периодичность").performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("Однократно").performScrollTo().performTouchInput { click() }
+        compose.onNode(hasText("Однократно") and isSelected()).assertIsDisplayed()
+        compose.onNodeWithText("Раз в две недели").assertDoesNotExist()
         compose.onNodeWithText("Еженедельно").performClick()
+        compose.onNodeWithText("Еженедельно").assertIsDisplayed()
         compose.runOnIdle {
             assertEquals(PlanningFrequency.Weekly, state.draft.frequency)
             assertNull(state.window)
         }
     }
 
-    @Test fun calendarAndDiscardAreIndependentWindows() {
+    @Test fun incomeFrequencySheetCanBeDismissedAndOffersBiweekly() {
+        state = state.copy(draft = state.draft.copy(type = PlannedOperationType.Income))
         show()
-        compose.onNodeWithText("Дата первого выполнения").performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("Однократно").performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("Раз в две недели").assertIsDisplayed()
+        pressBack()
+        compose.runOnIdle {
+            assertEquals(PlanningFrequency.Once, state.draft.frequency)
+            assertNull(state.window)
+        }
+        compose.onNodeWithText("Однократно").performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("Раз в две недели").performClick()
+        compose.runOnIdle {
+            assertEquals(PlanningFrequency.Biweekly, state.draft.frequency)
+            assertNull(state.window)
+        }
+    }
+
+    @Test fun calendarAndDiscardAreIndependentWindows() {
+        state = state.copy(draft = state.draft.copy(date = LocalDate.of(2030, 1, 15)))
+        show()
+        compose.onNodeWithText("2030", substring = true).performScrollTo().performTouchInput { click() }
         compose.onNodeWithText("Отмена").performClick()
         compose.onNodeWithTag("planning-rule-editor").assertExists()
         compose.runOnIdle { state = state.copy(window = RuleWindow.Discard) }
@@ -90,8 +114,9 @@ class PlanningRuleEditorScreenTest {
         show(canWrite = false, isEditing = true)
         compose.onNodeWithText("Редактирование правила").assertIsDisplayed()
         compose.onNodeWithText("Доход").assertDoesNotExist()
-        compose.onNodeWithText("Расход").assertDoesNotExist()
-        compose.onNodeWithText("Категория").assertIsNotEnabled()
+        compose.onNodeWithText("Расход").assert(!hasClickAction())
+        compose.onNodeWithText("Продукты").assertIsNotEnabled()
+        compose.onNodeWithText("Однократно").assertIsNotEnabled()
         compose.onNodeWithTag("planned-editor-save").assertIsNotEnabled()
     }
 
@@ -100,6 +125,6 @@ class PlanningRuleEditorScreenTest {
         show(isEditing = true)
         compose.onNodeWithText("Редактирование правила").assertIsDisplayed()
         compose.onNodeWithText("Доход").assertDoesNotExist()
-        compose.onNodeWithText("Расход").assertDoesNotExist()
+        compose.onNodeWithText("Расход").assert(!hasClickAction())
     }
 }

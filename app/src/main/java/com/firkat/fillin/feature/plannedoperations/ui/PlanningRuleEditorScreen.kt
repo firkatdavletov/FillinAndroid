@@ -4,7 +4,6 @@ import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -19,8 +18,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +48,9 @@ import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningFrequenc
 import com.firkat.fillin.feature.plannedoperations.ui.bottomsheets.PlanningRuleEditorBottomSheetHost
 import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.OperationTypeTabs
+import com.firkat.fillin.ui.component.PrimaryButton
+import com.firkat.fillin.ui.component.SaldomiButton
+import com.firkat.fillin.ui.component.SaldomiTextButton
 import com.firkat.fillin.ui.component.SaldomiTextField
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.time.format.DateTimeFormatter
@@ -246,11 +246,8 @@ internal fun PlanningRuleEditorScreen(
                         style = MaterialTheme.typography.titleMedium
                     )
                     OutlinedCard(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        onClick = {
-                            // TODO select frequency bottom sheet
-                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { onWindow(RuleWindow.Frequency) },
                         enabled = enabled
                     ) {
                         Row(
@@ -311,10 +308,33 @@ internal fun PlanningRuleEditorScreen(
                         }
                     }
                 }
-                if (state.original !=
-                    null
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SaldomiButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .testTag("planned-editor-save"),
+                    large = true,
+                    onClick = onSave,
+                    enabled = canWrite && state.canSave
                 ) {
-                    TextButton(
+                    if (state.saving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Text(stringResource(R.string.rule_save))
+                    }
+                }
+                if (state.original != null) {
+                    SaldomiTextButton(
+                        modifier = Modifier.fillMaxWidth(),
                         onClick = {
                             onWindow(RuleWindow.Delete)
                         },
@@ -327,37 +347,6 @@ internal fun PlanningRuleEditorScreen(
                     }
                 }
             }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = onSave,
-                    enabled = canWrite && state.canSave,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp)
-                        .testTag("planned-editor-save")
-                ) {
-                    if (state.saving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp)
-                        )
-                    } else {
-                        Text(stringResource(R.string.rule_save))
-                    }
-                }
-                if (draft.frequency ==
-                    PlanningFrequency.Once
-                ) {
-                    Text(
-                        text = stringResource(R.string.rule_once_hint),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
         }
     }
     PlanningRuleEditorBottomSheetHost(
@@ -367,14 +356,16 @@ internal fun PlanningRuleEditorScreen(
         categories = state.categories,
         categoriesLoading = state.categoriesLoading,
         categoriesError = state.categoriesError,
+        frequency = draft.frequency,
         date = draft.date,
         accountingStart = state.accountingStart,
         originalDate = state.original?.let { state.initial.date },
-        canSelectDate = enabled,
+        canEdit = enabled,
         canDiscard = !state.saving,
         canDelete = !state.saving && canWrite,
         onCategorySelected = onCategory,
         onRetryCategories = onRetryCategories,
+        onFrequencySelected = { frequency -> onChange { it.copy(frequency = frequency) } },
         onDateSelected = { date -> onChange { it.copy(date = date) } },
         onDiscard = onDiscard,
         onDelete = onDelete,
@@ -438,7 +429,7 @@ private fun RuleLoadingPreview() {
     EditorPreviewState(RuleEditorState())
 }
 
-private val PlanningFrequency.editorTitleResource: Int get() = when (this) {
+internal val PlanningFrequency.editorTitleResource: Int get() = when (this) {
     PlanningFrequency.Once -> R.string.income_frequency_once
     PlanningFrequency.Weekly -> R.string.income_frequency_weekly
     PlanningFrequency.Biweekly -> R.string.income_frequency_biweekly

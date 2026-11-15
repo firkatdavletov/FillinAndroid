@@ -3,7 +3,9 @@ package com.firkat.fillin.feature.plannedoperations.ui.bottomsheets
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
@@ -16,6 +18,7 @@ import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.categories.ui.bottomsheets.CategorySelectionSheet
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
+import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningFrequency
 import com.firkat.fillin.feature.plannedoperations.ui.RuleWindow
 import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import com.firkat.fillin.ui.component.SaldomiButton
@@ -34,14 +37,16 @@ internal fun PlanningRuleEditorBottomSheetHost(
     categories: List<Category>,
     categoriesLoading: Boolean,
     categoriesError: Boolean,
+    frequency: PlanningFrequency,
     date: LocalDate,
     accountingStart: LocalDate,
     originalDate: LocalDate?,
-    canSelectDate: Boolean,
+    canEdit: Boolean,
     canDiscard: Boolean,
     canDelete: Boolean,
     onCategorySelected: (String) -> Unit,
     onRetryCategories: () -> Unit,
+    onFrequencySelected: (PlanningFrequency) -> Unit,
     onDateSelected: (LocalDate) -> Unit,
     onDiscard: () -> Unit,
     onDelete: () -> Unit,
@@ -62,11 +67,19 @@ internal fun PlanningRuleEditorBottomSheetHost(
                 modifier = modifier
             )
         }
+        RuleWindow.Frequency -> SelectFrequencyBottomSheet(
+            type = type,
+            selectedFrequency = frequency,
+            onSelect = onFrequencySelected,
+            onDismiss = onDismiss,
+            modifier = modifier,
+            enabled = canEdit
+        )
         RuleWindow.Date -> RuleDateBottomSheet(
             date,
             accountingStart,
             originalDate,
-            canSelectDate,
+            canEdit,
             onDateSelected,
             onDismiss,
             modifier
@@ -85,7 +98,7 @@ internal fun PlanningRuleEditorBottomSheetHost(
             onDismiss,
             modifier
         )
-        RuleWindow.Frequency, null -> Unit
+        null -> Unit
     }
 }
 
@@ -124,11 +137,23 @@ private fun RuleDateBottomSheet(
                 enabled = enabled && picker.selectedDateMillis != null,
                 modifier = Modifier.fillMaxWidth(),
                 large = true
-            ) { Text(stringResource(R.string.rule_select)) }
+            ) {
+                Text(
+                    text = stringResource(R.string.rule_select)
+                )
+            }
         },
         dismissButton = { CancelRuleButton(onDismiss) },
         edgeToEdgeContent = true,
-        text = { DatePicker(picker) }
+        text = {
+            DatePicker(
+                state = picker,
+                colors = DatePickerDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
+            )
+        }
     )
 }
 
