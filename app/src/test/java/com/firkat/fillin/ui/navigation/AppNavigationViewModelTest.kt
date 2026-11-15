@@ -427,6 +427,26 @@ class AppNavigationViewModelTest {
         assertEquals(listOf(AppRoute.Main), model.backStack)
     }
 
+    @Test fun `deleting the last budget from Profile opens setup and creating a budget returns to Main`() = runTest {
+        val ready = MutableStateFlow(true)
+        val model = model(FakeAuth(), ready) { true }
+        model.onLaunchShown()
+        runCurrent()
+        model.openProfile()
+        assertEquals(listOf(AppRoute.Main, AppRoute.Profile), model.backStack)
+
+        ready.value = false
+        runCurrent()
+        assertEquals(listOf(AppRoute.BudgetSetup(BudgetSetupMode.Local)), model.backStack)
+        assertTrue(model.configuringBudget)
+        assertFalse(model.setupFromProfile)
+
+        ready.value = true
+        runCurrent()
+        assertEquals(listOf(AppRoute.Main), model.backStack)
+        assertFalse(model.configuringBudget)
+    }
+
     @Test fun `late budget result for a previous account cannot navigate after logout`() = runTest {
         val auth = FakeAuth(AuthSession.Authenticated(USER))
         val oldResult = CompletableDeferred<Boolean>()

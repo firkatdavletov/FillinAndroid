@@ -298,6 +298,7 @@ class AppNavigationViewModel(
                                             entries.last() in
                                             listOf(
                                                 AppRoute.Main,
+                                                AppRoute.Profile,
                                                 AppRoute.OperationCreate,
                                                 AppRoute.Categories,
                                                 AppRoute.FamilyAccess,
