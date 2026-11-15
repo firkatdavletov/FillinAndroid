@@ -136,23 +136,18 @@ private fun IncomeCard(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.primaryContainer)
-            .padding(8.dp),
+            .padding(12.dp),
         horizontalAlignment = Alignment.Start
     ) {
-//        Text(
-//            text = "Ожидаемый доход",
-//            style = MaterialTheme.typography.titleMedium,
-//            color = MaterialTheme.colorScheme.onBackground
-//        )
         Text(
-            text = DateUtils.getDate(income.dueOn),
-            style = MaterialTheme.typography.labelLarge,
+            text = "Ожидаемый доход ${DateUtils.getShortDate(income.dueOn)}",
+            style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onBackground
         )
         Row {
             Text(
                 text = income.categoryName,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(Modifier.weight(1f))

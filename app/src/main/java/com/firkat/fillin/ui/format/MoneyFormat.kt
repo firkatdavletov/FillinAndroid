@@ -17,7 +17,7 @@ fun formatMoney(
         if (this is DecimalFormat && symbol != null) {
             decimalFormatSymbols = decimalFormatSymbols.apply { currencySymbol = symbol }
         }
-        minimumFractionDigits = 2
+        minimumFractionDigits = 0
         maximumFractionDigits = 2
     }.format(amount)
 }.getOrElse {

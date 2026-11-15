@@ -23,4 +23,14 @@ object DateUtils {
         return formatter.format(localDate.toDate())
             .replaceFirstChar { it.titlecase(locale) }
     }
+
+    fun getShortDate(
+        localDate: LocalDate
+    ): String {
+        val locale = Locale.forLanguageTag("ru-RU")
+        val formatter = SimpleDateFormat("d MMMM", locale)
+
+        return formatter.format(localDate.toDate())
+            .replaceFirstChar { it.titlecase(locale) }
+    }
 }
