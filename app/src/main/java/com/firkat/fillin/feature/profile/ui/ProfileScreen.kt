@@ -66,6 +66,8 @@ import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel
 import com.firkat.fillin.feature.budgetmanagement.ui.PendingBudgetDeletion
 import com.firkat.fillin.feature.budgetsetup.ui.accessErrorResource
+import com.firkat.fillin.feature.budgettransfer.ui.BudgetTransferRoute
+import com.firkat.fillin.feature.budgettransfer.ui.BudgetTransferViewModel
 import com.firkat.fillin.feature.profile.domain.DeletionPhase
 import com.firkat.fillin.feature.profile.domain.ProfileBudget
 import com.firkat.fillin.feature.profile.domain.ProfileDeletionState
@@ -103,6 +105,8 @@ fun ProfileRoute(
     val managementState by management.state.collectAsStateWithLifecycle()
     val pendingDeletions by management.pending.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val transfer: BudgetTransferViewModel = koinViewModel()
+    val transferState by transfer.state.collectAsStateWithLifecycle()
     val deletionState by deletionViewModel.deletion.state.collectAsStateWithLifecycle()
     val confirmation by deletionViewModel.confirmation.collectAsStateWithLifecycle()
     val password by deletionViewModel.password.collectAsStateWithLifecycle()
@@ -146,6 +150,9 @@ fun ProfileRoute(
         onBudgetActionsClick = viewModel::toggleBudgetActions,
         onAboutClick = about::open,
         onBack = onBack,
+        transferContent = {
+            BudgetTransferRoute(transfer, !state.busy, Modifier.padding(top = 12.dp))
+        },
         managementContent = {
             pendingDeletions.filter { state.fullAccess || it.uid == null }.forEach {
                 PendingBudgetDeletion(
@@ -174,7 +181,7 @@ fun ProfileRoute(
                 )
             }
         },
-        state = state,
+        state = state.copy(busy = state.busy || transferState.busy),
         user = user,
         authBusy = authBusy,
         onAccountClick = { if (user == null) onAccountClick() else deletionViewModel.openSignOut() },
@@ -213,7 +220,8 @@ fun ProfileScreen(
     onBudgetActionsClick: (String) -> Unit = {},
     onAboutClick: (() -> Unit)? = null,
     bottomBarOverlap: Dp = 0.dp,
-    budgetReadOnly: Boolean = false
+    budgetReadOnly: Boolean = false,
+    transferContent: @Composable () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -350,12 +358,14 @@ fun ProfileScreen(
         SaldomiOutlinedButton(
             modifier = Modifier.fillMaxWidth(),
             onClick = onCreateBudgetClick,
+            enabled = !state.busy,
             large = true
         ) {
             Text(
                 text = stringResource(R.string.profile_create_budget)
             )
         }
+        transferContent()
 
         if (state.error != null) {
             Text(

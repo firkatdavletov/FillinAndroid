@@ -231,15 +231,10 @@ internal fun CategoryItem(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            modifier = Modifier.size(40.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.onBackground
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                CategoryIconImage(category.icon.code, category.name)
-            }
-        }
+        CategoryIconImage(
+            iconCode = category.icon.code,
+            categoryName = category.name
+        )
         Column(
             modifier = Modifier
                 .weight(1f)

@@ -62,16 +62,11 @@ internal fun OperationItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.onBackground
-            ) {
-                CategoryIconImage(
-                    iconCode = operation.categoryIconCode,
-                    categoryName = operation.categoryName,
-                    modifier = Modifier.padding(4.dp)
-                )
-            }
+            CategoryIconImage(
+                iconCode = operation.categoryIconCode,
+                categoryName = operation.categoryName,
+                modifier = Modifier.padding(4.dp)
+            )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = operation.categoryName,

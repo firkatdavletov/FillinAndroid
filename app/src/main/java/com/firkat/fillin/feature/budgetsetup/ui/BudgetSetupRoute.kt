@@ -8,6 +8,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupPage
+import com.firkat.fillin.feature.budgettransfer.ui.BudgetTransferViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun BudgetSetupRoute(
@@ -20,7 +22,8 @@ fun BudgetSetupRoute(
     page: SetupPage? = null,
     isActive: Boolean = true
 ) {
+    val transfer: BudgetTransferViewModel = koinViewModel()
     Surface(Modifier.fillMaxSize().testTag("budget_setup_screen"), color = MaterialTheme.colorScheme.background) {
-        BudgetSetupScreen(viewModel, onBack, onSignIn, onComplete, onPageChange, fromProfile, page, isActive)
+        BudgetSetupScreen(viewModel, onBack, onSignIn, onComplete, onPageChange, fromProfile, page, isActive, transfer)
     }
 }

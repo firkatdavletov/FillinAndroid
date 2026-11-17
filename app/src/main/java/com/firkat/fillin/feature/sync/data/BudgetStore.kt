@@ -112,7 +112,8 @@ class BudgetStore(
                         }.map { issue(content, it).let { issue -> "${issue.title}: ${issue.local}" } },
                     cloudEnabled = content.sync.cloudEnabled,
                     lastSyncedAt = content.sync.lastSyncedAt,
-                    keepLocalAccess = content.sync.protocolVersion >= 4
+                    keepLocalAccess = content.sync.protocolVersion >= 4,
+                    importedLocalOnly = content.sync.importedLocalOnly
                 )
             }
         }

@@ -39,9 +39,16 @@ internal fun CategorySelectionSheet(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    SaldomiBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
+    SaldomiBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = modifier
+    ) {
         Column(
-            Modifier.fillMaxWidth().heightIn(max = 500.dp).verticalScroll(rememberScrollState()).padding(24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 500.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(stringResource(R.string.rule_category), style = MaterialTheme.typography.titleLarge)

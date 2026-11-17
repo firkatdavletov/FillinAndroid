@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.firkat.fillin.core.mvi.*
 import com.firkat.fillin.feature.auth.domain.AuthRepository
+import com.firkat.fillin.feature.auth.domain.AuthSession
 import com.firkat.fillin.feature.budgetconnection.domain.*
 import com.firkat.fillin.feature.budgetprofile.data.LOCAL_BUDGET_LIMIT
 import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
@@ -16,7 +17,12 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 
 class BudgetSetupViewModel(
     auth: AuthRepository,
@@ -30,7 +36,8 @@ class BudgetSetupViewModel(
     localCount: Flow<Int> = flowOf(0),
     private val clock: Clock = Clock.systemUTC(),
     interactor: Interactor<BudgetSetupCommand, BudgetSetupEvent> =
-        BudgetSetupInteractor(auth, connection, creation, local, family, dispatcher, access = access)
+        BudgetSetupInteractor(auth, connection, creation, local, family, dispatcher, access = access),
+    observeReadyBudgetExists: (String?) -> Flow<Boolean> = { flowOf(true) }
 ) : BaseViewModel<BudgetSetupState, BudgetSetupAction, BudgetSetupCommand, BudgetSetupEvent, BudgetSetupEffect>(
     restore(savedState).let { restored ->
         if (access?.cloudAllowed != false) {
@@ -53,6 +60,17 @@ class BudgetSetupViewModel(
     private var startedId: Long? = null
     private var generation = state.value.generation
     private var previousPage = state.value.page
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    internal val canCreateFromFile = state.map { it.session }.distinctUntilChanged().flatMapLatest { session ->
+        when (session) {
+            AuthSession.Loading -> flowOf(false)
+            else -> observeReadyBudgetExists((session as? AuthSession.Authenticated)?.user?.uid)
+                .map { exists -> !exists }
+                .onStart { emit(false) }
+                .catch { emit(false) }
+        }
+    }.distinctUntilChanged()
 
     init {
         viewModelScope.launch {

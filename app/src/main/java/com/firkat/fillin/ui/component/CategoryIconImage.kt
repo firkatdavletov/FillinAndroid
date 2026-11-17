@@ -33,13 +33,23 @@ internal fun CategoryIconImage(
     contentDescription: String? = null
 ) {
     val icon = CategoryIcons.find(iconCode)
-    val iconModifier = modifier.size(32.dp)
+
     if (icon != null) {
-        Image(
-            painter = painterResource(icon.drawableResource),
-            contentDescription = contentDescription,
-            modifier = modifier.size(32.dp)
-        )
+        Surface(
+            modifier = modifier
+                .size(48.dp)
+                .clearAndSetSemantics {
+                    if (contentDescription != null) this.contentDescription = contentDescription
+                },
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.tertiaryFixed
+        ) {
+            Image(
+                painter = painterResource(icon.drawableResource),
+                contentDescription = contentDescription,
+                modifier = modifier.size(32.dp)
+            )
+        }
     } else {
         val name = categoryInitialName(categoryName, stringResource(R.string.categories_editor_create_title))
         val colors = MaterialTheme.saldomiColors

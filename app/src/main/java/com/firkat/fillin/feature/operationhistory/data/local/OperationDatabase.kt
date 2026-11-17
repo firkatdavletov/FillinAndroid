@@ -18,7 +18,9 @@ import com.firkat.fillin.feature.categories.data.local.CategoryUsageCursor
 import com.firkat.fillin.feature.categories.data.local.CategoryUsageDao
 import com.firkat.fillin.feature.categories.data.local.CategoryUsageEvent
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "local_operations", indices = [Index("scopeKey"), Index("requestId", unique = true)])
 data class LocalOperation(
     @PrimaryKey val id: String,
@@ -46,6 +48,7 @@ data class LocalOperation(
     val hasOriginalValuation: Boolean get() = originalCurrency != "KZT"
 }
 
+@Serializable
 @Entity(tableName = "local_categories", primaryKeys = ["scopeKey", "id"])
 data class LocalCategory(
     val scopeKey: String,
@@ -59,6 +62,7 @@ data class LocalCategory(
     val dictionaryKey: String? = null
 )
 
+@Serializable
 @Entity(tableName = "operation_outbox", indices = [Index("scopeKey")])
 data class OperationOutbox(
     @PrimaryKey val requestId: String,
@@ -88,7 +92,8 @@ data class OperationSyncState(
     @ColumnInfo(defaultValue = "0") val cloudBound: Boolean = false,
     val bootstrapPayload: String? = null,
     @ColumnInfo(defaultValue = "'KZT'") val currency: String = "KZT",
-    @ColumnInfo(defaultValue = "0") val currencyVersion: Long = 0
+    @ColumnInfo(defaultValue = "0") val currencyVersion: Long = 0,
+    @ColumnInfo(defaultValue = "0") val importedLocalOnly: Boolean = false
 )
 
 data class LocalHistoryContent(
@@ -161,6 +166,11 @@ interface OperationDao {
         scopeKey: String
     ): List<OperationOutbox>
 
+    @Query("SELECT * FROM operation_outbox WHERE scopeKey = :scopeKey ORDER BY rowid")
+    suspend fun allQueued(
+        scopeKey: String
+    ): List<OperationOutbox>
+
     @Query("SELECT * FROM operation_outbox WHERE operationId = :operationId LIMIT 1")
     suspend fun outboxForOperation(
         operationId: String
@@ -184,7 +194,7 @@ interface OperationDao {
         LocalSyncRecord::class, BudgetOutbox::class, SyncStagingPage::class, OperationPlanProposal::class,
         CategoryUsageEvent::class, CategoryUsageCursor::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class OperationDatabase : RoomDatabase() {

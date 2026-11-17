@@ -27,11 +27,14 @@ internal fun BudgetSetupContent(
     onAction: (BudgetSetupAction) -> Unit,
     snackbar: SnackbarHostState,
     modifier: Modifier = Modifier,
-    fromProfile: Boolean = false
+    fromProfile: Boolean = false,
+    fileImportBusy: Boolean = false,
+    fileImportContent: @Composable () -> Unit = {}
 ) {
+    val actionsEnabled = !state.busy && !fileImportBusy
     BudgetSetupBottomSheetHost(
         pickerOpen = state.currencyPickerOpen,
-        editable = state.editable,
+        editable = state.editable && !fileImportBusy,
         page = state.page,
         currency = state.currency,
         onCurrencySelected = { onAction(BudgetSetupAction.CurrencyChanged(it)) },
@@ -75,10 +78,10 @@ internal fun BudgetSetupContent(
                 SetupPage.Create -> {
                     BudgetCreationForm(
                         name = state.name, balance = state.balance, currency = state.currency,
-                        mode = state.mode, enabled = state.editable,
+                        mode = state.mode, enabled = state.editable && !fileImportBusy,
                         errors = BudgetCreationErrors(name = state.nameInvalid, balance = state.balanceInvalid),
                         cloudAllowed = state.cloudAllowed, pending = state.pending != null, busy = state.busy,
-                        canCreate = state.canCreate,
+                        canCreate = state.canCreate && !fileImportBusy,
                         localLimitReached = state.localLimitReached,
                         onNameChange = { onAction(BudgetSetupAction.NameChanged(it)) },
                         onBalanceChange = { onAction(BudgetSetupAction.BalanceChanged(it)) },
@@ -86,17 +89,18 @@ internal fun BudgetSetupContent(
                         onStorageChange = { onAction(BudgetSetupAction.StorageChanged(it)) },
                         onCreateClick = { onAction(BudgetSetupAction.Create) }
                     )
+                    fileImportContent()
                     if (state.cloudAllowed) {
                         SaldomiOutlinedButton(
                             onClick = { onAction(BudgetSetupAction.OpenJoin) },
-                            enabled = state.editable,
+                            enabled = state.editable && !fileImportBusy,
                             modifier = Modifier.fillMaxWidth().testTag("setup_open_join"),
                             large = true,
                             leadingIcon = FillinIcons.FamilyAccess
                         ) { Text(stringResource(R.string.family_join_title)) }
                     }
                     if (state.cloudAllowed && state.budgets.isNotEmpty() && state.pending == null) {
-                        SaldomiTextButton(onClick = { onAction(BudgetSetupAction.OpenList) }, enabled = !state.busy) {
+                        SaldomiTextButton(onClick = { onAction(BudgetSetupAction.OpenList) }, enabled = actionsEnabled) {
                             Text(stringResource(R.string.setup_list_title))
                         }
                     }
@@ -107,7 +111,7 @@ internal fun BudgetSetupContent(
                             onClick = {
                                 onAction(BudgetSetupAction.Connect(budget))
                             },
-                            enabled = !state.busy,
+                            enabled = actionsEnabled,
                             modifier = Modifier.fillMaxWidth(),
                             large = true
                         ) {
@@ -128,18 +132,18 @@ internal fun BudgetSetupContent(
                     if (state.showingSaved) Text(stringResource(R.string.cloud_budgets_saved))
                     SaldomiButton(onClick = {
                         onAction(BudgetSetupAction.OpenCreate)
-                    }, enabled = !state.busy, modifier = Modifier.fillMaxWidth(), large = true) {
+                    }, enabled = actionsEnabled, modifier = Modifier.fillMaxWidth(), large = true) {
                         Text(stringResource(R.string.cloud_budget_create_another))
                     }
                     SaldomiOutlinedButton(onClick = {
                         onAction(BudgetSetupAction.OpenJoin)
-                    }, enabled = !state.busy, modifier = Modifier.fillMaxWidth(), large = true, leadingIcon = FillinIcons.FamilyAccess) {
+                    }, enabled = actionsEnabled, modifier = Modifier.fillMaxWidth(), large = true, leadingIcon = FillinIcons.FamilyAccess) {
                         Text(stringResource(R.string.family_join_title))
                     }
                 }
                 SetupPage.Join -> BudgetJoinForm(
                     state.code,
-                    !state.busy,
+                    actionsEnabled,
                     state.busy,
                     state.codeInvalid,
                     { onAction(BudgetSetupAction.CodeChanged(it)) },
@@ -150,13 +154,13 @@ internal fun BudgetSetupContent(
             if (state.cloudAllowed && state.uid != null && !state.loading && !state.loaded) {
                 SaldomiTextButton(onClick = {
                     onAction(BudgetSetupAction.Refresh)
-                }, enabled = !state.busy) { Text(stringResource(R.string.cloud_budgets_refresh)) }
+                }, enabled = actionsEnabled) { Text(stringResource(R.string.cloud_budgets_refresh)) }
             }
             if (state.cloudAllowed || fromProfile) {
                 SaldomiOutlinedButton(
                     onClick = { onAction(BudgetSetupAction.Back) },
                     modifier = Modifier.fillMaxWidth().testTag("setup_back"),
-                    enabled = !state.busy,
+                    enabled = actionsEnabled,
                     large = true
                 ) {
                     Text(stringResource(R.string.navigation_back))

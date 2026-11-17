@@ -5,6 +5,10 @@ import com.firkat.fillin.feature.budgetprofile.domain.*
 import com.firkat.fillin.feature.sync.domain.BudgetConnectionFailure
 import java.security.MessageDigest
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -27,6 +31,14 @@ class RoomBudgetProfileRegistry(private val database: BudgetProfileDatabase, bac
     private var recovered = false
 
     fun observeLocalCount() = dao.observeLocalCount()
+
+    internal fun observeReadyBudgetExists(
+        uid: String?,
+        databases: BudgetDatabaseFactory
+    ) = database.invalidationTracker.createFlow("budget_profiles", "budget_management", "budget_profile_selection")
+        .map { available(uid).any { isReady(it, databases) } }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.IO)
 
     suspend fun recoverLocalCreations(
         databases: BudgetDatabaseFactory

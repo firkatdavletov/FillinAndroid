@@ -7,7 +7,9 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(
     tableName = "category_usage_events",
     primaryKeys = ["scopeKey", "id"],
@@ -47,6 +49,11 @@ interface CategoryUsageDao {
     """
     )
     fun observeTotals(): Flow<List<CategoryUsageTotal>>
+
+    @Query("SELECT * FROM category_usage_events WHERE scopeKey = :scopeKey ORDER BY usedAtMillis, id")
+    suspend fun events(
+        scopeKey: String
+    ): List<CategoryUsageEvent>
 
     @Insert
     suspend fun record(

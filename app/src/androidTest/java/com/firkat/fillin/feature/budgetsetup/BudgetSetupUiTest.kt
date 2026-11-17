@@ -1,8 +1,12 @@
 package com.firkat.fillin.feature.budgetsetup
 
+import android.app.Activity
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -10,12 +14,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
+import androidx.room.Room
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.platform.app.InstrumentationRegistry
 import com.firkat.fillin.R
@@ -26,6 +32,14 @@ import com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory
 import com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileKind
 import com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator
 import com.firkat.fillin.feature.budgetsetup.ui.*
+import com.firkat.fillin.feature.budgettransfer.BudgetTransferScreenTest.RecordingPicker
+import com.firkat.fillin.feature.budgettransfer.data.BudgetCsvCodec
+import com.firkat.fillin.feature.budgettransfer.data.BudgetSnapshotValidator
+import com.firkat.fillin.feature.budgettransfer.data.RoomBudgetSnapshot
+import com.firkat.fillin.feature.budgettransfer.ui.BudgetTransferViewModel
+import com.firkat.fillin.feature.operationhistory.data.local.OperationDatabase
+import com.firkat.fillin.feature.sync.data.CloudBudgetSession
+import com.firkat.fillin.feature.sync.data.LocalOnlyCloudApi
 import com.firkat.fillin.ui.theme.FillinTheme
 import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,32 +67,49 @@ class BudgetSetupUiTest {
         env.sharing,
         saved,
         dispatcher = kotlinx.coroutines.Dispatchers.IO,
-        access = access
+        access = access,
+        observeReadyBudgetExists = { uid ->
+            env.registry.observeReadyBudgetExists(uid, BudgetDatabaseFactory(env.context))
+        }
     ).also {
         models.put("setup-${models.keys().size}", it)
     }
     private fun show(
         signedIn: Boolean = false,
         compact: Boolean = false,
-        access: AppAccess? = null
+        access: AppAccess? = null,
+        fromProfile: Boolean = false,
+        picker: RecordingPicker? = null,
+        restoration: StateRestorationTester? = null
     ) {
         if (signedIn) env.auth.login("owner")
         runBlocking { env.manager.restore() }
         model = newModel(access = access)
+        val transfer = picker?.let {
+            BudgetTransferViewModel(env.koin.get(), SavedStateHandle()).also { models.put("transfer", it) }
+        }
         compose.activityRule.scenario.onActivity {
             it.enableEdgeToEdge()
             it.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
-        compose.setContent {
+        val content: @Composable () -> Unit = {
             FillinTheme(dynamicColor = false) {
                 val density = LocalDensity.current
                 CompositionLocalProvider(LocalDensity provides Density(density.density, if (compact) 2f else 1f)) {
                     Box(if (compact) Modifier.fillMaxWidth().height(300.dp) else Modifier.fillMaxSize()) {
-                        BudgetSetupScreen(model, { backs++ }, { signIns++ }, { completed++ }, {}, fromProfile = false)
+                        val pickerOwner = picker ?: compose.activity
+                        CompositionLocalProvider(LocalActivityResultRegistryOwner provides pickerOwner) {
+                            BudgetSetupScreen(
+                                model, { backs++ }, { signIns++ }, { completed++ }, {},
+                                fromProfile = fromProfile,
+                                transferViewModel = transfer
+                            )
+                        }
                     }
                 }
             }
         }
+        if (restoration == null) compose.setContent(content) else restoration.setContent(content)
         compose.waitUntil(5000) { model.state.value.initialized && !model.state.value.loading }
     }
     private fun waitForCompletion() {
@@ -95,6 +126,60 @@ class BudgetSetupUiTest {
         compose.activityRule.scenario.onActivity { it.setContentView(android.widget.FrameLayout(it)) }
         models.clear()
         env.close()
+    }
+
+    @Test
+    fun firstSetupCanCancelRetryAndRestoreCsv() {
+        val picker = RecordingPicker()
+        val restoration = StateRestorationTester(compose)
+        val file = File.createTempFile("setup-budget", ".csv", env.context.cacheDir)
+        try {
+            show(picker = picker, restoration = restoration)
+            val button = compose.onNodeWithTag("setup_create_from_file")
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("setup_create_from_file").fetchSemanticsNodes().isNotEmpty() }
+            val name = compose.onNodeWithTag("budget_setup_name")
+            name.performScrollTo().performTextReplacement("Черновик")
+            closeSoftKeyboard()
+            button.performScrollTo().performClick()
+            assertEquals(Intent.ACTION_OPEN_DOCUMENT, picker.intent.action)
+            compose.onNodeWithTag("setup_create").assertIsNotEnabled()
+            compose.runOnIdle { picker.deliver(Activity.RESULT_CANCELED) }
+            name.assertTextContains("Черновик")
+
+            button.performClick()
+            compose.runOnIdle { picker.deliver(Activity.RESULT_OK, Uri.fromFile(file)) }
+            val error = compose.activity.getString(R.string.budget_csv_invalid_row, 1)
+            compose.waitUntil(5000) { compose.onAllNodesWithText(error).fetchSemanticsNodes().isNotEmpty() }
+
+            writeBackup(file)
+            button.performScrollTo().performClick()
+            restoration.emulateSavedInstanceStateRestore()
+            compose.runOnIdle { picker.deliver(Activity.RESULT_OK, Uri.fromFile(file)) }
+            compose.waitUntil(5000) { env.manager.active.value?.profile?.name == "Из копии" }
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("setup_create_from_file").fetchSemanticsNodes().isEmpty() }
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun additionalSetupFromProfileHidesImport() {
+        show(fromProfile = true, picker = RecordingPicker())
+        compose.onNodeWithTag("setup_create_from_file").assertDoesNotExist()
+    }
+
+    private fun writeBackup(file: File) = runBlocking {
+        val json = env.koin.get<kotlinx.serialization.json.Json>()
+        Room.inMemoryDatabaseBuilder(env.context, OperationDatabase::class.java).build().let { database ->
+            try {
+                val session = CloudBudgetSession(database, LocalOnlyCloudApi, "", json, {})
+                session.createLocal("123.45".toBigDecimal(), session.today)
+                val snapshot = RoomBudgetSnapshot(json).read(database, "Из копии")
+                file.bufferedWriter().use { BudgetCsvCodec(BudgetSnapshotValidator(json)).write(snapshot, it) }
+            } finally {
+                database.close()
+            }
+        }
     }
 
     @Test fun localCreationStoresNameWithoutNetwork() {

@@ -5,6 +5,8 @@ package com.firkat.fillin.feature.editcategory.ui.bottomsheets
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,7 +17,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.grid.items as gridItems
@@ -122,7 +123,7 @@ private fun CategoryIconPickerBottomSheet(
                 fontWeight = FontWeight.SemiBold
             )
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(64.dp),
+                columns = GridCells.Adaptive(50.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(384.dp)
@@ -131,25 +132,51 @@ private fun CategoryIconPickerBottomSheet(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    CategoryIconPickerItem(
-                        iconCode = CATEGORY_INITIAL_ICON_CODE,
-                        categoryName = categoryName,
-                        label = stringResource(R.string.category_icon_initial),
-                        isSelected = selectedIconCode == CATEGORY_INITIAL_ICON_CODE,
-                        onClick = { onIconSelected(CATEGORY_INITIAL_ICON_CODE) },
+                item {
+                    CategoryIconImage(
+                        modifier = Modifier
+                            .then(
+                                if (null == selectedIcon) {
+                                    Modifier
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.saldomiDesignColors.tertiary)
+                                        .padding(1.dp)
+                                } else {
+                                    Modifier
+                                        .clickable(
+                                            onClick = {
+                                                onIconSelected("other")
+                                            }
+                                        )
+                                }
+                            ),
+                        iconCode = "other",
+                        categoryName = categoryName
                     )
                 }
                 gridItems(
                     items = CategoryIcons.options,
                     key = { it.code }
                 ) { icon ->
-                    CategoryIconPickerItem(
+                    CategoryIconImage(
+                        modifier = Modifier
+                            .then(
+                                if (icon == selectedIcon) {
+                                    Modifier
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.saldomiDesignColors.tertiary)
+                                        .padding(1.dp)
+                                } else {
+                                    Modifier
+                                        .clickable(
+                                            onClick = {
+                                                onIconSelected(icon.code)
+                                            }
+                                        )
+                                }
+                            ),
                         iconCode = icon.code,
-                        categoryName = categoryName,
-                        label = stringResource(icon.labelResource),
-                        isSelected = icon == selectedIcon,
-                        onClick = { onIconSelected(icon.code) }
+                        categoryName = categoryName
                     )
                 }
             }

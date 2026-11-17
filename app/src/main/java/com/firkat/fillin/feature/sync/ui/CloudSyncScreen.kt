@@ -68,6 +68,10 @@ fun CloudSyncScreen(
                 .verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            if (state.importedLocalOnly) {
+                Text(stringResource(R.string.budget_csv_local_only), style = MaterialTheme.typography.bodyMedium)
+                return@Column
+            }
             CloudSyncToggle(state.cloudEnabled, !busy && state.ready && !state.syncing, onCloudEnabledChange)
             Text(
                 stringResource(

@@ -21,7 +21,8 @@ data class BudgetSyncContext(
     val pendingActions: List<String> = emptyList(),
     val cloudEnabled: Boolean = false,
     val lastSyncedAt: String? = null,
-    val keepLocalAccess: Boolean = false
+    val keepLocalAccess: Boolean = false,
+    val importedLocalOnly: Boolean = false
 )
 
 interface BudgetSyncControl {

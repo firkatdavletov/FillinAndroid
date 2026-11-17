@@ -138,6 +138,7 @@ class CloudBudgetSession(
     }
 
     override suspend fun connectExisting() = mutex.withLock {
+        if (dao.state()?.importedLocalOnly == true) throw SyncBlockedException("access_denied")
         checkAccess()
         requireToken()
         check(dao.state()?.let { it.localReady || it.initialSyncComplete } != true)
@@ -201,6 +202,7 @@ class CloudBudgetSession(
     }
 
     override suspend fun enable() {
+        if (dao.state()?.importedLocalOnly == true) throw SyncBlockedException("access_denied")
         checkAccess()
         requireToken()
         database.withTransaction {
