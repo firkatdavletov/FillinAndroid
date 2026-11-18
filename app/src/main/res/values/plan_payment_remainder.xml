@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plan_payment_close_remainder">Закрыть остаток</string>
+    <string name="plan_payment_replace_link">Связать с другим платежом</string>
+    <string name="plan_payment_close_title">Закрыть платёж за %1$s?</string>
+    <string name="plan_payment_planned">План: %1$s</string>
+    <string name="plan_payment_paid">Оплачено: %1$s</string>
+    <string name="plan_payment_received">Получено: %1$s</string>
+    <string name="plan_payment_remaining">Остаток: %1$s</string>
+    <string name="plan_payment_forecast_date">Ожидаемая дата в прогнозе: %1$s</string>
+    <string name="plan_payment_close">Закрыть платёж</string>
+    <string name="plan_payment_keep">Оставить %1$s</string>
+    <string name="plan_payment_expect">Ожидаю ещё %1$s</string>
+    <string name="plan_payment_changed">Платёж изменился. Проверьте сумму и подтвердите решение ещё раз.</string>
+    <string name="plan_payment_error">Не удалось сохранить решение. Попробуйте ещё раз.</string>
+</resources>

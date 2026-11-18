@@ -15,6 +15,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -83,7 +85,7 @@ private fun OperationPlanLinkContext.selectionError(
     }
 }
 
-internal data class OperationPlanLinkClosed(val planName: String? = null)
+internal data class OperationPlanLinkClosed(val planName: String? = null, val remainderKey: String? = null)
 
 internal class OperationPlanLinkViewModel(private val operationId: String, private val store: OperationPlanOfferStore) :
     ViewModel() {
@@ -174,7 +176,11 @@ internal class OperationPlanLinkViewModel(private val operationId: String, priva
             val selection = requireNotNull(current.selected)
             runAction(defaultError = PlanOfferError.Save) {
                 store.confirmOffer(operationId, selection.operation, selection.plan)
-                close(selection.plan.displayName)
+                val remainderKey = store.observeOfferContext(operationId)
+                    .catch { emit(OperationPlanLinkContext()) }
+                    .firstOrNull()?.links?.remainder?.plan?.target?.stableKey
+                    ?.takeIf { it == selection.plan.target.stableKey }
+                close(selection.plan.displayName, remainderKey)
             }
         }
     }
@@ -190,10 +196,11 @@ internal class OperationPlanLinkViewModel(private val operationId: String, priva
     }
 
     private suspend fun close(
-        planName: String? = null
+        planName: String? = null,
+        remainderKey: String? = null
     ) {
         completed = true
-        channel.send(OperationPlanLinkClosed(planName))
+        channel.send(OperationPlanLinkClosed(planName, remainderKey))
     }
 
     private fun runAction(

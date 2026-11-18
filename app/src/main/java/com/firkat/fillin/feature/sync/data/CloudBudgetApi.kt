@@ -11,7 +11,8 @@ object BudgetCapabilities {
     const val INCOME_RULE_EDITING = "incomeRuleEditingV1"
     const val DAILY_LIMIT_PLANNING = "dailyLimitPlanningV1"
     const val CATEGORY_USAGE = "categoryUsageV1"
-    const val CLIENT_HEADER = "X-Fillin-Capabilities: $CONFIRMED_PLAN_LINKING,$INCOME_RULE_EDITING,$DAILY_LIMIT_PLANNING,$CATEGORY_USAGE"
+    const val PAYMENT_REMAINDERS = "planPaymentRemaindersV1"
+    const val CLIENT_HEADER = "X-Fillin-Capabilities: $CONFIRMED_PLAN_LINKING,$INCOME_RULE_EDITING,$DAILY_LIMIT_PLANNING,$CATEGORY_USAGE,$PAYMENT_REMAINDERS"
 }
 
 @Serializable

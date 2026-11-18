@@ -290,6 +290,13 @@ val budgetModule =
                 com.firkat.fillin.feature.operationhistory.ui
                     .OperationPlanPickerViewModel(parameters.get(), get(), get(), get())
             }
+            scoped<com.firkat.fillin.feature.operationhistory.domain.repository.PlanPaymentRemainderStore> {
+                get<com.firkat.fillin.feature.sync.data.BudgetStore>()
+            }
+            viewModel { parameters ->
+                com.firkat.fillin.feature.operationhistory.ui
+                    .PlanPaymentRemainderViewModel(parameters[0], parameters[1], get())
+            }
             scoped<OperationHistoryStore> { get<OfflineOperationHistoryRepository>() }
             scoped<OperationHistoryRepository> { get<OfflineOperationHistoryRepository>() }
             factory { UpdateOperationAmount(repository = get()) }

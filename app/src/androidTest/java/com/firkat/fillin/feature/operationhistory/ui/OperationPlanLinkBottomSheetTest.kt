@@ -15,13 +15,19 @@ import com.firkat.fillin.feature.operationhistory.domain.repository.OperationPla
 import com.firkat.fillin.feature.operationhistory.domain.repository.OperationPlanOfferStore
 import com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkOperation
 import com.firkat.fillin.feature.operationhistory.domain.repository.PlanLinkTarget
+import com.firkat.fillin.feature.operationhistory.domain.repository.PlanPaymentRemainder
+import com.firkat.fillin.feature.operationhistory.domain.repository.PlanPaymentRemainderStore
 import com.firkat.fillin.feature.operationhistory.domain.repository.PlanSuggestion
 import com.firkat.fillin.feature.operationhistory.domain.repository.SuggestedPlan
 import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.OperationPlanLinkBottomSheet
+import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.PlanPaymentRemainderBottomSheet
 import com.firkat.fillin.ui.theme.FillinTheme
+import java.math.BigDecimal
+import java.time.LocalDate
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -89,6 +95,56 @@ class OperationPlanLinkBottomSheetTest {
         compose.runOnIdle {
             assertEquals(0, store.confirms)
             assertEquals(1, store.dismisses)
+        }
+    }
+
+    @Test fun remainderSheetShowsTheActualPaymentAndClosesOnlyOnConfirmation() {
+        val remainder = PlanPaymentRemainder(
+            plan.copy(plannedAmount = "320000", remainingAmount = "12000"),
+            BigDecimal("308000")
+        )
+        val store = Remainders(remainder)
+        var closed = false
+        setRemainderContent(store) { closed = true }
+        compose.onNodeWithText("Оплачено", substring = true).assertExists()
+        compose.onNodeWithText("Оставить", substring = true).assertIsEnabled()
+        compose.runOnIdle { assertTrue(store.actions.isEmpty()) }
+        compose.onNodeWithText("Закрыть платёж").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(true), store.actions)
+            assertTrue(closed)
+        }
+    }
+
+    @Test fun keepingIncomeShowsForecastDateAndUsesTheSeparateAction() {
+        val remainder = PlanPaymentRemainder(
+            plan.copy(target = PlanLinkTarget("INCOME", "income", dueOn = "2026-11-16"), remainingAmount = "150"),
+            BigDecimal("4850"),
+            LocalDate.parse("2026-11-18")
+        )
+        val store = Remainders(remainder)
+        setRemainderContent(store) {}
+        compose.onNodeWithText("Ожидаемая дата в прогнозе", substring = true).assertExists()
+        compose.onNodeWithText("Ожидаю ещё", substring = true).performClick()
+        compose.runOnIdle { assertEquals(listOf(false), store.actions) }
+    }
+
+    private fun setRemainderContent(store: Remainders, onClose: () -> Unit) {
+        val key = store.remainder.plan.target.stableKey
+        val model = PlanPaymentRemainderViewModel("operation", key, store)
+        compose.setContent {
+            FillinTheme {
+                PlanPaymentRemainderBottomSheet("operation", key, onClose, viewModel = model)
+            }
+        }
+    }
+
+    private class Remainders(val remainder: PlanPaymentRemainder) : PlanPaymentRemainderStore {
+        val actions = mutableListOf<Boolean>()
+        override fun observeLinks(operationId: String) = MutableStateFlow(OperationPlanLinks(remainder = remainder))
+        override suspend fun decide(operationId: String, shown: PlanPaymentRemainder, close: Boolean) {
+            assertEquals(remainder, shown)
+            actions.add(close)
         }
     }
 

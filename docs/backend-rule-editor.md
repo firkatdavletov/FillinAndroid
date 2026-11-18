@@ -42,8 +42,9 @@ CREATE/UPDATE/DELETE_INCOME_RULE и их round-trip через sync changes. And
 {"scope":{"householdId":"…","memberId":"…","role":"OWNER","accountingStartedAt":"…","timeZone":"Asia/Almaty","currency":"KZT"},"capabilities":["confirmedPlanLinkingV1","incomeRuleEditingV1"]}
 ```
 
-`incomeRuleEditingV1` не разрешает CONFIRM_REMAINDER_INCOME или поля remainderAmount,
-remainderDueOn, remainderReceived: для них Android отдельно требует `dailyLimitPlanningV1`.
+`incomeRuleEditingV1` покрывает редактор правил. Для CONFIRM_REMAINDER_INCOME и его полей
+Android проверяет `planPaymentRemaindersV1` или `dailyLimitPlanningV1`. Закрытие платежа
+с проверкой `expectedAppliedAmount` требует `planPaymentRemaindersV1`.
 Связи с доходами, включая ruleId/scheduledOn, требуют `confirmedPlanLinkingV1`.
 Объявлять `dailyLimitPlanningV1` при реализации только редактора нельзя.
 

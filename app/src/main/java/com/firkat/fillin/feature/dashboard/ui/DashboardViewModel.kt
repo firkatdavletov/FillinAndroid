@@ -6,18 +6,18 @@ import com.firkat.fillin.feature.dashboard.domain.DashboardDataSource
 import com.firkat.fillin.feature.plannedexpenses.domain.usecase.GetPlannedExpenses
 import com.firkat.fillin.feature.plannedincomes.domain.usecase.GetPlannedIncomes
 import com.firkat.fillin.feature.profile.domain.ProfileBudgetsRepository
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class DashboardViewModel(
     budgets: ProfileBudgetsRepository,
@@ -54,7 +54,8 @@ class DashboardViewModel(
 
     private val mutablePlannedOperations = MutableStateFlow(PlannedOperationsUiState())
     internal val plannedOperations = mutablePlannedOperations.asStateFlow()
-    private var plannedOperationsLoad: Job? = null
+    private var expensesLoad: Job? = null
+    private var incomesLoad: Job? = null
 
     fun onEvent(
         event: DashboardEvent
@@ -70,33 +71,25 @@ class DashboardViewModel(
     }
 
     private fun loadPlannedOperations() {
-        if (plannedOperationsLoad?.isActive == true) return
-
-        plannedOperationsLoad = viewModelScope.launch {
-            launch {
-                val expenses = loadOrNull { getPlannedExpenses().items.take(DASHBOARD_PLANNED_EXPENSE_LIMIT) }
-                mutablePlannedOperations.update {
-                    it.copy(expenses = expenses ?: it.expenses, expensesPending = false)
-                }
-            }
-            launch {
-                val result = loadOrNull { getPlannedIncomes() }
-                mutablePlannedOperations.update {
-                    val income = if (result == null) it.income else result.items.firstOrNull()
-                    it.copy(income = income, incomePending = false)
-                }
+        if (expensesLoad?.isActive != true) {
+            expensesLoad = viewModelScope.launch {
+                getPlannedExpenses.observe().flowOn(ioDispatcher)
+                    .catch { mutablePlannedOperations.update { it.copy(expensesPending = false) } }
+                    .collect { plans ->
+                        val expenses = plans.items.take(DASHBOARD_PLANNED_EXPENSE_LIMIT)
+                        mutablePlannedOperations.update { it.copy(expenses = expenses, expensesPending = false) }
+                    }
             }
         }
-    }
-
-    private suspend fun <T> loadOrNull(
-        load: suspend () -> T
-    ): T? = try {
-        withContext(ioDispatcher) { load() }
-    } catch (exception: CancellationException) {
-        throw exception
-    } catch (_: Exception) {
-        // A failed read must not discard the last successful result or cancel the other read.
-        null
+        if (incomesLoad?.isActive != true) {
+            incomesLoad = viewModelScope.launch {
+                getPlannedIncomes.observe().flowOn(ioDispatcher)
+                    .catch { mutablePlannedOperations.update { it.copy(incomePending = false) } }
+                    .collect { plans ->
+                        val income = plans.items.firstOrNull()
+                        mutablePlannedOperations.update { it.copy(income = income, incomePending = false) }
+                    }
+            }
+        }
     }
 }

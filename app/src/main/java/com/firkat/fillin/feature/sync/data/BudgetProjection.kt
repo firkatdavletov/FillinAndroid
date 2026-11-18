@@ -57,7 +57,8 @@ internal class BudgetProjection(
         overlays.filter { it.kind == "CATEGORY" }.forEach { overlayCategory(json.decodeFromString(it.intent)) }
         overlays.filter {
             it.kind == "EXPECTED_INCOME" &&
-                json.decodeFromString<BudgetSyncCommand>(it.intent).type != "CONFIRM_REMAINDER_INCOME"
+                json.decodeFromString<BudgetSyncCommand>(it.intent).type !in
+                    setOf("CONFIRM_REMAINDER_INCOME", "CLOSE_INCOME")
         }.forEach { overlayIncome(json.decodeFromString(it.intent)) }
         overlays.filter { it.kind == "INCOME_RULE" }.forEach {
             val command = json.decodeFromString<BudgetSyncCommand>(it.intent)
@@ -74,7 +75,10 @@ internal class BudgetProjection(
         expandIncomes(today.plusYears(5))
         overlays.filter {
             it.kind == "EXPECTED_INCOME" &&
-                json.decodeFromString<BudgetSyncCommand>(it.intent).type == "CONFIRM_REMAINDER_INCOME"
+                json.decodeFromString<BudgetSyncCommand>(it.intent).let { command ->
+                    command.type in setOf("CONFIRM_REMAINDER_INCOME", "CLOSE_INCOME") &&
+                        (command.expectedAppliedAmount == null || linkEligible(it))
+                }
         }
             .forEach { overlayIncome(json.decodeFromString(it.intent)) }
         overlays.filter { it.kind == "LEDGER" }.forEach { item ->
@@ -224,8 +228,13 @@ internal class BudgetProjection(
         c: BudgetSyncCommand,
         target: MutableMap<String, SyncPlanRecord> = incomes
     ) {
+        val id = if (c.expectedAppliedAmount != null && c.ruleId != null && c.scheduledOn != null) {
+            target.values.firstOrNull { it.ruleId == c.ruleId && it.scheduledOn == c.scheduledOn }?.id ?: c.entityId
+        } else {
+            c.entityId
+        }
         val old =
-            target[c.entityId]
+            target[id]
                 ?: if (c.type.removeSuffix("_RULE") == "UPDATE_INCOME" &&
                     c.categoryId != null &&
                     c.amount != null &&
@@ -262,9 +271,7 @@ internal class BudgetProjection(
             }
 
             "UPDATE_INCOME" -> {
-                if (old !=
-                    null
-                ) {
+                if (old != null && old.remainderClosed != true) {
                     target[c.entityId] =
                         old.copy(
                             incomeName = c.incomeName ?: old.incomeName,
@@ -282,18 +289,22 @@ internal class BudgetProjection(
             }
 
             "CONFIRM_REMAINDER_INCOME" -> if (old != null) {
-                target[c.entityId] = old.copy(
+                target[id] = old.copy(
                     remainderAmount = c.remainderAmount,
                     remainderDueOn = c.remainderDueOn,
                     remainderReceived = c.remainderReceived,
                     version = (old.version ?: 0) + 1
                 )
             }
-            "DELETE_INCOME" -> {
+            "DELETE_INCOME", "CLOSE_INCOME" -> {
                 if (old !=
                     null
                 ) {
-                    target[c.entityId] = old.copy(status = "CANCELLED", version = (old.version ?: 0) + 1)
+                    target[id] = old.copy(
+                        status = "CANCELLED",
+                        version = (old.version ?: 0) + 1,
+                        remainderClosed = if (c.type == "CLOSE_INCOME") true else old.remainderClosed
+                    )
                 }
             }
         }
@@ -546,6 +557,24 @@ internal class BudgetProjection(
         operationId: String
     ): OperationPlanLinks = planLinkContext(operationId).links
 
+    fun paymentContributors(
+        target: PlanLinkTarget,
+        id: String
+    ): Set<String> {
+        val expense = target.type == "EXPENSE"
+        val linkKind = if (expense) "OCCURRENCE_PAYMENT" else "INCOME_MATCH"
+        val linkedIds = (if (expense) expenseLinks else incomeLinks)
+            .filter { it.id == id }.mapNotNull { it.ledgerId }
+        val syncedIds = content.records.filter { it.kind == linkKind }
+            .map { json.decodeFromString<SyncPlanRecord>(it.payload) }
+            .filter { it.id == id }.mapNotNull { it.ledgerId }
+        val pendingIds = overlays.filter { it.kind == "LEDGER" }
+            .map { json.decodeFromString<BudgetSyncCommand>(it.intent) }
+            .filter { it.planTarget?.stableKey == target.stableKey && it.planTarget.type == target.type }
+            .map { it.entityId }
+        return (linkedIds + syncedIds + pendingIds).toSet()
+    }
+
     fun planLinkContext(
         operationId: String
     ): OperationPlanLinkContext {
@@ -600,11 +629,32 @@ internal class BudgetProjection(
                 incomeLinks.filter {
                     it.ledgerId == operationId
                 }.mapNotNull { incomes[it.id]?.let { record -> describe(record, "INCOME") } }
+        val remainder = current.singleOrNull()?.takeIf { content.sync.role == "OWNER" }?.let { plan ->
+            val expense = plan.target.type == "EXPENSE"
+            val record = if (expense) {
+                occurrences.values.firstOrNull { it.ruleId == plan.target.ruleId && it.dueOn == plan.target.dueOn }
+            } else {
+                incomes[plan.target.planId]
+            }
+            if (record?.status != "SCHEDULED") return@let null
+            val active = expense || (record.incomeActive != false && categories[plan.categoryId]?.archived == false)
+            val applied = if (expense) paid(record.id) else received(record.id)
+            if (active && applied.signum() > 0 && plan.remainingAmount.toBigDecimal().signum() > 0) {
+                PlanPaymentRemainder(
+                    plan,
+                    applied,
+                    if (expense) null else maxOf(today, LocalDate.parse(plan.target.dueOn))
+                )
+            } else {
+                null
+            }
+        }
+        val linked = OperationPlanLinks(current = current, remainder = remainder)
         val amount = contribution(operationId)
         val category = categories[operation.categoryId]
         val validAmountAndCategory = category?.archived == false && amount.signum() > 0
         if (!validAmountAndCategory || !isLinkable(operation)) {
-            return OperationPlanLinkContext(links = OperationPlanLinks(current = current), isLinked = isLinked)
+            return OperationPlanLinkContext(links = linked, isLinked = isLinked)
         }
         requireNotNull(category)
         val records = if (operation.type == "EXPENSE") occurrences.values else incomes.values
@@ -640,7 +690,7 @@ internal class BudgetProjection(
                 operation.version, operation.type, category.id, category.name, category.iconCode, currency,
                 operation.occurredOn, operation.accountingAmount, amount.toPlainString()
             ),
-            OperationPlanLinks(candidates, current),
+            linked.copy(candidates = candidates),
             isLinked
         )
     }
@@ -811,8 +861,14 @@ internal class BudgetProjection(
         rules.values.forEach { materialize(it, materializationThrough) }
         overlays.filter { it.kind == "RECURRING_OCCURRENCE" }.forEach { item ->
             val c = json.decodeFromString<BudgetSyncCommand>(item.intent)
-            occurrences[c.entityId]?.let {
-                occurrences[c.entityId] =
+            if (c.expectedAppliedAmount != null && !linkEligible(item)) return@forEach
+            val target = if (c.ruleId != null && c.dueOn != null) {
+                occurrences.values.firstOrNull { it.ruleId == c.ruleId && it.dueOn == c.dueOn }
+            } else {
+                occurrences[c.entityId]
+            }
+            target?.takeIf { it.status == "SCHEDULED" }?.let {
+                occurrences[it.id] =
                     it.copy(status = "PAID", version = (it.version ?: 0) + 1)
             }
         }
@@ -829,7 +885,10 @@ internal class BudgetProjection(
                                 it.ruleId == target.ruleId && it.dueOn == target.dueOn
                             }?.id
                         } else {
-                            target.planId
+                            incomes.values.firstOrNull {
+                                target.ruleId != null && target.scheduledOn != null &&
+                                    it.ruleId == target.ruleId && it.scheduledOn == target.scheduledOn
+                            }?.id ?: target.planId
                         }
                         if (id != null) {
                             val link = SyncPlanRecord(id, ledgerId = c.entityId)

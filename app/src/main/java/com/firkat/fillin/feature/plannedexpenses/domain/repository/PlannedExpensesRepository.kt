@@ -5,6 +5,7 @@ import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenseRule
 import com.firkat.fillin.feature.plannedexpenses.domain.model.PlannedExpenses
 import java.math.BigDecimal
 import java.time.LocalDate
+import kotlinx.coroutines.flow.flow
 
 interface PlannedExpensesRepository {
     suspend fun accountingStart(): LocalDate = LocalDate.MIN
@@ -17,6 +18,8 @@ interface PlannedExpensesRepository {
         scheduleValue: Int?,
         startsOn: LocalDate
     ): Unit = throw UnsupportedOperationException("Full rule editing requires offline storage")
+
+    fun observePlannedExpenses() = flow { emit(getPlannedExpenses()) }
 
     suspend fun getPlannedExpenses(): PlannedExpenses
 

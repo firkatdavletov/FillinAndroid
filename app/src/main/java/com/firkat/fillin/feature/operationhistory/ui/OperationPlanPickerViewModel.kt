@@ -40,7 +40,8 @@ internal data class PlanPickerState(
     val loading: Boolean = true,
     val saving: Boolean = false,
     val error: Boolean = false,
-    val closed: Boolean = false
+    val closed: Boolean = false,
+    val remainderKey: String? = null
 )
 internal class OperationPlanPickerViewModel(
     private val id: String,
@@ -125,7 +126,9 @@ internal class OperationPlanPickerViewModel(
         viewModelScope.launch {
             try {
                 links.setLink(id, selected, op.version)
-                mutable.update { it.copy(saving = false, closed = true) }
+                val remainderKey = links.observeLinks(id).catch { emit(OperationPlanLinks()) }.firstOrNull()
+                    ?.remainder?.plan?.target?.stableKey?.takeIf { it == selected.target.stableKey }
+                mutable.update { it.copy(saving = false, closed = true, remainderKey = remainderKey) }
             } catch (
                 e: CancellationException
             ) {

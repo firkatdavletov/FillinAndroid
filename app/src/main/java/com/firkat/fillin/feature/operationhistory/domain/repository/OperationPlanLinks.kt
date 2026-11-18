@@ -1,6 +1,8 @@
 package com.firkat.fillin.feature.operationhistory.domain.repository
 
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningFrequency
+import java.math.BigDecimal
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 
@@ -12,7 +14,11 @@ data class PlanLinkTarget(
     val dueOn: String,
     val scheduledOn: String? = null
 ) {
-    val stableKey: String get() = if (type == "EXPENSE") "$ruleId@$dueOn" else requireNotNull(planId)
+    val stableKey: String get() = when {
+        type == "EXPENSE" -> "$ruleId@$dueOn"
+        ruleId != null && scheduledOn != null -> "$ruleId@$scheduledOn"
+        else -> requireNotNull(planId)
+    }
 }
 
 @Serializable
@@ -33,8 +39,24 @@ data class SuggestedPlan(
 data class CreateOperationResult(val operationId: String)
 data class OperationPlanLinks(
     val candidates: List<SuggestedPlan> = emptyList(),
-    val current: List<SuggestedPlan> = emptyList()
+    val current: List<SuggestedPlan> = emptyList(),
+    val remainder: PlanPaymentRemainder? = null
 )
+
+data class PlanPaymentRemainder(
+    val plan: SuggestedPlan,
+    val appliedAmount: BigDecimal,
+    val expectedOn: LocalDate? = null
+)
+
+interface PlanPaymentRemainderStore {
+    fun observeLinks(operationId: String): Flow<OperationPlanLinks>
+    suspend fun decide(
+        operationId: String,
+        shown: PlanPaymentRemainder,
+        close: Boolean
+    )
+}
 
 @Serializable
 sealed interface PlanSuggestion {

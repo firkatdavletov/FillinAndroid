@@ -33,7 +33,8 @@ class BudgetStore(
     private val suggestionPolicy: OperationPlanSuggestionPolicy = OperationPlanSuggestionPolicy()
 ) : BudgetSyncControl,
     OperationPlanLinkStore,
-    OperationPlanOfferStore {
+    OperationPlanOfferStore,
+    PlanPaymentRemainderStore {
     internal fun checkWritable() {
         if (!canWrite()) throw BudgetLocalFailure("access_denied")
     }
@@ -131,6 +132,10 @@ class BudgetStore(
 
     fun observePlans(
         filter: PlannedOperationsFilter
+    ) = observePlans { filter }
+
+    internal fun observePlans(
+        filter: () -> PlannedOperationsFilter
     ) = observeContent()
         .filter {
             (it?.sync?.localReady == true || it?.sync?.initialSyncComplete == true) ||
@@ -147,7 +152,7 @@ class BudgetStore(
             ) {
                 throw BudgetLocalFailure("forbidden")
             }
-            project(content).plans(filter)
+            project(content).plans(filter())
         }.flowOn(kotlinx.coroutines.Dispatchers.Default)
 
     fun observePlanningRules(
@@ -185,7 +190,9 @@ class BudgetStore(
 
     override fun observeLinks(
         operationId: String
-    ): Flow<OperationPlanLinks> = observeOfferContext(operationId).map { it.links }.distinctUntilChanged()
+    ): Flow<OperationPlanLinks> = observeOfferContext(operationId).map {
+        if (canWrite()) it.links else it.links.copy(remainder = null)
+    }.distinctUntilChanged()
 
     override fun observeOfferContext(
         operationId: String
@@ -319,6 +326,49 @@ class BudgetStore(
         }
     }
 
+    override suspend fun decide(
+        operationId: String,
+        shown: PlanPaymentRemainder,
+        close: Boolean
+    ) = database.withTransaction {
+        checkWritable()
+        val content = currentContent() ?: throw BudgetLocalFailure("not_initialized")
+        writable(content)
+        val projection = project(content)
+        val current = projection.links(operationId).remainder
+            ?: throw BudgetLocalFailure("plan_unavailable")
+        if (!shown.plan.matches(current.plan) ||
+            shown.appliedAmount.compareTo(current.appliedAmount) != 0 ||
+            shown.expectedOn != current.expectedOn
+        ) throw BudgetLocalFailure("plan_changed")
+        val target = current.plan.target
+        val expense = target.type == "EXPENSE"
+        if (!close && expense) return@withTransaction
+        val id = target.planId ?: target.stableKey
+        val contributors = projection.paymentContributors(target, id)
+        val dependencies = content.commands.filter {
+            it.kind == "LEDGER" && it.entityId in contributors &&
+                it.status in setOf("PENDING", "CONFLICT", "BLOCKED", "REJECTED")
+        }.map { it.requestId }
+        val type = when {
+            !close -> "CONFIRM_REMAINDER_INCOME"
+            expense -> "CLOSE_EXPENSE"
+            else -> "CLOSE_INCOME"
+        }
+        enqueue(type, id, current.plan.version, additionalDependencies = dependencies) {
+            it.copy(
+                ruleId = target.ruleId,
+                dueOn = target.dueOn.takeIf { expense },
+                scheduledOn = target.scheduledOn.takeIf { !expense && target.ruleId != null },
+                expectedAppliedAmount = current.appliedAmount.toPlainString(),
+                remainderAmount = current.plan.remainingAmount.takeUnless { close },
+                remainderDueOn = current.expectedOn?.toString().takeUnless { close },
+                remainderReceived = current.appliedAmount.toPlainString().takeUnless { close }
+            )
+        }
+        Unit
+    }
+
     override fun requestSync() = scheduler.schedule()
 
     override suspend fun retryRejectedCommands() {
@@ -359,6 +409,7 @@ class BudgetStore(
         entityId: String = UUID.randomUUID().toString(),
         expectedVersion: Long? = null,
         observedCategoryRevision: Long? = null,
+        additionalDependencies: List<String> = emptyList(),
         edit: (BudgetSyncCommand) -> BudgetSyncCommand = { it }
     ): String {
         database.withTransaction {
@@ -499,6 +550,15 @@ class BudgetStore(
                         }
 
                         "RECURRING_OCCURRENCE" -> {
+                            command.dueOn?.let { due ->
+                                projection.plans(
+                                    PlannedOperationsFilter(
+                                        period = PlannedOperationPeriod.Custom,
+                                        dateFrom = LocalDate.parse(due),
+                                        dateTo = LocalDate.parse(due)
+                                    )
+                                )
+                            }
                             projection.occurrences[entityId]?.version
                         }
 
@@ -512,8 +572,11 @@ class BudgetStore(
                     }
                 if (visible != expectedVersion) throw BudgetLocalFailure("conflict")
             }
-            val canonicalToken = observedCategoryRevision ?: token(content, kind, entityId)
-                ?: if (type == "UPDATE_INCOME_RULE") token(content, "EXPECTED_INCOME", entityId) else null
+            val canonicalToken = observedCategoryRevision ?: token(content, kind, entityId) ?: when {
+                type == "UPDATE_INCOME_RULE" -> token(content, "EXPECTED_INCOME", entityId)
+                command.expectedAppliedAmount != null -> 0L
+                else -> null
+            }
             validate(command, projection, content)
             val dependency =
                 command.categoryId?.let { category ->
@@ -541,11 +604,11 @@ class BudgetStore(
                     dependency,
                     protocolVersion = if (content.sync.protocolVersion >= 4) 4 else 2,
                     dependencies = json.encodeToString(
-                        content.commands.filter {
+                        (content.commands.filter {
                             it.entityId in
                                 setOfNotNull(command.ruleId, command.planTarget?.ruleId, command.planTarget?.planId) &&
                                 it.status != "CANCELLED"
-                        }.map { it.requestId }
+                        }.map { it.requestId } + additionalDependencies).distinct()
                     )
                 )
             )
@@ -696,7 +759,7 @@ class BudgetStore(
         }
         c.ruleName?.let { if (it.isBlank() || it.length > 160) throw BudgetLocalFailure("invalid") }
         c.incomeName?.let { if (it.isBlank() || it.length > 160) throw BudgetLocalFailure("invalid") }
-        if (c.type == "CONFIRM_REMAINDER_INCOME") {
+        if (c.type in setOf("CONFIRM_REMAINDER_INCOME", "CLOSE_INCOME")) {
             val item = p.plans(
                 PlannedOperationsFilter(
                     period = PlannedOperationPeriod.Custom,
@@ -706,18 +769,24 @@ class BudgetStore(
             ).items
                 .filterIsInstance<PlannedOperation.Income>().firstOrNull { it.id == c.entityId }?.income
                 ?: throw BudgetLocalFailure("not_found")
-            val amount = c.remainderAmount?.toBigDecimalOrNull() ?: throw BudgetLocalFailure("invalid")
-            if (amount.signum() <= 0 ||
-                amount.scale() > 2 ||
-                amount > item.remainingAmount ||
-                c.remainderReceived?.toBigDecimalOrNull()?.compareTo(item.receivedAmount) != 0 ||
-                LocalDate.parse(c.remainderDueOn) < today()
-            ) {
-                throw BudgetLocalFailure("invalid")
+            if (c.type == "CLOSE_INCOME") {
+                if (item.receivedAmount.signum() <= 0 ||
+                    c.expectedAppliedAmount?.toBigDecimalOrNull()?.compareTo(item.receivedAmount) != 0
+                ) throw BudgetLocalFailure("invalid")
+            } else {
+                val amount = c.remainderAmount?.toBigDecimalOrNull() ?: throw BudgetLocalFailure("invalid")
+                if (amount.signum() <= 0 ||
+                    amount.scale() > 2 ||
+                    amount > item.remainingAmount ||
+                    c.remainderReceived?.toBigDecimalOrNull()?.compareTo(item.receivedAmount) != 0 ||
+                    LocalDate.parse(c.remainderDueOn) < today()
+                ) {
+                    throw BudgetLocalFailure("invalid")
+                }
             }
         }
         c.dueOn?.let {
-            if (LocalDate.parse(it) < LocalDate.parse(c.authoredOn) &&
+            if (c.type != "CLOSE_EXPENSE" && LocalDate.parse(it) < LocalDate.parse(c.authoredOn) &&
                 !(
                     c.type in setOf("UPDATE_INCOME", "UPDATE_INCOME_RULE") &&
                         it == (p.incomeRules[c.entityId] ?: p.incomes[c.entityId])?.dueOn
@@ -806,7 +875,7 @@ class BudgetStore(
                 return@withTransaction null
             }
         }
-        if (current.protocolVersion >= 4 && intent.type == "CLOSE_EXPENSE") {
+        if (current.protocolVersion >= 4 && intent.type == "CLOSE_EXPENSE" && intent.ruleId == null) {
             val projection = project(requireNotNull(dao.content()))
             projection.plans(PlannedOperationsFilter())
             val occurrence = projection.occurrences[intent.entityId]
@@ -815,6 +884,15 @@ class BudgetStore(
         val prior = current.predecessor?.let { dao.command(it) }
         if (intent.type == "SET_OPERATION_PLAN_LINK") {
             val target = requireNotNull(intent.planTarget)
+            val projectedIncomeId = if (target.type == "INCOME" && target.ruleId != null && target.scheduledOn != null) {
+                UUID.nameUUIDFromBytes("income:${target.ruleId}:${target.scheduledOn}".toByteArray()).toString()
+            } else {
+                null
+            }
+            if (projectedIncomeId != null && target.planId == projectedIncomeId) {
+                // The server owns the UUID of a materialized income. The series and date identify the same payment.
+                intent = intent.copy(planTarget = target.copy(planId = null))
+            }
             val targetParent = parents.filter {
                 it.entityId == target.planId || it.entityId == target.ruleId
             }.maxByOrNull { it.createdOrder }
@@ -993,7 +1071,9 @@ class BudgetStore(
                 }
             } while (changed)
             if (reapply) {
-                if (intent.type in BudgetProjection.LINK_COMMANDS) throw BudgetLocalFailure("confirmation_required")
+                if (intent.type in BudgetProjection.LINK_COMMANDS || intent.expectedAppliedAmount != null) {
+                    throw BudgetLocalFailure("confirmation_required")
+                }
                 val canonical = token(content, failed.kind, failed.entityId)
                 if (canonical == null && !intent.type.startsWith("CREATE_")) throw BudgetLocalFailure("not_found")
                 val replacement = intent.copy(requestId = UUID.randomUUID().toString(), expectedToken = canonical)
@@ -1097,8 +1177,7 @@ class BudgetStore(
 
                 intent.type.startsWith("DELETE") -> "Удаление"
 
-                intent.type ==
-                    "CLOSE_EXPENSE" -> "Закрытие"
+                intent.type in setOf("CLOSE_EXPENSE", "CLOSE_INCOME") -> "Закрытие"
 
                 else -> "Изменение"
             }
@@ -1143,6 +1222,7 @@ class BudgetStore(
             item.status,
             item.status != "BLOCKED" &&
                 intent.type !in BudgetProjection.LINK_COMMANDS &&
+                intent.expectedAppliedAmount == null &&
                 (available || intent.type.startsWith("CREATE_"))
         )
     }

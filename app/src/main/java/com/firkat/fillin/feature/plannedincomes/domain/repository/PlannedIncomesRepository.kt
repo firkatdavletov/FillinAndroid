@@ -5,6 +5,7 @@ import com.firkat.fillin.feature.plannedincomes.domain.model.PlannedIncomes
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlanningRule
 import java.math.BigDecimal
 import java.time.LocalDate
+import kotlinx.coroutines.flow.flow
 
 interface PlannedIncomesRepository {
     suspend fun saveDetails(
@@ -33,6 +34,8 @@ interface PlannedIncomesRepository {
         frequency: com.firkat.fillin.feature.dailylimit.domain.IncomeFrequency,
         active: Boolean
     ): Unit = throw UnsupportedOperationException("Rule editing requires an offline repository")
+
+    fun observePlannedIncomes() = flow { emit(getPlannedIncomes()) }
 
     suspend fun getPlannedIncomes(): PlannedIncomes
 

@@ -76,10 +76,12 @@ internal fun OperationPlanLinkBottomSheet(
     operationId: String,
     onClose: (String?) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: OperationPlanLinkViewModel = koinViewModel { parametersOf(operationId) }
+    viewModel: OperationPlanLinkViewModel = koinViewModel { parametersOf(operationId) },
+    onLinkedWithRemainder: (String?, String) -> Unit = { planName, _ -> onClose(planName) }
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val close by rememberUpdatedState(onClose)
+    val openRemainder by rememberUpdatedState(onLinkedWithRemainder)
     val controller = LocalBottomSheetDismissController.current
     DisposableEffect(controller, viewModel) {
         val guard = viewModel::requestDismiss
@@ -87,7 +89,12 @@ internal fun OperationPlanLinkBottomSheet(
         onDispose { if (controller.canDismiss === guard) controller.canDismiss = { true } }
     }
     BackHandler(onBack = viewModel::dismiss)
-    LaunchedEffect(viewModel) { viewModel.effects.collect { close(it.planName) } }
+    LaunchedEffect(viewModel) {
+        viewModel.effects.collect { effect ->
+            val key = effect.remainderKey
+            if (key == null) close(effect.planName) else openRemainder(effect.planName, key)
+        }
+    }
     OperationPlanLinkContent(
         state,
         viewModel::select,

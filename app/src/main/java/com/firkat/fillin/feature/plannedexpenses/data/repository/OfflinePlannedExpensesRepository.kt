@@ -13,7 +13,8 @@ import com.firkat.fillin.feature.sync.data.BudgetLocalFailure
 import com.firkat.fillin.feature.sync.data.BudgetStore
 import java.math.BigDecimal
 import java.time.LocalDate
-import java.time.ZoneId
+import java.time.YearMonth
+import kotlinx.coroutines.flow.map
 
 class OfflinePlannedExpensesRepository(private val store: BudgetStore) : PlannedExpensesRepository {
     override suspend fun accountingStart(): LocalDate = store.accountingStart()
@@ -52,29 +53,24 @@ class OfflinePlannedExpensesRepository(private val store: BudgetStore) : Planned
         }
     }
 
-    override suspend fun getPlannedExpenses(): PlannedExpenses = execute {
-        val today = LocalDate.now(ZoneId.of("Asia/Almaty"))
-        val plans =
-            store.snapshot().plans(
-                PlannedOperationsFilter(
-                    period = PlannedOperationPeriod.Custom,
-                    dateFrom = LocalDate.of(1, 1, 1),
-                    dateTo =
-                        today
-                            .plusMonths(2)
-                            .withDayOfMonth(1)
-                            .plusMonths(1)
-                            .minusDays(1)
-                )
-            )
-        PlannedExpenses(
-            plans.asOf,
-            plans.dateTo,
-            plans.items.filterIsInstance<PlannedOperation.Expense>().map {
-                it.expense
-            }
-        )
+    override fun observePlannedExpenses() = store.observePlans(::expenseFilter).map { plans ->
+        PlannedExpenses(plans.asOf, plans.dateTo, plans.items.filterIsInstance<PlannedOperation.Expense>().map {
+            it.expense
+        })
     }
+
+    override suspend fun getPlannedExpenses(): PlannedExpenses = execute {
+        val plans = store.snapshot().plans(expenseFilter())
+        PlannedExpenses(plans.asOf, plans.dateTo, plans.items.filterIsInstance<PlannedOperation.Expense>().map {
+            it.expense
+        })
+    }
+
+    private fun expenseFilter() = PlannedOperationsFilter(
+        period = PlannedOperationPeriod.Custom,
+        dateFrom = LocalDate.of(1, 1, 1),
+        dateTo = YearMonth.from(store.currentDate().plusMonths(2)).atEndOfMonth()
+    )
 
     override suspend fun createRule(
         categoryId: String,
