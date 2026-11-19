@@ -1,0 +1,57 @@
+name: RuStore Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Android SDK Platform 37
+        run: sdkmanager 'platforms;android-37.0'
+
+      - name: Build and verify signed RuStore bundle
+        shell: bash
+        env:
+          RUSTORE_KEYSTORE_BASE64: ${{ secrets.RUSTORE_KEYSTORE_BASE64 }}
+          RUSTORE_KEYSTORE_PASSWORD: ${{ secrets.RUSTORE_KEYSTORE_PASSWORD }}
+          RUSTORE_KEY_ALIAS: ${{ secrets.RUSTORE_KEY_ALIAS }}
+          RUSTORE_KEY_PASSWORD: ${{ secrets.RUSTORE_KEY_PASSWORD }}
+        run: |
+          : "${RUSTORE_KEYSTORE_BASE64:?Set the RUSTORE_KEYSTORE_BASE64 secret}"
+          : "${RUSTORE_KEYSTORE_PASSWORD:?Set the RUSTORE_KEYSTORE_PASSWORD secret}"
+          : "${RUSTORE_KEY_ALIAS:?Set the RUSTORE_KEY_ALIAS secret}"
+          : "${RUSTORE_KEY_PASSWORD:?Set the RUSTORE_KEY_PASSWORD secret}"
+
+          export RUSTORE_KEYSTORE_PATH
+          RUSTORE_KEYSTORE_PATH=$(mktemp "$RUNNER_TEMP/rustore-keystore.XXXXXX")
+          trap 'rm -f -- "$RUSTORE_KEYSTORE_PATH"' EXIT
+          printf '%s' "$RUSTORE_KEYSTORE_BASE64" | base64 --decode > "$RUSTORE_KEYSTORE_PATH"
+          unset RUSTORE_KEYSTORE_BASE64
+
+          ./gradlew :app:bundleRustoreRelease --no-configuration-cache -PrustoreReleaseSigning=true
+
+          jarsigner -verify -strict -keystore "$RUSTORE_KEYSTORE_PATH" \
+            -storepass:env RUSTORE_KEYSTORE_PASSWORD \
+            app/build/outputs/bundle/rustoreRelease/app-rustore-release.aab "$RUSTORE_KEY_ALIAS"
+
+      - name: Upload signed AAB
+        uses: actions/upload-artifact@v7
+        with:
+          name: rustore-release-${{ github.sha }}
+          path: app/build/outputs/bundle/rustoreRelease/app-rustore-release.aab
+          if-no-files-found: error
+          overwrite: true

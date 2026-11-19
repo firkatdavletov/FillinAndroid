@@ -181,13 +181,27 @@ This repository contains the Android client. The backend is maintained separatel
 
 `qualityCheck` runs ktlint, Detekt, and Android Lint. Instrumentation tests are available under `app/src/androidTest`; run them on a dedicated emulator or test device because device test runs can replace the installed app and its data.
 
+## RuStore release builds
+
+The **RuStore Release** workflow builds and signs `rustoreRelease` on every push to `main`. The bundle ships with local budgeting enabled and Firebase authentication disabled. Local release builds use debug signing by default.
+
+Before the first run, add these repository secrets under **Settings → Secrets and variables → Actions**.
+
+| Secret | Value |
+| --- | --- |
+| `RUSTORE_KEYSTORE_BASE64` | Base64-encoded release keystore. Generate it with `base64 < release.keystore \| tr -d '\n'`. |
+| `RUSTORE_KEYSTORE_PASSWORD` | Keystore password. |
+| `RUSTORE_KEY_ALIAS` | Alias of the signing key in the keystore. |
+| `RUSTORE_KEY_PASSWORD` | Signing key password. |
+
+If the app is already published, use the upload key registered for the existing app. After a successful run, open **Actions → RuStore Release → Artifacts**, download `rustore-release-<commit-sha>`, and extract the `.aab` for manual upload to RuStore.
+
 ## Development status
 
 **Active development — version 0.3.** Core local budgeting, planning, dashboard calculations, authentication, and cloud/family budget flows are implemented. The UI, synchronization contracts, and release configuration continue to evolve.
 
 - Unit and instrumentation tests cover business logic, local persistence, synchronization, migrations, and UI flows.
 - Cloud functionality depends on a compatible backend deployment and Firebase configuration; real-account and multi-device acceptance checks are separate from automated tests.
-- Release builds currently use the debug signing configuration. Production signing must be configured before distribution.
 - The dashboard layout is currently fixed. Planning does not yet include an archive or yearly recurrence.
 
 Implementation notes and backend contracts are available in [docs/](docs/) (primarily in Russian). Some documents preserve historical behavior; use the current source and newer feature-specific notes when setting up the project.

@@ -44,6 +44,12 @@ if (debugFirebaseConfigured || releaseFirebaseConfigured) {
 
 val localPropertiesFile = rootProject.layout.projectDirectory.file("local.properties")
 val apiBaseUrl = "https://cheerful-art-production-c4f9.up.railway.app/"
+val rustoreReleaseSigning = providers.gradleProperty("rustoreReleaseSigning").orNull == "true"
+
+fun requireSigningEnv(name: String): String =
+    requireNotNull(providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }) {
+        "$name is required when rustoreReleaseSigning is enabled"
+    }
 
 // Firebase authentication uses the deployed backend unless a test server is specified.
 val firebaseApiBaseUrl = providers.gradleProperty("firebaseApiBaseUrl").orNull ?: run {
@@ -95,6 +101,17 @@ android {
 
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 
+    if (rustoreReleaseSigning) {
+        signingConfigs.create("rustoreRelease") {
+            storeFile = file(requireSigningEnv("RUSTORE_KEYSTORE_PATH")).also {
+                require(it.isFile) { "RUSTORE_KEYSTORE_PATH must point to a keystore file" }
+            }
+            storePassword = requireSigningEnv("RUSTORE_KEYSTORE_PASSWORD")
+            keyAlias = requireSigningEnv("RUSTORE_KEY_ALIAS")
+            keyPassword = requireSigningEnv("RUSTORE_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -102,7 +119,7 @@ android {
         }
         release {
             buildConfigField("boolean", "FIREBASE_CONFIGURED", releaseFirebaseConfigured.toString())
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (rustoreReleaseSigning) "rustoreRelease" else "debug")
             if (firebaseApiBaseUrl.startsWith("http://")) {
                 buildConfigField("String", "FIREBASE_API_BASE_URL", "\"\"")
             }
