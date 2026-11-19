@@ -52,6 +52,13 @@ sealed interface AppRoute : NavKey {
 
     @Serializable data class OperationPlanPicker(val operationId: String, val budgetScopeId: String) : AppRoute
 
+    @Serializable data class PlanPaymentRemainder(
+        val operationId: String,
+        val budgetScopeId: String,
+        val targetKey: String,
+        val requestId: String = UUID.randomUUID().toString()
+    ) : AppRoute
+
     @Serializable data class OperationPlanLinkBottomSheet(
         val operationId: String,
         val budgetScopeId: String,
@@ -65,6 +72,8 @@ sealed interface AppRoute : NavKey {
     ) : AppRoute
 
     @Serializable data object Profile : AppRoute
+
+    @Serializable data class BudgetEdit(val budgetId: String) : AppRoute
 }
 
 internal fun AppRoute.isBudgetSetup() =

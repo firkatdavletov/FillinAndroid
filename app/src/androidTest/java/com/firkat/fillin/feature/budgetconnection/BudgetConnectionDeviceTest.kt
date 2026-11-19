@@ -169,6 +169,7 @@ class BudgetConnectionDeviceTest {
             androidContext(context)
             modules(
                 budgetModule,
+                com.firkat.fillin.feature.budgettransfer.di.budgetTransferModule,
                 module {
                     single {
                         Json {

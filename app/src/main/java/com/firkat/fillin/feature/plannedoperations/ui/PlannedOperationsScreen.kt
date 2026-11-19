@@ -250,16 +250,11 @@ internal fun PlanningRuleRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.onBackground
-            ) {
-                CategoryIconImage(
-                    iconCode = rule.iconCode,
-                    categoryName = rule.categoryName,
-                    modifier = Modifier.padding(4.dp)
-                )
-            }
+            CategoryIconImage(
+                iconCode = rule.iconCode,
+                categoryName = rule.categoryName,
+                modifier = Modifier.padding(4.dp)
+            )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(rule.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(

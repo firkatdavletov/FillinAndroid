@@ -12,6 +12,8 @@ import com.firkat.fillin.feature.operationhistory.data.repository.OfflineOperati
 import com.firkat.fillin.feature.operationhistory.data.sync.*
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.*
+import com.firkat.fillin.feature.plannedexpenses.data.repository.OfflinePlannedExpensesRepository
+import com.firkat.fillin.feature.plannedincomes.data.repository.OfflinePlannedIncomesRepository
 import com.firkat.fillin.feature.sync.data.*
 import java.io.IOException
 import java.math.BigDecimal
@@ -169,6 +171,78 @@ class OperationPlanLinkPersistenceTest {
         assertEquals("plan_changed", (failure as? BudgetLocalFailure)?.code)
         assertTrue(store.observeLinks(result.operationId).first().current.isEmpty())
         assertNotNull(history(store).observeOperation(result.operationId).first())
+    }
+
+    @Test fun closingPartialExpensePersistsAndAffectsOnlyTheSelectedDate() = runBlocking {
+        initialize()
+        var store = store()
+        val category = requireNotNull(store.historySnapshot()).categories.first { it.kind == "EXPENSE" }
+        val due = LocalDate.parse("2026-11-19")
+        val rule = store.enqueue("CREATE_RULE") {
+            it.copy(categoryId = category.id, amount = "320000.00", frequency = "MONTHLY", scheduleValue = 19,
+                startsOn = due.toString())
+        }
+        val operationId = history(store).create(
+            NewOperation(OperationType.Expense, category.id, BigDecimal("308000.00"), today, null)
+        ).operationId
+        val plan = store.observeLinks(operationId).first().candidates.first { it.target.dueOn == due.toString() }
+        store.setLink(operationId, plan, 0)
+        val open = requireNotNull(store.observeLinks(operationId).first().remainder)
+        assertEquals("12000.00", open.plan.remainingAmount)
+        assertEquals(BigDecimal("308000.00"), open.appliedAmount)
+        val owner = requireNotNull(database.operations().state())
+        database.operations().putState(owner.copy(role = "MEMBER"))
+        val memberLinks = store.observeLinks(operationId).first()
+        assertEquals("12000.00", memberLinks.current.single().remainingAmount)
+        assertNull(memberLinks.remainder)
+        val denied = runCatching { store.decide(operationId, open, close = true) }.exceptionOrNull()
+        assertEquals("forbidden", (denied as? BudgetLocalFailure)?.code)
+        database.operations().putState(owner)
+        store.decide(operationId, open, close = false)
+        assertEquals(
+            BigDecimal("12000.00"),
+            OfflinePlannedExpensesRepository(store).observePlannedExpenses().first().items.first { it.ruleId == rule }.remainingAmount
+        )
+        store.decide(operationId, open, close = true)
+        val closure = store.pending().last()
+        val intent = json.decodeFromString<BudgetSyncCommand>(closure.intent)
+        assertEquals("CLOSE_EXPENSE", intent.type)
+        assertEquals(due.toString(), intent.dueOn)
+        assertNull(store.prepare(closure))
+        database.close()
+        database = open()
+        store = store()
+        assertNull(store.observeLinks(operationId).first().remainder)
+        val next = OfflinePlannedExpensesRepository(store).observePlannedExpenses().first().items.first { it.ruleId == rule }
+        assertEquals(due.plusMonths(1), next.dueOn)
+        assertEquals(BigDecimal("320000.00"), next.remainingAmount)
+        assertEquals(BigDecimal("308000.00"), history(store).observeOperation(operationId).first()?.amount)
+    }
+
+    @Test fun keepingIncomeConfirmsForecastAndARejectedLinkRollsBackDependentClosure() = runBlocking {
+        initialize()
+        val store = store()
+        val planId = createIncomePlan(store)
+        val operationId = createOperation(store, "85.00").operationId
+        store.setLink(operationId, store.observeLinks(operationId).first().candidates.single(), 0)
+        val quote = requireNotNull(store.observeLinks(operationId).first().remainder)
+        assertEquals(today, quote.expectedOn)
+        assertTrue(store.snapshot().dashboardInput(clock.instant()).incomes.isEmpty())
+        store.decide(operationId, quote, close = false)
+        val expected = store.snapshot().dashboardInput(clock.instant()).incomes.single()
+        assertEquals(BigDecimal("15.00"), expected.amount)
+        assertEquals(today, expected.dueOn)
+        val link = store.pending().first { json.decodeFromString<BudgetSyncCommand>(it.intent).type == "SET_OPERATION_PLAN_LINK" }
+        val updated = requireNotNull(store.observeLinks(operationId).first().remainder)
+        assertEquals("plan_changed", (runCatching {
+            store.decide(operationId, quote, close = true)
+        }.exceptionOrNull() as? BudgetLocalFailure)?.code)
+        store.decide(operationId, updated, close = true)
+        assertTrue(OfflinePlannedIncomesRepository(store).observePlannedIncomes().first().items.none { it.id == planId })
+        store.fail(link, "CONFLICT", "plan_changed")
+        val restored = OfflinePlannedIncomesRepository(store).observePlannedIncomes().first().items.single { it.id == planId }
+        assertEquals(BigDecimal("100.00"), restored.remainingAmount)
+        assertFalse(restored.remainderConfirmed)
     }
 
     @Test fun linkWaitsForBothCreatesAndFreezesWirePayloadForRetry() = runBlocking {

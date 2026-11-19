@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="budget_csv_import">Импорт данных</string>
+    <string name="budget_csv_export">Экспорт данных</string>
+    <string name="budget_csv_exported">Бюджет сохранён в CSV.</string>
+    <string name="budget_csv_imported">Создан и выбран новый локальный бюджет.</string>
+    <string name="budget_csv_imported_inactive">Бюджет импортирован. Его можно выбрать в списке бюджетов.</string>
+    <string name="budget_csv_default_name">Мой бюджет</string>
+    <string name="budget_csv_name_suffix" formatted="false">" — импорт"</string>
+    <string name="budget_csv_invalid">Не удалось прочитать резервную копию Saldomi.</string>
+    <string name="budget_csv_invalid_row">Некорректные данные в записи CSV №%1$d.</string>
+    <string name="budget_csv_unsupported">Эта версия файла Saldomi не поддерживается.</string>
+    <string name="budget_csv_file_error">Нет доступа к файлу. Выберите другой файл или папку.</string>
+    <string name="budget_csv_limit">Достигнут лимит локальных бюджетов. Освободите место для импорта.</string>
+    <string name="budget_csv_source_unavailable">Выбранный бюджет недоступен. Выберите бюджет и повторите экспорт.</string>
+    <string name="budget_csv_generic_error">Не удалось выполнить перенос данных.</string>
+    <string name="budget_csv_local_only">Импортированный бюджет хранится на устройстве. Для него недоступна облачная синхронизация.</string>
+</resources>

@@ -31,7 +31,8 @@ data class SyncPlanRecord(
     val scheduledOn: String? = null,
     val remainderAmount: String? = null,
     val remainderDueOn: String? = null,
-    val remainderReceived: String? = null
+    val remainderReceived: String? = null,
+    val remainderClosed: Boolean? = null
 
 )
 
@@ -68,7 +69,8 @@ data class BudgetSyncCommand(
     val scheduledOn: String? = null,
     val remainderAmount: String? = null,
     val remainderDueOn: String? = null,
-    val remainderReceived: String? = null
+    val remainderReceived: String? = null,
+    val expectedAppliedAmount: String? = null
 
 )
 

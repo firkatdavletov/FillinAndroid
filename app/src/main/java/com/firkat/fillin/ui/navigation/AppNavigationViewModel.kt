@@ -292,9 +292,11 @@ class AppNavigationViewModel(
                                         entries.last() is AppRoute.ForecastDetails ||
                                             entries.last() is AppRoute.OperationDetails ||
                                             entries.last() is AppRoute.OperationPlanLinkBottomSheet ||
+                                            entries.last() is AppRoute.PlanPaymentRemainder ||
                                             entries.last() is AppRoute.PlannedOperationBottomSheet ||
                                             entries.last() is AppRoute.PlanningRuleEditor ||
                                             entries.last() is AppRoute.EditCategory ||
+                                            entries.last() is AppRoute.BudgetEdit ||
                                             entries.last() in
                                             listOf(
                                                 AppRoute.Main,
@@ -393,6 +395,16 @@ class AppNavigationViewModel(
 
     fun openProfile() = openMainDestination(AppRoute.Profile)
 
+    fun openBudgetEdit(budgetId: String) {
+        if (entries.lastOrNull() == AppRoute.Profile) {
+            openMainDestination(AppRoute.BudgetEdit(budgetId), additionalSource = AppRoute.Profile)
+        }
+    }
+
+    fun closeBudgetEdit(route: AppRoute.BudgetEdit) {
+        if (entries.lastOrNull() == route) back()
+    }
+
     /** Ignores callbacks from a sheet that is already exiting or belongs to an old budget. */
     fun dismissOperationDetails(
         route: AppRoute.OperationDetails
@@ -444,6 +456,25 @@ class AppNavigationViewModel(
         if (!readOnly && entries.lastOrNull() == route && budgetReady && !resolving.value) {
             entries.add(AppRoute.PlanningRuleEditor(route.budgetScopeId, type, ruleId))
         }
+    }
+
+    internal fun openPaymentRemainder(
+        source: AppRoute,
+        operationId: String,
+        budgetScopeId: String,
+        targetKey: String
+    ) {
+        if (readOnly || entries.lastOrNull() != source) return
+        val route = AppRoute.PlanPaymentRemainder(operationId, budgetScopeId, targetKey)
+        if (source is AppRoute.OperationDetails) {
+            entries.add(route)
+        } else {
+            entries[entries.lastIndex] = route
+        }
+    }
+
+    internal fun dismissPaymentRemainder(route: AppRoute.PlanPaymentRemainder) {
+        if (entries.lastOrNull() == route) back()
     }
 
     fun dismissOperationPlanLink(

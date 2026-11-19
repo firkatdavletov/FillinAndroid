@@ -4,6 +4,9 @@ import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.feature.budgetconnection.data.*
 import com.firkat.fillin.feature.budgetconnection.domain.*
 import com.firkat.fillin.feature.budgetconnection.ui.BudgetConnectionViewModel
+import com.firkat.fillin.feature.budgetprofile.data.BudgetDatabaseFactory
+import com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry
+import com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileRegistry
 import com.firkat.fillin.feature.categories.data.sync.CategoryUsageApi
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
@@ -16,13 +19,13 @@ val budgetConnectionModule = module {
         com.firkat.fillin.feature.budgetsetup.data.RoomLocalBudgetCreator(get(), get(), get(), get(), get())
     }
     viewModel {
+        val registry = get<BudgetProfileRegistry>() as RoomBudgetProfileRegistry
+        val databases = get<BudgetDatabaseFactory>()
         com.firkat.fillin.feature.budgetsetup.ui.BudgetSetupViewModel(
             get(), get(), get(), get(), get(), get(), dispatcher = kotlinx.coroutines.Dispatchers.IO,
             access = get(),
-            localCount = (
-                get<com.firkat.fillin.feature.budgetprofile.domain.BudgetProfileRegistry>()
-                    as com.firkat.fillin.feature.budgetprofile.data.RoomBudgetProfileRegistry
-                ).observeLocalCount()
+            localCount = registry.observeLocalCount(),
+            observeReadyBudgetExists = { uid -> registry.observeReadyBudgetExists(uid, databases) }
         )
     }
     single {

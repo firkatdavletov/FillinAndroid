@@ -77,7 +77,8 @@ internal fun OperationDetailsRoute(
     onLinkSelected: () -> Unit,
     onOpenPlan: (PlannedOperationType, String) -> Unit,
     viewModel: EditOperationViewModel = koinViewModel { parametersOf(operationId) },
-    readOnly: Boolean = false
+    readOnly: Boolean = false,
+    onDecideRemainder: (String) -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val close by rememberUpdatedState(onClose)
@@ -107,6 +108,7 @@ internal fun OperationDetailsRoute(
         description = state.description,
         descriptionError = state.descriptionError,
         links = state.links,
+        onDecideRemainder = onDecideRemainder,
         onUnlink = {
             event(EditOperationEvent.WindowChanged(OperationDetailsWindow.Unlink))
         },
@@ -168,7 +170,8 @@ internal fun EditOperationContent(
     description: String = operation?.description.orEmpty(),
     descriptionError: Boolean = false,
     onDescriptionChange: (String) -> Unit = {},
-    onCategoryOpen: () -> Unit = {}
+    onCategoryOpen: () -> Unit = {},
+    onDecideRemainder: (String) -> Unit = {}
 ) {
     val canEdit = mode == EditOperationMode.Edit &&
         operation?.refundedAmount?.signum() == 0
@@ -217,6 +220,20 @@ internal fun EditOperationContent(
                                 onOpen(plan)
                             }
                         )
+                    }
+                    links.remainder?.takeIf { mode == EditOperationMode.Edit }?.let { remainder ->
+                        SaldomiOutlinedButton(
+                            onClick = { onDecideRemainder(remainder.plan.target.stableKey) },
+                            enabled = !isSaving,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(stringResource(R.string.plan_payment_close_remainder)) }
+                    }
+                    if (mode == EditOperationMode.Edit && links.current.isNotEmpty() && links.candidates.isNotEmpty()) {
+                        SaldomiOutlinedButton(
+                            onClick = onLinkSelected,
+                            enabled = !isSaving,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(stringResource(R.string.plan_payment_replace_link)) }
                     }
                 }
                 if (mode == EditOperationMode.Correct) {

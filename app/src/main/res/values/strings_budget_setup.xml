@@ -2,5 +2,6 @@
     <string name="budget_setup_local_title">Создание бюджета</string>
     <string name="budget_setup_local_hint">Бюджет сохраняется на устройстве. Облачную синхронизацию можно включить позже.</string>
     <string name="budget_setup_create">Создать бюджет</string>
+    <string name="budget_setup_create_from_file">Создать из файла</string>
     <string name="budget_setup_loading">Загрузка бюджета…</string>
 </resources>

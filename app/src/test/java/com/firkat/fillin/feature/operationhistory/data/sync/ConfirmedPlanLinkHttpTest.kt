@@ -44,7 +44,7 @@ class ConfirmedPlanLinkHttpTest {
             val request = server.takeRequest()
             assertEquals("/api/v4/budgets/h/sync/commands", request.path)
             assertEquals(
-                "confirmedPlanLinkingV1,incomeRuleEditingV1,dailyLimitPlanningV1,categoryUsageV1",
+                "confirmedPlanLinkingV1,incomeRuleEditingV1,dailyLimitPlanningV1,categoryUsageV1,planPaymentRemaindersV1",
                 request.getHeader("X-Fillin-Capabilities")
             )
             val payload = request.body.readUtf8()
@@ -65,7 +65,7 @@ class ConfirmedPlanLinkHttpTest {
             val changes = server.takeRequest()
             assertEquals("/api/v4/budgets/h/sync/changes?cursor=before", changes.path)
             assertEquals(
-                "confirmedPlanLinkingV1,incomeRuleEditingV1,dailyLimitPlanningV1,categoryUsageV1",
+                "confirmedPlanLinkingV1,incomeRuleEditingV1,dailyLimitPlanningV1,categoryUsageV1,planPaymentRemaindersV1",
                 changes.getHeader("X-Fillin-Capabilities")
             )
         }
@@ -83,7 +83,7 @@ class ConfirmedPlanLinkHttpTest {
             val budgetRequest = server.takeRequest()
             assertEquals("/api/v4/budgets/h", budgetRequest.path)
             assertEquals(
-                "confirmedPlanLinkingV1,incomeRuleEditingV1,dailyLimitPlanningV1,categoryUsageV1",
+                "confirmedPlanLinkingV1,incomeRuleEditingV1,dailyLimitPlanningV1,categoryUsageV1,planPaymentRemaindersV1",
                 budgetRequest.getHeader("X-Fillin-Capabilities")
             )
             server.enqueue(
@@ -100,7 +100,7 @@ class ConfirmedPlanLinkHttpTest {
             assertEquals("/api/v4/budgets/h/sync/commands", request.path)
             assertEquals("Bearer synthetic", request.getHeader("Authorization"))
             assertEquals(
-                "confirmedPlanLinkingV1,incomeRuleEditingV1,dailyLimitPlanningV1,categoryUsageV1",
+                "confirmedPlanLinkingV1,incomeRuleEditingV1,dailyLimitPlanningV1,categoryUsageV1,planPaymentRemaindersV1",
                 request.getHeader("X-Fillin-Capabilities")
             )
             val body = json.parseToJsonElement(request.body.readUtf8()).jsonObject

@@ -130,7 +130,7 @@ private fun ExpenseRow(
         Spacer(Modifier.weight(1f))
         MoneyAmount(
             money = Money(
-                amount = expense.plannedAmount,
+                amount = expense.remainingAmount,
                 currency = expense.currency
             )
         )
@@ -195,7 +195,7 @@ private fun IncomeCard(
             Spacer(Modifier.weight(1f))
             MoneyAmount(
                 money = Money(
-                    amount = income.plannedAmount,
+                    amount = income.remainingAmount,
                     currency = income.currency
                 )
             )

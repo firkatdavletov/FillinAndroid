@@ -50,6 +50,7 @@ import com.firkat.fillin.feature.auth.ui.AuthScreen
 import com.firkat.fillin.feature.auth.ui.components.messageRes
 import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
 import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
+import com.firkat.fillin.feature.budgetmanagement.ui.BudgetEditRoute
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
@@ -67,6 +68,7 @@ import com.firkat.fillin.feature.main.ui.MainScreen
 import com.firkat.fillin.feature.operationhistory.ui.OperationCreateRoute
 import com.firkat.fillin.feature.operationhistory.ui.OperationDetailsRoute
 import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.OperationPlanLinkBottomSheet
+import com.firkat.fillin.feature.operationhistory.ui.bottomsheets.PlanPaymentRemainderBottomSheet
 import com.firkat.fillin.feature.plannedoperations.ui.PlanningRuleEditorRoute
 import com.firkat.fillin.feature.plannedoperations.ui.bottomsheets.PlannedOperationBottomSheet
 import com.firkat.fillin.feature.profile.ui.ProfileRoute
@@ -372,18 +374,44 @@ fun FillinNavHost(
                 linkModels.bind(runtime.takeIf { it?.scope?.id == route.budgetScopeId })
                 ActiveBudgetContent(viewModelStoreOwner = linkModels) {
                     if (route.budgetScopeId == runtime?.scope?.id) {
-                        OperationPlanLinkBottomSheet(route.operationId, onClose = { planName ->
-                            if (navigation.dismissOperationPlanLink(route)) {
-                                restoreCreateOperationFocus = true
-                                if (planName != null) {
-                                    snackbarScope.launch {
-                                        snackbar.showSaldomiSnackbar(
-                                            resources.getString(R.string.plan_offer_linked, planName),
-                                            type = SnackbarType.Success
-                                        )
-                                    }
+                        val showLinked: (String?) -> Unit = { name ->
+                            if (name != null) {
+                                snackbarScope.launch {
+                                    snackbar.showSaldomiSnackbar(
+                                        resources.getString(R.string.plan_offer_linked, name),
+                                        type = SnackbarType.Success
+                                    )
                                 }
                             }
+                        }
+                        OperationPlanLinkBottomSheet(
+                            route.operationId,
+                            onClose = { name ->
+                                if (navigation.dismissOperationPlanLink(route)) {
+                                    restoreCreateOperationFocus = true
+                                    showLinked(name)
+                                }
+                            },
+                            onLinkedWithRemainder = { name, key ->
+                                navigation.openPaymentRemainder(route, route.operationId, route.budgetScopeId, key)
+                                restoreCreateOperationFocus = true
+                                showLinked(name)
+                            }
+                        )
+                    }
+                }
+            }
+            entry<AppRoute.PlanPaymentRemainder>(
+                metadata = BottomSheetSceneStrategy.bottomSheet()
+            ) { route ->
+                val models: MainBudgetViewModelStore = viewModel(key = "payment-remainder-${route.requestId}")
+                val active = runtime.takeIf { it?.scope?.id == route.budgetScopeId }
+                models.bind(active)
+                LaunchedEffect(active) { if (active == null) navigation.dismissPaymentRemainder(route) }
+                ActiveBudgetContent(viewModelStoreOwner = models) {
+                    if (active != null) {
+                        PlanPaymentRemainderBottomSheet(route.operationId, route.targetKey, onClose = {
+                            navigation.dismissPaymentRemainder(route)
                         })
                     }
                 }
@@ -400,7 +428,9 @@ fun FillinNavHost(
                 }
                 ActiveBudgetContent(viewModelStoreOwner = models) {
                     com.firkat.fillin.feature.operationhistory.ui
-                        .OperationPlanPickerRoute(route.operationId, navigation::back)
+                        .OperationPlanPickerRoute(route.operationId, navigation::back, onLinkedWithRemainder = { key ->
+                            navigation.openPaymentRemainder(route, route.operationId, route.budgetScopeId, key)
+                        })
                 }
             }
             entry<AppRoute.OperationDetails> { route ->
@@ -412,6 +442,9 @@ fun FillinNavHost(
                         readOnly = readOnly,
                         operationId = route.operationId,
                         onLinkSelected = { navigation.openOperationPlanPicker(route) },
+                        onDecideRemainder = { key ->
+                            navigation.openPaymentRemainder(route, route.operationId, route.budgetScopeId, key)
+                        },
                         onOpenPlan = { type, id -> navigation.openDetailsPlanningRule(route, type, id) },
                         onClose = { navigation.dismissOperationDetails(route) },
                         onResult = { result ->
@@ -519,8 +552,12 @@ fun FillinNavHost(
                     budgetReadOnly = readOnly,
                     onFamilyAccessClick = navigation::openFamilyAccess,
                     onCloudSyncClick = navigation::openCloudSync,
-                    onCreateBudgetClick = navigation::openBudgetCreation
+                    onCreateBudgetClick = navigation::openBudgetCreation,
+                    onEditBudgetClick = navigation::openBudgetEdit
                 )
+            }
+            entry<AppRoute.BudgetEdit> { route ->
+                BudgetEditRoute(route.budgetId, onBack = { navigation.closeBudgetEdit(route) })
             }
         }
     )

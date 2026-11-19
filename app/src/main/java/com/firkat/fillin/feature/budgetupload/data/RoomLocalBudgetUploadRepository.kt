@@ -66,7 +66,7 @@ class RoomLocalBudgetUploadRepository(
         val db = databases.open(profile)
         try {
             val state = db.operations().state() ?: return@mapNotNull null
-            if (!state.localReady) return@mapNotNull null
+            if (!state.localReady || state.importedLocalOnly) return@mapNotNull null
             if (upload != null) {
                 val pending = db.budget().commands(state.scopeKey).any {
                     it.status in
@@ -116,6 +116,7 @@ class RoomLocalBudgetUploadRepository(
                 require(title.length in 1..80 && title.none(Char::isISOControl))
                 active.attachLocal(uid, profileId) { source, db ->
                     val state = requireNotNull(db.operations().state())
+                    if (state.importedLocalOnly) throw BudgetConnectionFailure("not_local_budget")
                     if (state.protocolVersion != 4 ||
                         db.operations().pending(state.scopeKey).isNotEmpty() ||
                         db.budget().commands(state.scopeKey).any {

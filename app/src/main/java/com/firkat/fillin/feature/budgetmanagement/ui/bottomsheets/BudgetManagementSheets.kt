@@ -14,7 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,10 +25,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.firkat.fillin.R
-import com.firkat.fillin.feature.budgetmanagement.domain.validBudgetName
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementState
 import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
-import com.firkat.fillin.feature.budgetprofile.ui.BudgetCurrencyRow
 import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import com.firkat.fillin.ui.component.SaldomiBottomSheet
 import com.firkat.fillin.ui.component.SaldomiButton
@@ -39,45 +36,34 @@ import com.firkat.fillin.ui.icon.FillinIcons
 import com.firkat.fillin.ui.theme.FillinTheme
 
 @Composable
-internal fun BudgetManagementSheet(
+internal fun BudgetDeletionSheet(
     state: BudgetManagementState,
     onChange: (String) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-    onCurrencyClick: () -> Unit = {}
+    modifier: Modifier = Modifier
 ) {
     SaldomiBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            if (state.deleting) {
-                Surface(
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    shape = MaterialTheme.shapes.large
-                ) {
-                    Icon(
-                        Icons.Outlined.DeleteOutline,
-                        null,
-                        Modifier.padding(20.dp).size(36.dp),
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-            Text(
-                stringResource(
-                    if (state.deleting) R.string.budget_manage_delete_title else R.string.budget_manage_rename
-                ),
-                style = MaterialTheme.typography.headlineSmall
-            )
-            if (!state.deleting) {
-                Text(
-                    stringResource(R.string.budget_manage_edit_description),
-                    style = MaterialTheme.typography.bodyMedium
+            Surface(
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = MaterialTheme.shapes.large
+            ) {
+                Icon(
+                    Icons.Outlined.DeleteOutline,
+                    null,
+                    Modifier.padding(20.dp).size(36.dp),
+                    tint = MaterialTheme.colorScheme.error
                 )
             }
+            Text(
+                stringResource(R.string.budget_manage_delete_title),
+                style = MaterialTheme.typography.headlineSmall
+            )
             Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
                 Row(
                     Modifier.fillMaxWidth().padding(16.dp),
@@ -101,51 +87,28 @@ internal fun BudgetManagementSheet(
                     }
                 }
             }
-            if (state.deleting) {
-                Text(
-                    stringResource(R.string.budget_manage_warning),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+            Text(
+                stringResource(R.string.budget_manage_warning),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
             SaldomiTextField(
                 value = state.value,
                 onValueChange = onChange,
                 enabled = !state.busy,
-                label = stringResource(
-                    if (state.deleting) R.string.budget_manage_confirm_name else R.string.cloud_budget_name
-                ),
+                label = stringResource(R.string.budget_manage_confirm_name),
                 modifier = Modifier.fillMaxWidth().testTag("budget_management_input")
             )
-            if (!state.deleting) {
-                ListItem(headlineContent = {
-                    Text(stringResource(R.string.budget_manage_type))
-                }, trailingContent = {
-                    Text(
-                        stringResource(
-                            if (state.family) R.string.budget_manage_family else R.string.budget_manage_personal
-                        )
-                    )
-                })
-                BudgetCurrencyRow(
-                    state.currency,
-                    !state.busy,
-                    onCurrencyClick,
-                    Modifier.testTag("budget_management_currency")
-                )
-            }
             if (state.error) Text(stringResource(R.string.budget_manage_error), color = MaterialTheme.colorScheme.error)
             SaldomiButton(
                 onClick = onConfirm,
                 modifier = Modifier.fillMaxWidth().testTag("budget_management_confirm"),
                 large = true,
                 isLoading = state.busy,
-                destructive = state.deleting,
-                enabled =
-                !state.busy &&
-                    if (state.deleting) state.value.trim() == state.name.trim() else validBudgetName(state.value)
+                destructive = true,
+                enabled = !state.busy && state.value.trim() == state.name.trim()
             ) {
-                Text(stringResource(if (state.deleting) R.string.budget_manage_delete else R.string.budget_manage_save))
+                Text(stringResource(R.string.budget_manage_delete))
             }
             SaldomiOutlinedButton(
                 onClick = onDismiss,
@@ -192,38 +155,16 @@ private fun CurrencyConfirmationPreview() {
     FillinTheme { BudgetCurrencyConfirmation(BudgetCurrency.KZT, BudgetCurrency.RUB, {}, {}) }
 }
 
-@Preview(name = "Rename")
-@Preview(name = "Rename dark", uiMode = UI_MODE_NIGHT_YES)
-@Preview(name = "Rename large", widthDp = 320, fontScale = 2f)
-@Composable
-private fun RenamePreview() {
-    FillinTheme { BudgetManagementSheet(BudgetManagementState("1", "Семейный", false, "Семейный"), {}, {}, {}) }
-}
-
 @Preview(name = "Delete")
 @Preview(name = "Delete dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun DeletePreview() {
-    FillinTheme { BudgetManagementSheet(BudgetManagementState("1", "Семейный", true, ""), {}, {}, {}) }
+    FillinTheme { BudgetDeletionSheet(BudgetManagementState("1", "Семейный", true, ""), {}, {}, {}) }
 }
 
 @Preview(name = "Delete confirmed", widthDp = 840)
 @Preview(name = "Delete confirmed dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun DeleteConfirmedPreview() {
-    FillinTheme { BudgetManagementSheet(BudgetManagementState("1", "Семейный", true, "Семейный"), {}, {}, {}) }
-}
-
-@Preview(name = "Saving")
-@Preview(name = "Saving dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun SavingPreview() {
-    FillinTheme { BudgetManagementSheet(BudgetManagementState("1", "Семейный", false, "Дом", busy = true), {}, {}, {}) }
-}
-
-@Preview(name = "Error")
-@Preview(name = "Error dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun ErrorPreview() {
-    FillinTheme { BudgetManagementSheet(BudgetManagementState("1", "Семейный", false, "", error = true), {}, {}, {}) }
+    FillinTheme { BudgetDeletionSheet(BudgetManagementState("1", "Семейный", true, "Семейный"), {}, {}, {}) }
 }

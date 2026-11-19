@@ -72,6 +72,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -212,7 +213,7 @@ private fun OperationHistoryContent(
 
     LaunchedEffect(state.requestId) {
         if (switching && state.resultRequestId != state.requestId) {
-            delay(HistoryLoadingDelayMillis)
+            delay(HistoryLoadingDelayMillis.milliseconds)
             showDelayedLoading = true
         }
     }

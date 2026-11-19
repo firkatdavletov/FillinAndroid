@@ -16,9 +16,4 @@
     <string name="budget_manage_edit_action">Редактировать</string>
     <string name="budget_manage_delete_action">Удалить</string>
     <string name="budget_manage_delete_title">Удалить бюджет?</string>
-    <string name="budget_manage_edit_description">Измените название бюджета</string>
-    <string name="budget_manage_type">Тип бюджета</string>
-    <string name="budget_manage_currency">Валюта</string>
-    <string name="budget_manage_family">Семейный</string>
-    <string name="budget_manage_personal">Личный</string>
 </resources>

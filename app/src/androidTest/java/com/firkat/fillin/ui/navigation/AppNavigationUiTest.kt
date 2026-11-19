@@ -1,6 +1,8 @@
 package com.firkat.fillin.ui.navigation
 
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
@@ -10,6 +12,8 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.lifecycle.Lifecycle
 import androidx.test.espresso.Espresso.closeSoftKeyboard
@@ -227,6 +231,87 @@ class AppNavigationUiTest {
         }
         compose.waitUntil(5000) { navigation.backStack.none { it is AppRoute.EditCategory } }
         compose.onNodeWithText("Черновик поездок").assertDoesNotExist()
+    }
+
+    @Test fun editsAnInactiveBudgetFromProfileAndRetainsDraftOnRecreation() {
+        compose.activityRule.scenario.onActivity {
+            it.enableEdgeToEdge()
+            it.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
+        show(createdBudget = true, fontScale = 2f)
+        val activeId = requireNotNull(env.manager.active.value).profile.id
+        val editedId = runBlocking {
+            val profile = env.registry.createLocal("Поездка")
+            env.manager.select(profile.id)
+            val session = requireNotNull(env.manager.active.value).scope.get<CloudBudgetSession>()
+            session.createLocal("900.00".toBigDecimal(), session.today)
+            env.manager.select(activeId)
+            profile.id
+        }
+
+        fun openEditor() {
+            compose.waitUntil(5000) { compose.onAllNodesWithText("Поездка").fetchSemanticsNodes().isNotEmpty() }
+            val card = compose.onNodeWithText("Поездка").performScrollTo()
+            card.onChildren().filter(hasContentDescription("Действия с бюджетом")).onFirst().performClick()
+            compose.onNodeWithText("Редактировать").performScrollTo().performClick()
+            compose.waitUntil(5000) {
+                compose.onAllNodesWithTag("budget_management_input").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.runOnIdle { assertEquals(AppRoute.BudgetEdit(editedId), navigation.backStack.last()) }
+        }
+
+        compose.onNodeWithContentDescription("Profile").performClick()
+        openEditor()
+        val input = compose.onNodeWithTag("budget_management_input")
+        val currency = compose.onNodeWithTag("budget_management_currency")
+        val save = compose.onNodeWithTag("budget_management_confirm")
+        val initialSaveBottom = save.getUnclippedBoundsInRoot().bottom
+        input.assertTextContains("Поездка").performClick()
+        compose.waitUntil(5000) {
+            ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                ?.isVisible(WindowInsetsCompat.Type.ime()) == true
+        }
+        assertTrue(save.assertIsDisplayed().getUnclippedBoundsInRoot().bottom < initialSaveBottom)
+        input.performTextReplacement("Черновик")
+        closeSoftKeyboard()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("profile_screen").assertIsDisplayed()
+        assertEquals("Поездка", runBlocking { env.registry.find(editedId)?.name })
+
+        openEditor()
+        input.performTextReplacement("Летняя поездка")
+        closeSoftKeyboard()
+        currency.performScrollTo().performClick()
+        compose.onNode(hasText("Тенге") and isSelected()).assertExists()
+        compose.onNodeWithText("Евро").performScrollTo().assertIsNotSelected().performClick()
+        currency.assertTextContains("Евро")
+        save.assertIsDisplayed().performClick()
+        compose.onNodeWithText("Сменить валюту бюджета?").assertIsDisplayed()
+        compose.onNodeWithText("Отмена").performClick()
+        input.assertTextContains("Летняя поездка")
+
+        compose.activityRule.scenario.recreate()
+        compose.setContent(hostContent)
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithTag("budget_management_input").fetchSemanticsNodes().isNotEmpty()
+        }
+        input.assertTextContains("Летняя поездка")
+        currency.assertTextContains("Евро")
+        save.performClick()
+        compose.onNodeWithText("Сменить валюту бюджета?").assertIsDisplayed()
+        compose.onNode(hasText("Сохранить") and !hasTestTag("budget_management_confirm")).performClick()
+        compose.waitUntil(5000) { navigation.backStack.lastOrNull() == AppRoute.Profile }
+        assertEquals(activeId, env.manager.active.value?.profile?.id)
+        runBlocking {
+            val profile = requireNotNull(env.registry.find(editedId))
+            assertEquals("Летняя поездка", profile.name)
+            val database = BudgetDatabaseFactory(env.context).open(profile)
+            try {
+                assertEquals("EUR", database.operations().state()?.currency)
+            } finally {
+                database.close()
+            }
+        }
     }
 
     private fun show(

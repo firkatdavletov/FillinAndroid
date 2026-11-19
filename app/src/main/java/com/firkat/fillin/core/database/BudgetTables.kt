@@ -7,7 +7,9 @@ import com.firkat.fillin.feature.operationhistory.data.local.LocalCategory
 import com.firkat.fillin.feature.operationhistory.data.local.LocalOperation
 import com.firkat.fillin.feature.operationhistory.data.local.OperationSyncState
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "budget_sync_records", primaryKeys = ["scopeKey", "kind", "id"])
 data class LocalSyncRecord(
     val scopeKey: String,
@@ -17,6 +19,7 @@ data class LocalSyncRecord(
     val revision: Long
 )
 
+@Serializable
 @Entity(tableName = "budget_outbox", indices = [Index("scopeKey")])
 data class BudgetOutbox(
     @PrimaryKey val requestId: String,
@@ -36,6 +39,7 @@ data class BudgetOutbox(
     @ColumnInfo(defaultValue = "'[]'") val dependencies: String = "[]"
 )
 
+@Serializable
 @Entity(tableName = "operation_plan_proposals", primaryKeys = ["scopeKey", "operationId"])
 data class OperationPlanProposal(
     val scopeKey: String,
@@ -67,6 +71,11 @@ interface BudgetDao {
         scope: String,
         id: String
     ): OperationPlanProposal?
+
+    @Query("SELECT * FROM operation_plan_proposals WHERE scopeKey = :scope ORDER BY operationId")
+    suspend fun proposals(
+        scope: String
+    ): List<OperationPlanProposal>
 
     @Transaction
     @Query("SELECT * FROM operation_sync_state WHERE id = 1")
@@ -229,11 +238,20 @@ val BUDGET_MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
+val BUDGET_MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(
+        db: SupportSQLiteDatabase
+    ) {
+        db.execSQL("ALTER TABLE operation_sync_state ADD COLUMN importedLocalOnly INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 internal val BUDGET_MIGRATIONS = arrayOf(
     BUDGET_MIGRATION_1_2,
     BUDGET_MIGRATION_2_3,
     BUDGET_MIGRATION_3_4,
     BUDGET_MIGRATION_4_5,
     BUDGET_MIGRATION_5_6,
-    BUDGET_MIGRATION_6_7
+    BUDGET_MIGRATION_6_7,
+    BUDGET_MIGRATION_7_8
 )

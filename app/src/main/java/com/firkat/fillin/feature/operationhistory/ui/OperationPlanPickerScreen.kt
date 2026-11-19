@@ -28,11 +28,14 @@ import org.koin.core.parameter.parametersOf
 internal fun OperationPlanPickerRoute(
     id: String,
     onClose: () -> Unit,
-    model: OperationPlanPickerViewModel = koinViewModel { parametersOf(id) }
+    model: OperationPlanPickerViewModel = koinViewModel { parametersOf(id) },
+    onLinkedWithRemainder: (String) -> Unit = { onClose() }
 ) {
     val state by model.state.collectAsStateWithLifecycle()
     BackHandler { model.back() }
-    LaunchedEffect(state.closed) { if (state.closed) onClose() }
+    LaunchedEffect(state.closed) {
+        if (state.closed) state.remainderKey?.let(onLinkedWithRemainder) ?: onClose()
+    }
     OperationPlanPickerScreen(state, model::group, model::select, model::back, model::save, model::load)
 }
 

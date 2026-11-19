@@ -40,6 +40,7 @@ val appModule =
             com.firkat.fillin.feature.auth.di.authModule,
             com.firkat.fillin.feature.budgetprofile.di.budgetModule,
             com.firkat.fillin.feature.budgetconnection.di.budgetConnectionModule,
+            com.firkat.fillin.feature.budgettransfer.di.budgetTransferModule,
             com.firkat.fillin.feature.profile.di.profileModule
         )
         single {

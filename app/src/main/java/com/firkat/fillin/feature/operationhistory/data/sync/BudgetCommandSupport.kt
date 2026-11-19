@@ -28,17 +28,19 @@ internal class BudgetCommandSupport(private val readCapabilities: suspend () -> 
             command.remainderAmount != null ||
             command.remainderDueOn != null ||
             command.remainderReceived != null
-        if (!linking && !incomeEditing && !remainder) return
+        val paymentDecision = command.type == "CLOSE_INCOME" || command.expectedAppliedAmount != null
+        if (!linking && !incomeEditing && !remainder && !paymentDecision) return
 
         val supported = capabilities()
         val dailyPlanning = BudgetCapabilities.DAILY_LIMIT_PLANNING in supported
+        val paymentRemainders = BudgetCapabilities.PAYMENT_REMAINDERS in supported
         if (linking &&
             BudgetCapabilities.CONFIRMED_PLAN_LINKING !in supported ||
             incomeEditing &&
             BudgetCapabilities.INCOME_RULE_EDITING !in supported &&
             !dailyPlanning ||
-            remainder &&
-            !dailyPlanning
+            remainder && !dailyPlanning && !paymentRemainders ||
+            paymentDecision && !paymentRemainders
         ) {
             throw SyncBlockedException("backend_update_required")
         }

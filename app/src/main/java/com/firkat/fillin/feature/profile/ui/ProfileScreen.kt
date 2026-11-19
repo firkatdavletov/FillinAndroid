@@ -66,6 +66,8 @@ import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel
 import com.firkat.fillin.feature.budgetmanagement.ui.PendingBudgetDeletion
 import com.firkat.fillin.feature.budgetsetup.ui.accessErrorResource
+import com.firkat.fillin.feature.budgettransfer.ui.BudgetTransferRoute
+import com.firkat.fillin.feature.budgettransfer.ui.BudgetTransferViewModel
 import com.firkat.fillin.feature.profile.domain.DeletionPhase
 import com.firkat.fillin.feature.profile.domain.ProfileBudget
 import com.firkat.fillin.feature.profile.domain.ProfileDeletionState
@@ -93,7 +95,8 @@ fun ProfileRoute(
     onMethodsClick: () -> Unit = onAccountClick,
     deletionViewModel: ProfileDeletionViewModel = koinViewModel(),
     bottomBarOverlap: Dp = 0.dp,
-    budgetReadOnly: Boolean = false
+    budgetReadOnly: Boolean = false,
+    onEditBudgetClick: (String) -> Unit
 ) {
     val about: AboutAppViewModel = koinViewModel()
     val installationId by about.installationId.collectAsStateWithLifecycle()
@@ -103,6 +106,8 @@ fun ProfileRoute(
     val managementState by management.state.collectAsStateWithLifecycle()
     val pendingDeletions by management.pending.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val transfer: BudgetTransferViewModel = koinViewModel()
+    val transferState by transfer.state.collectAsStateWithLifecycle()
     val deletionState by deletionViewModel.deletion.state.collectAsStateWithLifecycle()
     val confirmation by deletionViewModel.confirmation.collectAsStateWithLifecycle()
     val password by deletionViewModel.password.collectAsStateWithLifecycle()
@@ -126,11 +131,6 @@ fun ProfileRoute(
         onBudgetNameChanged = management::change,
         onConfirmBudget = management::confirm,
         onCloseBudget = management::close,
-        onOpenCurrencyPicker = management::openCurrencyPicker,
-        onCurrencySelected = management::selectCurrency,
-        onCloseCurrencyPicker = management::closeCurrencyPicker,
-        onConfirmCurrencyChange = management::confirmCurrencyChange,
-        onDismissCurrencyChange = management::dismissCurrencyConfirmation,
         onSignOut = { deletionViewModel.confirmSignOut(onAccountClick) },
         onAccountConfirmationChanged = deletionViewModel::changeConfirmation,
         onDeleteAccount = deletionViewModel::submit,
@@ -140,12 +140,19 @@ fun ProfileRoute(
         onManageBudget = { id, name, deleting ->
             viewModel.closeBudgetActions()
             state.budgets.firstOrNull { it.id == id && it.canManage }?.let { budget ->
-                management.open(id, name, deleting, budget.family, budget.currency)
+                if (deleting) {
+                    management.open(id, name, deleting = true, family = budget.family, currency = budget.currency)
+                } else {
+                    onEditBudgetClick(id)
+                }
             }
         },
         onBudgetActionsClick = viewModel::toggleBudgetActions,
         onAboutClick = about::open,
         onBack = onBack,
+        transferContent = {
+            BudgetTransferRoute(transfer, !state.busy, Modifier.padding(top = 12.dp))
+        },
         managementContent = {
             pendingDeletions.filter { state.fullAccess || it.uid == null }.forEach {
                 PendingBudgetDeletion(
@@ -174,7 +181,7 @@ fun ProfileRoute(
                 )
             }
         },
-        state = state,
+        state = state.copy(busy = state.busy || transferState.busy),
         user = user,
         authBusy = authBusy,
         onAccountClick = { if (user == null) onAccountClick() else deletionViewModel.openSignOut() },
@@ -213,7 +220,8 @@ fun ProfileScreen(
     onBudgetActionsClick: (String) -> Unit = {},
     onAboutClick: (() -> Unit)? = null,
     bottomBarOverlap: Dp = 0.dp,
-    budgetReadOnly: Boolean = false
+    budgetReadOnly: Boolean = false,
+    transferContent: @Composable () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -317,16 +325,7 @@ fun ProfileScreen(
         Spacer(Modifier.height(12.dp))
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("profile_loading"))
         state.budgets.forEachIndexed { index, budget ->
-            val displayName =
-                budget.name
-                    ?: if (budget.family) {
-                        stringResource(R.string.profile_family_budget_name)
-                    } else {
-                        stringResource(
-                            R.string.profile_local_budget_name,
-                            state.budgets.take(index + 1).count { !it.family }
-                        )
-                    }
+            val displayName = state.budgets.budgetDisplayName(index)
             key(budget.id) {
                 ProfileBudgetCard(
                     name = displayName,
@@ -350,12 +349,14 @@ fun ProfileScreen(
         SaldomiOutlinedButton(
             modifier = Modifier.fillMaxWidth(),
             onClick = onCreateBudgetClick,
+            enabled = !state.busy,
             large = true
         ) {
             Text(
                 text = stringResource(R.string.profile_create_budget)
             )
         }
+        transferContent()
 
         if (state.error != null) {
             Text(
@@ -430,6 +431,16 @@ private fun ProfileAccount(
     modifier: Modifier = Modifier
 ) {
     AccountIdentity(name, email, modifier)
+}
+
+@Composable
+internal fun List<ProfileBudget>.budgetDisplayName(index: Int): String {
+    val budget = this[index]
+    return budget.name ?: if (budget.family) {
+        stringResource(R.string.profile_family_budget_name)
+    } else {
+        stringResource(R.string.profile_local_budget_name, take(index).count { !it.family } + 1)
+    }
 }
 
 @Composable

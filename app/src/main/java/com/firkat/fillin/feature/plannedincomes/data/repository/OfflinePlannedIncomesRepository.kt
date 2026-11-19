@@ -14,6 +14,7 @@ import com.firkat.fillin.feature.sync.data.BudgetStore
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
+import kotlinx.coroutines.flow.map
 
 class OfflinePlannedIncomesRepository(
     private val store: BudgetStore,
@@ -125,18 +126,20 @@ class OfflinePlannedIncomesRepository(
         }
     }
 
-    override suspend fun getPlannedIncomes(): PlannedIncomes = execute {
-        val today = currentDate()
-        val plans =
-            store.snapshot().plans(
-                PlannedOperationsFilter(
-                    period = PlannedOperationPeriod.Custom,
-                    dateFrom = LocalDate.of(1, 1, 1),
-                    dateTo = today.plusYears(5)
-                )
-            )
+    override fun observePlannedIncomes() = store.observePlans(::incomeFilter).map { plans ->
         PlannedIncomes(plans.asOf, plans.items.filterIsInstance<PlannedOperation.Income>().map { it.income })
     }
+
+    override suspend fun getPlannedIncomes(): PlannedIncomes = execute {
+        val plans = store.snapshot().plans(incomeFilter())
+        PlannedIncomes(plans.asOf, plans.items.filterIsInstance<PlannedOperation.Income>().map { it.income })
+    }
+
+    private fun incomeFilter() = PlannedOperationsFilter(
+        period = PlannedOperationPeriod.Custom,
+        dateFrom = LocalDate.of(1, 1, 1),
+        dateTo = currentDate().plusYears(5)
+    )
 
     override suspend fun createPlannedIncome(
         categoryId: String,
