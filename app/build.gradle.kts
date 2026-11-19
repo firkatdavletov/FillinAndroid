@@ -112,6 +112,18 @@ android {
             }
         }
     }
+
+    flavorDimensions += "store"
+
+    productFlavors {
+        create("google") {
+            dimension = "store"
+        }
+        create("rustore") {
+            dimension = "store"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
