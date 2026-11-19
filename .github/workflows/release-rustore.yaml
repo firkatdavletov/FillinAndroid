@@ -1,4 +1,4 @@
-name: RuStore Release
+name: RuStore Release AAB
 
 on:
   push:
@@ -9,20 +9,34 @@ permissions:
 
 jobs:
   build:
+    name: Build RuStore AAB
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v7
+      # Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@v6
+      # Setup Java
+      - name: Setup JDK 21
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
-      - name: Install Android SDK Platform 37
-        run: sdkmanager 'platforms;android-37.0'
+      # Setup Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-37.0'
 
+      # Setup Gradle with caching
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Build signed RuStore AAB
       - name: Build and verify signed RuStore bundle
         shell: bash
         env:
@@ -31,23 +45,64 @@ jobs:
           RUSTORE_KEY_ALIAS: ${{ secrets.RUSTORE_KEY_ALIAS }}
           RUSTORE_KEY_PASSWORD: ${{ secrets.RUSTORE_KEY_PASSWORD }}
         run: |
-          : "${RUSTORE_KEYSTORE_BASE64:?Set the RUSTORE_KEYSTORE_BASE64 secret}"
-          : "${RUSTORE_KEYSTORE_PASSWORD:?Set the RUSTORE_KEYSTORE_PASSWORD secret}"
-          : "${RUSTORE_KEY_ALIAS:?Set the RUSTORE_KEY_ALIAS secret}"
-          : "${RUSTORE_KEY_PASSWORD:?Set the RUSTORE_KEY_PASSWORD secret}"
+          set -euo pipefail
 
+          # Validate required secrets
+          : "${RUSTORE_KEYSTORE_BASE64:?Missing RUSTORE_KEYSTORE_BASE64}"
+          : "${RUSTORE_KEYSTORE_PASSWORD:?Missing RUSTORE_KEYSTORE_PASSWORD}"
+          : "${RUSTORE_KEY_ALIAS:?Missing RUSTORE_KEY_ALIAS}"
+          : "${RUSTORE_KEY_PASSWORD:?Missing RUSTORE_KEY_PASSWORD}"
+
+          # Restore keystore
           export RUSTORE_KEYSTORE_PATH
           RUSTORE_KEYSTORE_PATH=$(mktemp "$RUNNER_TEMP/rustore-keystore.XXXXXX")
+
+          # Remove keystore after execution
           trap 'rm -f -- "$RUSTORE_KEYSTORE_PATH"' EXIT
-          printf '%s' "$RUSTORE_KEYSTORE_BASE64" | base64 --decode > "$RUSTORE_KEYSTORE_PATH"
+
+          printf '%s' "$RUSTORE_KEYSTORE_BASE64" \
+            | base64 --decode > "$RUSTORE_KEYSTORE_PATH"
+
           unset RUSTORE_KEYSTORE_BASE64
 
-          ./gradlew :app:bundleRustoreRelease --no-configuration-cache -PrustoreReleaseSigning=true
+          # Build release bundle
+          ./gradlew :app:bundleRustoreRelease \
+            --no-configuration-cache \
+            -PrustoreReleaseSigning=true
 
-          jarsigner -verify -strict -keystore "$RUSTORE_KEYSTORE_PATH" \
+          # Verify bundle exists
+          AAB_PATH="app/build/outputs/bundle/rustoreRelease/app-rustore-release.aab"
+
+          if [[ ! -s "$AAB_PATH" ]]; then
+            echo "Error: RuStore AAB not found or empty"
+            exit 1
+          fi
+
+          # Verify signature
+          VERIFY_OUTPUT=$(jarsigner \
+            -verify \
+            -keystore "$RUSTORE_KEYSTORE_PATH" \
             -storepass:env RUSTORE_KEYSTORE_PASSWORD \
-            app/build/outputs/bundle/rustoreRelease/app-rustore-release.aab "$RUSTORE_KEY_ALIAS"
+            "$AAB_PATH" \
+            "$RUSTORE_KEY_ALIAS" 2>&1)
 
+          printf '%s\n' "$VERIFY_OUTPUT"
+
+          if [[ "$VERIFY_OUTPUT" != *"jar verified."* ]]; then
+            echo "Error: AAB signature verification failed"
+            exit 1
+          fi
+
+          if grep -Eiq \
+            'unsigned entries|not signed by.*alias|not signed by specified alias' \
+            <<< "$VERIFY_OUTPUT"; then
+            echo "Error: AAB contains unsigned entries or an unexpected signer"
+            exit 1
+          fi
+
+          echo "RuStore AAB successfully built and verified"
+
+      # Upload artifact
       - name: Upload signed AAB
         uses: actions/upload-artifact@v7
         with:
@@ -55,3 +110,4 @@ jobs:
           path: app/build/outputs/bundle/rustoreRelease/app-rustore-release.aab
           if-no-files-found: error
           overwrite: true
+          retention-days: 30
