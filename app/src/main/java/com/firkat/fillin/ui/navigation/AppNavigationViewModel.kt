@@ -296,6 +296,7 @@ class AppNavigationViewModel(
                                             entries.last() is AppRoute.PlannedOperationBottomSheet ||
                                             entries.last() is AppRoute.PlanningRuleEditor ||
                                             entries.last() is AppRoute.EditCategory ||
+                                            entries.last() is AppRoute.BudgetEdit ||
                                             entries.last() in
                                             listOf(
                                                 AppRoute.Main,
@@ -393,6 +394,16 @@ class AppNavigationViewModel(
     ) = openMainDestination(AppRoute.OperationDetails(operationId, resultKey, budgetScopeId))
 
     fun openProfile() = openMainDestination(AppRoute.Profile)
+
+    fun openBudgetEdit(budgetId: String) {
+        if (entries.lastOrNull() == AppRoute.Profile) {
+            openMainDestination(AppRoute.BudgetEdit(budgetId), additionalSource = AppRoute.Profile)
+        }
+    }
+
+    fun closeBudgetEdit(route: AppRoute.BudgetEdit) {
+        if (entries.lastOrNull() == route) back()
+    }
 
     /** Ignores callbacks from a sheet that is already exiting or belongs to an old budget. */
     fun dismissOperationDetails(

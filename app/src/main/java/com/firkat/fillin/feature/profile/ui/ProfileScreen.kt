@@ -95,7 +95,8 @@ fun ProfileRoute(
     onMethodsClick: () -> Unit = onAccountClick,
     deletionViewModel: ProfileDeletionViewModel = koinViewModel(),
     bottomBarOverlap: Dp = 0.dp,
-    budgetReadOnly: Boolean = false
+    budgetReadOnly: Boolean = false,
+    onEditBudgetClick: (String) -> Unit
 ) {
     val about: AboutAppViewModel = koinViewModel()
     val installationId by about.installationId.collectAsStateWithLifecycle()
@@ -130,11 +131,6 @@ fun ProfileRoute(
         onBudgetNameChanged = management::change,
         onConfirmBudget = management::confirm,
         onCloseBudget = management::close,
-        onOpenCurrencyPicker = management::openCurrencyPicker,
-        onCurrencySelected = management::selectCurrency,
-        onCloseCurrencyPicker = management::closeCurrencyPicker,
-        onConfirmCurrencyChange = management::confirmCurrencyChange,
-        onDismissCurrencyChange = management::dismissCurrencyConfirmation,
         onSignOut = { deletionViewModel.confirmSignOut(onAccountClick) },
         onAccountConfirmationChanged = deletionViewModel::changeConfirmation,
         onDeleteAccount = deletionViewModel::submit,
@@ -144,7 +140,11 @@ fun ProfileRoute(
         onManageBudget = { id, name, deleting ->
             viewModel.closeBudgetActions()
             state.budgets.firstOrNull { it.id == id && it.canManage }?.let { budget ->
-                management.open(id, name, deleting, budget.family, budget.currency)
+                if (deleting) {
+                    management.open(id, name, deleting = true, family = budget.family, currency = budget.currency)
+                } else {
+                    onEditBudgetClick(id)
+                }
             }
         },
         onBudgetActionsClick = viewModel::toggleBudgetActions,
@@ -325,16 +325,7 @@ fun ProfileScreen(
         Spacer(Modifier.height(12.dp))
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("profile_loading"))
         state.budgets.forEachIndexed { index, budget ->
-            val displayName =
-                budget.name
-                    ?: if (budget.family) {
-                        stringResource(R.string.profile_family_budget_name)
-                    } else {
-                        stringResource(
-                            R.string.profile_local_budget_name,
-                            state.budgets.take(index + 1).count { !it.family }
-                        )
-                    }
+            val displayName = state.budgets.budgetDisplayName(index)
             key(budget.id) {
                 ProfileBudgetCard(
                     name = displayName,
@@ -440,6 +431,16 @@ private fun ProfileAccount(
     modifier: Modifier = Modifier
 ) {
     AccountIdentity(name, email, modifier)
+}
+
+@Composable
+internal fun List<ProfileBudget>.budgetDisplayName(index: Int): String {
+    val budget = this[index]
+    return budget.name ?: if (budget.family) {
+        stringResource(R.string.profile_family_budget_name)
+    } else {
+        stringResource(R.string.profile_local_budget_name, take(index).count { !it.family } + 1)
+    }
 }
 
 @Composable

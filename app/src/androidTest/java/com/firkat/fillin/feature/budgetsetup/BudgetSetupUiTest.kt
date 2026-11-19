@@ -192,7 +192,10 @@ class BudgetSetupUiTest {
             "budget_setup_currency"
         ).assertTextContains(compose.activity.getString(R.string.budget_currency_rub))
         compose.onNodeWithTag("budget_setup_currency").performScrollTo().performClick()
-        compose.onNodeWithText(compose.activity.getString(R.string.budget_currency_eur)).performClick()
+        compose.onNode(hasText(compose.activity.getString(R.string.budget_currency_rub)) and isSelected())
+            .assertExists()
+        compose.onNodeWithText(compose.activity.getString(R.string.budget_currency_eur))
+            .assertIsNotSelected().performClick()
         compose.onNodeWithTag("setup_create").performScrollTo().performClick()
         waitForCompletion()
         assertEquals("Поездка", env.manager.active.value!!.profile.name)

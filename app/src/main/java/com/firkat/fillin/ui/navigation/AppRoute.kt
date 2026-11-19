@@ -72,6 +72,8 @@ sealed interface AppRoute : NavKey {
     ) : AppRoute
 
     @Serializable data object Profile : AppRoute
+
+    @Serializable data class BudgetEdit(val budgetId: String) : AppRoute
 }
 
 internal fun AppRoute.isBudgetSetup() =

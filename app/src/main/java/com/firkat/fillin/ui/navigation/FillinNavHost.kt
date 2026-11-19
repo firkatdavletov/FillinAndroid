@@ -50,6 +50,7 @@ import com.firkat.fillin.feature.auth.ui.AuthScreen
 import com.firkat.fillin.feature.auth.ui.components.messageRes
 import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
 import com.firkat.fillin.feature.auth.ui.viewmodel.AuthViewModel
+import com.firkat.fillin.feature.budgetmanagement.ui.BudgetEditRoute
 import com.firkat.fillin.feature.budgetprofile.data.ActiveBudgetManager
 import com.firkat.fillin.feature.budgetprofile.ui.ActiveBudgetContent
 import com.firkat.fillin.feature.budgetprofile.ui.MainBudgetViewModelStore
@@ -551,8 +552,12 @@ fun FillinNavHost(
                     budgetReadOnly = readOnly,
                     onFamilyAccessClick = navigation::openFamilyAccess,
                     onCloudSyncClick = navigation::openCloudSync,
-                    onCreateBudgetClick = navigation::openBudgetCreation
+                    onCreateBudgetClick = navigation::openBudgetCreation,
+                    onEditBudgetClick = navigation::openBudgetEdit
                 )
+            }
+            entry<AppRoute.BudgetEdit> { route ->
+                BudgetEditRoute(route.budgetId, onBack = { navigation.closeBudgetEdit(route) })
             }
         }
     )

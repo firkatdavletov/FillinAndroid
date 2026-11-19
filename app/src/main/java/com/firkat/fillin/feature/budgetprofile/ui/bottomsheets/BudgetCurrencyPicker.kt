@@ -3,6 +3,7 @@
 package com.firkat.fillin.feature.budgetprofile.ui.bottomsheets
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,6 +18,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
@@ -50,28 +52,34 @@ private fun BudgetCurrencyOptions(
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .selectableGroup()
+            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             stringResource(R.string.budget_currency_picker_title),
-            Modifier.padding(16.dp),
+            Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
             style = MaterialTheme.typography.titleLarge
         )
         BudgetCurrency.entries.forEach { currency ->
+            val isSelected = currency == selected
+            val colors = MaterialTheme.colorScheme
             ListItem(
                 headlineContent = {
                     Text(currencyLabel(currency))
                 },
                 trailingContent = {
-                    RadioButton(selected = currency == selected, onClick = null)
+                    RadioButton(selected = isSelected, onClick = null)
                 },
                 modifier = Modifier
+                    .clip(MaterialTheme.shapes.large)
                     .selectable(
-                        selected = currency == selected,
+                        selected = isSelected,
                         role = Role.RadioButton,
                         onClick = { onSelect(currency) }
                     ),
                 colors = ListItemDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = if (isSelected) colors.primaryContainer else colors.surface,
+                    headlineColor = if (isSelected) colors.onPrimaryContainer else colors.onSurface
                 )
             )
         }

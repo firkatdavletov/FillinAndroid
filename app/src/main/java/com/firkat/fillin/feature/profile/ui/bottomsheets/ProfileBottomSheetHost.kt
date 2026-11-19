@@ -4,10 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.firkat.fillin.feature.appaccess.ui.bottomsheets.AboutAppBottomSheet
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementState
-import com.firkat.fillin.feature.budgetmanagement.ui.bottomsheets.BudgetCurrencyConfirmation
-import com.firkat.fillin.feature.budgetmanagement.ui.bottomsheets.BudgetManagementSheet
-import com.firkat.fillin.feature.budgetprofile.domain.BudgetCurrency
-import com.firkat.fillin.feature.budgetprofile.ui.bottomsheets.BudgetCurrencyPicker
+import com.firkat.fillin.feature.budgetmanagement.ui.bottomsheets.BudgetDeletionSheet
 import com.firkat.fillin.feature.profile.ui.AccountConfirmation
 import com.firkat.fillin.feature.profile.ui.AccountConfirmationKind
 
@@ -25,11 +22,6 @@ internal fun ProfileBottomSheetHost(
     onBudgetNameChanged: (String) -> Unit,
     onConfirmBudget: () -> Unit,
     onCloseBudget: () -> Unit,
-    onOpenCurrencyPicker: () -> Unit,
-    onCurrencySelected: (BudgetCurrency) -> Unit,
-    onCloseCurrencyPicker: () -> Unit,
-    onConfirmCurrencyChange: () -> Unit,
-    onDismissCurrencyChange: () -> Unit,
     onSignOut: () -> Unit,
     onAccountConfirmationChanged: (String) -> Unit,
     onDeleteAccount: () -> Unit,
@@ -47,27 +39,13 @@ internal fun ProfileBottomSheetHost(
         )
     }
     management?.takeIf { fullAccess || !it.family }?.let { budget ->
-        if (budget.pickerOpen) {
-            BudgetCurrencyPicker(budget.currency, onCurrencySelected, onCloseCurrencyPicker, modifier)
-        } else {
-            BudgetManagementSheet(
-                state = budget,
-                onChange = onBudgetNameChanged,
-                onConfirm = onConfirmBudget,
-                onDismiss = onCloseBudget,
-                modifier = modifier,
-                onCurrencyClick = onOpenCurrencyPicker
-            )
-        }
-        if (budget.confirmCurrency) {
-            BudgetCurrencyConfirmation(
-                budget.originalCurrency,
-                budget.currency,
-                onConfirmCurrencyChange,
-                onDismissCurrencyChange,
-                modifier
-            )
-        }
+        BudgetDeletionSheet(
+            state = budget,
+            onChange = onBudgetNameChanged,
+            onConfirm = onConfirmBudget,
+            onDismiss = onCloseBudget,
+            modifier = modifier
+        )
     }
     val current = confirmation?.takeIf { it.uid == userId }
     when (current?.kind) {

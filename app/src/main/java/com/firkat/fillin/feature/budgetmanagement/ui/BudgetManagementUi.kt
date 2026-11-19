@@ -40,13 +40,30 @@ data class BudgetManagementState(
 class BudgetManagementViewModel(private val management: BudgetManagement, auth: AuthRepository) : ViewModel() {
     private val mutableState = MutableStateFlow<BudgetManagementState?>(null)
     val state = mutableState.asStateFlow()
+    internal var editingStarted = false
+        private set
     val pending = management.entries.combine(auth.session) { entries, session ->
         val uid = (session as? AuthSession.Authenticated)?.user?.uid
         entries.filter { (it.deleting || it.error == "access_denied") && (it.uid == null || it.uid == uid) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     init {
-        viewModelScope.launch { auth.session.collect { mutableState.value = null } }
+        var previousSession = auth.session.value
+        viewModelScope.launch {
+            auth.session.collect { session ->
+                if (session != previousSession) {
+                    previousSession = session
+                    mutableState.value = null
+                }
+            }
+        }
     }
+
+    internal fun startEditing(id: String, name: String, currency: BudgetCurrency) {
+        if (editingStarted) return
+        editingStarted = true
+        open(id, name, deleting = false, currency = currency)
+    }
+
     fun open(
         id: String,
         name: String,
