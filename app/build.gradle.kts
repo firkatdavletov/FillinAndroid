@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.google.services) apply false
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.tracer)
 }
 
 // A checkout without Firebase configuration must still support the local budget.
@@ -46,10 +47,11 @@ val localPropertiesFile = rootProject.layout.projectDirectory.file("local.proper
 val apiBaseUrl = "https://cheerful-art-production-c4f9.up.railway.app/"
 val rustoreReleaseSigning = providers.gradleProperty("rustoreReleaseSigning").orNull == "true"
 
-fun requireSigningEnv(name: String): String =
-    requireNotNull(providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }) {
-        "$name is required when rustoreReleaseSigning is enabled"
-    }
+fun requireSigningEnv(
+    name: String
+): String = requireNotNull(providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }) {
+    "$name is required when rustoreReleaseSigning is enabled"
+}
 
 // Firebase authentication uses the deployed backend unless a test server is specified.
 val firebaseApiBaseUrl = providers.gradleProperty("firebaseApiBaseUrl").orNull ?: run {
@@ -76,10 +78,20 @@ if (firebaseApiBaseUrl.isNotBlank()) {
     }
 }
 
+val tracerAppToken: String = Properties().apply {
+    localPropertiesFile.asFile.reader().use(::load)
+}.getProperty("TRACE_APP_TOKEN", "")
+
+val tracerPluginToken: String = Properties().apply {
+    localPropertiesFile.asFile.reader().use(::load)
+}.getProperty("TRACE_PLUGIN_TOKEN", "")
+
 android {
     namespace = "com.firkat.fillin"
     compileSdk {
-        version = release(37)
+        version = release(37) {
+            minorApiLevel = 1
+        }
     }
 
     defaultConfig {
@@ -193,6 +205,22 @@ tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
     jvmTarget = "11"
 }
 
+tracer {
+    create("defaultConfig") {
+        isDisabled = true
+        appToken = tracerAppToken
+    }
+    create("rustoreRelease") {
+        isDisabled = false
+        appToken = tracerAppToken
+        pluginToken = tracerPluginToken
+        uploadMapping = true
+        uploadNativeSymbols = true
+        uploadRetryCount = 2
+        additionalLibrariesPath = "$projectDir/aVeryNonstandardLibsDirectory"
+    }
+}
+
 dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.androidx.material3)
@@ -250,6 +278,9 @@ dependencies {
     detektPlugins(
         libs.detekt.formatting
     )
+
+//    implementation(platform(libs.tracer.platform))
+    add("rustoreImplementation", platform(libs.tracer.platform))
 }
 
 ksp {

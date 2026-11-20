@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.google.services) apply false
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.tracer) apply false
 }
 
 ktlint {
