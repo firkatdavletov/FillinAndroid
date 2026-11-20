@@ -78,14 +78,6 @@ if (firebaseApiBaseUrl.isNotBlank()) {
     }
 }
 
-val tracerAppToken: String = Properties().apply {
-    localPropertiesFile.asFile.reader().use(::load)
-}.getProperty("TRACE_APP_TOKEN", "")
-
-val tracerPluginToken: String = Properties().apply {
-    localPropertiesFile.asFile.reader().use(::load)
-}.getProperty("TRACE_PLUGIN_TOKEN", "")
-
 android {
     namespace = "com.firkat.fillin"
     compileSdk {
@@ -138,6 +130,7 @@ android {
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                isShrinkResources = false
             }
         }
     }
@@ -160,6 +153,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = true
     }
     lint {
         abortOnError = true
@@ -205,19 +199,39 @@ tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
     jvmTarget = "11"
 }
 
+// Tracer
+val enableRustoreTracer = providers.gradleProperty("enableRustoreTracer")
+    .map { it.toBoolean() }
+    .getOrElse(false)
+
+val configuredTracerAppToken = providers.gradleProperty("tracerAppToken")
+    .orNull
+    .orEmpty()
+
+val configuredTracerPluginToken = providers.gradleProperty("tracerPluginToken")
+    .orNull
+    .orEmpty()
+
+if (enableRustoreTracer) {
+    require(configuredTracerAppToken.isNotBlank()) {
+        "Tracer app token is missing"
+    }
+
+    require(configuredTracerPluginToken.isNotBlank()) {
+        "Tracer plugin token is missing"
+    }
+}
+
 tracer {
     create("defaultConfig") {
-        isDisabled = true
-        appToken = tracerAppToken
-    }
-    create("rustoreRelease") {
-        isDisabled = false
-        appToken = tracerAppToken
-        pluginToken = tracerPluginToken
-        uploadMapping = true
-        uploadNativeSymbols = true
+        isDisabled = !enableRustoreTracer
+
+        appToken = configuredTracerAppToken
+        pluginToken = configuredTracerPluginToken
+
+        uploadMapping = enableRustoreTracer
+        uploadNativeSymbols = enableRustoreTracer
         uploadRetryCount = 2
-        additionalLibrariesPath = "$projectDir/aVeryNonstandardLibsDirectory"
     }
 }
 
@@ -265,6 +279,20 @@ dependencies {
 
     implementation(libs.androidx.compose.material.icons.extended)
 
+    detektPlugins(
+        libs.detekt.formatting
+    )
+
+    add(
+        "rustoreImplementation",
+        platform(libs.tracer.platform)
+    )
+
+    add(
+        "rustoreImplementation",
+        libs.tracer.crash.report
+    )
+
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -274,13 +302,6 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
-
-    detektPlugins(
-        libs.detekt.formatting
-    )
-
-//    implementation(platform(libs.tracer.platform))
-    add("rustoreImplementation", platform(libs.tracer.platform))
 }
 
 ksp {

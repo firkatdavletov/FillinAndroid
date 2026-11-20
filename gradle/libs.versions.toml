@@ -88,6 +88,7 @@ google-identity = { module = "com.google.android.libraries.identity.googleid:goo
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 
 tracer-platform = { module = "ru.ok.tracer:tracer-platform", version.ref = "tracer" }
+tracer-crash-report = { module = "ru.ok.tracer:tracer-crash-report" }
 
 [plugins]
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
