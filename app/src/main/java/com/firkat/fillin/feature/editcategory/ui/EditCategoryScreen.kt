@@ -78,6 +78,7 @@ internal fun EditCategoryScreen(
             EditCategoryState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
+
             is EditCategoryState.LoadFailed -> Column(
                 modifier = Modifier.fillMaxSize().padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -87,6 +88,7 @@ internal fun EditCategoryScreen(
                     Text(stringResource(R.string.categories_retry))
                 }
             }
+
             is EditCategoryState.Ready -> {
                 CategoryEditorForm(state.form, canWrite, onEvent)
                 EditCategoryBottomSheetHost(
@@ -100,6 +102,7 @@ internal fun EditCategoryScreen(
                     onDismiss = { onEvent(EditCategoryEvent.DismissOverlay) }
                 )
             }
+
             EditCategoryState.Closed -> Unit
         }
     }
@@ -206,10 +209,7 @@ private fun CategoryIconButton(
         onClick = onClick,
         modifier = modifier.size(48.dp),
         enabled = enabled,
-        shape = CircleShape,
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = MaterialTheme.colorScheme.onBackground
-        )
+        shape = CircleShape
     ) {
         CategoryIconImage(
             iconCode = iconCode,
