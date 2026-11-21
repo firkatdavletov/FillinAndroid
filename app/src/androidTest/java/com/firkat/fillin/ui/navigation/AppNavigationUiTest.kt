@@ -55,6 +55,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
@@ -988,6 +989,77 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("tab_AddOperation").assertIsDisplayed()
         compose.onNodeWithTag("tab_History").performClick()
         compose.onNodeWithText("Покупка из общей кнопки").assertIsDisplayed()
+    }
+
+    @Test fun createsAnOfflineCategoryAndUsesItWithoutLosingTheOperationDraft() {
+        show(createdBudget = true)
+        val store = env.manager.active.value!!.scope.get<OperationHistoryStore>()
+        val today = LocalDate.now(java.time.ZoneId.of("Asia/Almaty"))
+        val categoryGrid = compose.onNodeWithTag("operation-create-category-list")
+        val amountInput = compose.onNodeWithTag("operation-create-input")
+
+        OperationType.entries.forEach { type ->
+            val isIncome = type == OperationType.Income
+            val kind = if (isIncome) CategoryKind.Income else CategoryKind.Expense
+            val name = if (isIncome) "Возврат страховки" else "Ремонт техники"
+            val tab = compose.onNodeWithTag("operation-create-type-${type.apiValue}")
+            val filter = OperationHistoryFilter.currentMonth(today).copy(type = type)
+
+            compose.onNodeWithText("Записать").performClick()
+            tab.performClick().assertIsSelected()
+            amountInput.performTextReplacement("42.50")
+            closeSoftKeyboard()
+
+            categoryGrid.performScrollToKey("add-category")
+            compose.onNodeWithContentDescription("Создать категорию").assertIsDisplayed().performClick()
+            compose.onNodeWithText(if (isIncome) "Доход" else "Расход").assertIsSelected().assertIsNotEnabled()
+            compose.onNodeWithText(if (isIncome) "Расход" else "Доход").assertIsNotSelected().assertIsNotEnabled()
+            if (isIncome) {
+                compose.onNodeWithContentDescription("Назад").performClick()
+                compose.waitUntil(5000) { navigation.backStack.lastOrNull() == AppRoute.OperationCreate }
+                categoryGrid.performScrollToKey("add-category")
+                compose.onNodeWithContentDescription("Создать категорию").performClick()
+                val existingIncome = runBlocking {
+                    withTimeout(5000) {
+                        store.context.first { context -> context.categories.any { it.kind == kind } }
+                            .categories.first { it.kind == kind }
+                    }
+                }
+                val nameInput = compose.onNode(hasSetTextAction())
+                nameInput.performTextInput(existingIncome.name)
+                closeSoftKeyboard()
+                compose.onNodeWithText("Сохранить").performClick()
+                compose.onNodeWithText("Проверьте название и иконку").assertIsDisplayed()
+                nameInput.assertTextContains(existingIncome.name)
+            }
+
+            compose.onNode(hasSetTextAction()).performTextReplacement(name)
+            closeSoftKeyboard()
+            compose.onNodeWithText("Сохранить").performClick()
+            compose.waitUntil(5000) { navigation.backStack.lastOrNull() == AppRoute.OperationCreate }
+
+            val category = runBlocking {
+                withTimeout(5000) {
+                    store.context.first { it.categories.any { category -> category.name == name } }
+                        .categories.single { it.name == name }
+                }
+            }
+            assertEquals(kind, category.kind)
+            assertTrue(runBlocking { store.observeHistory(filter, 100).first().items.isEmpty() })
+            categoryGrid.performScrollToIndex(0)
+            tab.assertIsSelected()
+            amountInput.assertTextContains("42.50")
+            categoryGrid.performScrollToKey("all-${category.id}")
+            compose.onNodeWithTag("operation-create-category-${category.id}").performClick()
+            compose.waitUntil(5000) { navigation.backStack.lastOrNull() == AppRoute.Main }
+
+            val operation = runBlocking {
+                withTimeout(5000) { store.observeHistory(filter, 100).first { it.items.isNotEmpty() }.items.single() }
+            }
+            assertEquals(category.id, operation.categoryId)
+            assertEquals(type, operation.type)
+            assertEquals("42.50".toBigDecimal(), operation.amount)
+        }
     }
 
     @Test fun cancellingOperationCreationKeepsHistoryFilter() {

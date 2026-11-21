@@ -33,6 +33,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -56,6 +58,7 @@ import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.operationhistory.domain.model.OperationType
 import com.firkat.fillin.feature.operationhistory.domain.repository.OfflineHistoryContext
 import com.firkat.fillin.feature.operationhistory.domain.usecase.OperationInputError
+import com.firkat.fillin.feature.sync.ui.BudgetSyncViewModel
 import com.firkat.fillin.ui.component.OperationTypeTabs
 import com.firkat.fillin.ui.component.SaldomiSnackbarHost
 import com.firkat.fillin.ui.component.SnackbarType
@@ -69,12 +72,16 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 internal fun OperationCreateRoute(
     onBack: () -> Unit,
+    onCreateCategory: (CategoryKind) -> Unit,
+    readOnly: Boolean,
     onCreated: (
         com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult
     ) -> Unit = { onBack() },
-    viewModel: OperationCreateViewModel = koinViewModel()
+    viewModel: OperationCreateViewModel = koinViewModel(),
+    syncViewModel: BudgetSyncViewModel = koinViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val sync by syncViewModel.context.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
     val lastEditor = remember { mutableStateOf(state.createEditor) }
     SideEffect {
@@ -90,7 +97,16 @@ internal fun OperationCreateRoute(
     OperationCreateScreen(
         editor = state.createEditor ?: lastEditor.value,
         context = state.offline,
-        onEvent = viewModel::onEvent
+        onEvent = viewModel::onEvent,
+        onCreateCategory = if (sync.canWrite && !readOnly) {
+            { kind ->
+                if (viewModel.uiState.value.createEditor?.isSaving == false && syncViewModel.context.value.canWrite) {
+                    onCreateCategory(kind)
+                }
+            }
+        } else {
+            null
+        }
     )
 }
 
@@ -100,7 +116,8 @@ internal fun OperationCreateScreen(
     editor: OperationCreateUiState?,
     context: OfflineHistoryContext,
     onEvent: (OperationCreateEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCreateCategory: ((CategoryKind) -> Unit)? = null
 ) {
     BackHandler { onEvent(OperationCreateEvent.CreateClosed) }
     Scaffold(
@@ -128,7 +145,8 @@ internal fun OperationCreateScreen(
                 editor = it,
                 context = context,
                 onEvent = onEvent,
-                modifier = Modifier.padding(padding).consumeWindowInsets(padding)
+                modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+                onCreateCategory = onCreateCategory
             )
         }
     }
@@ -142,7 +160,8 @@ private fun OperationCreateScreenPreview() {
         OperationCreateScreen(
             editor = OperationCreateUiState(occurredOn = LocalDate.of(2026, 10, 24)),
             context = OfflineHistoryContext(categories = previewOperationCategories()),
-            onEvent = {}
+            onEvent = {},
+            onCreateCategory = {}
         )
     }
 }
@@ -164,14 +183,14 @@ private fun OperationCreateForm(
     editor: OperationCreateUiState,
     context: OfflineHistoryContext,
     onEvent: (OperationCreateEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCreateCategory: ((CategoryKind) -> Unit)? = null
 ) {
-    val categories =
-        context.categories.filter {
-            it.kind == if (editor.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
-        }
+    val categoryKind = if (editor.type == OperationType.Expense) CategoryKind.Expense else CategoryKind.Income
+    val categories = context.categories.filter { it.kind == categoryKind }
     val gridState = rememberLazyGridState()
     val focus = remember { FocusRequester() }
+    var shouldFocusAmount by rememberSaveable { mutableStateOf(true) }
     val keyboard = LocalSoftwareKeyboardController.current
     val window = LocalWindowInfo.current
     val preview = LocalInspectionMode.current
@@ -187,13 +206,14 @@ private fun OperationCreateForm(
                 }
             )
         }
-    LaunchedEffect(Unit) {
-        if (!preview && !editor.isSaving) {
+    LaunchedEffect(shouldFocusAmount) {
+        if (shouldFocusAmount && !preview && !editor.isSaving) {
             snapshotFlow {
                 window.isWindowFocused && gridState.layoutInfo.visibleItemsInfo.any { it.key == AMOUNT_ITEM_KEY }
             }.first { it }
             focus.requestFocus()
             keyboard?.show()
+            shouldFocusAmount = false
         }
     }
     LaunchedEffect(editor.feedbackSequence) {
@@ -257,6 +277,19 @@ private fun OperationCreateForm(
                         Text(
                             stringResource(R.string.operation_create_no_categories),
                             Modifier.testTag("operation-create-no-categories")
+                        )
+                    }
+                }
+                if (onCreateCategory != null) {
+                    item(key = "add-category") {
+                        AddOperationCategoryTile(
+                            enabled = !editor.isSaving,
+                            onClick = {
+                                shouldFocusAmount = false
+                                keyboard?.hide()
+                                onCreateCategory(categoryKind)
+                            },
+                            modifier = Modifier.testTag("operation-create-add-category")
                         )
                     }
                 }

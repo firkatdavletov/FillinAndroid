@@ -13,6 +13,7 @@ import com.firkat.fillin.feature.budgetsetup.domain.ActiveBudgetReadiness
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupAuthTarget
 import com.firkat.fillin.feature.budgetsetup.ui.interactor.SetupPage
+import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.launch.domain.LocalBudgetRestorer
 import com.firkat.fillin.feature.main.ui.AppDestination
 import com.firkat.fillin.feature.operationhistory.domain.repository.CreateOperationResult
@@ -368,6 +369,15 @@ class AppNavigationViewModel(
     ) {
         if (!readOnly && entries.last() == AppRoute.Categories && budgetReady && !resolving.value) {
             entries.add(AppRoute.EditCategory(budgetScopeId, categoryId))
+        }
+    }
+
+    fun openOperationCategoryEditor(
+        budgetScopeId: String,
+        kind: CategoryKind
+    ) {
+        if (!readOnly && entries.last() == AppRoute.OperationCreate && budgetReady && !resolving.value) {
+            entries.add(AppRoute.EditCategory(budgetScopeId, categoryId = null, lockedKind = kind))
         }
     }
 

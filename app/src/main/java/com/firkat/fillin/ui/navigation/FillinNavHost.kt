@@ -470,6 +470,10 @@ fun FillinNavHost(
                 models.bind(runtime)
                 ActiveBudgetContent(viewModelStoreOwner = models) {
                     OperationCreateRoute(
+                        onCreateCategory = { kind ->
+                            runtime?.scope?.id?.let { navigation.openOperationCategoryEditor(it, kind) }
+                        },
+                        readOnly = readOnly,
                         onBack = {
                             if (navigation.backStack.lastOrNull() == AppRoute.OperationCreate) navigation.back()
                         },
@@ -498,6 +502,7 @@ fun FillinNavHost(
                     ActiveBudgetContent(viewModelStoreOwner = models) {
                         EditCategoryRoute(
                             categoryId = route.categoryId,
+                            lockedKind = route.lockedKind,
                             readOnly = readOnly,
                             onClose = { navigation.dismissCategoryEditor(route) }
                         )

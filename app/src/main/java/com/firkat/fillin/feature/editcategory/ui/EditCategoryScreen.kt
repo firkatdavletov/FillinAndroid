@@ -42,7 +42,8 @@ internal fun EditCategoryRoute(
     categoryId: String?,
     readOnly: Boolean,
     onClose: () -> Unit,
-    viewModel: EditCategoryViewModel = koinViewModel(parameters = { parametersOf(categoryId) }),
+    lockedKind: CategoryKind? = null,
+    viewModel: EditCategoryViewModel = koinViewModel(parameters = { parametersOf(categoryId, lockedKind) }),
     syncViewModel: BudgetSyncViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -234,6 +235,20 @@ private val previewCategory = Category("preview", "Продукты", CategoryKi
 @Composable
 private fun CreateCategoryPreview() {
     EditorPreview(CategoryEditorUiState())
+}
+
+@Preview(name = "Create expense category from operation")
+@Preview(name = "Create expense category from operation dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CreateExpenseCategoryFromOperationPreview() {
+    EditorPreview(CategoryEditorUiState(lockedKind = CategoryKind.Expense))
+}
+
+@Preview(name = "Create income category from operation")
+@Preview(name = "Create income category from operation dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CreateIncomeCategoryFromOperationPreview() {
+    EditorPreview(CategoryEditorUiState(lockedKind = CategoryKind.Income))
 }
 
 @Preview(name = "Edit")
