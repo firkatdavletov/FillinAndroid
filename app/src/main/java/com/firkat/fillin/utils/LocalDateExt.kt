@@ -18,6 +18,7 @@ fun LocalDate.toRelativeDateString(): String {
     }
 
     return when {
+        days == 1L -> "завтра"
         days > 0 -> "Через $count $dayWord"
         days < 0 -> "$count $dayWord назад"
         else -> "Сегодня"

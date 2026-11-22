@@ -81,6 +81,7 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 private object SetupPageKey : NavMetadataKey<SetupPage>
+private object LaunchScreenKey : NavMetadataKey<Boolean>
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -240,16 +241,20 @@ fun FillinNavHost(
         },
         backStack = navigation.backStack,
         transitionSpec = {
-            val from = initialState.metadata[SetupPageKey]
-            val to = targetState.metadata[SetupPageKey]
-            // Setup pages replace the top entry, so NavDisplay treats those changes as forward.
-            val returnsWithinSetup = when (from) {
-                SetupPage.Join -> to == SetupPage.Create
-                SetupPage.List -> setupState.localFirst && to == SetupPage.Create
-                SetupPage.Create -> !setupState.localFirst && to == SetupPage.List
-                null -> false
+            if (initialState.metadata[LaunchScreenKey] == true) {
+                fadeNavigation()
+            } else {
+                val from = initialState.metadata[SetupPageKey]
+                val to = targetState.metadata[SetupPageKey]
+                // Setup pages replace the top entry, so NavDisplay treats those changes as forward.
+                val returnsWithinSetup = when (from) {
+                    SetupPage.Join -> to == SetupPage.Create
+                    SetupPage.List -> setupState.localFirst && to == SetupPage.Create
+                    SetupPage.Create -> !setupState.localFirst && to == SetupPage.List
+                    null -> false
+                }
+                slideNavigation(if (returnsWithinSetup) SlideDirection.End else SlideDirection.Start)
             }
-            slideNavigation(if (returnsWithinSetup) SlideDirection.End else SlideDirection.Start)
         },
         popTransitionSpec = { slideNavigation(SlideDirection.End) },
         predictivePopTransitionSpec = { slideNavigation(SlideDirection.End) },
@@ -273,7 +278,7 @@ fun FillinNavHost(
         ),
         entryProvider =
         entryProvider {
-            entry<AppRoute.Launch> {
+            entry<AppRoute.Launch>(metadata = metadata { put(LaunchScreenKey, true) }) {
                 LaunchScreen(
                     failed = launchFailed,
                     onShown = navigation::onLaunchShown,
