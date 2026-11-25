@@ -129,7 +129,7 @@ android {
             }
             optimization {
                 enable = true
-                packageScope = setOf("\com.firkat.fillin.**", "androidx.**", "kotlin.**", "kotlinx.**")
+                packageScope = setOf("com.firkat.fillin.**", "androidx.**", "kotlin.**", "kotlinx.**")
                 isShrinkResources = false
             }
         }
