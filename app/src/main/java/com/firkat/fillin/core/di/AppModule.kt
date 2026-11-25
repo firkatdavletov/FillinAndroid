@@ -1,15 +1,14 @@
 package com.firkat.fillin.core.di
 
-import android.os.SystemClock
+import android.util.Log
 import androidx.room.Room
 import androidx.work.WorkManager
 import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.analytics.di.analyticsModule
 import com.firkat.fillin.core.network.BackendHeadersInterceptor
 import com.firkat.fillin.core.network.InstallationIdStore
-import com.firkat.fillin.feature.appaccess.data.AppAccessApi
-import com.firkat.fillin.feature.appaccess.data.BackendAppAccess
 import com.firkat.fillin.feature.appaccess.data.CloudAccessInterceptor
+import com.firkat.fillin.feature.appaccess.data.RemoteConfigAppAccess
 import com.firkat.fillin.feature.appaccess.domain.AppAccess
 import com.firkat.fillin.feature.auth.di.authModule
 import com.firkat.fillin.feature.budgetconnection.di.budgetConnectionModule
@@ -34,13 +33,14 @@ import com.firkat.fillin.feature.operationhistory.data.sync.OperationWorkerFacto
 import com.firkat.fillin.feature.operationhistory.data.sync.WorkManagerOperationSyncScheduler
 import com.firkat.fillin.feature.profile.di.profileModule
 import com.firkat.fillin.feature.profile.domain.DeletionStore
+import com.firkat.fillin.feature.remoteconfig.data.FirebaseAppRemoteConfig
+import com.firkat.fillin.feature.remoteconfig.domain.AppRemoteConfig
 import com.firkat.fillin.feature.sync.data.BudgetSyncApi
 import com.firkat.fillin.feature.sync.data.CloudBudgetApi
 import com.firkat.fillin.feature.sync.data.LocalOnlyCloudApi
 import com.firkat.fillin.feature.sync.data.RetiredBudgetSyncApi
 import com.firkat.fillin.feature.sync.data.RetiredOperationSyncApi
 import com.firkat.fillin.ui.navigation.AppNavigationViewModel
-import java.io.File
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -91,6 +91,14 @@ val appModule =
             }
         }
         single {
+            if (BuildConfig.FIREBASE_CONFIGURED) {
+                FirebaseAppRemoteConfig.create(debug = BuildConfig.DEBUG)
+            } else {
+                FirebaseAppRemoteConfig()
+            }
+        }
+        single<AppRemoteConfig> { get<FirebaseAppRemoteConfig>() }
+        single {
             InstallationIdStore(
                 directory = androidContext().noBackupFilesDir
             )
@@ -117,19 +125,14 @@ val appModule =
                     get<Json>().asConverterFactory("application/json".toMediaType())
                 ).build()
         }
-        single<AppAccess> {
-            val backend = BuildConfig.FIREBASE_API_BASE_URL
-            val api = backend.takeIf(String::isNotBlank)?.let {
-                get<Retrofit>().newBuilder().baseUrl(it).build().create(AppAccessApi::class.java)
-            }
-            BackendAppAccess(
-                api = api,
-                backend = backend,
-                id = get<InstallationIdStore>()::get,
-                cacheFile = File(androidContext().noBackupFilesDir, "app-access"),
-                elapsedMillis = SystemClock::elapsedRealtime
+        single {
+            RemoteConfigAppAccess(
+                remoteConfig = get(),
+                configured = BuildConfig.FIREBASE_CONFIGURED,
+                logFailure = { Log.w("AppRemoteConfig", "Remote Config fetch failed", it) }
             )
         }
+        single<AppAccess> { get<RemoteConfigAppAccess>() }
         single<OkHttpClient>(named("cloud")) {
             val koin = getKoin()
             get<OkHttpClient>().newBuilder()

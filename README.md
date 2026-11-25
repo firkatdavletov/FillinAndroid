@@ -166,7 +166,8 @@ To enable authentication and cloud features:
    ```
 
    The URL must use HTTPS and end with `/`. It can also be supplied as the Gradle property `-PfirebaseApiBaseUrl=https://your-backend.example/`.
-4. Rebuild the app, sign in, and create a cloud budget or connect an existing local budget to your account.
+4. Publish the Boolean Remote Config parameter `remote_access` with a default of `false` and set it to `true` for the intended installations. See [cloud access and rollout](docs/backend-release-0.1-access.md).
+5. Rebuild the app, sign in, and create a cloud budget or connect an existing local budget to your account.
 
 Each build variant needs its own Firebase configuration; a release configuration does not enable Firebase in debug. These configuration files are excluded from Git. Firebase Admin credentials belong on the backend only.
 

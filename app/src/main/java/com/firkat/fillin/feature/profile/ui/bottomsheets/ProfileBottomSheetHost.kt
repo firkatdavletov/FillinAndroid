@@ -2,7 +2,6 @@ package com.firkat.fillin.feature.profile.ui.bottomsheets
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.firkat.fillin.feature.appaccess.ui.bottomsheets.AboutAppBottomSheet
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementState
 import com.firkat.fillin.feature.budgetmanagement.ui.bottomsheets.BudgetDeletionSheet
 import com.firkat.fillin.feature.profile.ui.AccountConfirmation
@@ -11,13 +10,10 @@ import com.firkat.fillin.feature.profile.ui.AccountConfirmationKind
 @Composable
 internal fun ProfileBottomSheetHost(
     installationId: String?,
-    accessChecking: Boolean,
-    accessRefreshResult: Boolean?,
     fullAccess: Boolean,
     management: BudgetManagementState?,
     userId: String?,
     confirmation: AccountConfirmation?,
-    onRefreshAccess: () -> Unit,
     onCloseAbout: () -> Unit,
     onBudgetNameChanged: (String) -> Unit,
     onConfirmBudget: () -> Unit,
@@ -31,9 +27,6 @@ internal fun ProfileBottomSheetHost(
     if (installationId != null) {
         AboutAppBottomSheet(
             id = installationId,
-            checking = accessChecking,
-            refreshResult = accessRefreshResult,
-            onRefresh = onRefreshAccess,
             onClose = onCloseAbout,
             modifier = modifier
         )

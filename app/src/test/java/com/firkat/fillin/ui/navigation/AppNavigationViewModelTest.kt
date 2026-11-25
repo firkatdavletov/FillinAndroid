@@ -244,12 +244,7 @@ class AppNavigationViewModelTest {
     @Test fun `losing cloud access inside profile setup returns to the local form`() = runTest {
         val access = object : AppAccess {
             override val mode = MutableStateFlow(AppMode.InternalFull)
-            override val checking = MutableStateFlow(false)
-            override fun installationId() = "test"
-            override suspend fun refresh(
-                manual: Boolean
-            ) = false
-            override fun revoke() {
+            fun revoke() {
                 mode.value = AppMode.OfflineFree
             }
         }

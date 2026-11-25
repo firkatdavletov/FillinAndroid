@@ -106,6 +106,7 @@ class AppNavigationViewModel(
                         readOnly &&
                             it !is AppRoute.OperationDetails &&
                             it != AppRoute.Categories &&
+                            it != AppRoute.Profile &&
                             it != AppRoute.Main &&
                             it != AppRoute.Launch &&
                             !it.isBudgetSetup() &&
@@ -344,7 +345,7 @@ class AppNavigationViewModel(
             openAccountMethods()
             return
         }
-        if (entries.last() in listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.CloudSync) &&
+        if (entries.last() in listOf(AppRoute.Main, AppRoute.Profile, AppRoute.FamilyAccess, AppRoute.CloudSync) &&
             auth.session.value !is AuthSession.Authenticated
         ) {
             entries.add(AppRoute.Auth)
@@ -353,7 +354,7 @@ class AppNavigationViewModel(
 
     fun openAccountMethods() {
         if (cloudAllowed &&
-            entries.last() in listOf(AppRoute.Main, AppRoute.FamilyAccess, AppRoute.CloudSync)
+            entries.last() in listOf(AppRoute.Main, AppRoute.Profile, AppRoute.FamilyAccess, AppRoute.CloudSync)
         ) {
             entries.add(AppRoute.AccountMethods)
         }
@@ -388,11 +389,11 @@ class AppNavigationViewModel(
     }
 
     fun openFamilyAccess() {
-        if (cloudAllowed) openMainDestination(AppRoute.FamilyAccess)
+        if (cloudAllowed) openMainDestination(AppRoute.FamilyAccess, additionalSource = AppRoute.Profile)
     }
 
     fun openCloudSync() {
-        if (cloudAllowed) openMainDestination(AppRoute.CloudSync)
+        if (cloudAllowed) openMainDestination(AppRoute.CloudSync, additionalSource = AppRoute.Profile)
     }
 
     fun openOperationCreate() = openMainDestination(AppRoute.OperationCreate)
@@ -527,7 +528,8 @@ class AppNavigationViewModel(
             route !is AppRoute.ForecastDetails &&
             route !is AppRoute.DailyLimitDetails &&
             route !is AppRoute.OperationDetails &&
-            route != AppRoute.Categories
+            route != AppRoute.Categories &&
+            route != AppRoute.Profile
         ) {
             return
         }

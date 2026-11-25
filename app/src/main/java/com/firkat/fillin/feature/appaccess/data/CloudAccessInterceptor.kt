@@ -21,8 +21,7 @@ internal class CloudAccessInterceptor(private val access: () -> AppAccess) : Int
                 Json.parseToJsonElement(response.peekBody(8192).string()).jsonObject["code"]?.jsonPrimitive?.content ==
                     "device_access_denied"
             }.getOrDefault(false)
-        if (denied) access().revoke()
-        if (!access().cloudAllowed) {
+        if (denied || !access().cloudAllowed) {
             response.close()
             throw DeviceAccessDeniedIOException()
         }

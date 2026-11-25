@@ -60,7 +60,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.firkat.fillin.R
-import com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel
 import com.firkat.fillin.feature.auth.domain.AuthUser
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel
@@ -98,10 +97,7 @@ fun ProfileRoute(
     budgetReadOnly: Boolean = false,
     onEditBudgetClick: (String) -> Unit
 ) {
-    val about: AboutAppViewModel = koinViewModel()
-    val installationId by about.installationId.collectAsStateWithLifecycle()
-    val accessChecking by about.checking.collectAsStateWithLifecycle()
-    val accessRefreshResult by about.refreshResult.collectAsStateWithLifecycle()
+    val installationId by viewModel.aboutInstallationId.collectAsStateWithLifecycle()
     val management: BudgetManagementViewModel = koinViewModel()
     val managementState by management.state.collectAsStateWithLifecycle()
     val pendingDeletions by management.pending.collectAsStateWithLifecycle()
@@ -120,14 +116,11 @@ fun ProfileRoute(
     }
     ProfileBottomSheetHost(
         installationId = installationId,
-        accessChecking = accessChecking,
-        accessRefreshResult = accessRefreshResult,
         fullAccess = state.fullAccess,
         management = managementState,
         userId = user?.uid,
         confirmation = confirmation,
-        onRefreshAccess = about::refresh,
-        onCloseAbout = about::close,
+        onCloseAbout = viewModel::closeAbout,
         onBudgetNameChanged = management::change,
         onConfirmBudget = management::confirm,
         onCloseBudget = management::close,
@@ -148,7 +141,7 @@ fun ProfileRoute(
             }
         },
         onBudgetActionsClick = viewModel::toggleBudgetActions,
-        onAboutClick = about::open,
+        onAboutClick = viewModel::openAbout,
         onBack = onBack,
         transferContent = {
             BudgetTransferRoute(transfer, !state.busy, Modifier.padding(top = 12.dp))

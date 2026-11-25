@@ -8,6 +8,7 @@ import com.firkat.fillin.feature.budgetsetup.ui.setupError
 import com.firkat.fillin.feature.profile.domain.ProfileBudget
 import com.firkat.fillin.feature.profile.domain.ProfileBudgetsRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,10 +30,14 @@ data class ProfileUiState(
 class ProfileViewModel(
     private val budgets: ProfileBudgetsRepository,
     private val auth: AuthRepository,
-    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null
+    private val access: com.firkat.fillin.feature.appaccess.domain.AppAccess? = null,
+    private val installationId: () -> String = { "" }
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(ProfileUiState(fullAccess = access?.cloudAllowed != false))
     val state = mutableState.asStateFlow()
+    private val aboutId = MutableStateFlow<String?>(null)
+    val aboutInstallationId = aboutId.asStateFlow()
+    private var aboutJob: Job? = null
     private var action: Job? = null
     private var cloudAction = false
     private var refreshJob: Job? = null
@@ -108,6 +113,20 @@ class ProfileViewModel(
 
     fun closeBudgetActions() {
         mutableState.update { it.copy(expandedBudgetId = null) }
+    }
+
+    fun openAbout() {
+        aboutJob?.cancel()
+        aboutJob = viewModelScope.launch {
+            aboutId.value = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                runCatching(installationId).getOrDefault("")
+            }
+        }
+    }
+
+    fun closeAbout() {
+        aboutJob?.cancel()
+        aboutId.value = null
     }
 
     fun toggleBudgetActions(

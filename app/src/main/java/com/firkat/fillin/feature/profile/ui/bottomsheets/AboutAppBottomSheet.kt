@@ -1,4 +1,4 @@
-package com.firkat.fillin.feature.appaccess.ui.bottomsheets
+package com.firkat.fillin.feature.profile.ui.bottomsheets
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -18,15 +18,11 @@ import com.firkat.fillin.BuildConfig
 import com.firkat.fillin.R
 import com.firkat.fillin.ui.component.SaldomiActionBottomSheet
 import com.firkat.fillin.ui.component.SaldomiButton
-import com.firkat.fillin.ui.component.SaldomiOutlinedButton
 import com.firkat.fillin.ui.theme.FillinTheme
 
 @Composable
 internal fun AboutAppBottomSheet(
     id: String,
-    checking: Boolean,
-    refreshResult: Boolean?,
-    onRefresh: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     version: String = BuildConfig.VERSION_NAME
@@ -51,26 +47,10 @@ internal fun AboutAppBottomSheet(
                 ) {
                     Text(stringResource(R.string.app_copy_installation_id))
                 }
-                if (checking || refreshResult != null) {
-                    Text(
-                        stringResource(
-                            when {
-                                checking -> R.string.app_access_checking
-                                refreshResult == true -> R.string.app_access_checked
-                                else -> R.string.app_access_check_failed
-                            }
-                        )
-                    )
-                }
             }
         },
         confirmButton = {
-            SaldomiButton(onClick = onRefresh, enabled = !checking, modifier = Modifier.fillMaxWidth(), large = true) {
-                Text(stringResource(R.string.app_access_check))
-            }
-        },
-        dismissButton = {
-            SaldomiOutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth(), large = true) {
+            SaldomiButton(onClick = onClose, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.app_about_close))
             }
         }
@@ -84,27 +64,6 @@ private fun AboutAppDefaultPreview() {
     AboutPreview()
 }
 
-@Preview
-@Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun AboutAppCheckingPreview() {
-    AboutPreview(checking = true)
-}
-
-@Preview
-@Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun AboutAppCheckedPreview() {
-    AboutPreview(result = true)
-}
-
-@Preview
-@Preview(uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun AboutAppFailedPreview() {
-    AboutPreview(result = false)
-}
-
 @Preview(widthDp = 320, fontScale = 2f)
 @Preview(widthDp = 840, uiMode = UI_MODE_NIGHT_YES)
 @Composable
@@ -114,9 +73,7 @@ private fun AboutAppUnavailablePreview() {
 
 @Composable
 private fun AboutPreview(
-    checking: Boolean = false,
-    result: Boolean? = null,
     id: String = "a625153f-4be5-47b1-adfa-2c404603c034"
 ) {
-    FillinTheme { AboutAppBottomSheet(id, checking, result, {}, {}, version = "0.1") }
+    FillinTheme { AboutAppBottomSheet(id, onClose = {}, version = "0.1") }
 }

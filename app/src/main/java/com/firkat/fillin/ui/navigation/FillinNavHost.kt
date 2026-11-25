@@ -100,6 +100,12 @@ fun FillinNavHost(
         ),
     budgets: ActiveBudgetManager = koinInject()
 ) {
+    val access: com.firkat.fillin.feature.appaccess.domain.AppAccess = koinInject()
+    val accessInitialized by access.initialized.collectAsStateWithLifecycle()
+    if (!accessInitialized) {
+        LaunchScreen(failed = false, onShown = {}, onRetry = {})
+        return
+    }
     val setupState by setup.state.collectAsStateWithLifecycle()
     val state by auth.state.collectAsStateWithLifecycle()
     LaunchedEffect(navigation.backStack.lastOrNull()) {
@@ -127,7 +133,6 @@ fun FillinNavHost(
     }
     val launchFailed by navigation.launchFailed.collectAsStateWithLifecycle()
     val runtime by budgets.active.collectAsStateWithLifecycle()
-    val access: com.firkat.fillin.feature.appaccess.domain.AppAccess = koinInject()
     val mode by access.mode.collectAsStateWithLifecycle()
     val fullAccess = mode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull
     val readOnly = !fullAccess && runtime?.profile?.firebaseUid != null

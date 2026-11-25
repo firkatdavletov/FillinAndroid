@@ -19,7 +19,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import com.firkat.fillin.feature.appaccess.domain.AppAccess
 import com.firkat.fillin.feature.appaccess.domain.AppMode
-import com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel
 import com.firkat.fillin.feature.auth.domain.*
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
@@ -74,12 +73,8 @@ class AppNavigationUiTest {
     private val env = BudgetConnectionDeviceTest.Environment()
     private val access = object : AppAccess {
         override val mode = MutableStateFlow(AppMode.InternalFull)
-        override val checking = MutableStateFlow(false)
-        override fun installationId() = "a625153f-4be5-47b1-adfa-2c404603c034"
-        override suspend fun refresh(
-            manual: Boolean
-        ) = true
-        override fun revoke() {
+        override val initialized = MutableStateFlow(true)
+        fun revoke() {
             mode.value = AppMode.OfflineFree
         }
     }
@@ -319,7 +314,8 @@ class AppNavigationUiTest {
         createdBudget: Boolean = false,
         restoration: StateRestorationTester? = null,
         fontScale: Float = 1f,
-        expectMain: Boolean = createdBudget
+        expectMain: Boolean = createdBudget,
+        waitForSetup: Boolean = true
     ) {
         compose.runOnUiThread {
             compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -335,7 +331,6 @@ class AppNavigationUiTest {
             listOf(
                 module {
                     single<AppAccess> { access }
-                    viewModel { AboutAppViewModel(get()) }
                     viewModel {
                         authModelsCreated++
                         AuthViewModel(
@@ -417,7 +412,11 @@ class AppNavigationUiTest {
                             access = access
                         )
                     }
-                    viewModel { com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, access) }
+                    viewModel {
+                        com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, access) {
+                            "a625153f-4be5-47b1-adfa-2c404603c034"
+                        }
+                    }
                     viewModel {
                         val store = object : com.firkat.fillin.feature.profile.domain.DeletionStore {
                             override fun operations() =
@@ -481,6 +480,7 @@ class AppNavigationUiTest {
             }
         }
         if (restoration == null) compose.setContent(hostContent) else restoration.setContent(hostContent)
+        if (!waitForSetup) return
         compose.waitUntil(5000) {
             compose.onAllNodesWithTag(if (expectMain) "main_screen" else "budget_setup_screen")
                 .fetchSemanticsNodes().isNotEmpty()
@@ -863,34 +863,61 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("auth_screen").assertDoesNotExist()
     }
 
+    @Test fun startupWaitsForCachedAccessBeforeShowingSetup() {
+        access.initialized.value = false
+        access.mode.value = AppMode.OfflineFree
+        show(waitForSetup = false)
+        compose.onNodeWithTag("launch_screen").assertExists()
+        compose.onNodeWithTag("budget_setup_screen").assertDoesNotExist()
+
+        compose.runOnIdle {
+            access.mode.value = AppMode.InternalFull
+            access.initialized.value = true
+        }
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithTag("setup_cloud").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("launch_screen").assertDoesNotExist()
+    }
+
     @Test fun revocationClosesCloudRouteAndHidesProfileActions() {
         show(createdBudget = true)
-        compose.onNodeWithTag("tab_Profile").performClick()
-        compose.runOnIdle { navigation.openCloudSync() }
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithText("Облачная синхронизация").performScrollTo().performClick()
         assertEquals(AppRoute.CloudSync, navigation.backStack.last())
         compose.runOnIdle { access.revoke() }
-        compose.waitUntil(5000) { navigation.backStack.toList() == listOf(AppRoute.Main) }
-        compose.onNodeWithText("Авторизоваться").assertDoesNotExist()
-        compose.onNodeWithText("О приложении").assertExists()
+        val profileStack = listOf(AppRoute.Main, AppRoute.Profile)
+        compose.waitUntil(5000) { navigation.backStack.toList() == profileStack }
         compose.runOnIdle {
             navigation.openAuthentication()
             navigation.openCloudSync()
             navigation.openFamilyAccess()
-            assertEquals(listOf(AppRoute.Main), navigation.backStack)
+            assertEquals(profileStack, navigation.backStack)
         }
+        compose.onNodeWithText("Авторизоваться").assertDoesNotExist()
+        compose.onNodeWithText("Облачная синхронизация").assertDoesNotExist()
+        compose.onNodeWithText("О приложении").performScrollTo().performClick()
+        compose.onNodeWithText("a625153f-4be5-47b1-adfa-2c404603c034").assertIsDisplayed()
+        compose.onNodeWithText("Проверить доступ").assertDoesNotExist()
     }
 
     @Test fun revokedCloudBudgetStaysVisibleAndRejectsWrites() {
         env.koin.loadModules(listOf(module { single<AppAccess> { access } }))
-        runBlocking {
+        val queued = runBlocking {
             env.auth.login("owner")
             env.manager.restore()
             env.connection.connect("owner", env.connection.budgets("owner").single())
+            val runtime = requireNotNull(env.manager.active.value)
+            requireNotNull(env.manager.acquire(runtime.profile.syncIdentity)).use { lease ->
+                val store = lease.scope.get<com.firkat.fillin.feature.sync.data.BudgetStore>()
+                store.enqueue("CREATE_CATEGORY") { it.copy(name = "Поездка", kind = "EXPENSE", icon = "FOOD") }
+                store.pending().single()
+            }
         }
         show(createdBudget = false, expectMain = true)
         compose.runOnIdle { access.revoke() }
         compose.onNodeWithTag("tab_AddOperation").assertDoesNotExist()
-        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithContentDescription("Profile").performClick()
         compose.onNodeWithText("Облачный бюджет доступен только для чтения").assertExists()
         compose.onNodeWithText("Тестовый бюджет").assertExists()
         runBlocking {
@@ -899,10 +926,17 @@ class AppNavigationUiTest {
             lease.use {
                 val store = lease.scope.get<com.firkat.fillin.feature.sync.data.BudgetStore>()
                 val before = store.pending()
+                assertEquals(listOf(queued), before)
                 val error = runCatching { store.enqueue("CREATE_CATEGORY") }.exceptionOrNull()
                 assertEquals("access_denied", (error as? com.firkat.fillin.feature.sync.data.BudgetLocalFailure)?.code)
                 assertEquals(before, store.pending())
             }
+        }
+        compose.runOnIdle {
+            access.mode.value = AppMode.InternalFull
+            navigation.back()
+            navigation.openOperationCreate()
+            assertEquals(AppRoute.OperationCreate, navigation.backStack.last())
         }
     }
 
@@ -1137,7 +1171,9 @@ class AppNavigationUiTest {
             compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
             compose.onNodeWithTag("tab_History").assertIsSelected()
-            compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
+            compose.onNode(
+                hasTestTag("history-total-EXPENSE") and hasAnyAncestor(hasTestTag("history-selected-total"))
+            ).assertIsDisplayed()
         }
     }
 
