@@ -151,13 +151,34 @@ class OperationCreateScreenTest {
                         recentlyUsed = used
                     ),
                     context = context,
-                    onEvent = {}
+                    onEvent = {},
+                    onCreateCategory = {}
                 )
             }
         }
         compose.onNodeWithTag("operation-create-frequent-expense-0").assertIsNotEnabled()
         compose.onNodeWithTag("operation-create-recent-expense-0").assertIsNotEnabled()
         compose.onNodeWithTag("operation-create-category-expense-0").assertIsNotEnabled()
+        compose.onNodeWithTag("operation-create-category-list").performScrollToKey("add-category")
+        compose.onNodeWithTag("operation-create-add-category").assertIsNotEnabled()
+    }
+
+    @Test fun emptyCategoryListOffersCreationWithoutAnAmount() {
+        var requestedKind: CategoryKind? = null
+        compose.setContent {
+            FillinTheme {
+                OperationCreateScreen(
+                    editor = OperationCreateUiState(type = OperationType.Income, occurredOn = LocalDate.now(CLOCK)),
+                    context = OfflineHistoryContext(categories = emptyList()),
+                    onEvent = {},
+                    onCreateCategory = { requestedKind = it }
+                )
+            }
+        }
+        closeSoftKeyboard()
+        compose.onNodeWithTag("operation-create-category-list").performScrollToKey("add-category")
+        compose.onNodeWithContentDescription("Создать категорию").assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals(CategoryKind.Income, requestedKind) }
     }
 
     @Test fun canSaveFromFullList() = saveFrom("all", "category", "expense-9")

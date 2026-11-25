@@ -208,12 +208,6 @@ class BudgetSetupUiTest {
     @Test fun offlineCreationDoesNotShowCloudControlsAfterCompletion() {
         val access = object : AppAccess {
             override val mode = MutableStateFlow(AppMode.OfflineFree)
-            override val checking = MutableStateFlow(false)
-            override fun installationId() = "test"
-            override suspend fun refresh(
-                manual: Boolean
-            ) = false
-            override fun revoke() = Unit
         }
         show(access = access)
         compose.onNodeWithTag("setup_back").assertDoesNotExist()

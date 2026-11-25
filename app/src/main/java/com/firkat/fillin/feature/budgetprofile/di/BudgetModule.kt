@@ -385,6 +385,15 @@ val budgetModule =
             factory { UpdateCategory(repository = get()) }
             factory { DeleteCategory(repository = get()) }
             viewModel { CategoriesViewModel(getCategories = get()) }
-            viewModel { params -> EditCategoryViewModel(params.getOrNull<String>(), get(), get(), get(), get()) }
+            viewModel { params ->
+                EditCategoryViewModel(
+                    categoryId = params.getOrNull(),
+                    getCategories = get(),
+                    createCategory = get(),
+                    updateCategory = get(),
+                    deleteCategory = get(),
+                    lockedKind = params.getOrNull()
+                )
+            }
         }
     }

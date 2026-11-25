@@ -1,8 +1,11 @@
 package com.firkat.fillin.ui.component
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
@@ -11,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -35,36 +39,26 @@ internal fun CategoryIconImage(
     val icon = CategoryIcons.find(iconCode)
 
     if (icon != null) {
-        Surface(
-            modifier = modifier
-                .size(48.dp)
-                .clearAndSetSemantics {
-                    if (contentDescription != null) this.contentDescription = contentDescription
-                },
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.tertiaryFixed
-        ) {
-            Image(
-                painter = painterResource(icon.drawableResource),
-                contentDescription = contentDescription,
-                modifier = modifier.size(32.dp)
-            )
-        }
+        Image(
+            painter = painterResource(icon.drawableResource),
+            contentDescription = contentDescription,
+            modifier = modifier.size(48.dp)
+        )
     } else {
         val name = categoryInitialName(categoryName, stringResource(R.string.categories_editor_create_title))
         val colors = MaterialTheme.saldomiColors
         val palette = colors.categoryInitialColors
-        Surface(
-            modifier = modifier
-                .size(48.dp)
-                .clearAndSetSemantics {
-                    if (contentDescription != null) this.contentDescription = contentDescription
-                },
-            shape = CircleShape,
-            color = palette[categoryInitialColorIndex(name, palette.size)],
-            contentColor = colors.onCategoryInitial
-        ) {
+        Box {
             Box(
+                modifier = modifier
+                    .align(Alignment.Center)
+                    .width(48.dp)
+                    .height(48.dp)
+                    .clearAndSetSemantics {
+                        if (contentDescription != null) this.contentDescription = contentDescription
+                    }
+                    .clip(CircleShape)
+                    .background(palette[categoryInitialColorIndex(name, palette.size)]),
                 contentAlignment = Alignment.Center
             ) {
                 BasicText(

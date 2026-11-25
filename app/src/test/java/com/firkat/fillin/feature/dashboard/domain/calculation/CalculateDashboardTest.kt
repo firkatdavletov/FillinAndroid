@@ -245,13 +245,14 @@ class CalculateDashboardTest {
     }
 
     @Test fun `midnight in Almaty moves todays spending into the next days limit basis`() {
+        val midnight = LocalDate.of(2026, 9, 7).atStartOfDay(almatyZone).toInstant()
         val initial = input().copy(
-            asOf = Instant.parse("2026-09-06T18:59:59Z"),
+            asOf = midnight.minusSeconds(1),
             openingBalance = decimal("250000"),
             operations = listOf(operation("today", FOOD, DashboardOperationKind.Expense, "1000", "2026-09-06"))
         )
         val before = CalculateDashboard.calculate(initial)
-        val after = CalculateDashboard.calculate(initial.copy(asOf = initial.asOf.plusSeconds(1)))
+        val after = CalculateDashboard.calculate(initial.copy(asOf = midnight))
         assertEquals(money("4166"), before.freeMoney.safeDailyLimit)
         assertEquals(LocalDate.parse("2026-09-07"), after.date)
         assertEquals(24, after.freeMoney.daysRemaining)
@@ -278,6 +279,8 @@ class CalculateDashboardTest {
         private const val TRANSPORT = "00000000-0000-0000-0000-000000000002"
         private const val HOUSING = "00000000-0000-0000-0000-000000000003"
         private const val INCOME = "00000000-0000-0000-0000-000000000004"
+        private val almatyZone = ZoneId.of("Asia/Almaty")
+
         private fun decimal(
             value: String
         ) = BigDecimal(value).setScale(2)
@@ -296,7 +299,7 @@ class CalculateDashboardTest {
             kind,
             decimal(amount),
             LocalDate.parse(date),
-            LocalDate.parse(date).atStartOfDay(ZoneId.of("Asia/Almaty")).toInstant()
+            LocalDate.parse(date).atStartOfDay(almatyZone).toInstant()
         )
         private fun input() = DashboardCalculationInput(
             Instant.parse("2026-09-06T03:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"),

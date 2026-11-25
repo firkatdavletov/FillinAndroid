@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.google.services) apply false
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.tracer)
 }
 
 // A checkout without Firebase configuration must still support the local budget.
@@ -46,10 +47,11 @@ val localPropertiesFile = rootProject.layout.projectDirectory.file("local.proper
 val apiBaseUrl = "https://cheerful-art-production-c4f9.up.railway.app/"
 val rustoreReleaseSigning = providers.gradleProperty("rustoreReleaseSigning").orNull == "true"
 
-fun requireSigningEnv(name: String): String =
-    requireNotNull(providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }) {
-        "$name is required when rustoreReleaseSigning is enabled"
-    }
+fun requireSigningEnv(
+    name: String
+): String = requireNotNull(providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }) {
+    "$name is required when rustoreReleaseSigning is enabled"
+}
 
 // Firebase authentication uses the deployed backend unless a test server is specified.
 val firebaseApiBaseUrl = providers.gradleProperty("firebaseApiBaseUrl").orNull ?: run {
@@ -79,15 +81,17 @@ if (firebaseApiBaseUrl.isNotBlank()) {
 android {
     namespace = "com.firkat.fillin"
     compileSdk {
-        version = release(37)
+        version = release(37) {
+            minorApiLevel = 1
+        }
     }
 
     defaultConfig {
         applicationId = "com.firkat.fillin"
         minSdk = 33
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.3"
+        versionCode = 5
+        versionName = "0.4"
 
         testInstrumentationRunner = "com.firkat.fillin.FillinTestRunner"
 
@@ -125,7 +129,8 @@ android {
             }
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                packageScope = setOf("com.firkat.fillin.**", "androidx.**", "kotlin.**", "kotlinx.**")
+                isShrinkResources = false
             }
         }
     }
@@ -148,6 +153,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = true
     }
     lint {
         abortOnError = true
@@ -193,10 +199,47 @@ tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
     jvmTarget = "11"
 }
 
+// Tracer
+val enableRustoreTracer = providers.gradleProperty("enableRustoreTracer")
+    .map { it.toBoolean() }
+    .getOrElse(false)
+
+val configuredTracerAppToken = providers.gradleProperty("tracerAppToken")
+    .orNull
+    .orEmpty()
+
+val configuredTracerPluginToken = providers.gradleProperty("tracerPluginToken")
+    .orNull
+    .orEmpty()
+
+if (enableRustoreTracer) {
+    require(configuredTracerAppToken.isNotBlank()) {
+        "Tracer app token is missing"
+    }
+
+    require(configuredTracerPluginToken.isNotBlank()) {
+        "Tracer plugin token is missing"
+    }
+}
+
+tracer {
+    create("defaultConfig") {
+        isDisabled = !enableRustoreTracer
+
+        appToken = configuredTracerAppToken
+        pluginToken = configuredTracerPluginToken
+
+        uploadMapping = enableRustoreTracer
+        uploadNativeSymbols = enableRustoreTracer
+        uploadRetryCount = 2
+    }
+}
+
 dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.androidx.material3)
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.config)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.google.identity)
@@ -237,6 +280,20 @@ dependencies {
 
     implementation(libs.androidx.compose.material.icons.extended)
 
+    detektPlugins(
+        libs.detekt.formatting
+    )
+
+    add(
+        "rustoreImplementation",
+        platform(libs.tracer.platform)
+    )
+
+    add(
+        "rustoreImplementation",
+        libs.tracer.crash.report
+    )
+
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -246,10 +303,6 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
-
-    detektPlugins(
-        libs.detekt.formatting
-    )
 }
 
 ksp {

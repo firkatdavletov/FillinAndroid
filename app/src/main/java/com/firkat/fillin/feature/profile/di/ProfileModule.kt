@@ -57,6 +57,10 @@ val profileModule = module {
     }
     viewModel { ProfileDeletionViewModel(get(), get()) }
     viewModel { com.firkat.fillin.feature.budgetmanagement.ui.BudgetManagementViewModel(get(), get()) }
-    viewModel { ProfileViewModel(get(), get(), get()) }
-    viewModel { com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel(get()) }
+    viewModel {
+        ProfileViewModel(
+            get(), get(), get(),
+            installationId = get<com.firkat.fillin.core.network.InstallationIdStore>()::get
+        )
+    }
 }

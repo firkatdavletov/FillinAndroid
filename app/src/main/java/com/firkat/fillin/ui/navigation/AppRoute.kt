@@ -2,6 +2,7 @@ package com.firkat.fillin.ui.navigation
 
 import androidx.navigation3.runtime.NavKey
 import com.firkat.fillin.feature.budgetsetup.domain.BudgetSetupMode
+import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.plannedoperations.domain.model.PlannedOperationType
 import java.util.UUID
 import kotlinx.serialization.Serializable
@@ -31,7 +32,9 @@ sealed interface AppRoute : NavKey {
 
     @Serializable data object Categories : AppRoute
 
-    @Serializable data class EditCategory(val budgetScopeId: String, val categoryId: String?) : AppRoute
+    @Serializable
+    data class EditCategory(val budgetScopeId: String, val categoryId: String?, val lockedKind: CategoryKind? = null) :
+        AppRoute
 
     @Serializable data object FamilyAccess : AppRoute
 

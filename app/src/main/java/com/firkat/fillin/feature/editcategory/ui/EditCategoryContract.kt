@@ -9,7 +9,8 @@ import com.firkat.fillin.feature.categories.ui.CategoriesError
 internal data class CategoryEditorUiState(
     val original: Category? = null,
     val name: String = original?.name.orEmpty(),
-    val kind: CategoryKind = original?.kind ?: CategoryKind.Expense,
+    val lockedKind: CategoryKind? = null,
+    val kind: CategoryKind = original?.kind ?: lockedKind ?: CategoryKind.Expense,
     val iconCode: String = original?.icon?.code ?: CATEGORY_INITIAL_ICON_CODE,
     val operation: CategoryEditorOperation? = null,
     val error: CategoriesError? = null,
@@ -18,10 +19,10 @@ internal data class CategoryEditorUiState(
     val isCreating get() = original == null
     val isBusy get() = operation != null
     val canRename get() = !isBusy && original?.dictionaryKey != "OTHER"
-    val canChangeKind get() = !isBusy && isCreating
+    val canChangeKind get() = !isBusy && isCreating && lockedKind == null
     val hasChanges: Boolean
         get() = if (original == null) {
-            name.isNotBlank() || kind != CategoryKind.Expense || iconCode != CATEGORY_INITIAL_ICON_CODE
+            name.isNotBlank() || kind != (lockedKind ?: CategoryKind.Expense) || iconCode != CATEGORY_INITIAL_ICON_CODE
         } else {
             name.trim() != original.name || iconCode != original.icon.code
         }

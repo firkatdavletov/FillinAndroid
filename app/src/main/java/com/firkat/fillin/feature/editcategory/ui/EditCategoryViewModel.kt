@@ -2,6 +2,7 @@ package com.firkat.fillin.feature.editcategory.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.firkat.fillin.feature.categories.domain.model.CategoryKind
 import com.firkat.fillin.feature.categories.domain.repository.CategoriesException
 import com.firkat.fillin.feature.categories.domain.usecase.CreateCategory
 import com.firkat.fillin.feature.categories.domain.usecase.DeleteCategory
@@ -20,7 +21,8 @@ internal class EditCategoryViewModel(
     private val getCategories: GetCategories,
     private val createCategory: CreateCategory,
     private val updateCategory: UpdateCategory,
-    private val deleteCategory: DeleteCategory
+    private val deleteCategory: DeleteCategory,
+    private val lockedKind: CategoryKind? = null
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<EditCategoryState>(EditCategoryState.Loading)
     val state = mutableState.asStateFlow()
@@ -96,7 +98,7 @@ internal class EditCategoryViewModel(
                 val original = categoryId?.let { id ->
                     getCategories().firstOrNull { it.id == id } ?: throw CategoriesException.NotFound
                 }
-                show(CategoryEditorUiState(original = original))
+                show(CategoryEditorUiState(original = original, lockedKind = lockedKind))
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {

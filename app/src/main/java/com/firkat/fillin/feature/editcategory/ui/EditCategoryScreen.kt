@@ -42,7 +42,8 @@ internal fun EditCategoryRoute(
     categoryId: String?,
     readOnly: Boolean,
     onClose: () -> Unit,
-    viewModel: EditCategoryViewModel = koinViewModel(parameters = { parametersOf(categoryId) }),
+    lockedKind: CategoryKind? = null,
+    viewModel: EditCategoryViewModel = koinViewModel(parameters = { parametersOf(categoryId, lockedKind) }),
     syncViewModel: BudgetSyncViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -78,6 +79,7 @@ internal fun EditCategoryScreen(
             EditCategoryState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
+
             is EditCategoryState.LoadFailed -> Column(
                 modifier = Modifier.fillMaxSize().padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -87,6 +89,7 @@ internal fun EditCategoryScreen(
                     Text(stringResource(R.string.categories_retry))
                 }
             }
+
             is EditCategoryState.Ready -> {
                 CategoryEditorForm(state.form, canWrite, onEvent)
                 EditCategoryBottomSheetHost(
@@ -100,6 +103,7 @@ internal fun EditCategoryScreen(
                     onDismiss = { onEvent(EditCategoryEvent.DismissOverlay) }
                 )
             }
+
             EditCategoryState.Closed -> Unit
         }
     }
@@ -206,10 +210,7 @@ private fun CategoryIconButton(
         onClick = onClick,
         modifier = modifier.size(48.dp),
         enabled = enabled,
-        shape = CircleShape,
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = MaterialTheme.colorScheme.onBackground
-        )
+        shape = CircleShape
     ) {
         CategoryIconImage(
             iconCode = iconCode,
@@ -234,6 +235,20 @@ private val previewCategory = Category("preview", "Продукты", CategoryKi
 @Composable
 private fun CreateCategoryPreview() {
     EditorPreview(CategoryEditorUiState())
+}
+
+@Preview(name = "Create expense category from operation")
+@Preview(name = "Create expense category from operation dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CreateExpenseCategoryFromOperationPreview() {
+    EditorPreview(CategoryEditorUiState(lockedKind = CategoryKind.Expense))
+}
+
+@Preview(name = "Create income category from operation")
+@Preview(name = "Create income category from operation dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun CreateIncomeCategoryFromOperationPreview() {
+    EditorPreview(CategoryEditorUiState(lockedKind = CategoryKind.Income))
 }
 
 @Preview(name = "Edit")

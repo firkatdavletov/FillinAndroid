@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.firkat.fillin.R
 import com.firkat.fillin.feature.categories.domain.model.Category
 import com.firkat.fillin.ui.component.CategoryIconImage
+import com.firkat.fillin.ui.icon.FillinIcons
 import com.firkat.fillin.ui.theme.FillinTheme
 
 @Composable
@@ -73,19 +74,59 @@ internal fun OperationCategoryTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    OperationCategoryTileButton(enabled, onClick, modifier) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            CategoryIconImage(category.icon.code, category.name, Modifier.size(28.dp))
+            Text(category.name, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+@Composable
+internal fun AddOperationCategoryTile(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OperationCategoryTileButton(enabled, onClick, modifier) {
+        Icon(
+            painter = FillinIcons.Add,
+            contentDescription = stringResource(R.string.operation_create_add_category),
+            modifier = Modifier.size(28.dp)
+        )
+    }
+}
+
+@Composable
+private fun OperationCategoryTileButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
     FilledTonalButton(
         onClick = onClick,
         enabled = enabled,
         shape = MaterialTheme.shapes.large,
         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 16.dp),
         colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = modifier.fillMaxWidth().heightIn(min = 100.dp)
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            CategoryIconImage(category.icon.code, category.name, Modifier.size(28.dp))
-            Text(category.name, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
-        }
-    }
+        modifier = modifier.fillMaxWidth().heightIn(min = 100.dp),
+        content = content
+    )
+}
+
+@Preview(widthDp = 100)
+@Preview(widthDp = 100, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AddOperationCategoryTilePreview() {
+    FillinTheme { AddOperationCategoryTile(enabled = true, onClick = {}) }
+}
+
+@Preview(widthDp = 100)
+@Preview(widthDp = 100, uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun DisabledAddOperationCategoryTilePreview() {
+    FillinTheme { AddOperationCategoryTile(enabled = false, onClick = {}) }
 }
 
 @Preview

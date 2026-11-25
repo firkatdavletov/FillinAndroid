@@ -7,6 +7,7 @@ pluginManagement {
                 includeGroupByRegex("androidx.*")
             }
         }
+        maven { setUrl("https://nexus-external.vkteam.ru/repository/maven-tracer-public-exposed") }
         mavenCentral()
         gradlePluginPortal()
     }
@@ -18,6 +19,7 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
+        maven { setUrl("https://nexus-external.vkteam.ru/repository/maven-tracer-public-exposed") }
         mavenCentral()
     }
 }

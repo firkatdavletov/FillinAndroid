@@ -154,10 +154,12 @@ class OperationCreateViewModelTest {
     }
 
     @Test fun `new operation uses the current Almaty date even if midnight passes while typing`() = runTest {
-        var now = Instant.parse("2026-10-24T18:59:59Z")
+        val almatyZone = ZoneId.of("Asia/Almaty")
+        val midnight = LocalDate.of(2026, 10, 25).atStartOfDay(almatyZone).toInstant()
+        var now = midnight.minusSeconds(1)
         val clock = object : Clock() {
             override fun instant() = now
-            override fun getZone() = ZoneId.of("Asia/Almaty")
+            override fun getZone() = almatyZone
             override fun withZone(
                 zone: ZoneId
             ): Clock = Clock.fixed(now, zone)
@@ -167,7 +169,7 @@ class OperationCreateViewModelTest {
         runCurrent()
         assertEquals(LocalDate.of(2026, 10, 24), model.uiState.value.createEditor!!.occurredOn)
         model.onEvent(OperationCreateEvent.CreateInputChanged("1200"))
-        now = now.plusSeconds(2)
+        now = midnight.plusSeconds(1)
         model.onEvent(OperationCreateEvent.CreateCategoryClicked("expense-category"))
         runCurrent()
         assertEquals(LocalDate.of(2026, 10, 25), repository.created!!.occurredOn)

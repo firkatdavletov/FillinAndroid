@@ -81,6 +81,7 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 private object SetupPageKey : NavMetadataKey<SetupPage>
+private object LaunchScreenKey : NavMetadataKey<Boolean>
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -99,6 +100,12 @@ fun FillinNavHost(
         ),
     budgets: ActiveBudgetManager = koinInject()
 ) {
+    val access: com.firkat.fillin.feature.appaccess.domain.AppAccess = koinInject()
+    val accessInitialized by access.initialized.collectAsStateWithLifecycle()
+    if (!accessInitialized) {
+        LaunchScreen(failed = false, onShown = {}, onRetry = {})
+        return
+    }
     val setupState by setup.state.collectAsStateWithLifecycle()
     val state by auth.state.collectAsStateWithLifecycle()
     LaunchedEffect(navigation.backStack.lastOrNull()) {
@@ -126,7 +133,6 @@ fun FillinNavHost(
     }
     val launchFailed by navigation.launchFailed.collectAsStateWithLifecycle()
     val runtime by budgets.active.collectAsStateWithLifecycle()
-    val access: com.firkat.fillin.feature.appaccess.domain.AppAccess = koinInject()
     val mode by access.mode.collectAsStateWithLifecycle()
     val fullAccess = mode == com.firkat.fillin.feature.appaccess.domain.AppMode.InternalFull
     val readOnly = !fullAccess && runtime?.profile?.firebaseUid != null
@@ -240,16 +246,20 @@ fun FillinNavHost(
         },
         backStack = navigation.backStack,
         transitionSpec = {
-            val from = initialState.metadata[SetupPageKey]
-            val to = targetState.metadata[SetupPageKey]
-            // Setup pages replace the top entry, so NavDisplay treats those changes as forward.
-            val returnsWithinSetup = when (from) {
-                SetupPage.Join -> to == SetupPage.Create
-                SetupPage.List -> setupState.localFirst && to == SetupPage.Create
-                SetupPage.Create -> !setupState.localFirst && to == SetupPage.List
-                null -> false
+            if (initialState.metadata[LaunchScreenKey] == true) {
+                fadeNavigation()
+            } else {
+                val from = initialState.metadata[SetupPageKey]
+                val to = targetState.metadata[SetupPageKey]
+                // Setup pages replace the top entry, so NavDisplay treats those changes as forward.
+                val returnsWithinSetup = when (from) {
+                    SetupPage.Join -> to == SetupPage.Create
+                    SetupPage.List -> setupState.localFirst && to == SetupPage.Create
+                    SetupPage.Create -> !setupState.localFirst && to == SetupPage.List
+                    null -> false
+                }
+                slideNavigation(if (returnsWithinSetup) SlideDirection.End else SlideDirection.Start)
             }
-            slideNavigation(if (returnsWithinSetup) SlideDirection.End else SlideDirection.Start)
         },
         popTransitionSpec = { slideNavigation(SlideDirection.End) },
         predictivePopTransitionSpec = { slideNavigation(SlideDirection.End) },
@@ -273,7 +283,7 @@ fun FillinNavHost(
         ),
         entryProvider =
         entryProvider {
-            entry<AppRoute.Launch> {
+            entry<AppRoute.Launch>(metadata = metadata { put(LaunchScreenKey, true) }) {
                 LaunchScreen(
                     failed = launchFailed,
                     onShown = navigation::onLaunchShown,
@@ -470,6 +480,10 @@ fun FillinNavHost(
                 models.bind(runtime)
                 ActiveBudgetContent(viewModelStoreOwner = models) {
                     OperationCreateRoute(
+                        onCreateCategory = { kind ->
+                            runtime?.scope?.id?.let { navigation.openOperationCategoryEditor(it, kind) }
+                        },
+                        readOnly = readOnly,
                         onBack = {
                             if (navigation.backStack.lastOrNull() == AppRoute.OperationCreate) navigation.back()
                         },
@@ -498,6 +512,7 @@ fun FillinNavHost(
                     ActiveBudgetContent(viewModelStoreOwner = models) {
                         EditCategoryRoute(
                             categoryId = route.categoryId,
+                            lockedKind = route.lockedKind,
                             readOnly = readOnly,
                             onClose = { navigation.dismissCategoryEditor(route) }
                         )

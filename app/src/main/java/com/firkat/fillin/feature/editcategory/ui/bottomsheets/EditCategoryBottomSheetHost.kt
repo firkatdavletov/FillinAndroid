@@ -18,8 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,6 +65,7 @@ internal fun EditCategoryBottomSheetHost(
             onDismiss = onDismiss,
             modifier = modifier
         )
+
         CategoryEditorOverlay.DeleteConfirmation -> SaldomiActionBottomSheet(
             onDismissRequest = onDismiss,
             modifier = modifier,
@@ -81,6 +82,7 @@ internal fun EditCategoryBottomSheetHost(
                 }
             }
         )
+
         CategoryEditorOverlay.DiscardConfirmation -> SaldomiActionBottomSheet(
             onDismissRequest = onDismiss,
             modifier = modifier,
@@ -96,6 +98,7 @@ internal fun EditCategoryBottomSheetHost(
                 }
             }
         )
+
         null -> Unit
     }
 }
@@ -112,10 +115,10 @@ private fun CategoryIconPickerBottomSheet(
     SaldomiBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
         Column(
             modifier =
-            Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp)
         ) {
             Text(
                 text = stringResource(R.string.categories_icon_picker_title),
@@ -126,30 +129,13 @@ private fun CategoryIconPickerBottomSheet(
                 columns = GridCells.Adaptive(50.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(384.dp)
                     .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 item {
                     CategoryIconImage(
-                        modifier = Modifier
-                            .then(
-                                if (null == selectedIcon) {
-                                    Modifier
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.saldomiDesignColors.tertiary)
-                                        .padding(1.dp)
-                                } else {
-                                    Modifier
-                                        .clickable(
-                                            onClick = {
-                                                onIconSelected("other")
-                                            }
-                                        )
-                                }
-                            ),
                         iconCode = "other",
                         categoryName = categoryName
                     )
@@ -159,22 +145,6 @@ private fun CategoryIconPickerBottomSheet(
                     key = { it.code }
                 ) { icon ->
                     CategoryIconImage(
-                        modifier = Modifier
-                            .then(
-                                if (icon == selectedIcon) {
-                                    Modifier
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.saldomiDesignColors.tertiary)
-                                        .padding(1.dp)
-                                } else {
-                                    Modifier
-                                        .clickable(
-                                            onClick = {
-                                                onIconSelected(icon.code)
-                                            }
-                                        )
-                                }
-                            ),
                         iconCode = icon.code,
                         categoryName = categoryName
                     )

@@ -268,6 +268,7 @@
     <string name="notice">Записать</string>
     <string name="operation_create_amount">Сумма</string>
     <string name="operation_create_category">Выберите категорию</string>
+    <string name="operation_create_add_category">Создать категорию</string>
     <string name="operation_create_date">Дата: %1$s</string>
     <string name="operation_create_description">Описание (необязательно)</string>
     <string name="operation_create_save">Сохранить</string>
@@ -420,11 +421,7 @@
     <string name="app_installation_id">ID установки</string>
     <string name="app_installation_unavailable">ID установки недоступен</string>
     <string name="app_copy_installation_id">Скопировать ID</string>
-    <string name="app_access_check">Проверить доступ</string>
-    <string name="app_access_checking">Проверяем доступ…</string>
-    <string name="app_access_checked">Проверка завершена</string>
     <string name="app_access_revoked">Облачные функции недоступны на этой установке</string>
-    <string name="app_access_check_failed">Не удалось проверить доступ</string>
     <string name="app_about_close">Закрыть</string>
     <string name="app_add_plan">Добавить план</string>
     <string name="closest_payments">Ближайшие платежи</string>

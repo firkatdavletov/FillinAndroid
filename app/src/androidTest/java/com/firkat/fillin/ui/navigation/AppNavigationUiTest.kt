@@ -19,7 +19,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import com.firkat.fillin.feature.appaccess.domain.AppAccess
 import com.firkat.fillin.feature.appaccess.domain.AppMode
-import com.firkat.fillin.feature.appaccess.ui.AboutAppViewModel
 import com.firkat.fillin.feature.auth.domain.*
 import com.firkat.fillin.feature.auth.ui.GoogleSignInLauncher
 import com.firkat.fillin.feature.auth.ui.interactor.AuthAction
@@ -55,6 +54,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
@@ -73,12 +73,8 @@ class AppNavigationUiTest {
     private val env = BudgetConnectionDeviceTest.Environment()
     private val access = object : AppAccess {
         override val mode = MutableStateFlow(AppMode.InternalFull)
-        override val checking = MutableStateFlow(false)
-        override fun installationId() = "a625153f-4be5-47b1-adfa-2c404603c034"
-        override suspend fun refresh(
-            manual: Boolean
-        ) = true
-        override fun revoke() {
+        override val initialized = MutableStateFlow(true)
+        fun revoke() {
             mode.value = AppMode.OfflineFree
         }
     }
@@ -318,7 +314,8 @@ class AppNavigationUiTest {
         createdBudget: Boolean = false,
         restoration: StateRestorationTester? = null,
         fontScale: Float = 1f,
-        expectMain: Boolean = createdBudget
+        expectMain: Boolean = createdBudget,
+        waitForSetup: Boolean = true
     ) {
         compose.runOnUiThread {
             compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -334,7 +331,6 @@ class AppNavigationUiTest {
             listOf(
                 module {
                     single<AppAccess> { access }
-                    viewModel { AboutAppViewModel(get()) }
                     viewModel {
                         authModelsCreated++
                         AuthViewModel(
@@ -416,7 +412,11 @@ class AppNavigationUiTest {
                             access = access
                         )
                     }
-                    viewModel { com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, access) }
+                    viewModel {
+                        com.firkat.fillin.feature.profile.ui.ProfileViewModel(get(), auth, access) {
+                            "a625153f-4be5-47b1-adfa-2c404603c034"
+                        }
+                    }
                     viewModel {
                         val store = object : com.firkat.fillin.feature.profile.domain.DeletionStore {
                             override fun operations() =
@@ -480,6 +480,7 @@ class AppNavigationUiTest {
             }
         }
         if (restoration == null) compose.setContent(hostContent) else restoration.setContent(hostContent)
+        if (!waitForSetup) return
         compose.waitUntil(5000) {
             compose.onAllNodesWithTag(if (expectMain) "main_screen" else "budget_setup_screen")
                 .fetchSemanticsNodes().isNotEmpty()
@@ -862,34 +863,61 @@ class AppNavigationUiTest {
         compose.onNodeWithTag("auth_screen").assertDoesNotExist()
     }
 
+    @Test fun startupWaitsForCachedAccessBeforeShowingSetup() {
+        access.initialized.value = false
+        access.mode.value = AppMode.OfflineFree
+        show(waitForSetup = false)
+        compose.onNodeWithTag("launch_screen").assertExists()
+        compose.onNodeWithTag("budget_setup_screen").assertDoesNotExist()
+
+        compose.runOnIdle {
+            access.mode.value = AppMode.InternalFull
+            access.initialized.value = true
+        }
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithTag("setup_cloud").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("launch_screen").assertDoesNotExist()
+    }
+
     @Test fun revocationClosesCloudRouteAndHidesProfileActions() {
         show(createdBudget = true)
-        compose.onNodeWithTag("tab_Profile").performClick()
-        compose.runOnIdle { navigation.openCloudSync() }
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithText("Облачная синхронизация").performScrollTo().performClick()
         assertEquals(AppRoute.CloudSync, navigation.backStack.last())
         compose.runOnIdle { access.revoke() }
-        compose.waitUntil(5000) { navigation.backStack.toList() == listOf(AppRoute.Main) }
-        compose.onNodeWithText("Авторизоваться").assertDoesNotExist()
-        compose.onNodeWithText("О приложении").assertExists()
+        val profileStack = listOf(AppRoute.Main, AppRoute.Profile)
+        compose.waitUntil(5000) { navigation.backStack.toList() == profileStack }
         compose.runOnIdle {
             navigation.openAuthentication()
             navigation.openCloudSync()
             navigation.openFamilyAccess()
-            assertEquals(listOf(AppRoute.Main), navigation.backStack)
+            assertEquals(profileStack, navigation.backStack)
         }
+        compose.onNodeWithText("Авторизоваться").assertDoesNotExist()
+        compose.onNodeWithText("Облачная синхронизация").assertDoesNotExist()
+        compose.onNodeWithText("О приложении").performScrollTo().performClick()
+        compose.onNodeWithText("a625153f-4be5-47b1-adfa-2c404603c034").assertIsDisplayed()
+        compose.onNodeWithText("Проверить доступ").assertDoesNotExist()
     }
 
     @Test fun revokedCloudBudgetStaysVisibleAndRejectsWrites() {
         env.koin.loadModules(listOf(module { single<AppAccess> { access } }))
-        runBlocking {
+        val queued = runBlocking {
             env.auth.login("owner")
             env.manager.restore()
             env.connection.connect("owner", env.connection.budgets("owner").single())
+            val runtime = requireNotNull(env.manager.active.value)
+            requireNotNull(env.manager.acquire(runtime.profile.syncIdentity)).use { lease ->
+                val store = lease.scope.get<com.firkat.fillin.feature.sync.data.BudgetStore>()
+                store.enqueue("CREATE_CATEGORY") { it.copy(name = "Поездка", kind = "EXPENSE", icon = "FOOD") }
+                store.pending().single()
+            }
         }
         show(createdBudget = false, expectMain = true)
         compose.runOnIdle { access.revoke() }
         compose.onNodeWithTag("tab_AddOperation").assertDoesNotExist()
-        compose.onNodeWithTag("tab_Profile").performClick()
+        compose.onNodeWithContentDescription("Profile").performClick()
         compose.onNodeWithText("Облачный бюджет доступен только для чтения").assertExists()
         compose.onNodeWithText("Тестовый бюджет").assertExists()
         runBlocking {
@@ -898,10 +926,17 @@ class AppNavigationUiTest {
             lease.use {
                 val store = lease.scope.get<com.firkat.fillin.feature.sync.data.BudgetStore>()
                 val before = store.pending()
+                assertEquals(listOf(queued), before)
                 val error = runCatching { store.enqueue("CREATE_CATEGORY") }.exceptionOrNull()
                 assertEquals("access_denied", (error as? com.firkat.fillin.feature.sync.data.BudgetLocalFailure)?.code)
                 assertEquals(before, store.pending())
             }
+        }
+        compose.runOnIdle {
+            access.mode.value = AppMode.InternalFull
+            navigation.back()
+            navigation.openOperationCreate()
+            assertEquals(AppRoute.OperationCreate, navigation.backStack.last())
         }
     }
 
@@ -990,6 +1025,77 @@ class AppNavigationUiTest {
         compose.onNodeWithText("Покупка из общей кнопки").assertIsDisplayed()
     }
 
+    @Test fun createsAnOfflineCategoryAndUsesItWithoutLosingTheOperationDraft() {
+        show(createdBudget = true)
+        val store = env.manager.active.value!!.scope.get<OperationHistoryStore>()
+        val today = LocalDate.now(java.time.ZoneId.of("Asia/Almaty"))
+        val categoryGrid = compose.onNodeWithTag("operation-create-category-list")
+        val amountInput = compose.onNodeWithTag("operation-create-input")
+
+        OperationType.entries.forEach { type ->
+            val isIncome = type == OperationType.Income
+            val kind = if (isIncome) CategoryKind.Income else CategoryKind.Expense
+            val name = if (isIncome) "Возврат страховки" else "Ремонт техники"
+            val tab = compose.onNodeWithTag("operation-create-type-${type.apiValue}")
+            val filter = OperationHistoryFilter.currentMonth(today).copy(type = type)
+
+            compose.onNodeWithText("Записать").performClick()
+            tab.performClick().assertIsSelected()
+            amountInput.performTextReplacement("42.50")
+            closeSoftKeyboard()
+
+            categoryGrid.performScrollToKey("add-category")
+            compose.onNodeWithContentDescription("Создать категорию").assertIsDisplayed().performClick()
+            compose.onNodeWithText(if (isIncome) "Доход" else "Расход").assertIsSelected().assertIsNotEnabled()
+            compose.onNodeWithText(if (isIncome) "Расход" else "Доход").assertIsNotSelected().assertIsNotEnabled()
+            if (isIncome) {
+                compose.onNodeWithContentDescription("Назад").performClick()
+                compose.waitUntil(5000) { navigation.backStack.lastOrNull() == AppRoute.OperationCreate }
+                categoryGrid.performScrollToKey("add-category")
+                compose.onNodeWithContentDescription("Создать категорию").performClick()
+                val existingIncome = runBlocking {
+                    withTimeout(5000) {
+                        store.context.first { context -> context.categories.any { it.kind == kind } }
+                            .categories.first { it.kind == kind }
+                    }
+                }
+                val nameInput = compose.onNode(hasSetTextAction())
+                nameInput.performTextInput(existingIncome.name)
+                closeSoftKeyboard()
+                compose.onNodeWithText("Сохранить").performClick()
+                compose.onNodeWithText("Проверьте название и иконку").assertIsDisplayed()
+                nameInput.assertTextContains(existingIncome.name)
+            }
+
+            compose.onNode(hasSetTextAction()).performTextReplacement(name)
+            closeSoftKeyboard()
+            compose.onNodeWithText("Сохранить").performClick()
+            compose.waitUntil(5000) { navigation.backStack.lastOrNull() == AppRoute.OperationCreate }
+
+            val category = runBlocking {
+                withTimeout(5000) {
+                    store.context.first { it.categories.any { category -> category.name == name } }
+                        .categories.single { it.name == name }
+                }
+            }
+            assertEquals(kind, category.kind)
+            assertTrue(runBlocking { store.observeHistory(filter, 100).first().items.isEmpty() })
+            categoryGrid.performScrollToIndex(0)
+            tab.assertIsSelected()
+            amountInput.assertTextContains("42.50")
+            categoryGrid.performScrollToKey("all-${category.id}")
+            compose.onNodeWithTag("operation-create-category-${category.id}").performClick()
+            compose.waitUntil(5000) { navigation.backStack.lastOrNull() == AppRoute.Main }
+
+            val operation = runBlocking {
+                withTimeout(5000) { store.observeHistory(filter, 100).first { it.items.isNotEmpty() }.items.single() }
+            }
+            assertEquals(category.id, operation.categoryId)
+            assertEquals(type, operation.type)
+            assertEquals("42.50".toBigDecimal(), operation.amount)
+        }
+    }
+
     @Test fun cancellingOperationCreationKeepsHistoryFilter() {
         show(createdBudget = true)
         compose.onNodeWithTag("tab_History").performClick()
@@ -1065,7 +1171,9 @@ class AppNavigationUiTest {
             compose.waitUntil(5000) { compose.onAllNodesWithTag("operation_details").fetchSemanticsNodes().isEmpty() }
             assertEquals(listOf(AppRoute.Main), navigation.backStack)
             compose.onNodeWithTag("tab_History").assertIsSelected()
-            compose.onNodeWithTag("history-type-EXPENSE").assertIsSelected()
+            compose.onNode(
+                hasTestTag("history-total-EXPENSE") and hasAnyAncestor(hasTestTag("history-selected-total"))
+            ).assertIsDisplayed()
         }
     }
 
