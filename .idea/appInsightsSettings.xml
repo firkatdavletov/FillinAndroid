@@ -8,8 +8,8 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.firkat.fillin" />
-                  <option name="mobileSdkAppId" value="1:506022873447:android:0883f680d32f76520147c2" />
+                  <option name="appId" value="com.firkat.fillin.debug" />
+                  <option name="mobileSdkAppId" value="1:506022873447:android:ef26199e3d8874150147c2" />
                   <option name="projectId" value="fillin-77e97" />
                   <option name="projectNumber" value="506022873447" />
                 </ConnectionSetting>

@@ -90,8 +90,8 @@ android {
         applicationId = "com.firkat.fillin"
         minSdk = 33
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.3"
+        versionCode = 5
+        versionName = "0.4"
 
         testInstrumentationRunner = "com.firkat.fillin.FillinTestRunner"
 
@@ -129,7 +129,7 @@ android {
             }
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                packageScope = setOf("\com.firkat.fillin.**", "androidx.**", "kotlin.**", "kotlinx.**")
                 isShrinkResources = false
             }
         }
