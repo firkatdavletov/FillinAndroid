@@ -184,7 +184,7 @@ This repository contains the Android client. The backend is maintained separatel
 
 ## RuStore release builds
 
-The **RuStore Release** workflow builds and signs `rustoreRelease` on every push to `main`. The bundle ships with local budgeting enabled and Firebase authentication disabled. Local release builds use debug signing by default.
+The **RuStore Release** workflow runs unit tests and builds a signed `rustoreRelease` bundle when a GitHub Release targeting `main` is published. The release tag must point to a commit in the history of `main`. The bundle ships with local budgeting enabled and Firebase authentication disabled. Local release builds use debug signing by default.
 
 Before the first run, add these repository secrets under **Settings → Secrets and variables → Actions**.
 

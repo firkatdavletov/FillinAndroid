@@ -55,7 +55,12 @@ internal object CategoryIcons {
         "TRANSPORT" to "CAR",
         "CLOTHES" to "CLOTHING",
         "EDUCATION" to "BOOKS_EDUCATION",
-        "INCOME" to "SALARY"
+        "INCOME" to "SALARY",
+        "ENTERTAINMENT" to "BICYCLE",
+        "OTHER_EXPENSE" to "SUBSCRIPTIONS",
+        "SIDE_JOB" to "MORTGAGE",
+        "INCOME_GIFT" to "GIFT",
+        "OTHER_INCOME" to "SPORT"
     )
 
     fun find(

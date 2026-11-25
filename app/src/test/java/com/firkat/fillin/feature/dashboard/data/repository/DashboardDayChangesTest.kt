@@ -5,6 +5,7 @@ import com.firkat.fillin.feature.dashboard.domain.calculation.DashboardCalculati
 import java.math.BigDecimal
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.take
@@ -18,8 +19,11 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardDayChangesTest {
+    private val almatyZone = ZoneId.of("Asia/Almaty")
+
     @Test fun `signals midnight in Almaty without a database mutation`() = runTest {
-        var time = Instant.parse("2026-10-31T18:59:59Z")
+        val midnight = LocalDate.of(2026, 11, 1).atStartOfDay(almatyZone).toInstant()
+        var time = midnight.minusSeconds(1)
         val clock = object : Clock() {
             override fun getZone(): ZoneId = ZoneId.of("UTC")
             override fun withZone(
@@ -31,7 +35,7 @@ class DashboardDayChangesTest {
         val job = launch { dashboardDayChanges(clock).take(2).toList(signals) }
         runCurrent()
         assertEquals(1, signals.size)
-        time = time.plusSeconds(1)
+        time = midnight
         advanceTimeBy(1000)
         runCurrent()
         assertEquals(2, signals.size)
@@ -39,7 +43,8 @@ class DashboardDayChangesTest {
     }
 
     @Test fun `midnight moves both endpoints of the rolling forecast without a database mutation`() = runTest {
-        var time = Instant.parse("2026-12-31T18:59:59Z")
+        val midnight = LocalDate.of(2027, 1, 1).atStartOfDay(almatyZone).toInstant()
+        var time = midnight.minusSeconds(1)
         val clock = object : Clock() {
             override fun getZone(): ZoneId = ZoneId.of("UTC")
             override fun withZone(
@@ -58,7 +63,7 @@ class DashboardDayChangesTest {
             }
         }
         runCurrent()
-        time = time.plusSeconds(1)
+        time = midnight
         advanceTimeBy(1000)
         runCurrent()
         assertEquals(2, forecasts.size)

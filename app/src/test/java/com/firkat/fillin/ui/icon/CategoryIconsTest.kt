@@ -13,24 +13,30 @@ class CategoryIconsTest {
             "TRANSPORT" to "CAR",
             "CLOTHES" to "CLOTHING",
             "EDUCATION" to "BOOKS_EDUCATION",
-            "INCOME" to "SALARY"
+            "INCOME" to "SALARY",
+            "ENTERTAINMENT" to "BICYCLE",
+            "OTHER_EXPENSE" to "SUBSCRIPTIONS",
+            "SIDE_JOB" to "MORTGAGE",
+            "INCOME_GIFT" to "GIFT",
+            "OTHER_INCOME" to "SPORT"
         ).forEach { (legacy, current) ->
-            assertEquals(CategoryIcons.find(current), CategoryIcons.find(legacy))
+            assertEquals(CategoryIcons.options.single { it.code == current }, CategoryIcons.find(legacy))
         }
     }
 
     @Test
-    fun `all twenty three PNG options are reachable by distinct codes`() {
-        assertEquals(23, CategoryIcons.options.map { it.drawableResource }.toSet().size)
-        assertEquals(23, CategoryIcons.options.map { it.code }.toSet().size)
-        CategoryIcons.options.forEach { assertEquals(it, CategoryIcons.find(it.code)) }
+    fun `all twenty two PNG options are reachable by distinct codes`() {
+        val options = CategoryIcons.options
+        assertEquals(22, options.size)
+        assertEquals(options.size, options.map { it.drawableResource }.toSet().size)
+        assertEquals(options.size, options.map { it.code }.toSet().size)
+        options.forEach { assertEquals(it, CategoryIcons.find(it.code)) }
     }
 
     @Test
     fun `unknown retired and automatic codes have no PNG`() {
         listOf(
-            "custom.icon-v2", "BICYCLE", "MORTGAGE", "SPORT", "SUBSCRIPTIONS",
-            "SERVICE_FEES", "BONUS", "OTHER", "", CATEGORY_INITIAL_ICON_CODE
+            "custom.icon-v2", "SERVICE_FEES", "BONUS", "OTHER", "", CATEGORY_INITIAL_ICON_CODE
         ).forEach { assertNull(CategoryIcons.find(it)) }
     }
 
