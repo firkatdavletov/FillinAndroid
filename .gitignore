@@ -15,3 +15,4 @@ local.properties
 **/service-account*.json
 keystore
 app/release
+app/rustore
